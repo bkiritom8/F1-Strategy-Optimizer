@@ -1,0 +1,32 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gcc \
+    g++ \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    fastapi==0.109.0 \
+    uvicorn[standard]==0.27.0 \
+    apache-beam[gcp]==2.53.0 \
+    pydantic==2.5.3 \
+    google-cloud-pubsub==2.19.0
+
+# Copy mock service code
+COPY ../src/mocks/dataflow_mock.py /app/dataflow_mock.py
+
+# Expose port
+EXPOSE 9051
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+  CMD curl --fail http://localhost:9051/health || exit 1
+
+# Run the service
+CMD ["uvicorn", "dataflow_mock:app", "--host", "0.0.0.0", "--port", "9051"]

@@ -1,0 +1,46 @@
+# Lightweight, conflict-free requirements for linting and unit tests.
+# Used by: scripts/run_local.sh and CI lint/test jobs.
+# The full deployment stack (Airflow, Beam, Ray) lives in requirements-f1.txt
+# and docker/requirements-*.txt — those are only installed inside containers.
+
+# Core framework
+fastapi>=0.109.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+requests>=2.31.0
+httpx>=0.26.0
+tenacity>=8.2.0
+
+# Auth / security (needed by src/common/security/iam_simulator.py)
+# bcrypt must stay <4.0.0: passlib 1.7.4's detect_wrap_bug() hashes a string
+# >72 bytes which bcrypt 4.0+ rejects with ValueError.
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=3.2.0,<4.0.0
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+
+# Monitoring (needed by src/ingestion/ergast_client.py)
+prometheus-client>=0.19.0
+
+# Lightweight ML stubs (no torch/ray/xgboost)
+scikit-learn>=1.4.0
+numpy>=1.26.0
+pandas>=2.1.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.23.0
+pytest-mock>=3.12.0
+
+# Linters / formatters / type checker
+ruff>=0.1.14
+black>=24.1.0
+mypy>=1.8.0
+
+# Security scanners
+bandit>=1.7.6
+safety>=3.0.0

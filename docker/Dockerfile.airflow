@@ -1,0 +1,43 @@
+FROM apache/airflow:2.8.1-python3.10
+
+USER root
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    git \
+    curl \
+    vim \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+# Install Python dependencies
+COPY docker/requirements-airflow.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements-airflow.txt
+
+# Install additional Apache Beam dependencies
+RUN pip install --no-cache-dir \
+    apache-beam[gcp]==2.53.0 \
+    fastf1==3.2.0 \
+    requests==2.31.0 \
+    pandas==2.1.4 \
+    numpy==1.24.4 \
+    pydantic==2.5.3 \
+    tenacity==8.2.3 \
+    prometheus-client==0.19.0
+
+# Set working directory
+WORKDIR /opt/airflow
+
+# Copy source code
+COPY --chown=airflow:root src/ /opt/airflow/src/
+
+# Set Python path
+ENV PYTHONPATH="/opt/airflow:/opt/airflow/src:${PYTHONPATH}"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=5 \
+  CMD curl --fail http://localhost:8080/health || exit 1

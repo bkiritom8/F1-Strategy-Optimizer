@@ -1,0 +1,38 @@
+FROM rayproject/ray:2.9.1-py310
+
+USER root
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    vim \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python ML dependencies
+RUN pip install --no-cache-dir \
+    scikit-learn==1.4.0 \
+    xgboost==2.0.3 \
+    lightgbm==4.2.0 \
+    pandas==2.1.4 \
+    numpy==1.26.3 \
+    pydantic==2.5.3 \
+    mlflow==2.10.0 \
+    optuna==3.5.0
+
+# Copy ML training code
+COPY ../src/ml/ /app/src/ml/
+
+WORKDIR /app
+
+# Set Python path
+ENV PYTHONPATH="/app:${PYTHONPATH}"
+
+# Expose Ray ports
+EXPOSE 6379 8265 10001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD ray status || exit 1
+
+USER ray

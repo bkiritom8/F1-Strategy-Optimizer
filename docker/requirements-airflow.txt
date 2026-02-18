@@ -1,0 +1,15 @@
+# Airflow providers
+apache-airflow-providers-google==10.14.0
+apache-airflow-providers-apache-beam==5.6.1
+
+# GCP
+google-cloud-pubsub==2.19.0
+google-cloud-storage==2.14.0
+
+# Monitoring
+prometheus-client==0.19.0
+statsd==4.0.1
+
+# Utilities
+tenacity==8.2.3
+pendulum==3.0.0
