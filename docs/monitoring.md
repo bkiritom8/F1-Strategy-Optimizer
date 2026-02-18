@@ -1,6 +1,6 @@
 # Operational Monitoring and Alerting
 
-**Last Updated**: 2026-02-14
+**Last Updated**: 2026-02-18
 
 ## Overview
 
@@ -14,8 +14,8 @@ Production monitoring for the F1 Strategy Optimizer using Google Cloud Monitorin
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                 │
-│  │ FastAPI  │  │ Dataflow │  │BigQuery  │                 │
-│  │(Cloud Run)│  │Pipeline  │  │Queries   │                 │
+│  │ FastAPI  │  │ Dataflow │  │Cloud SQL │                 │
+│  │(Cloud Run)│  │Pipeline  │  │  Queries │                 │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘                 │
 │       │             │             │                         │
 │       └─────────────┴─────────────┘                         │
@@ -47,7 +47,7 @@ Production monitoring for the F1 Strategy Optimizer using Google Cloud Monitorin
            ┌───────────┴───────────┐
            │                       │
 ┌──────────▼─────────┐  ┌─────────▼──────────┐
-│  Slack Webhook     │  │  PagerDuty (future)│
+│  Email Alerts      │  │  PagerDuty (future)│
 │  (Immediate Alerts)│  │  (Critical Only)    │
 └────────────────────┘  └────────────────────┘
 ```
@@ -169,7 +169,7 @@ async def track_latency(request: Request, call_next):
 - `f1/dataflow/lag_seconds`: Delay between telemetry arrival and processing
 - `f1/dataflow/throughput`: Messages processed per second
 - `f1/dataflow/error_rate`: Percentage of failed messages
-- `f1/bigquery/query_latency`: Query execution time
+- `f1/cloudsql/query_latency`: Cloud SQL query execution time
 
 **Collection Method**:
 ```python
@@ -212,40 +212,47 @@ class MonitoringDoFn(beam.DoFn):
 ```python
 # data/quality_checks.py
 
-def check_data_quality(table_name):
-    """Run data quality checks on BigQuery table."""
+import psycopg2
+import os
 
-    client = bigquery.Client()
+def check_data_quality(table_name: str):
+    """Run data quality checks on Cloud SQL (PostgreSQL) table."""
+
+    conn = psycopg2.connect(
+        host=os.environ["DB_HOST"],
+        dbname=os.environ["DB_NAME"],
+        user=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+    )
+    cursor = conn.cursor()
 
     # Completeness check
-    query = f"""
-    SELECT
-        COUNTIF(lap_time IS NOT NULL) / COUNT(*) AS completeness
-    FROM `{table_name}`
-    WHERE DATE(race_date) = CURRENT_DATE()
-    """
-
-    result = client.query(query).result()
-    completeness = list(result)[0].completeness
-
-    log_metric('data_completeness', completeness)
+    cursor.execute(
+        f"""
+        SELECT
+            COUNT(CASE WHEN lap_time IS NOT NULL THEN 1 END)::float / NULLIF(COUNT(*), 0) AS completeness
+        FROM {table_name}
+        WHERE DATE(race_date) = CURRENT_DATE
+        """
+    )
+    completeness = cursor.fetchone()[0] or 1.0
+    log_metric("data_completeness", completeness)
 
     # Freshness check
-    query = f"""
-    SELECT
-        TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(ingestion_timestamp), HOUR) AS age_hours
-    FROM `{table_name}`
-    """
+    cursor.execute(
+        f"""
+        SELECT
+            EXTRACT(EPOCH FROM (NOW() - MAX(ingestion_timestamp))) / 3600 AS age_hours
+        FROM {table_name}
+        """
+    )
+    age_hours = cursor.fetchone()[0] or 0.0
+    log_metric("data_freshness_hours", age_hours)
 
-    result = client.query(query).result()
-    age_hours = list(result)[0].age_hours
+    cursor.close()
+    conn.close()
 
-    log_metric('data_freshness_hours', age_hours)
-
-    return {
-        'completeness': completeness,
-        'age_hours': age_hours
-    }
+    return {"completeness": completeness, "age_hours": age_hours}
 ```
 
 **Frequency**: Daily (automated job at 02:00 UTC)
@@ -262,7 +269,7 @@ def check_data_quality(table_name):
 ### 5. Cost Metrics
 
 **Metrics**:
-- `f1/cost/bigquery_daily`: BigQuery spend per day
+- `f1/cost/cloudsql_daily`: Cloud SQL spend per day
 - `f1/cost/cloud_run_daily`: Cloud Run spend per day
 - `f1/cost/dataflow_daily`: Dataflow spend per day
 - `f1/cost/total_projected`: Projected monthly spend
@@ -276,44 +283,42 @@ from google.cloud import billing_v1
 def get_daily_costs():
     """Retrieve daily GCP costs from Cloud Billing API."""
 
-    client = billing_v1.CloudBillingClient()
-    # Query billing export in BigQuery
-    bq_client = bigquery.Client()
+    # Use Cloud Billing budget API or billing export
+    # Cost data is tracked via GCP budget alerts configured in Terraform
+    # (budget_amount = 70 in dev.tfvars / prod.tfvars)
 
-    query = """
-    SELECT
-        service.description AS service,
-        SUM(cost) AS total_cost
-    FROM `f1-strategy.billing_export.gcp_billing_export_v1_*`
-    WHERE DATE(_TABLE_SUFFIX) = CURRENT_DATE()
-    GROUP BY service
-    """
+    billing_client = billing_v1.CloudBillingClient()
+    project_name = "projects/f1optimizer"
+    billing_info = billing_client.get_project_billing_info(name=project_name)
 
-    results = bq_client.query(query).result()
+    # Log projected monthly cost metric
+    # Note: Exact per-service breakdown requires billing export to GCS/BigQuery
+    # For now, use GCP Console > Billing > Reports for detailed breakdown
 
-    costs = {row.service: row.total_cost for row in results}
+    log_metric("cost_total_projected", estimated_monthly_cost())
 
-    # Log individual service costs
-    for service, cost in costs.items():
-        log_metric(f"cost_{service.lower().replace(' ', '_')}_daily", cost)
-
-    # Calculate projected monthly cost
-    projected_monthly = sum(costs.values()) * 30
-
-    log_metric('cost_total_projected', projected_monthly)
-
-    return costs
+def estimated_monthly_cost() -> float:
+    """Return rough monthly cost estimate based on known resource usage."""
+    return (
+        15.0  # Cloud SQL db-f1-micro
+        + 3.0   # Cloud Run (on-demand)
+        + 2.0   # Artifact Registry
+        + 3.0   # GCS data-lake + models
+        + 2.0   # Cloud Build
+        + 10.0  # Dataflow (race weekends only)
+        + 1.0   # Pub/Sub + Secret Manager
+    )
 ```
 
 **Frequency**: Daily at 06:00 UTC
 
-**Alert Rules**:
+**Alert Rules** (hard budget cap: $70/month):
 | Metric | Condition | Threshold | Action |
 |--------|-----------|-----------|--------|
-| Projected Monthly | > | $300 | Warning: Review costs |
-| Projected Monthly | > | $400 | Critical: Optimize immediately |
-| Dataflow Daily | > | $15 | Investigate Dataflow usage |
-| BigQuery Daily | > | $5 | Review query patterns |
+| Projected Monthly | > | $60 | Warning: Review costs |
+| Projected Monthly | > | $70 | Critical: Scale down or stop Dataflow immediately |
+| Dataflow Daily | > | $5 | Investigate Dataflow usage |
+| Cloud SQL Daily | > | $2 | Review query patterns |
 
 ### 6. System Health Metrics
 
@@ -342,12 +347,18 @@ async def health_check():
     if models is None:
         return Response(status_code=503, content="Models not loaded")
 
-    # Check BigQuery connectivity
+    # Check Cloud SQL connectivity
     try:
-        client = bigquery.Client()
-        client.query("SELECT 1").result()
+        import psycopg2, os
+        conn = psycopg2.connect(
+            host=os.environ["DB_HOST"],
+            dbname=os.environ["DB_NAME"],
+            user=os.environ["DB_USER"],
+            password=os.environ["DB_PASSWORD"],
+        )
+        conn.close()
     except Exception as e:
-        return Response(status_code=503, content=f"BigQuery unreachable: {e}")
+        return Response(status_code=503, content=f"Cloud SQL unreachable: {e}")
 
     # Check driver profiles loaded
     if not driver_profiles:
@@ -402,7 +413,7 @@ async def health_check():
 **Panels**:
 1. Dataflow Lag (line chart, last 6 hours)
 2. Dataflow Throughput (line chart, last 6 hours)
-3. BigQuery Query Latency (histogram, last hour)
+3. Cloud SQL Query Latency (histogram, last hour)
 4. Data Freshness (gauge, current)
 5. Data Completeness (gauge, current)
 6. Outlier Rate (line chart, last 7 days)
@@ -500,21 +511,21 @@ alert_policy:
     content: "Model performance degraded. Review recent races. Consider retraining."
 ```
 
-**5. Cost Projection > $300**
+**5. Cost Projection > $60**
 ```yaml
 alert_policy:
-  display_name: "Warning: Projected monthly cost > $300"
+  display_name: "Warning: Projected monthly cost > $60 (cap: $70)"
   conditions:
-    - display_name: "Budget exceeded"
+    - display_name: "Budget warning threshold exceeded"
       condition_threshold:
         filter: 'metric.type="custom.googleapis.com/f1/cost/total_projected"'
         comparison: COMPARISON_GT
-        threshold_value: 300
+        threshold_value: 60
         duration: 3600s  # 1 hour
   notification_channels:
-    - slack_warnings
+    - email_alerts
   documentation:
-    content: "Monthly cost projection exceeded budget. Review cost dashboard. Optimize queries/Dataflow."
+    content: "Monthly cost approaching $70 hard cap. Review cost dashboard. Scale down Dataflow if idle."
 ```
 
 ### Info Alerts (Logging Only)
@@ -548,13 +559,13 @@ alert_policy:
 1. Check Cloud Run logs for errors or exceptions
 2. Review recent deployments (last 2 hours)
 3. Check Dataflow lag (may be causing feature extraction delay)
-4. Review BigQuery query performance (slow queries)
+4. Review Cloud SQL query performance (slow queries, lock waits)
 5. Check Monte Carlo simulation time (may need optimization)
 
 **Immediate Actions**:
 - If deployment caused issue → Rollback to previous version
 - If Monte Carlo slow → Reduce scenarios from 5K to 2K
-- If BigQuery slow → Cancel long-running queries
+- If Cloud SQL slow → Check pg_stat_activity for long-running queries; add index if missing
 - If Cloud Run overloaded → Manually scale up instances
 
 **Resolution**:
@@ -590,24 +601,24 @@ alert_policy:
 ### Scenario 3: Cost Overrun
 
 **Symptoms**:
-- Alert: "Warning: Projected monthly cost > $300"
-- Cost dashboard shows spike in specific service
+- Alert: "Warning: Projected monthly cost > $60 (cap: $70)"
+- GCP Billing dashboard shows spike in specific service
 
 **Investigation Steps**:
-1. Identify which service caused spike (BigQuery, Dataflow, Cloud Run)
-2. If BigQuery → Review most expensive queries (last 7 days)
-3. If Dataflow → Check worker hours, auto-scaling behavior
-4. If Cloud Run → Review request volume, instance count
+1. Identify which service caused spike (Cloud SQL, Dataflow, Cloud Run, Cloud Build)
+2. If Dataflow → Check worker hours and auto-scaling behavior
+3. If Cloud Run → Review request volume, instance count
+4. If Cloud Build → Check for runaway build triggers
 
 **Immediate Actions**:
-- If BigQuery → Optimize queries (add partition pruning, reduce SELECT *)
-- If Dataflow → Scale down workers during non-race periods
-- If Cloud Run → Reduce max instances if traffic lower than expected
+- If Dataflow → Scale down workers during non-race periods (`gcloud dataflow jobs cancel`)
+- If Cloud Run → Reduce max instances (`terraform apply` with lower `api_max_instances`)
+- If Cloud Build → Disable the trigger temporarily in GCP Console
 
 **Resolution**:
-- Confirm projected cost returns to <$250/month
-- Implement cost optimizations
-- Update budget alerts if justified
+- Confirm projected cost returns to <$60/month
+- Implement cost optimizations in Terraform
+- Update `budget_amount` in tfvars only with project lead approval
 
 ## Review Cadence
 

@@ -1,6 +1,6 @@
 # Project Roadmap and Timeline
 
-**Last Updated**: 2026-02-14
+**Last Updated**: 2026-02-18
 **Project Duration**: 13 weeks
 **Target Completion**: Week 13
 
@@ -37,25 +37,27 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 **Deliverables**:
 
 [OK] **Infrastructure**:
-- [ ] GCP project created (`f1-strategy`)
-- [ ] IAM roles configured (service accounts)
-- [ ] BigQuery dataset created (`f1_strategy`)
-- [ ] Cloud Run, Dataflow, Vertex AI access enabled
-- [ ] Terraform configuration committed
+- [x] GCP project created (`f1optimizer`)
+- [x] IAM roles configured (3 service accounts: airflow, dataflow, api)
+- [x] Cloud SQL (PostgreSQL 15) provisioned with VPC private IP
+- [x] Cloud Run, Dataflow, Pub/Sub, Artifact Registry enabled via Terraform
+- [x] Cloud Build trigger configured (pipeline branch)
+- [x] Terraform configuration applied (`dev.tfvars`)
 
 [OK] **Data Ingestion**:
 - [ ] Ergast API data downloaded (1950-2024, 1,300+ races)
 - [ ] FastF1 telemetry downloaded (2018-2024, 200+ races)
-- [ ] Data uploaded to BigQuery raw tables
+- [ ] Data inserted into Cloud SQL (`lap_features`, `telemetry_features`)
 - [ ] Data completeness validated (≥95%)
 
 [OK] **Documentation**:
-- [ ] `setup.sh` script tested
-- [ ] `data/schema.sql` defined
-- [ ] README updated with quick start
+- [x] `src/database/schema.sql` defined (lap_features, telemetry_features, driver_profiles)
+- [x] README updated with quick start
+- [x] mkdocs.yml created for CI documentation build
 
 **Success Metrics**:
-- BigQuery contains ~150GB raw data
+- Cloud SQL `lap_features` populated with ~1M+ records from Ergast
+- `telemetry_features` populated from FastF1 (2018-2024)
 - Data completeness >95%
 - All team members have GCP access
 
@@ -90,16 +92,16 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 - [ ] Temporal features (lap number, stint age, laps remaining)
 
 [OK] **Data Splits**:
-- [ ] `f1_strategy.train` (1950-2022, ~140GB)
-- [ ] `f1_strategy.validation` (2023 Q1-Q2, ~5GB)
-- [ ] `f1_strategy.test` (2023 Q3-Q4 + 2024, ~10GB)
+- [ ] SQL VIEW `train` (1950-2022, ~140GB)
+- [ ] SQL VIEW `validation` (2023 Q1-Q2, ~5GB)
+- [ ] SQL VIEW `test` (2023 Q3-Q4 + 2024, ~10GB)
 
 [OK] **Feature Store**:
-- [ ] `f1_features` table created
-- [ ] Schema documented in `data/schema.sql`
+- [ ] `lap_features` and `telemetry_features` tables populated
+- [x] Schema documented in `src/database/schema.sql`
 
 **Success Metrics**:
-- Feature store contains 1M+ feature rows
+- Cloud SQL contains 1M+ feature rows
 - All features validated (no NULLs, correct ranges)
 - EDA notebook completed with insights
 
@@ -137,7 +139,7 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 **Success Metrics**:
 - 200+ driver profiles generated
 - Validation metrics meet targets
-- Profiles stored in JSON and BigQuery
+- Profiles stored in `driver_profiles` Cloud SQL table
 
 **Dependencies**: Week 2-3 feature engineering complete
 
@@ -376,9 +378,10 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 
 | Week | Milestone | Status | Deliverable |
 |------|-----------|--------|-------------|
-| 2 | Data Ingestion Complete | [Pending] Pending | BigQuery raw tables (150GB) |
-| 3 | Feature Store Ready | [Pending] Pending | `f1_features` table (1M+ rows) |
-| 4 | Driver Profiles Extracted | [Pending] Pending | `profiles.json` (200+ drivers) |
+| 1-2 | Infrastructure Complete | [Complete] Done | Cloud SQL, IAM, VPC, Cloud Build, Terraform applied |
+| 2 | Data Ingestion Complete | [Pending] Pending | Cloud SQL `lap_features` populated (150GB) |
+| 3 | Feature Store Ready | [Pending] Pending | `lap_features` + `telemetry_features` (1M+ rows) |
+| 4 | Driver Profiles Extracted | [Pending] Pending | `driver_profiles` table (200+ drivers) |
 | 6 | Models 1-2 Trained | [Pending] Pending | Tire degradation + Fuel consumption |
 | 7 | All 4 Models Trained | [Pending] Pending | All models meet accuracy targets |
 | 9 | Simulator Validated | [Pending] Pending | Podium accuracy ≥70% |
@@ -405,7 +408,7 @@ Monte Carlo Simulator → API Deployment → Testing → Launch
 | Model accuracy below target | Medium | High | Increase training data, tune hyperparameters | ML Engineer |
 | Monte Carlo too slow | High | High | GPU acceleration, reduce scenarios to 5K | ML Engineer |
 | API latency >500ms | Medium | Critical | Model caching, quantization, load testing | Backend Engineer |
-| Budget overrun >$300/month | Medium | Medium | Cost monitoring, optimize Dataflow | DevOps |
+| Budget overrun >$70/month | Medium | High | Cost monitoring, optimize Dataflow, budget alerts at $60 | DevOps |
 | Test coverage <80% | Low | Medium | Enforce test writing, CI/CD checks | QA |
 
 ## Resource Allocation

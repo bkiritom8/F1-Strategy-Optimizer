@@ -1,6 +1,6 @@
 # Data Sources, Splits, and Management
 
-**Last Updated**: 2026-02-14
+**Last Updated**: 2026-02-18
 
 ## Overview
 
@@ -13,7 +13,7 @@ The F1 Strategy Optimizer leverages 74 years of comprehensive Formula 1 data spa
 | **Time Period** | 1950-2024 (74 years) |
 | **Total Races** | 1,300+ races |
 | **Total Lap Records** | 20M+ laps |
-| **Training Data Size** | ~150GB (BigQuery) |
+| **Training Data Size** | ~150GB (Cloud SQL + GCS for large blobs) |
 | **Primary Formats** | JSON (race results), CSV (telemetry), Time-series (streaming) |
 | **Telemetry Frequency** | 10 Hz (FastF1 library, 2018+) |
 | **Geographic Coverage** | Global (23 circuits annually) |
@@ -209,21 +209,21 @@ python data/download.py --source fastf1 --start-year 2018 --end-year 2024
 # - Total: ~120GB uncompressed
 ```
 
-**BigQuery Upload**:
+**Cloud SQL Insert** (`src/ingestion/ergast_ingestion.py`, `src/ingestion/fastf1_ingestion.py`):
 ```bash
-# Load into BigQuery raw tables
-python data/upload_to_bq.py --dataset f1_strategy --table-prefix raw_
+# Trigger via Cloud Run Job (auto-fired by Terraform null_resource after apply)
+gcloud run jobs execute f1-data-ingestion \
+  --region=us-central1 \
+  --project=f1optimizer \
+  --wait
 
-# Tables created:
-# - raw_races
-# - raw_results
-# - raw_pitstops
-# - raw_qualifying
-# - raw_telemetry
-# - raw_laps
+# Tables populated in f1_data database (Cloud SQL PostgreSQL 15):
+# - lap_features      (Ergast race/lap results, 1950-2024)
+# - telemetry_features (FastF1 10Hz, 2018-2024)
+# - driver_profiles   (extracted behavioral profiles)
 ```
 
-**Estimated Total**: ~150GB uncompressed, ~50GB compressed in BigQuery
+**Estimated Total**: ~150GB uncompressed; large binary blobs (telemetry) stored in GCS (`f1optimizer-data-lake`)
 
 ### Stage 2: Data Cleaning & Preprocessing (Week 2-3)
 
@@ -351,17 +351,17 @@ VAL_START = '2023-01-01'
 VAL_END = '2023-06-30'
 TEST_START = '2023-07-01'
 
-# Partition BigQuery tables
-CREATE TABLE f1_strategy.train AS
-SELECT * FROM f1_strategy.processed_data
+-- Cloud SQL (PostgreSQL 15) split views
+CREATE VIEW train AS
+SELECT * FROM lap_features
 WHERE race_date <= '2022-12-31';
 
-CREATE TABLE f1_strategy.validation AS
-SELECT * FROM f1_strategy.processed_data
+CREATE VIEW validation AS
+SELECT * FROM lap_features
 WHERE race_date BETWEEN '2023-01-01' AND '2023-06-30';
 
-CREATE TABLE f1_strategy.test AS
-SELECT * FROM f1_strategy.processed_data
+CREATE VIEW test AS
+SELECT * FROM lap_features
 WHERE race_date >= '2023-07-01';
 ```
 
@@ -377,26 +377,60 @@ WHERE race_date >= '2023-07-01';
 
 ### Storage Architecture
 
-**BigQuery Partitioning**:
+**Cloud SQL Schema** (`src/database/schema.sql`):
 ```sql
--- Partition by race_year and race_date for query efficiency
-CREATE TABLE f1_strategy.raw_races (
-    race_id INT64,
-    year INT64,
-    round INT64,
-    circuit_id STRING,
-    race_date DATE,
-    race_time TIME,
-    ...
-)
-PARTITION BY race_date
-CLUSTER BY year, circuit_id;
+-- PostgreSQL 15 tables (Cloud SQL instance: f1-optimizer-dev, database: f1_data)
+
+CREATE TABLE lap_features (
+    race_id         SERIAL PRIMARY KEY,
+    year            INTEGER NOT NULL,
+    round           INTEGER NOT NULL,
+    circuit_id      VARCHAR(64),
+    race_date       DATE,
+    driver_id       VARCHAR(8),
+    lap_number      INTEGER,
+    lap_time_ms     BIGINT,
+    tire_compound   VARCHAR(16),
+    tire_age        INTEGER,
+    pit_stop        BOOLEAN DEFAULT FALSE,
+    fuel_remaining  FLOAT,
+    position        INTEGER,
+    ingestion_timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX ON lap_features (race_date);
+CREATE INDEX ON lap_features (driver_id);
+
+CREATE TABLE telemetry_features (
+    id              BIGSERIAL PRIMARY KEY,
+    race_id         VARCHAR(64),
+    driver_id       VARCHAR(8),
+    lap_number      INTEGER,
+    timestamp       TIMESTAMPTZ,
+    throttle        FLOAT,
+    speed           FLOAT,
+    brake           BOOLEAN,
+    drs             INTEGER,
+    ingestion_timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE driver_profiles (
+    driver_id       VARCHAR(8) PRIMARY KEY,
+    name            VARCHAR(128),
+    aggression      FLOAT,
+    consistency     FLOAT,
+    pressure_response FLOAT,
+    tire_management FLOAT,
+    career_races    INTEGER,
+    data_quality    FLOAT,
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
 **Benefits**:
-- Query pruning: Only scan relevant partitions
-- Cost reduction: Pay only for scanned data
-- Performance: 10-100x faster queries on date ranges
+- Index on `race_date` and `driver_id` for common query patterns
+- Private IP — no public exposure; accessible only from VPC
+- Automated daily backups with 30-day retention
 
 ### Schema Documentation
 
@@ -495,7 +529,7 @@ assert (completeness > 0.95).all(), "Feature completeness must be >95%"
 # After each race (23 races per season)
 # 1. Download new race data from Ergast API
 # 2. Download telemetry from FastF1
-# 3. Append to BigQuery raw tables
+# 3. Insert to Cloud SQL lap_features / telemetry_features tables
 # 4. Run preprocessing pipeline
 # 5. Update feature store
 # 6. Trigger model retraining (weekly)
@@ -511,27 +545,33 @@ assert (completeness > 0.95).all(), "Feature completeness must be >95%"
 
 ### Backup and Recovery
 
-**BigQuery Snapshots**:
+**Cloud SQL Backups**:
 ```bash
-# Daily snapshots for 7 days
-# Weekly snapshots for 4 weeks
-# Monthly snapshots for 12 months
+# Automated daily backups (configured in Terraform, 30-day retention)
+# To restore from backup via GCP Console:
+# Cloud SQL > f1-optimizer-dev > Backups > Restore
 
-bq cp f1_strategy.processed_data f1_strategy.processed_data_$(date +%Y%m%d)
+# Manual export to GCS for point-in-time recovery:
+gcloud sql export csv f1-optimizer-dev \
+  gs://f1optimizer-data-lake/backups/lap_features_$(date +%Y%m%d).csv \
+  --database=f1_data \
+  --query="SELECT * FROM lap_features" \
+  --project=f1optimizer
 ```
 
 **Recovery Procedure**:
 1. Identify corrupted table or data issue
-2. Restore from most recent snapshot
-3. Re-run preprocessing from last known good state
-4. Validate data quality before resuming production
+2. Restore from most recent automated Cloud SQL backup (GCP Console)
+3. For partial recovery, import from GCS export
+4. Re-run ingestion for any races missed since last backup
+5. Validate data quality before resuming production
 
 ## Data Access Patterns
 
 ### Training
-- Batch reads from BigQuery
-- Full table scans with partition pruning
-- Export to pandas/TensorFlow Dataset for model training
+- Batch reads from Cloud SQL via psycopg2
+- Indexed queries on `race_date` and `driver_id` for efficient splits
+- Export to pandas DataFrame for model training
 
 ### Inference
 - Real-time feature extraction from streaming telemetry
@@ -547,13 +587,13 @@ bq cp f1_strategy.processed_data f1_strategy.processed_data_$(date +%Y%m%d)
 ## Data Security
 
 **Access Control**:
-- Service accounts with least-privilege IAM roles
-- BigQuery dataset-level permissions
-- Audit logging enabled
+- Service accounts with least-privilege IAM roles (`roles/cloudsql.client`)
+- Cloud SQL private IP — only accessible from within VPC
+- Audit logging enabled (Cloud Audit Logs)
 
 **Encryption**:
-- Data encrypted at rest (default BigQuery)
-- Data encrypted in transit (HTTPS, TLS)
+- Data encrypted at rest (Cloud SQL: AES-256, GCS: default)
+- Data encrypted in transit (HTTPS, TLS; Cloud SQL `ENCRYPTED_ONLY` mode)
 
 **Compliance**:
 - No PII stored
@@ -592,12 +632,13 @@ ML training runs as an isolated pipeline stage with containerized, distributed e
 
 **Input Storage** (READ-ONLY):
 ```
-BigQuery Tables (Processed/Validated Data):
-├── f1_strategy.f1_features          # Primary feature store
-├── f1_strategy.driver_profiles      # Driver behavioral profiles
-├── f1_strategy.train                # Training split (1950-2022)
-├── f1_strategy.validation           # Validation split (2023 Q1-Q2)
-└── f1_strategy.test                 # Test split (2023 Q3-2024)
+Cloud SQL Tables (PostgreSQL 15, f1_data database):
+├── lap_features         # Primary feature store (Ergast, 1950-2024)
+├── telemetry_features   # FastF1 10Hz telemetry (2018-2024)
+├── driver_profiles      # Driver behavioral profiles
+├── VIEW: train          # Training split (1950-2022)
+├── VIEW: validation     # Validation split (2023 Q1-Q2)
+└── VIEW: test           # Test split (2023 Q3-2024)
 ```
 
 **Prohibited Sources**:
@@ -762,24 +803,26 @@ resource "google_compute_autoscaler" "training_workers" {
 
 **IAM Roles** (Least-Privilege):
 ```yaml
-Training Service Account: training-worker@f1-strategy.iam.gserviceaccount.com
+Training Service Account: f1-airflow-dev@f1optimizer.iam.gserviceaccount.com
 
 Permissions:
-  BigQuery:
-    - roles/bigquery.dataViewer  # READ f1_strategy.* tables
-    - roles/bigquery.jobUser     # Execute queries
+  Cloud SQL:
+    - roles/cloudsql.client        # Connect to f1-optimizer-dev instance
 
   Cloud Storage:
-    - roles/storage.objectCreator  # WRITE gs://f1-strategy-artifacts/*
-    - roles/storage.objectViewer   # READ training data exports (if needed)
+    - roles/storage.objectCreator  # WRITE gs://f1optimizer-models/*
+    - roles/storage.objectViewer   # READ gs://f1optimizer-data-lake/*
 
   Vertex AI:
     - roles/aiplatform.user        # Submit training jobs
 
+  Pub/Sub:
+    - roles/pubsub.admin           # Publish/subscribe for DAG events
+
   Denied:
-    - [FAIL] bigquery.dataEditor       # CANNOT modify BigQuery tables
-    - [FAIL] storage.admin             # CANNOT delete artifacts
-    - [FAIL] compute.admin             # CANNOT modify infrastructure
+    - [FAIL] cloudsql.editor       # CANNOT modify Cloud SQL schema
+    - [FAIL] storage.admin         # CANNOT delete artifacts
+    - [FAIL] compute.admin         # CANNOT modify infrastructure
 ```
 
 **Network Security**:
@@ -789,7 +832,7 @@ Permissions:
 - **No Public Access**: Workers have no external IP addresses
 
 **Data Access**:
-- **Read**: Training jobs read from BigQuery via IAM-authenticated connections
+- **Read**: Training jobs read from Cloud SQL via IAM-authenticated service account connections
 - **Write**: Artifacts written to GCS with server-side encryption (AES-256)
 - **Audit Logging**: All data access logged to Cloud Audit Logs
 
@@ -797,13 +840,13 @@ Permissions:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│ BigQuery (Processed & Validated Data)              │
-│ ├── f1_features (READ-ONLY)                        │
-│ ├── train split (READ-ONLY)                        │
-│ └── validation split (READ-ONLY)                   │
+│ Cloud SQL (PostgreSQL 15, Private IP)              │
+│ ├── lap_features (READ-ONLY for training)          │
+│ ├── telemetry_features (READ-ONLY)                 │
+│ └── driver_profiles (READ-ONLY)                    │
 └──────────────────┬──────────────────────────────────┘
                    │
-                   │ Secure Query (IAM Auth)
+                   │ Secure Query (IAM + VPC, psycopg2)
                    ▼
 ┌─────────────────────────────────────────────────────┐
 │ Training Pipeline (Vertex AI Pipelines)            │
@@ -1352,7 +1395,7 @@ Retention:
 
 Storage:
   primary: Cloud Logging
-  archive: BigQuery table (f1_strategy.pipeline_logs)
+  archive: GCS bucket (gs://f1optimizer-data-lake/logs/pipeline_logs/)
   export_schedule: Daily at 01:00 UTC
 ```
 
@@ -1360,7 +1403,7 @@ Storage:
 
 **Query DAG Run Logs**:
 ```sql
--- BigQuery query for DAG run logs
+-- Cloud Logging query for DAG run logs (via Log Explorer)
 SELECT
   timestamp,
   task_id,
@@ -1591,40 +1634,42 @@ Worker Pool Autoscaling:
 
 ```yaml
 Monthly Budget:
-  total: $250
+  total: $70  # Hard cap (set in dev.tfvars / prod.tfvars)
   allocation:
-    data_pipeline: $50
-    training_pipeline: $120
-    inference: $30
-    storage: $30
-    monitoring: $20
+    data_pipeline: $15    # Cloud SQL + ingestion jobs
+    training_pipeline: $20 # Vertex AI / distributed training
+    inference: $10         # Cloud Run API
+    storage: $10           # GCS data-lake + models
+    monitoring: $5         # Cloud Monitoring
+    ci_cd: $5              # Cloud Build + Artifact Registry
+    other: $5              # Pub/Sub, Secret Manager, networking
 
 Budget Actions:
-  $200 (80% spent):
+  $55 (80% spent):
     action: warning_alert
-    channels: [slack]
-    message: "80% of monthly budget consumed"
+    channels: [email]
+    message: "80% of monthly $70 budget consumed"
 
-  $225 (90% spent):
+  $63 (90% spent):
     action: throttle_non_critical
     scope:
       - Pause weekly retraining jobs
-      - Reduce worker pool max_replicas by 50%
-      - Alert data/ML teams
+      - Reduce Dataflow max_replicas by 50%
+      - Alert engineering
 
-  $250 (100% spent):
+  $70 (100% spent):
     action: emergency_stop
     scope:
       - Block new training jobs
-      - Scale all worker pools to zero
+      - Scale Dataflow workers to zero
       - Only allow critical data ingestion
-      - Notify engineering leadership
+      - Notify project lead
 
-  $300 (120% spent):
+  $80 (114% spent):
     action: hard_shutdown
     scope:
-      - Terminate all running jobs
-      - Scale to zero
+      - Terminate all running Dataflow jobs
+      - Scale Cloud Run to zero
       - Require manual approval to restart
 ```
 
@@ -1844,11 +1889,11 @@ Immutable Records:
      - Input/output artifact URIs
      - Exit code and status
      - Retry history
-     - All metadata written to BigQuery (append-only)
+     - All metadata written to Cloud SQL pipeline_audit_log (append-only)
 
   3. IAM Access Logs:
      - All data access logged to Cloud Audit Logs
-     - BigQuery queries logged (who, what, when)
+     - Cloud SQL queries logged (who, what, when)
      - GCS reads/writes logged
      - Service account usage tracked
      - Retention: 1 year (compliance requirement)
@@ -1856,34 +1901,31 @@ Immutable Records:
   4. Data Lineage:
      - Input datasets → Task → Output artifacts
      - Full provenance chain for every artifact
-     - Queryable via BigQuery metadata tables
+     - Queryable via Cloud SQL metadata tables
 ```
 
 **Audit Log Schema**:
 
 ```sql
--- BigQuery table: f1_strategy.pipeline_audit_log
-CREATE TABLE f1_strategy.pipeline_audit_log (
-  audit_id STRING NOT NULL,
-  timestamp TIMESTAMP NOT NULL,
-  dag_id STRING NOT NULL,
-  dag_run_id STRING NOT NULL,
-  task_id STRING,
-  event_type STRING NOT NULL,  -- task_start, task_end, data_access, iam_auth, etc.
-  actor STRING,  -- Service account or user
-  resource STRING,  -- BigQuery table, GCS object, etc.
-  action STRING,  -- read, write, delete, query
-  status STRING,  -- success, failure, denied
-  metadata JSON,
-  git_commit_sha STRING,  -- DAG version
-  container_image_digest STRING  -- Task container version
-)
-PARTITION BY DATE(timestamp)
-CLUSTER BY dag_id, task_id
-OPTIONS(
-  description="Immutable audit log for all pipeline executions",
-  require_partition_filter=true
+-- Cloud SQL (PostgreSQL 15): pipeline_audit_log table
+CREATE TABLE pipeline_audit_log (
+  audit_id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  timestamp           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  dag_id              VARCHAR(128) NOT NULL,
+  dag_run_id          VARCHAR(256) NOT NULL,
+  task_id             VARCHAR(128),
+  event_type          VARCHAR(64) NOT NULL,  -- task_start, task_end, data_access, iam_auth, etc.
+  actor               VARCHAR(256),          -- Service account or user
+  resource            VARCHAR(512),          -- Cloud SQL table, GCS object, etc.
+  action              VARCHAR(32),           -- read, write, delete, query
+  status              VARCHAR(32),           -- success, failure, denied
+  metadata            JSONB,
+  git_commit_sha      VARCHAR(64),           -- DAG version
+  container_image_digest VARCHAR(128)        -- Task container version
 );
+
+CREATE INDEX ON pipeline_audit_log (dag_id, task_id);
+CREATE INDEX ON pipeline_audit_log (timestamp);
 ```
 
 **Audit Queries**:
@@ -1896,9 +1938,9 @@ SELECT
   resource,
   action,
   status
-FROM f1_strategy.pipeline_audit_log
+FROM pipeline_audit_log
 WHERE event_type = 'data_access'
-  AND DATE(timestamp) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+  AND timestamp >= NOW() - INTERVAL '30 days'
 ORDER BY timestamp DESC;
 
 -- Query: Full execution history for a DAG run
@@ -1908,7 +1950,7 @@ SELECT
   timestamp,
   status,
   metadata
-FROM f1_strategy.pipeline_audit_log
+FROM pipeline_audit_log
 WHERE dag_run_id = 'f1_data_pipeline_20260214_120000'
 ORDER BY timestamp ASC;
 
@@ -1917,11 +1959,11 @@ SELECT
   timestamp,
   actor,
   resource,
-  metadata.error_message
-FROM f1_strategy.pipeline_audit_log
+  metadata->>'error_message' AS error_message
+FROM pipeline_audit_log
 WHERE event_type = 'iam_auth'
   AND status = 'denied'
-  AND DATE(timestamp) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+  AND timestamp >= NOW() - INTERVAL '7 days'
 ORDER BY timestamp DESC;
 ```
 
@@ -1932,7 +1974,7 @@ Reproducibility Requirements:
   1. Deterministic Execution:
      - DAG definition (git commit SHA)
      - Container images (SHA256 digest)
-     - Input data version (BigQuery snapshot)
+     - Input data version (Cloud SQL backup timestamp)
      - Random seeds (fixed per DAG run)
 
   2. Artifact Versioning:
@@ -1952,7 +1994,7 @@ Reproducibility Example:
   python pipeline/orchestrator/replay.py \
     --dag-run-id f1_data_pipeline_20240115_020000 \
     --verify-checksums \
-    --output-path gs://f1-strategy-artifacts/replays/
+    --output-path gs://f1optimizer-data-lake/replays/
 
   # Verifies:
   # [OK] Git commit SHA matches

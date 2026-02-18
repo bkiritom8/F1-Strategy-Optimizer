@@ -1,10 +1,10 @@
 # System Architecture and Deployment
 
-**Last Updated**: 2026-02-14
+**Last Updated**: 2026-02-18
 
 ## Overview
 
-The F1 Strategy Optimizer is a production-grade system built on Google Cloud Platform, designed for real-time race strategy recommendations with <500ms P99 latency. This document covers the complete architecture from data ingestion to serving.
+The F1 Strategy Optimizer is a production-grade system built on Google Cloud Platform, designed for real-time race strategy recommendations with <500ms P99 latency. Infrastructure is fully managed by Terraform and deployed to `us-central1`.
 
 ## High-Level Architecture
 
@@ -14,9 +14,9 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 ├───────────────────────────────────────────────────────────────┤
 │                                                                │
 │  ┌────────────┐         ┌─────────────────┐                  │
-│  │ Ergast API │────────>│   BigQuery      │                  │
-│  │ (1950-2024)│         │   Raw Tables    │                  │
-│  └────────────┘         │   (150GB)       │                  │
+│  │ Ergast API │────────>│  Cloud SQL      │                  │
+│  │ (1950-2024)│         │  PostgreSQL 15  │                  │
+│  └────────────┘         │  (lap_features) │                  │
 │                         └────────┬────────┘                  │
 │  ┌────────────┐                 │                            │
 │  │ FastF1 SDK │────────>┌───────▼────────┐                  │
@@ -26,7 +26,7 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │                                 │                            │
 │                         ┌───────▼────────┐                  │
 │                         │ Feature Store   │                  │
-│                         │  (BigQuery)     │                  │
+│                         │  (Cloud SQL)    │                  │
 │                         └────────────────┘                  │
 └───────────────────────────────────────────────────────────────┘
 
@@ -46,7 +46,7 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │                                   │                            │
 │                         ┌─────────▼────────┐                  │
 │                         │ Real-Time        │                  │
-│                         │ Features         │                  │
+│                         │ Features (SQL)   │                  │
 │                         └────────────────┘                  │
 └───────────────────────────────────────────────────────────────┘
 
@@ -69,6 +69,18 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │  └────────────┘  └────────────┘  └────────────┘             │
 │                                                                │
 │                   Vertex AI Model Registry                     │
+└───────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────┐
+│                  CI / CD LAYER                                 │
+├───────────────────────────────────────────────────────────────┤
+│                                                                │
+│  GitHub push                                                   │
+│  (pipeline branch) ──> Cloud Build ──> Artifact Registry      │
+│                         (cloudbuild.yaml)  (Docker image)      │
+│                                │                               │
+│                                v                               │
+│                         Cloud Run deploy                       │
 └───────────────────────────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────────────────────────┐
@@ -98,268 +110,189 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │  │  Logging   │  │ Monitoring │  │ Detection  │             │
 │  └────────────┘  └────────────┘  └────────────┘             │
 │                                                                │
-│          Alerting → Slack / PagerDuty                         │
+│          Alerting -> Email (bhargavsp01@gmail.com)            │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-## Component Details
+## GCP Components
 
-### Data Ingestion Layer
+### Data Storage: Cloud SQL (PostgreSQL 15)
 
-#### Ergast API Ingestion
+**Instance**: `f1-optimizer-dev` (`db-f1-micro`, `us-central1`)
+**Database**: `f1_data`
+**User**: `f1_api` (password auto-generated, stored in Secret Manager)
+**Connectivity**: Private IP via VPC peering (no public IP)
+**SSL**: `ENCRYPTED_ONLY`
+**Backups**: Automated daily, deletion protection enabled
 
-**Technology**: Python `requests` library + BigQuery Python SDK
+**Key Tables** (see `src/database/schema.sql`):
+- `lap_features` — Historical race/lap data from Ergast (1950-2024)
+- `telemetry_features` — FastF1 10 Hz telemetry (2018-2024)
+- `driver_profiles` — Extracted behavioral profiles (200+ drivers)
 
-**Schedule**: Weekly for historical data, post-race for new races
+### Data Ingestion
 
-**Implementation**:
+**Sources**: Ergast REST API + FastF1 Python library
+**Orchestration**: Airflow DAG (`airflow/dags/f1_data_ingestion.py`)
+**Execution**: Cloud Run Job (`f1-data-ingestion`, max timeout 3600 s)
+**Auto-trigger**: Terraform `null_resource` fires `gcloud run jobs execute` after infrastructure is provisioned
+
+**Ergast ingestion** (`src/ingestion/ergast_ingestion.py`):
 ```python
-# data/download.py
-
 import requests
-import pandas as pd
-from google.cloud import bigquery
+import psycopg2
+import os
 
 def download_ergast_data(year_start=1950, year_end=2024):
-    """Download race data from Ergast API."""
+    """Download race data from Ergast API and insert into Cloud SQL."""
 
     base_url = "http://ergast.com/api/f1"
-
-    all_races = []
+    conn = psycopg2.connect(
+        host=os.environ["DB_HOST"],
+        dbname=os.environ["DB_NAME"],
+        user=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+        port=int(os.environ.get("DB_PORT", 5432)),
+    )
+    cursor = conn.cursor()
 
     for year in range(year_start, year_end + 1):
         response = requests.get(f"{base_url}/{year}.json")
-        data = response.json()
+        races = response.json()["MRData"]["RaceTable"]["Races"]
 
-        races = data['MRData']['RaceTable']['Races']
-        all_races.extend(races)
+        for race in races:
+            cursor.execute(
+                """
+                INSERT INTO lap_features (race_id, year, round, circuit_id, date)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (race_id) DO NOTHING
+                """,
+                (race["raceId"], year, race["round"], race["Circuit"]["circuitId"], race["date"]),
+            )
 
+        import time
         time.sleep(1)  # Rate limiting
 
-    # Convert to DataFrame
-    races_df = pd.json_normalize(all_races)
-
-    # Upload to BigQuery
-    client = bigquery.Client()
-    table_id = "f1-strategy.f1_strategy.raw_races"
-
-    job = client.load_table_from_dataframe(races_df, table_id)
-    job.result()
-
-    print(f"Loaded {len(races_df)} races to BigQuery")
+    conn.commit()
+    cursor.close()
+    conn.close()
 ```
 
-**Error Handling**:
-- Retry on HTTP 5xx with exponential backoff
-- Cache intermediate results
-- Log failed requests for manual review
-
-#### FastF1 Telemetry Ingestion
-
-**Technology**: FastF1 Python library
-
-**Storage**: BigQuery partitioned by race_date
-
-**Implementation**:
+**FastF1 ingestion** (`src/ingestion/fastf1_ingestion.py`):
 ```python
-# data/download.py
-
 import fastf1
-from google.cloud import bigquery
+import psycopg2
+import os
 
-def download_fastf1_telemetry(year, race_name):
-    """Download telemetry for a single race."""
+def download_fastf1_telemetry(year: int, race_name: str):
+    """Download telemetry for a single race and insert into Cloud SQL."""
 
-    session = fastf1.get_session(year, race_name, 'R')
+    session = fastf1.get_session(year, race_name, "R")
     session.load()
 
-    # Extract laps and telemetry
+    conn = psycopg2.connect(
+        host=os.environ["DB_HOST"],
+        dbname=os.environ["DB_NAME"],
+        user=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+    )
+    cursor = conn.cursor()
+
     laps = session.laps
-    telemetry_list = []
-
-    for idx, lap in laps.iterrows():
+    for _, lap in laps.iterrows():
         tel = lap.get_telemetry()
-        tel['driver_id'] = lap['Driver']
-        tel['lap_number'] = lap['LapNumber']
-        tel['race_id'] = f"{year}_{race_name}"
-        telemetry_list.append(tel)
+        for _, row in tel.iterrows():
+            cursor.execute(
+                """
+                INSERT INTO telemetry_features
+                  (race_id, driver_id, lap_number, timestamp, throttle, speed, brake, drs)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    f"{year}_{race_name}",
+                    lap["Driver"],
+                    int(lap["LapNumber"]),
+                    row.name,
+                    row["Throttle"],
+                    row["Speed"],
+                    row["Brake"],
+                    row["DRS"],
+                ),
+            )
 
-    telemetry_df = pd.concat(telemetry_list, ignore_index=True)
-
-    # Upload to BigQuery
-    client = bigquery.Client()
-    table_id = "f1-strategy.f1_strategy.raw_telemetry"
-
-    job = client.load_table_from_dataframe(telemetry_df, table_id)
-    job.result()
+    conn.commit()
+    cursor.close()
+    conn.close()
 ```
 
-**Caching**: FastF1 caches downloaded data locally (~/.fastf1/)
-
-**Limitations**: Requires ~5-10 minutes per race session download
-
-### Preprocessing Pipeline
-
-**Technology**: BigQuery SQL + Python pandas
-
-**Execution**: Cloud Functions triggered on new data
-
-**Steps**:
-1. Data cleaning (remove outliers, handle NULLs)
-2. Feature engineering (tire age, fuel estimation, race context)
-3. Normalization (standardize values across eras)
-4. Feature store update
-
-**Implementation**:
-```python
-# data/preprocess.py
-
-from google.cloud import bigquery
-
-def preprocess_races():
-    """Run preprocessing SQL queries."""
-
-    client = bigquery.Client()
-
-    # Step 1: Clean data
-    clean_query = """
-    CREATE OR REPLACE TABLE f1_strategy.clean_races AS
-    SELECT *
-    FROM f1_strategy.raw_races
-    WHERE lap_time BETWEEN 30000 AND 300000  -- Valid lap times (30s-300s)
-      AND lap_time IS NOT NULL
-    """
-
-    client.query(clean_query).result()
-
-    # Step 2: Feature engineering
-    feature_query = """
-    CREATE OR REPLACE TABLE f1_strategy.f1_features AS
-    SELECT
-        race_id,
-        driver_id,
-        lap,
-        lap_time,
-
-        -- Tire age calculation
-        lap - LAG(lap) OVER (
-            PARTITION BY race_id, driver_id
-            ORDER BY lap
-        ) AS tire_age,
-
-        -- Gap to leader
-        cumulative_time - MIN(cumulative_time) OVER (
-            PARTITION BY lap
-        ) AS gap_to_leader,
-
-        -- Context features
-        total_laps - lap AS laps_remaining,
-        ...
-
-    FROM f1_strategy.clean_races
-    """
-
-    client.query(feature_query).result()
-
-    print("Preprocessing complete")
-```
+**Error handling**: Retry on HTTP 5xx with exponential backoff; cache intermediate results locally.
 
 ### Streaming Pipeline (Real-Time)
 
-**Technology**: Apache Beam (Dataflow) on Google Cloud
+**Technology**: Apache Beam on Dataflow
+**Purpose**: Process live telemetry during race weekends for real-time recommendations
+**Topics** (Pub/Sub):
+- `f1-race-events` — Race status updates
+- `f1-telemetry-stream` — Live car telemetry
+- `f1-predictions` — Strategy outputs
+- `f1-alerts` — System alerts
 
-**Purpose**: Process live telemetry during races for real-time recommendations
-
-**Implementation**:
+**Pipeline** (`src/dataflow/`):
 ```python
-# pipeline/dataflow_job.py
-
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 
-def process_telemetry(element):
-    """
-    Process telemetry message.
-
-    Input: {'driver_id': 'VER', 'lap': 15, 'throttle': 95, ...}
-    Output: Feature dict ready for model inference
-    """
-
-    # Extract features
-    features = {
-        'driver_id': element['driver_id'],
-        'lap': element['lap'],
-        'throttle_mean': element['throttle'],
-        'speed_max': element['speed'],
-        'tire_age': calculate_tire_age(element),
-        'fuel_remaining': estimate_fuel(element),
-        # ...
-    }
-
-    return features
-
 def run_pipeline():
-    """Run Dataflow streaming pipeline."""
-
     options = PipelineOptions(
-        runner='DataflowRunner',
-        project='f1-strategy',
-        region='us-central1',
-        temp_location='gs://f1-telemetry/temp',
-        streaming=True
+        runner="DataflowRunner",
+        project="f1optimizer",
+        region="us-central1",
+        streaming=True,
     )
 
     with beam.Pipeline(options=options) as p:
         (
             p
-            | 'Read from Pub/Sub' >> beam.io.ReadFromPubSub(
-                subscription='projects/f1-strategy/subscriptions/telemetry-sub'
+            | "Read from Pub/Sub" >> beam.io.ReadFromPubSub(
+                subscription="projects/f1optimizer/subscriptions/telemetry-sub"
             )
-            | 'Parse JSON' >> beam.Map(lambda x: json.loads(x))
-            | 'Extract Features' >> beam.Map(process_telemetry)
-            | 'Write to BigQuery' >> beam.io.WriteToBigQuery(
-                'f1-strategy:f1_strategy.live_features',
-                schema='...',
-                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
-            )
+            | "Parse JSON" >> beam.Map(lambda x: __import__("json").loads(x))
+            | "Extract Features" >> beam.Map(process_telemetry)
+            | "Write to Cloud SQL" >> beam.ParDo(CloudSQLWriteDoFn())
         )
 ```
 
-**Windowing**: 5-second tumbling windows to reduce message volume
-
+**Windowing**: 5-second tumbling windows
 **Scaling**: Auto-scales 1-10 workers based on Pub/Sub backlog
 
-### Model Serving
+### ML Layer
 
-#### FastAPI Application
+4 specialized models + Monte Carlo simulator (see `docs/models.md`):
+- Tire Degradation (XGBoost) — MAE <50 ms
+- Fuel Consumption (LSTM) — RMSE <0.5 kg/lap
+- Brake Bias (Linear Regression) — ±1% accuracy
+- Driving Style (Decision Tree) — ≥75% accuracy
 
-**Technology**: FastAPI + Uvicorn on Cloud Run
+**Artifacts**: GCS bucket `gs://f1optimizer-models/` (versioned)
+**Registry**: Vertex AI Model Registry (project: `f1optimizer`, region: `us-central1`)
+
+### Model Serving: FastAPI on Cloud Run
+
+**Service**: `f1-strategy-api-dev` (`us-central1`)
+**Image**: `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest`
+**Resources**: 512 Mi memory, 1 vCPU
+**Scaling**: min=0 (dev), max=3; timeout=60 s
+**Environment variables**: `DB_HOST`, `DB_NAME`, `DB_PORT`, `PUBSUB_PROJECT_ID`
 
 **Endpoints**:
 
-**1. `/recommend` - Main recommendation endpoint**
-
+`POST /recommend` — main pit wall endpoint (<500 ms P99):
 ```python
-# serving/api.py
-
 from fastapi import FastAPI
 from pydantic import BaseModel
-import joblib
-import numpy as np
+import joblib, json, os
 
 app = FastAPI()
-
-# Load models at startup
-models = {
-    'tire_degradation': joblib.load('models/tire_degradation_v1.pkl'),
-    'fuel_consumption': tf.keras.models.load_model('models/fuel_consumption_v1.h5'),
-    'brake_bias': joblib.load('models/brake_bias_v1.pkl'),
-    'driving_style': joblib.load('models/driving_style_v1.pkl')
-}
-
-# Load driver profiles
-with open('drivers/profiles.json', 'r') as f:
-    driver_profiles = json.load(f)
 
 class RaceContext(BaseModel):
     driver_id: str
@@ -373,343 +306,195 @@ class RaceContext(BaseModel):
 
 @app.post("/recommend")
 async def get_recommendation(context: RaceContext):
-    """
-    Get race strategy recommendation.
-
-    Returns:
-        - Pit strategy (lap, compound, fuel)
-        - Driving mode (PUSH/BALANCED/CONSERVE)
-        - Brake bias (%)
-        - Throttle guidance
-    """
-
-    # Get driver profile
-    driver_profile = next(
-        (p for p in driver_profiles if p['driver_id'] == context.driver_id),
-        None
-    )
-
-    # Run Monte Carlo simulation
+    driver_profile = load_driver_profile(context.driver_id)
     pit_strategies = monte_carlo_optimization(
-        context.dict(),
-        driver_profile,
-        models,
-        n_scenarios=5000  # Reduced for live inference
+        context.dict(), driver_profile, models, n_scenarios=5000
     )
-
-    # Get driving style recommendation
-    driving_mode = models['driving_style'].predict({
-        'gap_to_leader': context.gap_to_leader,
-        'lap_number': context.lap,
-        'fuel_remaining': context.fuel_remaining,
-        # ...
-    })
-
-    # Get brake bias recommendation
-    brake_bias = models['brake_bias'].predict({
-        'tire_age_front': context.tire_age,
-        'fuel_load': context.fuel_remaining,
-        # ...
-    })
+    driving_mode = models["driving_style"].predict([...])
+    brake_bias = models["brake_bias"].predict([...])
 
     return {
-        'pit_strategy': {
-            'recommended_lap': pit_strategies[0]['pit_lap'],
-            'compound': pit_strategies[0]['compound'],
-            'win_probability': pit_strategies[0]['win_prob']
+        "pit_strategy": {
+            "recommended_lap": pit_strategies[0]["pit_lap"],
+            "compound": pit_strategies[0]["compound"],
+            "win_probability": pit_strategies[0]["win_prob"],
         },
-        'driving_mode': driving_mode,
-        'brake_bias': brake_bias,
-        'throttle_guidance': {
-            'corner_3': 'Lift early to preserve tires',
-            'corner_7': 'Aggressive acceleration'
-        },
-        'confidence': 0.87
+        "driving_mode": driving_mode,
+        "brake_bias": brake_bias,
+        "confidence": 0.87,
     }
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for Cloud Run."""
     return {"status": "healthy"}
-
-@app.get("/driver-profile/{driver_id}")
-async def get_driver_profile(driver_id: str):
-    """Get driver behavioral profile."""
-    profile = next(
-        (p for p in driver_profiles if p['driver_id'] == driver_id),
-        None
-    )
-    return profile
 ```
 
-**2. `/simulate` - Race simulation endpoint**
+### CI/CD: Cloud Build
 
-```python
-@app.post("/simulate")
-async def simulate_race_endpoint(race_setup: RaceSetup):
-    """
-    Simulate full race with given parameters.
+**Trigger**: Every push to the `pipeline` branch of `bkiritom8/F1-Strategy-Optimizer`
+**Config**: `cloudbuild.yaml` (project root)
+**Output**: Docker image pushed to Artifact Registry (`f1-optimizer` repository)
 
-    Returns:
-        Predicted finishing positions, lap times, fuel usage
-    """
-
-    result = simulate_race(
-        race_setup.dict(),
-        driver_profiles,
-        models
-    )
-
-    return result
-```
-
-#### Cloud Run Deployment
-
-**Configuration**:
 ```yaml
-# Dockerfile
-FROM python:3.10-slim
+# cloudbuild.yaml
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "--platform"
+      - "linux/amd64"
+      - "-t"
+      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
+      - "-f"
+      - "docker/Dockerfile.api"
+      - "."
 
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-CMD ["uvicorn", "serving.api:app", "--host", "0.0.0.0", "--port", "8080"]
+images:
+  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
 ```
 
-**Deployment**:
-```bash
-# Build and deploy
-gcloud builds submit --tag gcr.io/f1-strategy/api
-gcloud run deploy f1-api \
-  --image gcr.io/f1-strategy/api \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --memory 4Gi \
-  --cpu 2 \
-  --timeout 30s \
-  --max-instances 20 \
-  --min-instances 1
-```
-
-**Auto-Scaling**:
-- Min instances: 1 (keep warm)
-- Max instances: 20
-- Target CPU: 70%
-- Target concurrency: 100 requests
-
-### Dashboard (React)
-
-**Technology**: React 18 + Next.js + TypeScript + Tailwind CSS
-
-**Components**:
-
-1. **Driver Profile Viewer**: Scatter plot of aggression vs consistency
-2. **Lap-by-Lap Guidance**: Real-time recommendations
-3. **Race Simulation**: Visualize simulated race outcomes
-4. **Historical Analysis**: Compare past races
-
-**Implementation**:
-```typescript
-// dashboard/src/components/RecommendationPanel.tsx
-
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-interface RaceContext {
-  driver_id: string;
-  lap: number;
-  position: number;
-  // ...
-}
-
-const RecommendationPanel: React.FC = () => {
-  const [context, setContext] = useState<RaceContext>({...});
-  const [recommendation, setRecommendation] = useState(null);
-
-  const fetchRecommendation = async () => {
-    const response = await axios.post(
-      'https://f1-api-xxx.run.app/recommend',
-      context
-    );
-    setRecommendation(response.data);
-  };
-
-  useEffect(() => {
-    fetchRecommendation();
-    const interval = setInterval(fetchRecommendation, 2000);  // Update every 2s
-    return () => clearInterval(interval);
-  }, [context]);
-
-  return (
-    <div className="p-4 bg-gray-900 text-white">
-      <h2>Race Strategy Recommendation</h2>
-
-      {recommendation && (
-        <>
-          <div className="pit-strategy">
-            <h3>Pit Strategy</h3>
-            <p>Recommended Pit Lap: {recommendation.pit_strategy.recommended_lap}</p>
-            <p>Compound: {recommendation.pit_strategy.compound}</p>
-            <p>Win Probability: {recommendation.pit_strategy.win_probability * 100}%</p>
-          </div>
-
-          <div className="driving-mode">
-            <h3>Driving Mode</h3>
-            <p className={`mode-${recommendation.driving_mode.toLowerCase()}`}>
-              {recommendation.driving_mode}
-            </p>
-          </div>
-
-          <div className="brake-bias">
-            <h3>Brake Bias</h3>
-            <p>{recommendation.brake_bias}% front</p>
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-export default RecommendationPanel;
-```
-
-**Deployment**: Vercel or Cloud Run (static hosting)
+**IAM**: Cloud Build SA (`{PROJECT_NUMBER}@cloudbuild.gserviceaccount.com`) has `roles/artifactregistry.writer`.
 
 ## Infrastructure as Code
 
-**Terraform Configuration**:
+All resources are managed in `terraform/main.tf`. Key resources:
 
-```hcl
-# infrastructure/main.tf
+| Resource | Name | Purpose |
+|----------|------|---------|
+| `google_sql_database_instance` | `f1-optimizer-dev` | PostgreSQL 15, private IP |
+| `google_cloud_run_v2_service` | `f1-strategy-api-dev` | FastAPI serving |
+| `google_cloud_run_v2_job` | `f1-data-ingestion` | Batch data ingestion |
+| `google_artifact_registry_repository` | `f1-optimizer` | Docker images |
+| `google_cloudbuild_trigger` | `f1-api-docker-build` | CI on pipeline branch |
+| `google_pubsub_topic` (x4) | `f1-race-events`, etc. | Streaming |
+| `google_storage_bucket` (x2) | `f1optimizer-data-lake`, `f1optimizer-models` | GCS storage |
+| `google_secret_manager_secret` | `f1-db-password` | PostgreSQL password |
+| `google_compute_global_address` | VPC peering range /16 | Cloud SQL private IP |
 
-provider "google" {
-  project = "f1-strategy"
-  region  = "us-central1"
-}
+**Providers**: `google ~>5.0`, `random ~>3.0`, `null ~>3.0`
+**Backend**: `gs://f1-optimizer-terraform-state`
 
-# BigQuery Dataset
-resource "google_bigquery_dataset" "f1_strategy" {
-  dataset_id = "f1_strategy"
-  location   = "US"
-}
+### Deploy Infrastructure
 
-# Pub/Sub Topic
-resource "google_pubsub_topic" "telemetry" {
-  name = "telemetry-topic"
-}
+```bash
+# One-time: create Terraform state bucket
+gsutil mb -p f1optimizer gs://f1-optimizer-terraform-state
+gsutil versioning set on gs://f1-optimizer-terraform-state
 
-# Pub/Sub Subscription
-resource "google_pubsub_subscription" "telemetry_sub" {
-  name  = "telemetry-sub"
-  topic = google_pubsub_topic.telemetry.name
+# Authenticate
+gcloud auth application-default login
 
-  ack_deadline_seconds = 60
-}
+# Initialize and apply
+terraform -chdir=terraform init
+terraform -chdir=terraform apply -var-file=dev.tfvars
+```
 
-# Cloud Run Service
-resource "google_cloud_run_service" "f1_api" {
-  name     = "f1-api"
-  location = "us-central1"
+### Build and Push Docker Image
 
-  template {
-    spec {
-      containers {
-        image = "gcr.io/f1-strategy/api:latest"
+```bash
+# Option 1: via Cloud Build (automatic on pipeline branch push)
+git push origin pipeline
 
-        resources {
-          limits = {
-            memory = "4Gi"
-            cpu    = "2"
-          }
-        }
-      }
-    }
+# Option 2: manual Cloud Build submission
+gcloud builds submit --config cloudbuild.yaml . --project=f1optimizer
 
-    metadata {
-      annotations = {
-        "autoscaling.knative.dev/minScale" = "1"
-        "autoscaling.knative.dev/maxScale" = "20"
-      }
-    }
-  }
+# Option 3: local build and push (requires auth)
+gcloud auth configure-docker us-central1-docker.pkg.dev
+docker build --platform linux/amd64 \
+  -t us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest \
+  -f docker/Dockerfile.api .
+docker push us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest
+```
 
-  traffic {
-    percent         = 100
-    latest_revision = true
-  }
-}
+### Run Data Ingestion (Cloud Run Job)
+
+```bash
+# Execute the ingestion job (async by default)
+gcloud run jobs execute f1-data-ingestion \
+  --region=us-central1 \
+  --project=f1optimizer
+
+# Wait for completion
+gcloud run jobs execute f1-data-ingestion \
+  --region=us-central1 \
+  --project=f1optimizer \
+  --wait
 ```
 
 ## Security
 
-### IAM Roles
+### Service Accounts and IAM
 
-**Service Accounts**:
-- `f1-dataflow@`: BigQuery write, Pub/Sub read
-- `f1-api@`: BigQuery read, Model Registry read
-- `f1-monitoring@`: Cloud Logging write, Monitoring write
+| Service Account | Role | Purpose |
+|----------------|------|---------|
+| `f1-airflow-dev` | `roles/pubsub.admin` | DAG orchestration |
+| `f1-dataflow-dev` | `roles/dataflow.worker` | Dataflow pipeline |
+| `f1-api-dev` | `roles/cloudsql.client` | DB access from Cloud Run |
+| `f1-api-dev` | `roles/run.invoker` | Allow self-invocation |
+| Cloud Build SA | `roles/artifactregistry.writer` | Push Docker images |
+| Compute SA | `roles/secretmanager.secretAccessor` | Read DB password |
 
-**Least Privilege**: Each service account has minimal permissions
-
-### Authentication
-
-**API Authentication**:
-- API keys for dashboard (OAuth 2.0)
-- Service account for internal services
-- No public unauthenticated access (except health check)
+**Least Privilege**: Each SA has only the permissions required for its function.
 
 ### Data Encryption
 
-**At Rest**: Default GCP encryption (AES-256)
-**In Transit**: TLS 1.3 for all API calls
-**Secrets**: Google Secret Manager for API keys, credentials
+- **At Rest**: GCP default AES-256 encryption for Cloud SQL, GCS, Secret Manager
+- **In Transit**: TLS 1.3 for all API calls; Cloud SQL `ENCRYPTED_ONLY` SSL mode
+- **Secrets**: PostgreSQL password auto-generated (32 chars) by Terraform, stored in Secret Manager
 
-## Cost Optimization
+### Authentication
 
-**Estimated Monthly Costs**:
+- API keys / Cloud IAP for dashboard access
+- Service-to-service via service account identity
+- No public unauthenticated access (except `/health`)
 
-| Service | Usage | Cost |
-|---------|-------|------|
-| BigQuery Storage | 150GB | $3 |
-| BigQuery Queries | 500GB/month | $2.50 |
-| Cloud Run | 100K requests/month | $5 |
-| Dataflow (streaming) | 2 workers × 24h | $150 |
-| Vertex AI Training | 10 hrs/month | $20 |
-| Pub/Sub | 10M messages/month | $2 |
-| **Total** | | **~$182/month** |
+## Cost
 
-**Cost Controls**:
-- BigQuery partition pruning (save 90% on queries)
-- Cloud Run min instances = 1 (avoid cold starts, but not expensive)
-- Dataflow auto-scaling (scale down during non-race periods)
-- Model caching (reduce inference costs)
+**Hard budget cap**: $70/month (enforced in `dev.tfvars` and `prod.tfvars`)
+**Target**: <$0.001 per prediction
+
+| Service | Dev Usage | Estimated Cost |
+|---------|-----------|----------------|
+| Cloud SQL (`db-f1-micro`) | Always on | ~$15/month |
+| Cloud Run | On demand (min=0) | ~$3/month |
+| Pub/Sub | 1M msg/month | ~$1/month |
+| Dataflow | Race weekends only | ~$10/month |
+| GCS (data-lake + models) | 50 GB | ~$3/month |
+| Artifact Registry | Image storage | ~$2/month |
+| Cloud Build | On push | ~$2/month |
+| Secret Manager | 1 secret | <$1/month |
+| **Total (dev)** | | **~$37/month** |
+
+**Cost controls** (configured in Terraform):
+- Cloud Run min instances = 0 in dev (no idle cost)
+- Dataflow auto-scales to 0 workers between races
+- GCS lifecycle rules: 30d → Nearline, 365d → Coldline
 
 ## Disaster Recovery
 
-**Backup Strategy**:
-- BigQuery snapshots: Daily
-- Model artifacts: Versioned in GCS
-- Code: GitHub (main source of truth)
+**Backup strategy**:
+- Cloud SQL: Automated daily backups (30-day retention)
+- Model artifacts: Versioned in GCS (`f1optimizer-models` bucket)
+- Code: GitHub (`main` branch, protected)
+- Infrastructure: Terraform state in GCS (versioning enabled)
 
 **Recovery Time Objective (RTO)**: <30 minutes
 **Recovery Point Objective (RPO)**: <24 hours
 
-**Failure Scenarios**:
+**Failure scenarios**:
 
-1. **API Downtime**: Auto-restart Cloud Run, multi-region failover
-2. **Data Corruption**: Restore from snapshot, reprocess from raw
-3. **Model Failure**: Rollback to previous version in Model Registry
-4. **GCP Outage**: Multi-region deployment (future enhancement)
+| Scenario | Detection | Recovery |
+|----------|-----------|---------|
+| API downtime | Cloud Monitoring uptime check | Auto-restart Cloud Run; traffic failover |
+| Cloud SQL failure | Health check | Restore from automated backup |
+| Model degradation | Drift alert | Rollback to previous Vertex AI model version |
+| Data pipeline failure | Dataflow lag alert | Restart Cloud Run Job; re-ingest from Ergast |
+| Budget overrun | Cost alert >$60 | Scale down Dataflow/Cloud Run instances |
 
 ---
 
 **See Also**:
-- CLAUDE.md: High-level overview
+- CLAUDE.md: High-level overview and project status
 - docs/data.md: Data pipeline details
-- docs/models.md: Model serving details
+- docs/models.md: Model architectures
 - docs/monitoring.md: Operational monitoring
