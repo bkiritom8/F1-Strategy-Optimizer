@@ -12,3 +12,6 @@ steps:
 
 images:
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
