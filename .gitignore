@@ -218,3 +218,9 @@ __marimo__/
 # Local project memory (Claude Code - never commit)
 CLAUDE.md
 session_summary.md
+.DS_Store
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+terraform/.terraform/
+terraform/.DS_Store
