@@ -75,6 +75,77 @@ Initialized F1 Complete Race Strategy Optimizer project with comprehensive docum
 
 ---
 
+## Session 2026-02-17 - Terraform: BigQuery → Cloud SQL Migration
+
+**Date**: 2026-02-17
+**Duration**: ~3 hours
+**Participants**: Claude Code
+
+**Summary**:
+Migrated entire GCP infrastructure from BigQuery to Cloud SQL (PostgreSQL 15). Applied Terraform to provision Cloud SQL instance with private IP on VPC.
+
+**Completed**:
+- [x] Removed `google_bigquery_dataset` and `bigquery.googleapis.com` API from Terraform
+- [x] Added `google_sql_database_instance` (`f1-optimizer-dev`, `db-f1-micro`, private IP)
+- [x] Added `google_sql_database` (`f1_data`) and `google_sql_user` (`f1_api`)
+- [x] Auto-generated 32-char PostgreSQL password stored in Secret Manager
+- [x] Added VPC private IP peering (`google_compute_global_address`, `/16` CIDR)
+- [x] Updated IAM: `bigquery.dataViewer` → `roles/cloudsql.client` for `api_sa`
+- [x] Updated Cloud Run env vars: `BIGQUERY_DATASET` → `DB_HOST`, `DB_NAME`, `DB_PORT`
+- [x] Created `dev.tfvars` and `prod.tfvars` (project: f1optimizer, budget: $70)
+- [x] Added `hashicorp/random ~> 3.0` and `hashicorp/null ~> 3.0` providers
+- [x] `terraform apply -var-file=dev.tfvars` applied successfully
+
+**Key Decisions**:
+1. **Cloud SQL over BigQuery**: Lower latency for transactional queries; better fit for operational store; lower cost at this scale
+2. **Private IP only**: No public Cloud SQL endpoint; access only from VPC; reduces attack surface
+3. **Password auto-generated**: No manual secret management; Terraform-generated and stored in Secret Manager
+
+**Next Steps**: Add Cloud SQL write step to data ingestion DAG
+
+---
+
+## Session 2026-02-18 - Cloud Build, Auto Ingestion, Formatting, Docs
+
+**Date**: 2026-02-18
+**Duration**: ~2 hours
+**Participants**: Claude Code
+
+**Summary**:
+Added Cloud Build CI/CD trigger, auto data ingestion null_resource, formatting cleanup, and full documentation update.
+
+**Completed**:
+- [x] Added `cloudbuild.googleapis.com` API to Terraform
+- [x] Created `cloudbuild.yaml` (builds `docker/Dockerfile.api`, pushes to Artifact Registry)
+- [x] Added `google_cloudbuild_trigger` (GitHub: `bkiritom8/F1-Strategy-Optimizer`, branch: `^pipeline$`)
+- [x] Added `data "google_project" "project"` for dynamic Cloud Build SA email
+- [x] Added `google_project_iam_member.cloudbuild_ar_writer` (`roles/artifactregistry.writer`)
+- [x] Added `null_resource.trigger_data_ingestion` (fires `gcloud run jobs execute f1-data-ingestion` after apply)
+- [x] Added `google_cloud_run_service_iam_member.api_sa_run_invoker` (`roles/run.invoker`)
+- [x] Pinned numpy to 1.24.4 in `docker/Dockerfile.airflow` (apache-beam==2.53.0 constraint)
+- [x] Removed unused `import numpy as np` from `src/ingestion/fastf1_ingestion.py`
+- [x] Applied `black` formatting to common/security and ingestion modules
+- [x] Removed all emojis from Python, shell, markdown, YAML files
+- [x] Updated README: Cloud SQL storage section, ASCII architecture diagram
+- [x] Created `mkdocs.yml` for CI documentation build
+- [x] Updated all docs/ files: replaced BigQuery references with Cloud SQL, updated budget to $70/month
+- [x] Committed and pushed: `bbcb087 Add Cloud Build trigger and auto data ingestion null_resource`
+
+**Key Decisions**:
+1. **Cloud Build over manual Docker builds**: Git-triggered CI; image versioning via Artifact Registry; no local Docker required
+2. **null_resource trigger strategy**: Uses `db_instance_name` as trigger key — fires once on first `apply`, only re-fires if Cloud SQL is replaced
+3. **Async job execution**: `gcloud run jobs execute` is async by default; no `--wait` needed for Terraform apply flow
+
+**Known Gap Remaining**:
+- Data ingestion DAG (`f1_data_ingestion.py`) fetches from Ergast/FastF1 but does not write to Cloud SQL — Cloud SQL will remain empty until this is implemented
+
+**Next Steps**:
+1. Add Cloud SQL write step to `airflow/dags/f1_data_ingestion.py`
+2. Connect GitHub repo to Cloud Build via GitHub App (one-time manual step in GCP Console)
+3. Begin data ingestion (Ergast + FastF1 download → Cloud SQL)
+
+---
+
 ## Session Template (Future Entries)
 
 **Date**: YYYY-MM-DD

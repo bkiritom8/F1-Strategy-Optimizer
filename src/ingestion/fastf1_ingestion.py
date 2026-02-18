@@ -10,7 +10,7 @@ Driver profile metrics:
 FastF1 cache stored at /tmp/fastf1_cache (configurable via FASTF1_CACHE env var).
 
 Usage:
-    python -m src.ingestion.fastf1_ingestion [--start-year 2018] [--end-year 2024]
+    python -m src.ingestion.fastf1_ingestion [--start-year 2018] [--end-year 2026]
 """
 
 import argparse
@@ -352,7 +352,18 @@ def run_ingestion(start_year: int = START_YEAR, end_year: Optional[int] = None) 
                     continue
                 event_name = event.get("EventName", "")
                 logger.info("  Round %d: %s", round_num, event_name)
-                ingest_session(conn, season, round_num, "R")
+                if season >= 2025:
+                    try:
+                        ingest_session(conn, season, round_num, "R")
+                    except Exception as exc:
+                        logger.info(
+                            "Round %d/%d not yet available, skipping: %s",
+                            season,
+                            round_num,
+                            exc,
+                        )
+                else:
+                    ingest_session(conn, season, round_num, "R")
                 time.sleep(_SESSION_DELAY)
 
         compute_driver_profiles(conn)
@@ -367,6 +378,6 @@ if __name__ == "__main__":
     )
     parser = argparse.ArgumentParser(description="Ingest FastF1 telemetry data")
     parser.add_argument("--start-year", type=int, default=START_YEAR)
-    parser.add_argument("--end-year", type=int, default=None)
+    parser.add_argument("--end-year", type=int, default=2026)
     args = parser.parse_args()
     run_ingestion(start_year=args.start_year, end_year=args.end_year)

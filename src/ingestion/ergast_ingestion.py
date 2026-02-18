@@ -1,9 +1,9 @@
 """
-Full historical ingestion from the Ergast F1 API (ergast.com/api/f1).
+Full historical ingestion from the Jolpica F1 API (api.jolpi.ca/ergast/f1).
 Supports pagination and rate limiting.  Writes into Cloud SQL via pg8000.
 
 Usage:
-    python -m src.ingestion.ergast_ingestion [--start-season 1950] [--end-season 2024]
+    python -m src.ingestion.ergast_ingestion [--start-season 1950] [--end-season 2026]
 """
 
 import argparse
@@ -17,7 +17,7 @@ from src.database.connection import ManagedConnection
 
 logger = logging.getLogger(__name__)
 
-_BASE_URL = "https://ergast.com/api/f1"
+_BASE_URL = "https://api.jolpi.ca/ergast/f1"
 _RATE_LIMIT_DELAY = 0.5  # seconds between every HTTP request
 _PAGE_SIZE = 100
 _TIMEOUT = 30
@@ -75,7 +75,7 @@ def _paginate(url: str, table_key: str, inner_key: str) -> list[dict]:
 
 def ingest_seasons(conn: Any) -> list[int]:
     logger.info("Ingesting seasons…")
-    seasons = _paginate(f"{_BASE_URL}/seasons.json", "SeasonTable", "Seasons")
+    seasons = _paginate(f"{_BASE_URL}/seasons.json/", "SeasonTable", "Seasons")
     years: list[int] = []
     for s in seasons:
         year = int(s["season"])
@@ -92,7 +92,7 @@ def ingest_seasons(conn: Any) -> list[int]:
 
 def ingest_drivers(conn: Any) -> None:
     logger.info("Ingesting drivers…")
-    drivers = _paginate(f"{_BASE_URL}/drivers.json", "DriverTable", "Drivers")
+    drivers = _paginate(f"{_BASE_URL}/drivers.json/", "DriverTable", "Drivers")
     for d in drivers:
         conn.run(
             """INSERT INTO drivers (driver_id, code, given_name, family_name, date_of_birth, nationality)
@@ -117,7 +117,7 @@ def ingest_drivers(conn: Any) -> None:
 def ingest_constructors(conn: Any) -> None:
     logger.info("Ingesting constructors…")
     constructors = _paginate(
-        f"{_BASE_URL}/constructors.json", "ConstructorTable", "Constructors"
+        f"{_BASE_URL}/constructors.json/", "ConstructorTable", "Constructors"
     )
     for c in constructors:
         conn.run(
@@ -135,7 +135,7 @@ def ingest_constructors(conn: Any) -> None:
 
 
 def ingest_races(conn: Any, season: int) -> list[dict]:
-    data = _get(f"{_BASE_URL}/{season}/races.json")
+    data = _get(f"{_BASE_URL}/{season}/races.json/")
     races = data["MRData"]["RaceTable"]["Races"]
     for race in races:
         circuit = race.get("Circuit", {})
@@ -172,7 +172,7 @@ def ingest_races(conn: Any, season: int) -> list[dict]:
 
 def ingest_results(conn: Any, season: int, round_num: int) -> None:
     try:
-        data = _get(f"{_BASE_URL}/{season}/{round_num}/results.json")
+        data = _get(f"{_BASE_URL}/{season}/{round_num}/results.json/")
         races = data["MRData"]["RaceTable"]["Races"]
         if not races:
             return
@@ -236,7 +236,7 @@ def ingest_lap_times(conn: Any, season: int, round_num: int) -> None:
         offset = 0
         while True:
             data = _get(
-                f"{_BASE_URL}/{season}/{round_num}/laps.json",
+                f"{_BASE_URL}/{season}/{round_num}/laps.json/",
                 {"limit": _PAGE_SIZE, "offset": offset},
             )
             mr = data["MRData"]
@@ -267,7 +267,7 @@ def ingest_lap_times(conn: Any, season: int, round_num: int) -> None:
 
 def ingest_pit_stops(conn: Any, season: int, round_num: int) -> None:
     try:
-        data = _get(f"{_BASE_URL}/{season}/{round_num}/pitstops.json")
+        data = _get(f"{_BASE_URL}/{season}/{round_num}/pitstops.json/")
         races = data["MRData"]["RaceTable"]["Races"]
         if not races:
             return
@@ -289,7 +289,7 @@ def ingest_pit_stops(conn: Any, season: int, round_num: int) -> None:
 
 def ingest_qualifying(conn: Any, season: int, round_num: int) -> None:
     try:
-        data = _get(f"{_BASE_URL}/{season}/{round_num}/qualifying.json")
+        data = _get(f"{_BASE_URL}/{season}/{round_num}/qualifying.json/")
         races = data["MRData"]["RaceTable"]["Races"]
         if not races:
             return
@@ -320,7 +320,7 @@ def ingest_qualifying(conn: Any, season: int, round_num: int) -> None:
 
 def ingest_driver_standings(conn: Any, season: int, round_num: int) -> None:
     try:
-        data = _get(f"{_BASE_URL}/{season}/{round_num}/driverStandings.json")
+        data = _get(f"{_BASE_URL}/{season}/{round_num}/driverStandings.json/")
         lists = data["MRData"]["StandingsTable"]["StandingsLists"]
         if not lists:
             return
@@ -351,7 +351,7 @@ def ingest_driver_standings(conn: Any, season: int, round_num: int) -> None:
 
 def ingest_constructor_standings(conn: Any, season: int, round_num: int) -> None:
     try:
-        data = _get(f"{_BASE_URL}/{season}/{round_num}/constructorStandings.json")
+        data = _get(f"{_BASE_URL}/{season}/{round_num}/constructorStandings.json/")
         lists = data["MRData"]["StandingsTable"]["StandingsLists"]
         if not lists:
             return
@@ -395,7 +395,11 @@ def run_ingestion(start_season: int = 1950, end_season: Optional[int] = None) ->
 
         for season in target:
             logger.info("Season %d …", season)
-            races = ingest_races(conn, season)
+            try:
+                races = ingest_races(conn, season)
+            except Exception as exc:
+                logger.info("Season %d not yet available, skipping: %s", season, exc)
+                continue
             for race in races:
                 rnd = int(race["round"])
                 logger.info("  Round %d: %s", rnd, race.get("raceName", ""))
@@ -418,6 +422,6 @@ if __name__ == "__main__":
         description="Ingest F1 historical data from Ergast API"
     )
     parser.add_argument("--start-season", type=int, default=1950)
-    parser.add_argument("--end-season", type=int, default=None)
+    parser.add_argument("--end-season", type=int, default=2026)
     args = parser.parse_args()
     run_ingestion(start_season=args.start_season, end_season=args.end_season)

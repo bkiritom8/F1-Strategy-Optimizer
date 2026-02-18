@@ -1,6 +1,6 @@
 # ML Models - Architecture, Training, and Validation
 
-**Last Updated**: 2026-02-14
+**Last Updated**: 2026-02-18
 
 ## Overview
 
@@ -788,12 +788,12 @@ def train_all_models(train_df, val_df):
 # Register models in Vertex AI
 from google.cloud import aiplatform
 
-aiplatform.init(project='f1-strategy', location='us-central1')
+aiplatform.init(project='f1optimizer', location='us-central1')
 
 model = aiplatform.Model.upload(
     display_name='tire_degradation_v1',
-    artifact_uri='gs://f1-models/tire_degradation/',
-    serving_container_image_uri='gcr.io/cloud-aiplatform/prediction/tf2-cpu.2-8:latest'
+    artifact_uri='gs://f1optimizer-models/tire_degradation/',
+    serving_container_image_uri='us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest'
 )
 ```
 
