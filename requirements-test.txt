@@ -40,6 +40,7 @@ pytest-mock>=3.12.0
 ruff>=0.1.14
 black>=24.1.0
 mypy>=1.8.0
+types-requests>=2.31.0
 
 # Security scanners
 bandit>=1.7.6

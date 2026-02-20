@@ -4,6 +4,7 @@ Reads DB_HOST, DB_NAME, DB_PORT, DB_USER, DB_PASSWORD from environment.
 """
 
 import os
+import threading
 import time
 import logging
 from typing import Optional
@@ -55,34 +56,37 @@ def _create_connection() -> pg8000.native.Connection:
 
 
 class ConnectionPool:
-    """Simple thread-unsafe pool suitable for single-threaded ingestion jobs."""
+    """Thread-safe connection pool for ingestion jobs."""
 
     def __init__(self, size: int = _POOL_SIZE) -> None:
         self._size = size
         self._pool: list[pg8000.native.Connection] = []
+        self._lock = threading.Lock()
         for _ in range(size):
             self._pool.append(_create_connection())
         logger.info("Connection pool initialised with %d connections", size)
 
     def get(self) -> pg8000.native.Connection:
-        if self._pool:
-            conn = self._pool.pop()
-            try:
-                conn.run("SELECT 1")
-                return conn
-            except Exception:
-                logger.warning("Stale connection detected; replacing.")
-                return _create_connection()
+        with self._lock:
+            if self._pool:
+                conn = self._pool.pop()
+                try:
+                    conn.run("SELECT 1")
+                    return conn
+                except Exception:
+                    logger.warning("Stale connection detected; replacing.")
+                    return _create_connection()
         return _create_connection()
 
     def put(self, conn: pg8000.native.Connection) -> None:
-        if len(self._pool) < self._size:
-            self._pool.append(conn)
-        else:
-            try:
-                conn.close()
-            except Exception:
-                pass
+        with self._lock:
+            if len(self._pool) < self._size:
+                self._pool.append(conn)
+            else:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
     def close_all(self) -> None:
         for conn in self._pool:
@@ -113,13 +117,20 @@ class ManagedConnection:
         self._conn = get_pool().get()
         return self._conn
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self._conn is not None:
             if exc_type is not None:
                 try:
                     self._conn.run("ROLLBACK")
                 except Exception:
                     pass
+            else:
+                # Commit any remaining uncommitted work before returning to pool.
+                # Per-race/per-session COMMITs in the ingestion scripts mean this
+                # is usually a no-op, but it acts as a safety net.
+                try:
+                    self._conn.run("COMMIT")
+                except Exception:
+                    pass
             get_pool().put(self._conn)
             self._conn = None
-        return False

@@ -30,8 +30,8 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 
 **Objectives**:
 - Set up GCP project and services
-- Download historical data (Ergast + FastF1)
-- Create BigQuery raw tables
+- Download historical data (Jolpica + FastF1)
+- Create Cloud SQL tables (lap_features, telemetry_features, driver_profiles)
 - Establish data quality checks
 
 **Deliverables**:
@@ -45,7 +45,7 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 - [x] Terraform configuration applied (`dev.tfvars`)
 
 [OK] **Data Ingestion**:
-- [ ] Ergast API data downloaded (1950-2024, 1,300+ races)
+- [ ] Jolpica API data downloaded (1950-2026, 1,300+ races)
 - [ ] FastF1 telemetry downloaded (2018-2024, 200+ races)
 - [ ] Data inserted into Cloud SQL (`lap_features`, `telemetry_features`)
 - [ ] Data completeness validated (≥95%)
@@ -56,13 +56,13 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 - [x] mkdocs.yml created for CI documentation build
 
 **Success Metrics**:
-- Cloud SQL `lap_features` populated with ~1M+ records from Ergast
+- Cloud SQL `lap_features` populated with ~1M+ records from Jolpica
 - `telemetry_features` populated from FastF1 (2018-2024)
 - Data completeness >95%
 - All team members have GCP access
 
 **Risks & Mitigations**:
-- **Risk**: Ergast API slow/unreliable → **Mitigation**: Implement retry logic, cache intermediate results
+- **Risk**: Jolpica API slow/unreliable → **Mitigation**: Implement retry logic, cache intermediate results
 - **Risk**: FastF1 download takes >1 week → **Mitigation**: Parallelize downloads, prioritize recent seasons
 
 ---

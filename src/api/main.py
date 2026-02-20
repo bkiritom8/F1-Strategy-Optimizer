@@ -59,6 +59,10 @@ ENABLE_HTTPS = os.getenv("ENABLE_HTTPS", "false").lower() == "true"
 ENABLE_IAM = os.getenv("ENABLE_IAM", "true").lower() == "true"
 ENV = os.getenv("ENV", "local")
 
+# ML model state — loaded once at startup
+_strategy_model = None
+_models_loaded_from_gcs = False
+
 # Add middleware
 if ENABLE_HTTPS:
     app.add_middleware(HTTPSRedirectMiddleware, enabled=True)
@@ -108,6 +112,7 @@ class StrategyRecommendation(BaseModel):
     driving_mode: str
     brake_bias: float
     confidence: float
+    model_source: str  # "ml_model" or "rule_based_fallback"
 
 
 # Routes
@@ -199,17 +204,56 @@ async def recommend_strategy(
     start_time = time.time()
 
     try:
-        # Simulate strategy recommendation (replace with actual model)
-        # This is a placeholder - actual implementation would call ML models
-        recommendation = StrategyRecommendation(
-            recommended_action="CONTINUE" if request.current_lap < 30 else "PIT_SOON",
-            pit_window_start=30 if request.current_lap < 30 else None,
-            pit_window_end=35 if request.current_lap < 30 else None,
-            target_compound="HARD" if request.current_compound == "MEDIUM" else "SOFT",
-            driving_mode="BALANCED",
-            brake_bias=52.5,
-            confidence=0.87,
-        )
+        if _strategy_model is not None:
+            import numpy as np
+
+            features = np.array(
+                [
+                    [
+                        request.current_lap,
+                        request.fuel_level,
+                        request.track_temp,
+                        request.air_temp,
+                    ]
+                ]
+            )
+            pred = _strategy_model.predict(features)[0]
+            recommended_action = "PIT_SOON" if pred > 0.5 else "CONTINUE"
+            recommendation = StrategyRecommendation(
+                recommended_action=recommended_action,
+                pit_window_start=(
+                    request.current_lap + 1
+                    if recommended_action == "PIT_SOON"
+                    else None
+                ),
+                pit_window_end=(
+                    request.current_lap + 5
+                    if recommended_action == "PIT_SOON"
+                    else None
+                ),
+                target_compound=(
+                    "HARD" if request.current_compound == "MEDIUM" else "SOFT"
+                ),
+                driving_mode="BALANCED",
+                brake_bias=52.5,
+                confidence=float(abs(pred - 0.5) * 2),
+                model_source="ml_model",
+            )
+        else:
+            recommendation = StrategyRecommendation(
+                recommended_action=(
+                    "CONTINUE" if request.current_lap < 30 else "PIT_SOON"
+                ),
+                pit_window_start=30 if request.current_lap < 30 else None,
+                pit_window_end=35 if request.current_lap < 30 else None,
+                target_compound=(
+                    "HARD" if request.current_compound == "MEDIUM" else "SOFT"
+                ),
+                driving_mode="BALANCED",
+                brake_bias=52.5,
+                confidence=0.87,
+                model_source="rule_based_fallback",
+            )
 
         # Track metrics
         duration = time.time() - start_time
@@ -255,15 +299,37 @@ async def get_drivers(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
 
-    # Placeholder - would query Cloud SQL in production
-    drivers = [
-        {
-            "driver_id": "max_verstappen",
-            "name": "Max Verstappen",
-            "team": "Red Bull Racing",
-        },
-        {"driver_id": "lewis_hamilton", "name": "Lewis Hamilton", "team": "Mercedes"},
-    ]
+    from src.database.connection import ManagedConnection
+
+    drivers = []
+    try:
+        with ManagedConnection() as conn:
+            rows = conn.run(
+                "SELECT driver_id, given_name, family_name, nationality"
+                " FROM drivers ORDER BY family_name LIMIT 200"
+            )
+        drivers = [
+            {
+                "driver_id": r[0],
+                "name": f"{r[1]} {r[2]}",
+                "nationality": r[3],
+            }
+            for r in (rows or [])
+        ]
+    except Exception as e:
+        logger.warning("DB unavailable for /data/drivers, returning fallback: %s", e)
+        drivers = [
+            {
+                "driver_id": "max_verstappen",
+                "name": "Max Verstappen",
+                "nationality": "Dutch",
+            },
+            {
+                "driver_id": "lewis_hamilton",
+                "name": "Lewis Hamilton",
+                "nationality": "British",
+            },
+        ]
 
     REQUEST_COUNT.labels(method="GET", endpoint="/data/drivers", status="200").inc()
 
@@ -331,10 +397,33 @@ async def general_exception_handler(request, exc):
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    """Initialize on startup"""
+    """Initialize on startup — load ML models from GCS if available."""
+    global _strategy_model, _models_loaded_from_gcs
     logger.info(f"F1 Strategy Optimizer API starting in {ENV} environment")
     logger.info(f"HTTPS enabled: {ENABLE_HTTPS}")
     logger.info(f"IAM enabled: {ENABLE_IAM}")
+
+    try:
+        from google.cloud import storage
+        import io
+        import joblib
+
+        gcs_client = storage.Client()
+        bucket = gcs_client.bucket("f1optimizer-models")
+        blob = bucket.blob("strategy_predictor/latest/model.pkl")
+        if blob.exists():
+            buf = io.BytesIO()
+            blob.download_to_file(buf)
+            buf.seek(0)
+            _strategy_model = joblib.load(buf)
+            _models_loaded_from_gcs = True
+            logger.info("ML model loaded from GCS: strategy_predictor/latest/model.pkl")
+        else:
+            logger.warning(
+                "No ML model found at strategy_predictor/latest/model.pkl — using rule-based fallback"
+            )
+    except Exception as e:
+        logger.warning("Model load failed, using rule-based fallback: %s", e)
 
 
 if __name__ == "__main__":

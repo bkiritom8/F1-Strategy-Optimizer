@@ -187,7 +187,7 @@ class CORSMiddleware(BaseHTTPMiddleware):
     """CORS middleware with configurable origins"""
 
     def __init__(
-        self, app: ASGIApp, allow_origins: list = None, allow_credentials: bool = True
+        self, app: ASGIApp, allow_origins: list = [], allow_credentials: bool = True
     ):
         super().__init__(app)
         self.allow_origins = allow_origins or [

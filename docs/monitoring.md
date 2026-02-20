@@ -292,7 +292,7 @@ def get_daily_costs():
     billing_info = billing_client.get_project_billing_info(name=project_name)
 
     # Log projected monthly cost metric
-    # Note: Exact per-service breakdown requires billing export to GCS/BigQuery
+    # Note: Exact per-service breakdown requires billing export to GCS
     # For now, use GCP Console > Billing > Reports for detailed breakdown
 
     log_metric("cost_total_projected", estimated_monthly_cost())
