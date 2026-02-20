@@ -78,7 +78,7 @@ python scripts/init_db.py
 
 This will:
 - Create necessary directories
-- Initialize mock BigQuery database
+- Initialize local PostgreSQL database
 - Create sample data
 - Verify environment
 
@@ -94,7 +94,7 @@ This starts:
 - **Airflow** (webserver + scheduler)
 - **PostgreSQL** (Airflow metadata)
 - **Redis** (Celery backend)
-- **Mock BigQuery** (local data warehouse)
+- **PostgreSQL** (local data store — Cloud SQL equivalent for local dev)
 - **Mock Pub/Sub** (message broker)
 - **Mock Dataflow** (pipeline executor)
 - **FastAPI** (strategy API)
@@ -111,7 +111,7 @@ docker-compose -f docker-compose.f1.yml ps
 # Check service health
 curl http://localhost:8080/health  # Airflow
 curl http://localhost:8000/health  # API
-curl http://localhost:9050/health  # Mock BigQuery
+curl http://localhost:5432/  # PostgreSQL (use psql or pg_isready)
 curl http://localhost:9051/health  # Mock Dataflow
 ```
 
@@ -335,17 +335,17 @@ python scripts/init_db.py
 docker-compose -f docker-compose.f1.yml up -d
 ```
 
-### Mock Service Connection Issues
+### PostgreSQL Connection Issues
 
 ```bash
 # Check service is running
-docker-compose -f docker-compose.f1.yml ps mock-bigquery
+docker-compose -f docker-compose.f1.yml ps postgres
 
 # Check logs
-docker-compose -f docker-compose.f1.yml logs mock-bigquery
+docker-compose -f docker-compose.f1.yml logs postgres
 
 # Restart service
-docker-compose -f docker-compose.f1.yml restart mock-bigquery
+docker-compose -f docker-compose.f1.yml restart postgres
 ```
 
 ### Python Import Errors

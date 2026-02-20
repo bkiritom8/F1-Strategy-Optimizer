@@ -1,0 +1,47 @@
+# ── PyTorch (CUDA 11.8) ───────────────────────────────────────────────────────
+torch==2.1.2+cu118
+torchvision==0.16.2+cu118
+--extra-index-url https://download.pytorch.org/whl/cu118
+
+# ── TensorFlow (GPU, for distribution strategies) ────────────────────────────
+tensorflow==2.14.0
+
+# ── Gradient boosting ─────────────────────────────────────────────────────────
+scikit-learn==1.4.2
+xgboost==2.0.3
+lightgbm==4.3.0
+catboost==1.2.3
+
+# ── Vertex AI + KFP SDK ───────────────────────────────────────────────────────
+google-cloud-aiplatform[pipelines]==1.51.0
+kfp==2.7.0
+kfp-pipeline-spec==0.3.0
+
+# ── GCP client libraries ──────────────────────────────────────────────────────
+google-cloud-storage==2.16.0
+google-cloud-logging==3.10.0
+google-cloud-pubsub==2.21.1
+google-cloud-secret-manager==2.20.0
+google-auth==2.29.0
+
+# ── Cloud SQL ─────────────────────────────────────────────────────────────────
+cloud-sql-python-connector[pg8000]==1.9.1
+pg8000==1.31.2
+
+# ── Data ─────────────────────────────────────────────────────────────────────
+pandas==2.2.2
+numpy==1.26.4
+scipy==1.13.0
+pyarrow==15.0.2
+fastparquet==2024.2.0
+
+# ── Experiment tracking ───────────────────────────────────────────────────────
+mlflow==2.12.2
+optuna==3.6.1
+
+# ── Explainability ────────────────────────────────────────────────────────────
+shap==0.45.0
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==8.2.0
+pytest-cov==5.0.0

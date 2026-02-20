@@ -50,9 +50,9 @@ The F1 Strategy Optimizer leverages 74 years of comprehensive Formula 1 data spa
 
 ## Primary Data Sources
 
-### 1. Ergast F1 API (1950-2024)
+### 1. Jolpica F1 API (1950-2026)
 
-**Source**: http://ergast.com/mdb/
+**Source**: https://api.jolpi.ca/ergast/f1
 
 **Coverage**:
 - 1,300+ races
@@ -72,9 +72,9 @@ The F1 Strategy Optimizer leverages 74 years of comprehensive Formula 1 data spa
 
 **Sample Endpoint**:
 ```
-GET http://ergast.com/api/f1/2024.json
-GET http://ergast.com/api/f1/2024/1/results.json
-GET http://ergast.com/api/f1/2024/1/pitstops.json
+GET https://api.jolpi.ca/ergast/f1/2024/
+GET https://api.jolpi.ca/ergast/f1/2024/1/results/
+GET https://api.jolpi.ca/ergast/f1/2024/1/pitstops/
 ```
 
 **Fields Used**:
@@ -82,7 +82,7 @@ GET http://ergast.com/api/f1/2024/1/pitstops.json
 - `driverId`, `constructorId`, `grid`, `position`, `points`
 - `lap`, `stop`, `duration`, `time`
 
-### 2. FastF1 Library (2018-2024)
+### 2. FastF1 Library (2018-2026)
 
 **Source**: https://github.com/theOehrly/FastF1
 
@@ -127,19 +127,19 @@ telemetry = laps.pick_driver('VER').pick_fastest().get_telemetry()
 - Circuit length, number of corners, elevation changes
 - Historical lap records
 - Typical pit stop loss time
-- Source: Manual curation + Ergast API
+- Source: Manual curation + Jolpica API
 
 **Weather Data**:
 - Temperature, humidity, precipitation
 - Wind speed and direction
 - Track temperature
-- Source: OpenWeatherMap API (historical) + race reports
+- Source: FastF1 session weather data (air temp, track temp, humidity, wind, rainfall)
 
 **Driver Statistics**:
 - Career wins, podiums, championships
 - Average finishing position
 - DNF rate
-- Source: Ergast API aggregation
+- Source: Jolpica API aggregation
 
 **Vehicle Setup Specifications**:
 - Wing angles (front/rear)
@@ -151,11 +151,11 @@ telemetry = laps.pick_driver('VER').pick_fastest().get_telemetry()
 
 ### Ownership & Licensing
 
-**Ergast API**:
-- Public domain data aggregation
+**Jolpica API**:
+- Public domain data aggregation (community mirror of the deprecated Ergast API)
 - Provided under open-source model
 - No commercial restrictions for educational use
-- Attribution required: "Data provided by Ergast API"
+- Attribution required: "Data provided by Jolpica/Ergast"
 
 **FastF1**:
 - Community-contributed telemetry extraction
@@ -186,10 +186,10 @@ telemetry = laps.pick_driver('VER').pick_fastest().get_telemetry()
 
 ### Stage 1: Historical Data Ingestion (Week 1-2)
 
-**Ergast API Download**:
+**Jolpica API Download**:
 ```bash
-# Download all seasons 1950-2024
-python data/download.py --source ergast --start-year 1950 --end-year 2024
+# Download all seasons 1950-2026
+python data/download.py --source ergast --start-year 1950 --end-year 2026
 
 # Expected output:
 # - races.json (1,300+ races)
@@ -200,8 +200,8 @@ python data/download.py --source ergast --start-year 1950 --end-year 2024
 
 **FastF1 Telemetry Download**:
 ```bash
-# Download telemetry 2018-2024
-python data/download.py --source fastf1 --start-year 2018 --end-year 2024
+# Download telemetry 2018-2026
+python data/download.py --source fastf1 --start-year 2018 --end-year 2026
 
 # Expected output:
 # - telemetry/ (200+ race sessions)
@@ -218,7 +218,7 @@ gcloud run jobs execute f1-data-ingestion \
   --wait
 
 # Tables populated in f1_data database (Cloud SQL PostgreSQL 15):
-# - lap_features      (Ergast race/lap results, 1950-2024)
+# - lap_features      (Jolpica race/lap results, 1950-2026)
 # - telemetry_features (FastF1 10Hz, 2018-2024)
 # - driver_profiles   (extracted behavioral profiles)
 ```
@@ -527,7 +527,7 @@ assert (completeness > 0.95).all(), "Feature completeness must be >95%"
 **Post-Race Updates** (automated):
 ```bash
 # After each race (23 races per season)
-# 1. Download new race data from Ergast API
+# 1. Download new race data from Jolpica API
 # 2. Download telemetry from FastF1
 # 3. Insert to Cloud SQL lap_features / telemetry_features tables
 # 4. Run preprocessing pipeline
@@ -633,7 +633,7 @@ ML training runs as an isolated pipeline stage with containerized, distributed e
 **Input Storage** (READ-ONLY):
 ```
 Cloud SQL Tables (PostgreSQL 15, f1_data database):
-├── lap_features         # Primary feature store (Ergast, 1950-2024)
+├── lap_features         # Primary feature store (Jolpica, 1950-2026)
 ├── telemetry_features   # FastF1 10Hz telemetry (2018-2024)
 ├── driver_profiles      # Driver behavioral profiles
 ├── VIEW: train          # Training split (1950-2022)
@@ -677,7 +677,7 @@ GCS Buckets:
 ```
 
 **Prohibited Destinations**:
-- [FAIL] Training jobs NEVER write to BigQuery `raw_*` tables
+- [FAIL] Training jobs NEVER write to Cloud SQL `raw_*` tables
 - [FAIL] Training jobs NEVER write to `processed_data` tables
 - [FAIL] Training jobs NEVER modify feature store directly
 
@@ -690,7 +690,7 @@ Training Job:
   - Entrypoint: python pipeline/training/worker.py
   - Resources: Autoscaling worker pool (CPU/GPU abstracted)
   - Networking: Secure internal VPC, no public internet access
-  - IAM: Training service account (read: BigQuery, write: GCS artifacts)
+  - IAM: Training service account (read: Cloud SQL, write: GCS artifacts)
 ```
 
 **Distributed Training**:
@@ -935,7 +935,7 @@ def validate_training_data(split: str) -> bool:
 
 **Cost Optimization**:
 - Use preemptible VMs for non-critical training
-- Cache preprocessed features to reduce BigQuery query costs
+- Cache preprocessed features to reduce Cloud SQL query load
 - Autoscale to zero when idle
 - Use spot instances (up to 70% cost reduction)
 
@@ -982,7 +982,7 @@ All data pipeline stages (ingestion, processing, validation, training) are orche
 │                                                         │
 │  ┌──────────────┐                                      │
 │  │   Ingest     │                                      │
-│  │   Ergast     │                                      │
+│  │   Jolpica    │                                      │
 │  └──────┬───────┘                                      │
 │         │                                               │
 │         ▼                                               │
@@ -1028,9 +1028,9 @@ All data pipeline stages (ingestion, processing, validation, training) are orche
 
 ### DAG Node Definitions
 
-**Node**: Ingest Ergast
+**Node**: Ingest Jolpica
 ```yaml
-task_id: ingest_ergast
+task_id: ingest_jolpica
 container: gcr.io/f1-strategy/data-ingestion:latest
 command: ["python", "data/download.py", "--source=ergast"]
 dependencies: []
@@ -1057,7 +1057,7 @@ timeout: 21600s  # 6 hours
 task_id: validate_raw_data
 container: gcr.io/f1-strategy/data-validator:latest
 command: ["python", "data/validate.py", "--stage=raw"]
-dependencies: [ingest_ergast, ingest_fastf1]
+dependencies: [ingest_jolpica, ingest_fastf1]
 retry_policy:
   max_retries: 1
   retry_delay: 0s
@@ -1172,7 +1172,7 @@ default_timeout: 3600
 default_retries: 2
 
 tasks:
-  - task_id: ingest_ergast
+  - task_id: ingest_jolpica
     container: gcr.io/f1-strategy/data-ingestion:latest
     command: ["python", "data/download.py", "--source=ergast"]
     dependencies: []
@@ -1189,7 +1189,7 @@ tasks:
   - task_id: validate_raw_data
     container: gcr.io/f1-strategy/data-validator:latest
     command: ["python", "data/validate.py", "--stage=raw"]
-    dependencies: [ingest_ergast, ingest_fastf1]
+    dependencies: [ingest_jolpica, ingest_fastf1]
     timeout: 300
     retries: 1
 
@@ -1225,11 +1225,11 @@ on_success:
 ```json
 {
   "dag_run_id": "f1_data_pipeline_20260214_120000",
-  "task_id": "ingest_ergast",
+  "task_id": "ingest_jolpica",
   "timestamp": "2026-02-14T12:00:00Z",
   "level": "INFO",
   "event_type": "task_start",
-  "message": "Starting Ergast data ingestion",
+  "message": "Starting Jolpica data ingestion",
   "metadata": {
     "container": "gcr.io/f1-strategy/data-ingestion:v1.2.0",
     "worker_node": "training-worker-3",
@@ -1526,7 +1526,7 @@ Critical Alerts:
     severity: warning
     channels: [slack]
     sla_thresholds:
-      ingest_ergast: 3600s     # 1 hour
+      ingest_jolpica: 3600s    # 1 hour
       ingest_fastf1: 21600s    # 6 hours
       validate_raw_data: 300s  # 5 minutes
       process_clean: 7200s     # 2 hours
@@ -1557,7 +1557,7 @@ Medium Alerts:
 ```
 
 **Observability Scope**:
-- [OK] Data ingestion (Ergast, FastF1)
+- [OK] Data ingestion (Jolpica, FastF1)
 - [OK] Data processing and cleaning
 - [OK] Data validation stages
 - [OK] Feature engineering and aggregation
@@ -1571,7 +1571,7 @@ Cost controls are enforced across all compute-heavy pipeline stages to prevent b
 
 ```yaml
 Task Resource Limits:
-  ingest_ergast:
+  ingest_jolpica:
     cpu_limit: 2 cores
     memory_limit: 8Gi
     timeout: 3600s
@@ -1681,7 +1681,7 @@ Cost Metrics (per DAG run, per stage):
     type: gauge
     labels: [dag_id, dag_run_id]
     description: Total cost for DAG run
-    export: BigQuery billing table
+    export: GCS cost export bucket
 
   cost.task_compute:
     type: gauge
@@ -1711,7 +1711,7 @@ Cost Dashboard:
 - Preemptible VMs for data processing (70% cost reduction)
 - Scale-to-zero for idle worker pools
 - Storage lifecycle policies (move to Nearline after 30 days)
-- Cached BigQuery query results (24hr cache)
+- Cached Cloud SQL query results (24hr cache)
 - Spot instances for training workloads
 
 ### Failure Isolation & Blast Radius

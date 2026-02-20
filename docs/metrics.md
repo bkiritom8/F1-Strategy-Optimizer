@@ -431,7 +431,7 @@ Total P99 Latency: 450ms
 ```
 Telemetry arrives (Pub/Sub) → t=0
 ├─ Dataflow processing: 2s
-├─ BigQuery write: 1s
+├─ Cloud SQL write: 0.1s
 ├─ API call: 0.5s
 └─ Dashboard render: 0.5s
 Total: 4s
@@ -466,7 +466,7 @@ uptime = (successful_health_checks / total_health_checks) * 100
 
 **Formula**:
 ```python
-monthly_cost = bigquery_cost + cloud_run_cost + dataflow_cost + vertex_ai_cost
+monthly_cost = cloud_sql_cost + cloud_run_cost + dataflow_cost + vertex_ai_cost
 api_calls = total_api_requests
 
 cost_per_prediction = monthly_cost / api_calls
@@ -477,7 +477,7 @@ cost_per_prediction = monthly_cost / api_calls
 **Optimization**:
 - Cache common queries (driver profiles, circuit data)
 - Batch predictions where possible
-- Use BigQuery partition pruning
+- Use Cloud SQL indexes and query optimization
 - Scale down Dataflow during non-race periods
 
 **Cost Breakdown**:
@@ -485,7 +485,7 @@ cost_per_prediction = monthly_cost / api_calls
 Monthly Budget: $200
 API Calls: 100,000
 
-BigQuery: $5 (2.5%)
+Cloud SQL: $12 (17%)
 Cloud Run: $20 (10%)
 Dataflow: $150 (75%)
 Vertex AI: $20 (10%)

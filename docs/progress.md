@@ -146,6 +146,89 @@ Added Cloud Build CI/CD trigger, auto data ingestion null_resource, formatting c
 
 ---
 
+## Session 2026-02-18 - Jolpica Migration, Vertex AI Infra, Season Range Extension
+
+**Date**: 2026-02-18
+**Duration**: ~1.5 hours
+**Participants**: Claude Code
+
+**Summary**:
+Migrated data ingestion from the deprecated Ergast API to Jolpica, extended season coverage to 2026, added Vertex AI training infrastructure to Terraform, and set Cloud Run Job resource limits.
+
+**Completed**:
+- [x] Migrated `src/ingestion/ergast_ingestion.py`: base URL → `https://api.jolpi.ca/ergast/f1`; trailing `/` added to all 10 endpoint URLs (Jolpica requirement); `ingest_races` wrapped in try/except to skip incomplete/future seasons; `--end-season` default → 2026
+- [x] Extended `src/ingestion/fastf1_ingestion.py` to 2026: `--end-year` default → 2026; seasons >= 2025 wrapped in explicit try/except logging missing rounds at INFO level (not WARNING)
+- [x] Added Vertex AI training infra to `terraform/main.tf`:
+  - `google_storage_bucket.training` (`f1optimizer-training`, versioned)
+  - `google_service_account.training_sa` (`f1-training-dev`)
+  - `google_project_iam_member.training_sa_custom_code` (`roles/aiplatform.customCodeServiceAgent`)
+  - `google_project_iam_member.training_sa_storage_admin` (`roles/storage.objectAdmin`)
+  - `google_project_iam_member.api_sa_aiplatform_user` (`roles/aiplatform.user` on `api_sa`)
+  - `service_accounts` output updated to include `training` key
+- [x] Added resource limits to `google_cloud_run_v2_job.f1_data_ingestion`: `memory = "4Gi"`, `cpu = "2"`
+- [x] Updated CLAUDE.md: Jolpica references, 1950-2026 data range, Vertex AI infra details, component status, known gaps, next steps
+- [x] Committed `3377641` and pushed to `origin/main`
+
+**Key Decisions**:
+1. **Jolpica over Ergast**: Ergast API is deprecated; Jolpica is the maintained community mirror with identical response schema but requires trailing slashes on all endpoints
+2. **Vertex AI infra only, no job resource**: Training jobs will be submitted programmatically by teammates; Terraform provisions the SA, bucket, and IAM only — no `google_vertex_ai_custom_job` resource to avoid hardcoding model config
+3. **Season >= 2025 logged at INFO**: Missing rounds in 2025/2026 are expected (race hasn't happened), not errors — INFO avoids false alarm noise in Cloud Logging
+
+**Known Gap Remaining**:
+- Data ingestion DAG (`f1_data_ingestion.py`) still does not write to Cloud SQL — remains the top priority
+
+**Next Steps**:
+1. Add Cloud SQL write step to `airflow/dags/f1_data_ingestion.py`
+2. Write training container code and Vertex AI job submission scripts using `f1-training-dev` SA
+3. Begin driver profile extraction and feature engineering
+
+---
+
+## Session 2026-02-18 - ML Handoff: Repo Restructure + Distributed Pipeline
+
+**Date**: 2026-02-18
+**Duration**: ~3 hours
+**Participants**: Claude Code
+
+**Summary**:
+Full ML team handoff — repo restructured into clean domain separation, distributed Vertex AI training pipeline built end-to-end, ML models implemented, Docker image created, tests written for Vertex AI execution.
+
+**Completed**:
+- [x] Repo restructured: `scripts/` → `pipeline/scripts/`, `terraform/` → `infra/terraform/`, new `ml/`, `api/`, `monitoring/` directories
+- [x] Updated Dockerfiles (`COPY pipeline/scripts/`), CI (`cd infra/terraform`), cloudbuild.yaml (added `build-ml` step + `ml:latest` image)
+- [x] `infra/terraform/vertex_workbench.tf`: `f1-ml-workbench` (n1-standard-8, T4, 60-min auto-shutdown)
+- [x] `infra/terraform/vertex_ml.tf`: notebooks/workbench APIs, Pipelines IAM, `f1-pipeline-trigger` Cloud Run Job, `f1optimizer-pipeline-runs` GCS bucket
+- [x] `pipeline/scripts/workbench_startup.sh`: installs deps, pulls secrets, sets env vars, ADC
+- [x] `ml/distributed/`: `cluster_config.py` (4 configs), `distribution_strategy.py` (Data/Model/HP parallel), `data_sharding.py` (Cloud SQL → GCS shards), `aggregator.py` (best checkpoint → GCS + Pub/Sub)
+- [x] `ml/dag/f1_pipeline.py`: full 5-step KFP pipeline (validate → features → [train×2 parallel] → [eval×2 parallel] → deploy)
+- [x] `ml/dag/components/`: 6 `@dsl.component` files — each with Cloud Logging, GCS artifacts, Pub/Sub status, `retries=2`
+- [x] `ml/dag/pipeline_runner.py`: compile → GCS upload → Vertex AI submit → monitor
+- [x] `ml/models/base_model.py`: abstract base with GCS save/load, Vertex AI Experiments, Pub/Sub
+- [x] `ml/models/strategy_predictor.py`: XGBoost + LightGBM ensemble, Vertex AI entry point
+- [x] `ml/models/pit_stop_optimizer.py`: LSTM, MirroredStrategy, Vertex AI entry point
+- [x] `ml/features/feature_store.py`: Cloud SQL → DataFrame (ADC only)
+- [x] `ml/features/feature_pipeline.py`: 7 derived feature sets
+- [x] `docker/Dockerfile.ml`: nvidia/cuda:11.8 + Python 3.10, NVIDIA env vars, no CMD
+- [x] `docker/requirements-ml.txt`: PyTorch/CUDA, TF, XGBoost, LightGBM, KFP SDK, GCP libs
+- [x] `ml/tests/`: 4 test files + `run_tests_on_vertex.py` (Vertex AI Custom Job, n1-standard-4)
+- [x] `ml/HANDOFF.md`: complete handoff document for ML team
+
+**Key Decisions**:
+1. **No local testing**: all tests run on Vertex AI Custom Jobs only
+2. **No terraform apply**: only file changes — team applies when ready
+3. **No git clone in Workbench startup**: ML team handles their own repo access
+4. **KFP v2 as DAG**: existing Airflow DAG kept in place; Vertex AI Pipelines is the new orchestration layer
+
+**Next Steps for ML Team**:
+1. Access `f1-ml-workbench`, run `python ml/tests/run_tests_on_vertex.py`
+2. Trigger first pipeline run: `python ml/dag/pipeline_runner.py --run-id first-run`
+3. Wire `src/api/main.py` to promoted models in `gs://f1optimizer-models/*/latest/`
+4. Populate `driver_profiles` table
+
+**Blockers**: None — infrastructure complete
+
+---
+
 ## Session Template (Future Entries)
 
 **Date**: YYYY-MM-DD
@@ -178,6 +261,34 @@ Added Cloud Build CI/CD trigger, auto data ingestion null_resource, formatting c
 **Notes**: [Additional context]
 
 ---
+
+## Session 2026-02-19 — GPU Training Infra, Dev Setup, Image Builds, Workbench Fix
+
+**Date**: 2026-02-19
+**Participants**: Claude Code
+
+**Completed**:
+- Built and pushed all 3 Docker images (api:latest, ingestion:latest, ml:latest) via Cloud Build (build `2e867ccb`, SUCCESS)
+- Fixed Workbench: hardcoded zone to `us-central1-a`, kept 150 GB SSD boot disk (minimum for Workbench image), switched data disk to PD_STANDARD to avoid SSD_TOTAL_GB quota (limit 250 GB in us-central1)
+- Full `terraform apply`: 11 added, 1 changed, 5 destroyed. All Cloud Run jobs + service deployed. API live at `https://f1-strategy-api-dev-lu32hl5eqa-uc.a.run.app`
+- Added `VERTEX_T4` profile to `ml/distributed/cluster_config.py` (n1-standard-4 + 1× T4)
+- Created `ml/scripts/submit_training_job.sh` — submit Vertex AI Custom Job with T4 GPU; accepts `--display-name` per teammate
+- Created `DEV_SETUP.md` — full dev onboarding guide (auth, Cloud SQL proxy, GCS, Docker, Vertex training, Colab Enterprise, env vars)
+- Updated `ML_HANDOFF.md` §12 GPU Training section; added VERTEX_T4 to compute profiles table; updated repo structure
+- Enabled `notebooks.googleapis.com` for Colab Enterprise
+- Triggered ingestion job `f1-data-ingestion-snx26` to repopulate Cloud SQL
+- Pushed all commits to `main` (commit `6dc0327`)
+
+**Decisions**:
+- Use PD_STANDARD for Workbench data disk (not PD_SSD) to stay within 250 GB SSD quota
+- Hardcode Workbench zone to `us-central1-a` instead of dynamic script to avoid zone availability race conditions
+- VERTEX_T4 profile is the default for individual ML experiments; SINGLE_NODE_MULTI_GPU for full production runs
+
+**Next Steps**:
+- Implement `predict()` in strategy_predictor.py and pit_stop_optimizer.py (raises NotImplementedError, API uses rule-based fallback)
+- Add `ray[default]==2.9.1` to `docker/requirements-ml.txt` or replace Ray usage with TF MirroredStrategy
+- Verify ingestion job completes successfully (`f1-data-ingestion-snx26`)
+- Run first ML training pipeline: `bash ml/scripts/run_training.sh`
 
 **End of Progress Log**
 

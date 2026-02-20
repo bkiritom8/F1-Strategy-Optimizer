@@ -313,7 +313,7 @@ def get_data_shard(worker_index: int, total_workers: int, dataset: str):
         WHERE MOD(ABS(FARM_FINGERPRINT(CAST(race_id AS STRING))), {total_workers}) = {worker_index}
     """
 
-    # Each worker reads only its shard from BigQuery
+    # Each worker reads only its shard from Cloud SQL
     df = bq_client.query(query).to_dataframe()
     return df
 ```
@@ -508,21 +508,10 @@ resource "google_service_account" "training_worker" {
   description  = "Service account for distributed training jobs"
 }
 
-# BigQuery read-only access
-resource "google_project_iam_member" "training_bq_viewer" {
+# Cloud SQL read-only access
+resource "google_project_iam_member" "training_cloudsql_client" {
   project = var.project_id
-  role    = "roles/bigquery.dataViewer"
-  member  = "serviceAccount:${google_service_account.training_worker.email}"
-
-  condition {
-    title      = "training-data-only"
-    expression = "resource.name.startsWith('projects/${var.project_id}/datasets/f1_strategy')"
-  }
-}
-
-resource "google_project_iam_member" "training_bq_jobuser" {
-  project = var.project_id
-  role    = "roles/bigquery.jobUser"
+  role    = "roles/cloudsql.client"
   member  = "serviceAccount:${google_service_account.training_worker.email}"
 }
 
@@ -546,18 +535,7 @@ resource "google_project_iam_member" "training_vertex_user" {
   member  = "serviceAccount:${google_service_account.training_worker.email}"
 }
 
-# Explicitly deny dangerous permissions
-resource "google_project_iam_member" "training_deny_editor" {
-  project = var.project_id
-  role    = "roles/bigquery.dataEditor"
-  member  = "serviceAccount:${google_service_account.training_worker.email}"
-
-  # This is a deny policy (requires Organization Policy)
-  condition {
-    title      = "deny-data-modification"
-    expression = "false"
-  }
-}
+# Training SA has no write access to Cloud SQL (read enforced via DB user grants)
 ```
 
 ### Networking
@@ -643,13 +621,16 @@ from kfp.v2.dsl import component, Input, Output, Artifact, Model, Metrics
 
 @component(
     base_image="gcr.io/f1-strategy/data-validator:latest",
-    packages_to_install=["google-cloud-bigquery"]
+    packages_to_install=["psycopg2-binary"]
 )
 def validate_data(split: str, min_completeness: float = 0.95) -> bool:
     """Validate training data quality before training."""
-    from google.cloud import bigquery
+    import psycopg2, os
 
-    client = bigquery.Client()
+    client = psycopg2.connect(
+        host=os.environ["DB_HOST"], dbname=os.environ["DB_NAME"],
+        user=os.environ["DB_USER"], password=os.environ["DB_PASSWORD"]
+    )
 
     # Check data completeness
     query = f"""
@@ -1063,7 +1044,7 @@ def select_instance_type(model_type: str) -> str:
 ### Cost Monitoring
 
 ```sql
--- BigQuery query for training costs
+-- Cloud Billing API query for training costs
 SELECT
   DATE(usage_start_time) as date,
   service.description as service,
@@ -1090,14 +1071,14 @@ ORDER BY date DESC;
 **Training Service Account Permissions** (Minimal):
 ```
 READ:
-  [OK] BigQuery: f1_strategy.train, f1_strategy.validation
-  [OK] GCS: gs://f1-strategy-models/* (read trained models)
+  [OK] Cloud SQL: f1_data.lap_features (train/validation VIEWs)
+  [OK] GCS: gs://f1optimizer-training/* (read training data)
 
 WRITE:
-  [OK] GCS: gs://f1-strategy-artifacts/* (write new artifacts)
+  [OK] GCS: gs://f1optimizer-training/* (write new artifacts)
 
 DENIED:
-  [FAIL] BigQuery: raw_*, processed_data (cannot modify source data)
+  [FAIL] Cloud SQL: write/modify source tables (read-only DB user)
   [FAIL] GCS: Delete operations on production buckets
   [FAIL] Compute: Create/delete infrastructure
   [FAIL] IAM: Modify service accounts or permissions
@@ -1135,12 +1116,12 @@ api_key = get_secret('external-api-key')
 
 ```yaml
 Audit Events:
-  - data_access: Log all BigQuery queries from training workers
+  - data_access: Log all Cloud SQL queries from training workers
   - admin_activity: Log all GCS writes
   - system_event: Log worker start/stop events
 
 Retention: 1 year
-Storage: Cloud Logging + exported to BigQuery
+Storage: Cloud Logging + exported to GCS
 ```
 
 ---
@@ -1337,7 +1318,7 @@ class DistributedTrainer:
 
 **Query Training Progress**:
 ```sql
--- BigQuery query for training progress
+-- Cloud Logging query for training progress
 SELECT
   timestamp,
   metadata.epoch,
@@ -1818,7 +1799,7 @@ Training Cost Metrics:
 - [OK] Scale to zero when no jobs running
 - [OK] Right-sized instances per model (small models use smaller instances)
 - [OK] Checkpoint cleanup (delete after 7 days)
-- [OK] Cached preprocessed features (reduce BigQuery costs)
+- [OK] Cached preprocessed features (reduce Cloud SQL query load)
 - [OK] Spot instances with aggressive bidding
 
 ### Failure Isolation & Blast Radius
@@ -2037,7 +2018,7 @@ Immutable Training Records:
      - Full provenance chain queryable
 
   4. IAM Access (Training-Specific):
-     - BigQuery reads: which tables, when, by whom
+     - Cloud SQL reads: which tables, when, by whom
      - GCS writes: which buckets, what artifacts
      - Vertex AI job submissions
      - Model registry updates
@@ -2046,8 +2027,8 @@ Immutable Training Records:
 **Training Audit Schema**:
 
 ```sql
--- BigQuery table: f1_strategy.training_audit_log
-CREATE TABLE f1_strategy.training_audit_log (
+-- PostgreSQL table: f1_data.training_audit_log
+CREATE TABLE training_audit_log (
   audit_id STRING NOT NULL,
   timestamp TIMESTAMP NOT NULL,
   dag_run_id STRING NOT NULL,
@@ -2214,7 +2195,7 @@ Security Alerts:
     action: Quarantine model, investigate
 
   - name: training_data_unauthorized_access
-    condition: BigQuery access from non-training service account
+    condition: Cloud SQL access from non-training service account
     severity: warning
     channels: [security_team]
 
@@ -2257,7 +2238,7 @@ Compliance Alerts:
 - [ ] Verify cost tracking and budgets
 - [ ] Conduct security review (IAM, network, secrets)
 - [ ] Test DAG retry and partial re-run logic
-- [ ] Verify logs are queryable in BigQuery
+- [ ] Verify logs are queryable in Cloud Logging
 - [ ] Document runbook for on-call engineers
 
 ---

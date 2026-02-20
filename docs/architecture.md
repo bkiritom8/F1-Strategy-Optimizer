@@ -14,13 +14,13 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 ├───────────────────────────────────────────────────────────────┤
 │                                                                │
 │  ┌────────────┐         ┌─────────────────┐                  │
-│  │ Ergast API │────────>│  Cloud SQL      │                  │
-│  │ (1950-2024)│         │  PostgreSQL 15  │                  │
+│  │ Jolpica API│────────>│  Cloud SQL      │                  │
+│  │ (1950-2026)│         │  PostgreSQL 15  │                  │
 │  └────────────┘         │  (lap_features) │                  │
 │                         └────────┬────────┘                  │
 │  ┌────────────┐                 │                            │
 │  │ FastF1 SDK │────────>┌───────▼────────┐                  │
-│  │ (2018-2024)│         │  Preprocessing  │                  │
+│  │ (2018-2026)│         │  Preprocessing  │                  │
 │  └────────────┘         │    Pipeline     │                  │
 │                         └───────┬────────┘                  │
 │                                 │                            │
@@ -126,27 +126,27 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 **Backups**: Automated daily, deletion protection enabled
 
 **Key Tables** (see `src/database/schema.sql`):
-- `lap_features` — Historical race/lap data from Ergast (1950-2024)
-- `telemetry_features` — FastF1 10 Hz telemetry (2018-2024)
+- `lap_features` — Historical race/lap data from Jolpica (1950-2026)
+- `telemetry_features` — FastF1 10 Hz telemetry (2018-2026)
 - `driver_profiles` — Extracted behavioral profiles (200+ drivers)
 
 ### Data Ingestion
 
-**Sources**: Ergast REST API + FastF1 Python library
+**Sources**: Jolpica REST API + FastF1 Python library
 **Orchestration**: Airflow DAG (`airflow/dags/f1_data_ingestion.py`)
 **Execution**: Cloud Run Job (`f1-data-ingestion`, max timeout 3600 s)
 **Auto-trigger**: Terraform `null_resource` fires `gcloud run jobs execute` after infrastructure is provisioned
 
-**Ergast ingestion** (`src/ingestion/ergast_ingestion.py`):
+**Jolpica ingestion** (`src/ingestion/ergast_ingestion.py`):
 ```python
 import requests
 import psycopg2
 import os
 
-def download_ergast_data(year_start=1950, year_end=2024):
-    """Download race data from Ergast API and insert into Cloud SQL."""
+def download_ergast_data(year_start=1950, year_end=2026):
+    """Download race data from Jolpica API and insert into Cloud SQL."""
 
-    base_url = "http://ergast.com/api/f1"
+    base_url = "https://api.jolpi.ca/ergast/f1"
     conn = psycopg2.connect(
         host=os.environ["DB_HOST"],
         dbname=os.environ["DB_NAME"],
@@ -488,7 +488,7 @@ gcloud run jobs execute f1-data-ingestion \
 | API downtime | Cloud Monitoring uptime check | Auto-restart Cloud Run; traffic failover |
 | Cloud SQL failure | Health check | Restore from automated backup |
 | Model degradation | Drift alert | Rollback to previous Vertex AI model version |
-| Data pipeline failure | Dataflow lag alert | Restart Cloud Run Job; re-ingest from Ergast |
+| Data pipeline failure | Dataflow lag alert | Restart Cloud Run Job; re-ingest from Jolpica |
 | Budget overrun | Cost alert >$60 | Scale down Dataflow/Cloud Run instances |
 
 ---
