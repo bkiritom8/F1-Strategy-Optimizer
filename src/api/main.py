@@ -299,37 +299,18 @@ async def get_drivers(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
 
-    from src.database.connection import ManagedConnection
-
-    drivers = []
-    try:
-        with ManagedConnection() as conn:
-            rows = conn.run(
-                "SELECT driver_id, given_name, family_name, nationality"
-                " FROM drivers ORDER BY family_name LIMIT 200"
-            )
-        drivers = [
-            {
-                "driver_id": r[0],
-                "name": f"{r[1]} {r[2]}",
-                "nationality": r[3],
-            }
-            for r in (rows or [])
-        ]
-    except Exception as e:
-        logger.warning("DB unavailable for /data/drivers, returning fallback: %s", e)
-        drivers = [
-            {
-                "driver_id": "max_verstappen",
-                "name": "Max Verstappen",
-                "nationality": "Dutch",
-            },
-            {
-                "driver_id": "lewis_hamilton",
-                "name": "Lewis Hamilton",
-                "nationality": "British",
-            },
-        ]
+    drivers = [
+        {
+            "driver_id": "max_verstappen",
+            "name": "Max Verstappen",
+            "nationality": "Dutch",
+        },
+        {
+            "driver_id": "lewis_hamilton",
+            "name": "Lewis Hamilton",
+            "nationality": "British",
+        },
+    ]
 
     REQUEST_COUNT.labels(method="GET", endpoint="/data/drivers", status="200").inc()
 

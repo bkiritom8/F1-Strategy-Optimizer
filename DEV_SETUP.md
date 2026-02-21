@@ -9,7 +9,7 @@
 
 1. [Prerequisites](#1-prerequisites)
 2. [Authenticate with GCP](#2-authenticate-with-gcp)
-3. [Connect to Cloud SQL Locally](#3-connect-to-cloud-sql-locally)
+3. [Data Storage](#3-data-storage)
 4. [Access GCS Buckets Locally](#4-access-gcs-buckets-locally)
 5. [Build and Push the ML Image](#5-build-and-push-the-ml-image)
 6. [Submit a Vertex AI Training Job with GPU](#6-submit-a-vertex-ai-training-job-with-gpu)
@@ -27,7 +27,6 @@ Install the following before starting:
 | `gcloud` CLI | Latest | https://cloud.google.com/sdk/docs/install |
 | Docker Desktop | Latest | https://docs.docker.com/get-docker/ |
 | Python | 3.10 | `pyenv install 3.10` or system package |
-| Cloud SQL Auth Proxy | v2.14+ | See §3 |
 | Terraform | 1.5+ | https://developer.hashicorp.com/terraform/install |
 
 ### Clone and install Python dependencies
@@ -71,63 +70,54 @@ gcloud auth application-default print-access-token   # should print a token
 
 ---
 
-## 3. Connect to Cloud SQL Locally
+## 3. Data Storage
 
-The database uses a **private IP only** — it is not reachable from the internet. Use the Cloud SQL Auth Proxy to create a local tunnel.
+All F1 data is stored in GCS — there is no database.
 
-### Install the Proxy (macOS, ARM)
+| Bucket | Path | Contents |
+|---|---|---|
+| `gs://f1optimizer-data-lake/raw/` | Source CSVs | 51 files, 6.0 GB — Jolpica API + FastF1 |
+| `gs://f1optimizer-data-lake/processed/` | Parquet | 10 files, 1.0 GB — ML-ready, compressed |
+| `gs://f1optimizer-models/` | Promoted models | `strategy_predictor/latest/model.pkl` etc. |
+| `gs://f1optimizer-training/` | Training artifacts | Checkpoints, feature files, pipeline runs |
 
-```bash
-curl -o cloud-sql-proxy \
-  https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.darwin.arm64
-chmod +x cloud-sql-proxy
-mv cloud-sql-proxy /usr/local/bin/
-```
+### Processed Parquet files
 
-### Install the Proxy (macOS, Intel)
+| GCS Path | Rows | Description |
+|---|---|---|
+| `processed/laps_all.parquet` | 93,372 | laps_1996.csv … laps_2025.csv combined |
+| `processed/telemetry_all.parquet` | 30,477,110 | telemetry_2018 … telemetry_2025 combined |
+| `processed/telemetry_laps_all.parquet` | 92,242 | FastF1 telemetry-session laps combined |
+| `processed/circuits.parquet` | 78 | F1 circuit master list |
+| `processed/drivers.parquet` | 100 | Driver master list |
+| `processed/pit_stops.parquet` | 11,077 | Pit stop records |
+| `processed/race_results.parquet` | 7,600 | Race results 1950-2026 |
+| `processed/lap_times.parquet` | 56,720 | Aggregated lap times |
+| `processed/fastf1_laps.parquet` | 92,242 | FastF1 lap data (2018-2026) |
+| `processed/fastf1_telemetry.parquet` | 90,302 | FastF1 telemetry summary |
 
-```bash
-curl -o cloud-sql-proxy \
-  https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.darwin.amd64
-chmod +x cloud-sql-proxy
-mv cloud-sql-proxy /usr/local/bin/
-```
-
-### Start the proxy
-
-```bash
-# Binds to localhost:5432 using your ADC credentials
-cloud-sql-proxy f1optimizer:us-central1:f1-optimizer-dev &
-```
-
-### Connect with psql
-
-```bash
-# Get the password from Secret Manager
-DB_PASS=$(gcloud secrets versions access latest \
-  --secret=f1-db-password-dev --project=f1optimizer)
-
-psql -h 127.0.0.1 -p 5432 -U postgres -d f1_strategy
-# or using the app user:
-psql -h 127.0.0.1 -p 5432 -U f1_api -d f1_strategy
-```
-
-### Connect from Python
+### Reading processed data in Python
 
 ```python
-import os
-import psycopg2
+import pandas as pd
 
-conn = psycopg2.connect(
-    host="127.0.0.1",   # proxy is running locally
-    port=5432,
-    database="f1_strategy",
-    user="f1_api",
-    password=os.environ["DB_PASSWORD"],
-)
+# Read processed Parquet files directly from GCS (ADC credentials required — see §2)
+laps         = pd.read_parquet("gs://f1optimizer-data-lake/processed/laps_all.parquet")
+telemetry    = pd.read_parquet("gs://f1optimizer-data-lake/processed/telemetry_all.parquet")
+circuits     = pd.read_parquet("gs://f1optimizer-data-lake/processed/circuits.parquet")
+drivers      = pd.read_parquet("gs://f1optimizer-data-lake/processed/drivers.parquet")
+race_results = pd.read_parquet("gs://f1optimizer-data-lake/processed/race_results.parquet")
 ```
 
-Set `DB_PASSWORD` in your shell (see §8) or fetch it from Secret Manager at runtime.
+ADC credentials (§2) are all that is required — no proxy or VPN needed.
+
+### Converting raw CSVs to Parquet
+
+```bash
+python pipeline/scripts/csv_to_parquet.py \
+  --input-dir /path/to/local/csvs \
+  --gcs-prefix gs://f1optimizer-data-lake/processed/
+```
 
 ---
 
@@ -136,14 +126,14 @@ Set `DB_PASSWORD` in your shell (see §8) or fetch it from Secret Manager at run
 ADC credentials (§2) are sufficient for `gsutil` and the Python `google-cloud-storage` SDK.
 
 ```bash
-# List training artifacts
-gsutil ls gs://f1optimizer-training/
+# List processed data
+gsutil ls gs://f1optimizer-data-lake/processed/
 
 # List promoted models
 gsutil ls gs://f1optimizer-models/
 
 # Download a model artifact
-gsutil cp gs://f1optimizer-models/strategy_predictor/latest/xgb_model.pkl .
+gsutil cp gs://f1optimizer-models/strategy_predictor/latest/model.pkl .
 
 # Upload a file
 gsutil cp my_notebook.ipynb gs://f1optimizer-training/notebooks/
@@ -166,10 +156,10 @@ blob.download_to_filename("train_features.parquet")
 
 After making changes to ML code, rebuild and push the `ml:latest` image so Vertex AI jobs pick up the new code.
 
-### Build all 3 images (recommended)
+### Build all images (recommended)
 
 ```bash
-# Builds api:latest, ingestion:latest, ml:latest via Cloud Build
+# Builds api:latest and ml:latest via Cloud Build
 gcloud builds submit --config cloudbuild.yaml . --project=f1optimizer
 ```
 
@@ -268,14 +258,14 @@ job.run(service_account="f1-training-dev@f1optimizer.iam.gserviceaccount.com")
 
 ## 7. Colab Enterprise (GPU Alternative)
 
-Colab Enterprise gives you an interactive GPU notebook without provisioning a Workbench instance. It uses the same GCP project and ADC credentials.
+Colab Enterprise gives you an interactive GPU notebook without provisioning a dedicated instance. It uses the same GCP project and ADC credentials.
 
 ### Access
 
 1. Open: https://console.cloud.google.com/colab/notebooks?project=f1optimizer
 2. Click **New notebook**
 3. Select **Runtime** → **Change runtime type** → choose **T4 GPU**
-4. The notebook runs inside your GCP project with access to GCS and Cloud SQL via VPC
+4. The notebook runs inside your GCP project with full access to GCS buckets
 
 ### Connect to GCS from Colab Enterprise
 
@@ -287,24 +277,12 @@ bucket = client.bucket("f1optimizer-training")
 # ... same as local dev
 ```
 
-### Connect to Cloud SQL from Colab Enterprise
-
-Use the Connector library (no proxy needed from inside GCP):
+### Read processed data from GCS
 
 ```python
-from google.cloud.sql.connector import Connector
-import pg8000
+import pandas as pd
 
-connector = Connector()
-
-def get_conn():
-    return connector.connect(
-        "f1optimizer:us-central1:f1-optimizer-dev",
-        "pg8000",
-        user="f1_api",
-        password=DB_PASSWORD,
-        db="f1_strategy",
-    )
+df = pd.read_parquet("gs://f1optimizer-data-lake/processed/laps.parquet")
 ```
 
 ### Clone the repo in Colab
@@ -328,16 +306,10 @@ export GOOGLE_CLOUD_PROJECT=f1optimizer
 export PROJECT_ID=f1optimizer
 export REGION=us-central1
 
-# Database password (fetch from Secret Manager at startup)
-export DB_PASSWORD=$(gcloud secrets versions access latest \
-  --secret=f1-db-password-dev --project=f1optimizer)
-
-# Database host — use 127.0.0.1 when running Cloud SQL Auth Proxy locally
-export DB_HOST=127.0.0.1
-
 # GCS paths
 export TRAINING_BUCKET=gs://f1optimizer-training
 export MODELS_BUCKET=gs://f1optimizer-models
+export DATA_BUCKET=gs://f1optimizer-data-lake
 
 # FastF1 cache (optional — speeds up local development)
 export FASTF1_CACHE=/tmp/fastf1_cache
@@ -349,11 +321,9 @@ export FASTF1_CACHE=/tmp/fastf1_cache
 GOOGLE_CLOUD_PROJECT=f1optimizer
 PROJECT_ID=f1optimizer
 REGION=us-central1
-DB_HOST=127.0.0.1
-DB_NAME=f1_strategy
-DB_USER=f1_api
 TRAINING_BUCKET=gs://f1optimizer-training
 MODELS_BUCKET=gs://f1optimizer-models
+DATA_BUCKET=gs://f1optimizer-data-lake
 ```
 
 Load with:
@@ -365,4 +335,4 @@ export $(grep -v '^#' .env | xargs)
 
 ---
 
-*Last updated: 2026-02-19. See `ML_HANDOFF.md` for infrastructure details and known gaps.*
+*Last updated: 2026-02-20. See `ml/HANDOFF.md` for infrastructure details and known gaps.*

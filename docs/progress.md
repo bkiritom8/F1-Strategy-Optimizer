@@ -294,6 +294,51 @@ Full ML team handoff — repo restructured into clean domain separation, distrib
 
 ---
 
+---
+
+## Session 2026-02-20 — GCS Migration, Data Upload, Doc Overhaul
+
+**Date**: 2026-02-20
+**Participants**: Claude Code
+
+**Summary**:
+Removed Cloud SQL and Workbench from the project entirely, uploaded all F1 data to GCS, converted CSVs to Parquet, and overhauled all documentation to reflect the current GCS-only architecture.
+
+**Completed**:
+- [x] Removed `src/database/`, `airflow/`, `pipeline/scripts/init_db.py`, `run_local.sh`, `workbench_startup.sh`, `scripts/find_workbench_zone.sh`
+- [x] Removed `infra/terraform/vertex_workbench.tf`, `workbench_zone.tf` (previous session)
+- [x] Cleaned `cloudbuild.yaml`: removed Workbench deployment steps
+- [x] Rewrote `pipeline/scripts/csv_to_parquet.py`: combines yearly CSVs, handles telemetry/ subdir
+- [x] Created `pipeline/scripts/verify_upload.py`: reports file counts + sizes
+- [x] Uploaded 51 raw CSV files (6.0 GB) to `gs://f1optimizer-data-lake/raw/`
+- [x] Converted to 10 Parquet files (1.0 GB) in `gs://f1optimizer-data-lake/processed/`
+- [x] Added `raw/` to `.gitignore` (6.5 GB must not go to git)
+- [x] Updated `DEV_SETUP.md` with GCS paths and row counts
+- [x] Updated `ml/HANDOFF.md` with GCS paths and row counts
+- [x] Updated all 14 documentation files to remove Cloud SQL / Workbench / Airflow references:
+  README.md, SETUP.md, ML_HANDOFF.md, CLAUDE.md, api/README.md, monitoring/README.md,
+  pipeline/README.md, ml/README.md, docs/architecture.md, docs/data.md, docs/roadmap.md,
+  docs/training-pipeline.md, docs/progress.md
+
+**Key Decisions**:
+1. **GCS replaces Cloud SQL**: All data stored as Parquet in GCS — simpler, cheaper, no VPC proxy needed
+2. **No Workbench**: GPU training via Vertex AI Custom Jobs (`ml/scripts/submit_training_job.sh`)
+3. **Data never in git**: `raw/` directory in `.gitignore`; GCS is the single source of truth
+
+**Data Summary**:
+- laps_all: 93,372 rows | telemetry_all: 30,477,110 rows | race_results: 7,600 rows
+- circuits: 78 | drivers: 100 | pit_stops: 11,077 | lap_times: 56,720
+
+**Next Steps**:
+1. Run ML tests: `python ml/tests/run_tests_on_vertex.py`
+2. Trigger first training pipeline: `python ml/dag/pipeline_runner.py --run-id first-run`
+3. Implement `predict()` in both models (currently raises `NotImplementedError`)
+4. Check Vertex AI Experiments after pipeline completes
+
+**Blockers**: None
+
+---
+
 **Instructions for Future Sessions**:
 1. After running `/compact`, append a new session entry above this line
 2. Include date, summary, completed tasks, decisions, next steps

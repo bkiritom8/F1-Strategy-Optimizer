@@ -4,7 +4,7 @@ FastAPI service deployed on Cloud Run.
 
 ## Endpoint
 
-`https://f1-strategy-api-dev-lu32hl5eqa-uc.a.run.app`
+`https://f1-strategy-api-dev-694267183904.us-central1.run.app`
 
 ## Source
 

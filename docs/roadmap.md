@@ -1,6 +1,6 @@
 # Project Roadmap and Timeline
 
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-02-20
 **Project Duration**: 13 weeks
 **Target Completion**: Week 13
 
@@ -38,28 +38,28 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 
 [OK] **Infrastructure**:
 - [x] GCP project created (`f1optimizer`)
-- [x] IAM roles configured (3 service accounts: airflow, dataflow, api)
-- [x] Cloud SQL (PostgreSQL 15) provisioned with VPC private IP
-- [x] Cloud Run, Dataflow, Pub/Sub, Artifact Registry enabled via Terraform
+- [x] IAM roles configured (service accounts: api_sa, training_sa)
+- [x] GCS buckets provisioned (data-lake, models, training, pipeline-runs)
+- [x] Cloud Run, Pub/Sub, Artifact Registry, Vertex AI enabled via Terraform
 - [x] Cloud Build trigger configured (pipeline branch)
 - [x] Terraform configuration applied (`dev.tfvars`)
 
 [OK] **Data Ingestion**:
-- [ ] Jolpica API data downloaded (1950-2026, 1,300+ races)
-- [ ] FastF1 telemetry downloaded (2018-2024, 200+ races)
-- [ ] Data inserted into Cloud SQL (`lap_features`, `telemetry_features`)
-- [ ] Data completeness validated (≥95%)
+- [x] Jolpica API data downloaded (1996–2025, 93,372 lap records)
+- [x] FastF1 telemetry downloaded (2018–2025, 30.5M telemetry rows)
+- [x] Data uploaded to `gs://f1optimizer-data-lake/raw/` (51 files, 6.0 GB)
+- [x] Data converted to Parquet in `gs://f1optimizer-data-lake/processed/` (10 files, 1.0 GB)
 
 [OK] **Documentation**:
-- [x] `src/database/schema.sql` defined (lap_features, telemetry_features, driver_profiles)
 - [x] README updated with quick start
+- [x] DEV_SETUP.md created (developer onboarding guide)
+- [x] ML_HANDOFF.md created (ML team handoff)
 - [x] mkdocs.yml created for CI documentation build
 
 **Success Metrics**:
-- Cloud SQL `lap_features` populated with ~1M+ records from Jolpica
-- `telemetry_features` populated from FastF1 (2018-2024)
-- Data completeness >95%
-- All team members have GCP access
+- GCS data lake populated: 93,372 laps, 30.5M telemetry rows — COMPLETE
+- Processed Parquet files available for ML training — COMPLETE
+- All team members can authenticate and read GCS data
 
 **Risks & Mitigations**:
 - **Risk**: Jolpica API slow/unreliable → **Mitigation**: Implement retry logic, cache intermediate results
@@ -85,23 +85,18 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 - [ ] Race alignment (results + pit stops)
 
 [OK] **Feature Engineering**:
-- [ ] Tire age calculation
+- [ ] Tire age calculation (`ml/features/feature_pipeline.py`)
 - [ ] Fuel remaining estimation
 - [ ] Telemetry aggregation (mean throttle, max speed, brake count)
 - [ ] Race context features (gap to leader, position delta)
 - [ ] Temporal features (lap number, stint age, laps remaining)
 
-[OK] **Data Splits**:
-- [ ] SQL VIEW `train` (1950-2022, ~140GB)
-- [ ] SQL VIEW `validation` (2023 Q1-Q2, ~5GB)
-- [ ] SQL VIEW `test` (2023 Q3-Q4 + 2024, ~10GB)
-
 [OK] **Feature Store**:
-- [ ] `lap_features` and `telemetry_features` tables populated
-- [x] Schema documented in `src/database/schema.sql`
+- [ ] Feature pipeline run on GCS Parquet data (`ml/features/feature_store.py`)
+- [ ] Processed features written to `gs://f1optimizer-training/features/`
 
 **Success Metrics**:
-- Cloud SQL contains 1M+ feature rows
+- Feature pipeline completes without errors
 - All features validated (no NULLs, correct ranges)
 - EDA notebook completed with insights
 
@@ -139,7 +134,7 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 **Success Metrics**:
 - 200+ driver profiles generated
 - Validation metrics meet targets
-- Profiles stored in `driver_profiles` Cloud SQL table
+- Profiles exported to `gs://f1optimizer-data-lake/processed/driver_profiles.parquet`
 
 **Dependencies**: Week 2-3 feature engineering complete
 

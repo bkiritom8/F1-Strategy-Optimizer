@@ -1,208 +1,138 @@
-# F1 Strategy Optimizer - Local Development Pipeline
+# F1 Strategy Optimizer
 
-Production-grade F1 race strategy system with full local testing capabilities.
+Production-grade real-time F1 race strategy system: pit strategy, driving mode,
+brake bias, throttle/braking patterns. Driver-aware recommendations using 76 years
+of F1 data (1950–2026). Target: <500ms P99 latency.
 
 ## Features
 
-- [OK] **Data Ingestion**: Ergast API + FastF1 telemetry
-- [OK] **Processing**: Airflow DAGs with operational guarantees
-- [OK] **Storage**: Cloud SQL PostgreSQL 15 (private VPC, automated backups)
-- [OK] **Messaging**: Pub/Sub event streaming
-- [OK] **Compute**: Dataflow pipeline orchestration
-- [OK] **ML Infrastructure**: Distributed training skeleton
-- [OK] **Security**: IAM/RBAC simulation + HTTPS
-- [OK] **CI/CD**: GitHub Actions with testing
-- [OK] **Cross-Platform**: Windows, Linux, macOS support
+- **Data**: Jolpica API (1950–2026) + FastF1 telemetry (2018–2026, 10Hz)
+- **Storage**: GCS — 51 raw files (6.0 GB CSV) + 10 processed Parquet files (1.0 GB)
+- **ML**: XGBoost+LightGBM ensemble (strategy) + LSTM (pit stop optimizer)
+- **Training**: Vertex AI Custom Jobs + KFP Pipeline (5-step DAG)
+- **Serving**: FastAPI on Cloud Run (<500ms P99)
+- **CI/CD**: Cloud Build on `pipeline` branch — builds `api:latest` + `ml:latest`
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker Desktop (Windows/macOS) or Docker Engine (Linux)
-- Docker Compose v2.0+
-- Python 3.10+
-- 8GB RAM minimum
+- `gcloud` CLI (latest) — https://cloud.google.com/sdk/docs/install
+- Python 3.10
+- Terraform 1.5+
 
-### Local Development (All Platforms)
+### Setup
 
 ```bash
-# 1. Clone and navigate
+git clone https://github.com/bkiritom8/test.git
 cd test
-
-# 2. Create Python virtual environment
-# Linux/macOS:
-python3 -m venv venv
-source venv/bin/activate
-
-# Windows (PowerShell):
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-
-# 3. Install dependencies
 pip install -r requirements-f1.txt
 
-# 4. Start local infrastructure
-docker-compose -f docker-compose.f1.yml up -d
-
-# 5. Initialize database
-python scripts/init_db.py
-
-# 6. Run sample DAG
-airflow dags test f1_data_ingestion 2024-01-01
-
-# 7. Run tests
-pytest tests/ -v
-
-# 8. Access services
-# Airflow UI: http://localhost:8080 (admin/admin)
-# Monitoring: http://localhost:3000 (admin/admin)
-# API Docs: http://localhost:8000/docs
-```
-
-### Production Deployment (GCP)
-
-```bash
-# 1. Authenticate with GCP
+# Authenticate with GCP
 gcloud auth login
 gcloud auth application-default login
-gcloud config set project <your-project-id>
-
-# 2. Create Terraform state bucket (once, before terraform init)
-gsutil mb -p f1optimizer gs://f1-optimizer-terraform-state
-gsutil versioning set on gs://f1-optimizer-terraform-state
-
-# 3. Initialize Terraform
-cd terraform
-terraform init
-terraform plan -var-file=dev.tfvars
-terraform apply -var-file=dev.tfvars
-
-# 4. Deploy DAGs
-./scripts/deploy_dags.sh
-
-# 5. Configure secrets
-gcloud secrets create ergast-api-key --data-file=secrets/ergast.key
+gcloud config set project f1optimizer
 ```
+
+See `DEV_SETUP.md` for the complete developer onboarding guide.
 
 ## Architecture
 
 ```
-+----------------------------------------------------------+
-|                    Data Sources                          |
-|              Ergast API  |  FastF1                       |
-+------------+------------------------+--------------------+
-             |                        |
-             v                        v
-+----------------------------------------------------------+
-|              Airflow DAG Orchestrator                    |
-|   +---------------+  +---------------+  +------------+  |
-|   |  Ingestion    |  | Preprocessing |  |  Training  |  |
-|   |   Tasks       |  |    Tasks      |  |   Tasks    |  |
-|   +---------------+  +---------------+  +------------+  |
-+------------+---------------------------------------------+
-             |
-             v
-+----------------------------------------------------------+
-|                 Message Bus (Pub/Sub)                    |
-+------------+---------------------------------------------+
-             |
-             v
-+----------------------------------------------------------+
-|              Dataflow Processing                         |
-|         (Validation, Enrichment, Routing)                |
-+------------+---------------------------------------------+
-             |
-             v
-+----------------------------------------------------------+
-|                 Data Store                               |
-|          Cloud SQL PostgreSQL 15 (Private VPC)           |
-+------------+---------------------------------------------+
-             |
-             v
-+----------------------------------------------------------+
-|         Distributed ML Training Infrastructure           |
-|     (Ray Cluster, Model Registry, Feature Store)         |
-+----------------------------------------------------------+
+Jolpica API (1950-2026) ──┐
+                           ├──> gs://f1optimizer-data-lake/raw/
+FastF1 (2018-2026)    ────┘              │
+                                  csv_to_parquet.py
+                                         │
+                          gs://f1optimizer-data-lake/processed/
+                                         │
+                                  Feature Pipeline (KFP)
+                                         │
+                              Vertex AI Training Jobs
+                                         │
+                          gs://f1optimizer-models/ (promoted artifacts)
+                                         │
+                              FastAPI (Cloud Run)
+                              https://f1-strategy-api-dev-694267183904.us-central1.run.app
+                              <500ms P99
 ```
 
-## Directory Structure
+## Repository Structure
 
 ```
-test/
-+-- airflow/
-|   +-- dags/              # Airflow DAG definitions
-|   +-- plugins/           # Custom Airflow plugins
-|   +-- config/            # Airflow configuration
-+-- src/
-|   +-- ingestion/         # Data ingestion modules
-|   +-- preprocessing/     # Data cleaning and feature engineering
-|   +-- dataflow/          # Apache Beam pipelines
-|   +-- ml/                # ML training infrastructure
-|   +-- api/               # FastAPI service
-|   +-- common/            # Shared utilities
-|   +-- mocks/             # Mock GCP services for local dev
-+-- terraform/             # Infrastructure as Code
-+-- docker/                # Dockerfiles for all services
-+-- tests/                 # Pytest test suite
-+-- scripts/               # Utility scripts
-+-- .github/workflows/     # CI/CD pipelines
-+-- docs/                  # Technical documentation
+ml/                    ML code — features, models, dag, distributed, tests
+pipeline/scripts/      Data scripts (csv_to_parquet.py, verify_upload.py)
+infra/terraform/       All GCP infrastructure (Terraform)
+api/                   FastAPI serving notes
+monitoring/            Observability notes
+docker/                Dockerfiles + requirements
+src/                   Shared API code
+tests/                 Unit + integration tests
+docs/                  Technical documentation
 ```
 
-## Testing
+## Data
+
+All F1 data lives in GCS — no database.
+
+| Bucket Path | Files | Size | Contents |
+|---|---|---|---|
+| `gs://f1optimizer-data-lake/raw/` | 51 | 6.0 GB | Source CSVs (Jolpica + FastF1) |
+| `gs://f1optimizer-data-lake/processed/` | 10 | 1.0 GB | Parquet files (ML-ready) |
+| `gs://f1optimizer-models/` | — | — | Promoted model artifacts |
+| `gs://f1optimizer-training/` | — | — | Checkpoints, feature exports |
+
+```python
+import pandas as pd
+
+laps      = pd.read_parquet("gs://f1optimizer-data-lake/processed/laps_all.parquet")
+telemetry = pd.read_parquet("gs://f1optimizer-data-lake/processed/telemetry_all.parquet")
+```
+
+## Training
 
 ```bash
-# Run all tests
-pytest tests/ -v
+# Individual GPU experiment (recommended for dev work)
+bash ml/scripts/submit_training_job.sh --display-name your-name-strategy-v1
 
-# Run specific test suites
-pytest tests/test_ingestion.py -v
-pytest tests/test_dags.py -v
-pytest tests/test_dataflow.py -v
+# Full pipeline (5-step KFP)
+python ml/dag/pipeline_runner.py --run-id $(date +%Y%m%d)
 
-# Run with coverage
-pytest tests/ --cov=src --cov-report=html
-
-# Integration tests (requires Docker)
-pytest tests/integration/ -v --docker
-
-# Load tests
-locust -f tests/load/locustfile.py
+# Run ML tests on Vertex AI
+python ml/tests/run_tests_on_vertex.py
 ```
 
-## Monitoring and Observability
+See `ml/HANDOFF.md` for full ML team documentation.
 
-### Metrics Tracked
-- DAG run duration, success/failure rates
-- Task-level execution time, retry counts
-- API latency (P50, P95, P99)
-- Data pipeline throughput
-- Cost per DAG run
-- Model training metrics
+## API
 
-### Alerts
-- DAG failures (Slack/PagerDuty)
-- SLA violations (>5min late)
-- Cost threshold exceeded
-- API error rate >5%
+**Endpoint**: `https://f1-strategy-api-dev-694267183904.us-central1.run.app`
+
+```bash
+curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/health
+curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/docs
+```
 
 ## Performance Targets
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| API P99 Latency | <500ms | - |
-| End-to-End Latency | <5s | - |
-| System Uptime | 99.5% | - |
-| Cost per Prediction | <$0.001 | - |
-| Podium Accuracy | >=70% | - |
-| Winner Accuracy | >=65% | - |
+| Metric | Target |
+|---|---|
+| API P99 Latency | <500ms |
+| Podium Accuracy | ≥70% |
+| Winner Accuracy | ≥65% |
+| Cost per Prediction | <$0.001 |
+| Monthly Budget | <$70 |
 
-## License
+## Infrastructure
 
-MIT License
+Managed by Terraform in `infra/terraform/`. Review plan before applying:
+
+```bash
+terraform -chdir=infra/terraform plan -var-file=dev.tfvars
+```
 
 ---
 
-**Status**: Terraform infrastructure complete - Cloud SQL provisioned, IAM bindings in place
-**Last Updated**: 2026-02-18
-**Branch**: `main`
+**Status**: ML handoff complete — data uploaded to GCS, models ready for training
+**Last Updated**: 2026-02-20
+**Branch**: `main` (stable) | `pipeline` (CI/CD trigger) | `ml-dev` (ML development)
