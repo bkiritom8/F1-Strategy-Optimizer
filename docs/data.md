@@ -1,20 +1,20 @@
 # Data Sources, Splits, and Management
 
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-02-20
 
 ## Overview
 
-The F1 Strategy Optimizer leverages 74 years of comprehensive Formula 1 data spanning 1950-2024, encompassing race results, pit stops, qualifying sessions, and high-frequency telemetry. This document details data sources, acquisition strategy, preprocessing, splits, and management.
+The F1 Strategy Optimizer leverages 76 years of comprehensive Formula 1 data spanning 1950–2026, encompassing race results, pit stops, qualifying sessions, and high-frequency telemetry. All data is stored in GCS as CSV (raw) and Parquet (processed) — there is no database.
 
 ## Data Card
 
 | Attribute | Details |
 |-----------|---------|
-| **Time Period** | 1950-2024 (74 years) |
+| **Time Period** | 1950–2026 (76 years) |
 | **Total Races** | 1,300+ races |
 | **Total Lap Records** | 20M+ laps |
-| **Training Data Size** | ~150GB (Cloud SQL + GCS for large blobs) |
-| **Primary Formats** | JSON (race results), CSV (telemetry), Time-series (streaming) |
+| **Storage** | GCS: 51 raw CSV files (6.0 GB) + 10 processed Parquet files (1.0 GB) |
+| **Primary Formats** | CSV (raw), Parquet (processed, ML-ready) |
 | **Telemetry Frequency** | 10 Hz (FastF1 library, 2018+) |
 | **Geographic Coverage** | Global (23 circuits annually) |
 | **Drivers Covered** | 800+ drivers across history, ~20 active per season |
@@ -184,46 +184,49 @@ telemetry = laps.pick_driver('VER').pick_fastest().get_telemetry()
 
 ## Data Loading Strategy
 
-### Stage 1: Historical Data Ingestion (Week 1-2)
+### Stage 1: Historical Data — Already in GCS
 
-**Jolpica API Download**:
+All F1 data has been downloaded and uploaded to GCS. No further ingestion is required.
+
+**GCS Data Lake**:
 ```bash
-# Download all seasons 1950-2026
-python data/download.py --source ergast --start-year 1950 --end-year 2026
-
-# Expected output:
-# - races.json (1,300+ races)
-# - results.json (50,000+ results)
-# - pitstops.json (100,000+ pit stops)
-# - qualifying.json (20,000+ qualifying sessions)
+# Verify data is present
+gsutil ls gs://f1optimizer-data-lake/raw/        # 51 files, 6.0 GB (source CSVs)
+gsutil ls gs://f1optimizer-data-lake/processed/  # 10 files, 1.0 GB (Parquet)
 ```
 
-**FastF1 Telemetry Download**:
-```bash
-# Download telemetry 2018-2026
-python data/download.py --source fastf1 --start-year 2018 --end-year 2026
+**Reading processed data in Python** (ADC credentials required — see `DEV_SETUP.md` §2):
+```python
+import pandas as pd
 
-# Expected output:
-# - telemetry/ (200+ race sessions)
-# - laps/ (lap-by-lap timing data)
-# - Total: ~120GB uncompressed
+laps         = pd.read_parquet("gs://f1optimizer-data-lake/processed/laps_all.parquet")
+telemetry    = pd.read_parquet("gs://f1optimizer-data-lake/processed/telemetry_all.parquet")
+race_results = pd.read_parquet("gs://f1optimizer-data-lake/processed/race_results.parquet")
+pit_stops    = pd.read_parquet("gs://f1optimizer-data-lake/processed/pit_stops.parquet")
+circuits     = pd.read_parquet("gs://f1optimizer-data-lake/processed/circuits.parquet")
 ```
 
-**Cloud SQL Insert** (`src/ingestion/ergast_ingestion.py`, `src/ingestion/fastf1_ingestion.py`):
+**Processed Parquet files** (`gs://f1optimizer-data-lake/processed/`):
+
+| File | Rows | Description |
+|---|---|---|
+| `laps_all.parquet` | 93,372 | Lap data 1996–2025 (Jolpica) |
+| `telemetry_all.parquet` | 30,477,110 | FastF1 10 Hz telemetry 2018–2025 |
+| `telemetry_laps_all.parquet` | 92,242 | FastF1 session laps |
+| `circuits.parquet` | 78 | Circuit master list |
+| `drivers.parquet` | 100 | Driver master list |
+| `pit_stops.parquet` | 11,077 | Pit stop records |
+| `race_results.parquet` | 7,600 | Race results 1950–2026 |
+| `lap_times.parquet` | 56,720 | Aggregated lap times |
+| `fastf1_laps.parquet` | 92,242 | FastF1 lap data 2018–2026 |
+| `fastf1_telemetry.parquet` | 90,302 | FastF1 telemetry summary |
+
+To re-convert from source CSVs (if needed):
 ```bash
-# Trigger via Cloud Run Job (auto-fired by Terraform null_resource after apply)
-gcloud run jobs execute f1-data-ingestion \
-  --region=us-central1 \
-  --project=f1optimizer \
-  --wait
-
-# Tables populated in f1_data database (Cloud SQL PostgreSQL 15):
-# - lap_features      (Jolpica race/lap results, 1950-2026)
-# - telemetry_features (FastF1 10Hz, 2018-2024)
-# - driver_profiles   (extracted behavioral profiles)
+python pipeline/scripts/csv_to_parquet.py \
+  --input-dir raw/ \
+  --bucket f1optimizer-data-lake
 ```
-
-**Estimated Total**: ~150GB uncompressed; large binary blobs (telemetry) stored in GCS (`f1optimizer-data-lake`)
 
 ### Stage 2: Data Cleaning & Preprocessing (Week 2-3)
 
@@ -329,11 +332,11 @@ df['laps_remaining'] = df['total_laps'] - df['lap']
 
 ### Temporal Split (Prevents Data Leakage)
 
-| Split | Size | Time Period | Races | Purpose |
-|-------|------|-------------|-------|---------|
-| **Train** | ~140GB | 1950-2022 | 1,300+ | Extract driver profiles, train baseline models |
-| **Validation** | ~5GB | 2023 Q1-Q2 | 10 races | Hyperparameter tuning, model selection |
-| **Test** | ~10GB | 2023 Q3-Q4 + 2024 | 20+ races | Final evaluation, ground-truth validation |
+| Split | Time Period | Races | Purpose |
+|-------|-------------|-------|---------|
+| **Train** | 1950–2022 | 1,300+ | Extract driver profiles, train baseline models |
+| **Validation** | 2023 Q1–Q2 | 10 races | Hyperparameter tuning, model selection |
+| **Test** | 2023 Q3–Q4 + 2024 | 20+ races | Final evaluation, ground-truth validation |
 
 ### Justification for Temporal Split
 

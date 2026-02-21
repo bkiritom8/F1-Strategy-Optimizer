@@ -11,14 +11,6 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
-    null = {
-      source  = "hashicorp/null"
-      version = "~> 3.0"
-    }
   }
 
   backend "gcs" {
@@ -49,14 +41,11 @@ resource "google_project_service" "required_apis" {
     "pubsub.googleapis.com",
     "dataflow.googleapis.com",
     "run.googleapis.com",
-    "sqladmin.googleapis.com",
     "aiplatform.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
-    "secretmanager.googleapis.com",
-    "servicenetworking.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com"
   ])
@@ -118,29 +107,12 @@ module "cloud_run" {
 
   env_vars = {
     ENV               = var.environment
-    DB_HOST           = google_sql_database_instance.f1_db.private_ip_address
-    DB_NAME           = google_sql_database.f1_data.name
-    DB_PORT           = "5432"
     PUBSUB_PROJECT_ID = var.project_id
+    MODELS_BUCKET     = "gs://${google_storage_bucket.models.name}"
     ENABLE_HTTPS      = "true"
     ENABLE_IAM        = "true"
     LOG_LEVEL         = "INFO"
   }
-
-  labels = local.common_labels
-
-  depends_on = [google_project_service.required_apis]
-}
-
-# VPC Network
-module "networking" {
-  source = "./modules/networking"
-
-  project_id  = var.project_id
-  region      = var.region
-  environment = var.environment
-
-  network_name = "f1-optimizer-network"
 
   labels = local.common_labels
 
@@ -180,6 +152,8 @@ resource "google_project_iam_member" "dataflow_worker" {
 }
 
 # Cloud Storage Buckets
+# Data lake — raw/ holds source CSVs from Jolpica/FastF1,
+# processed/ holds Parquet files ready for ML training
 resource "google_storage_bucket" "data_lake" {
   name          = "${var.project_id}-data-lake"
   location      = var.region
@@ -223,109 +197,6 @@ resource "google_storage_bucket" "models" {
   labels = local.common_labels
 }
 
-# Private IP range for Cloud SQL VPC peering
-resource "google_compute_global_address" "private_ip_range" {
-  name          = "f1-optimizer-private-ip-${var.environment}"
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  prefix_length = 16
-  network       = module.networking.network_id
-
-  depends_on = [module.networking]
-}
-
-resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = module.networking.network_id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
-
-  depends_on = [google_project_service.required_apis]
-}
-
-# Generate random password for Cloud SQL user
-resource "random_password" "db_password" {
-  length  = 32
-  special = true
-}
-
-# Cloud SQL (PostgreSQL) — operational data store replacing BigQuery
-resource "google_sql_database_instance" "f1_db" {
-  name                = "f1-optimizer-${var.environment}"
-  database_version    = "POSTGRES_15"
-  region              = var.region
-  deletion_protection = false
-
-  settings {
-    tier = "db-f1-micro"
-
-    backup_configuration {
-      enabled = true
-    }
-
-    ip_configuration {
-      ipv4_enabled    = false
-      private_network = module.networking.network_id
-      ssl_mode        = "ENCRYPTED_ONLY"
-    }
-
-    user_labels = local.common_labels
-  }
-
-  depends_on = [
-    google_project_service.required_apis,
-    google_service_networking_connection.private_vpc_connection,
-  ]
-}
-
-resource "google_sql_database" "f1_data" {
-  name     = "f1_data"
-  instance = google_sql_database_instance.f1_db.name
-  project  = var.project_id
-}
-
-resource "google_sql_user" "api_user" {
-  name            = "f1_api"
-  instance        = google_sql_database_instance.f1_db.name
-  project         = var.project_id
-  password        = random_password.db_password.result
-  deletion_policy = "ABANDON"
-}
-
-resource "google_secret_manager_secret" "db_password" {
-  secret_id = "f1-db-password-${var.environment}"
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.required_apis]
-}
-
-resource "google_secret_manager_secret_version" "db_password" {
-  secret      = google_secret_manager_secret.db_password.id
-  secret_data = random_password.db_password.result
-}
-
-resource "google_project_iam_member" "api_cloudsql_client" {
-  project = var.project_id
-  role    = "roles/cloudsql.client"
-  member  = "serviceAccount:${google_service_account.api_sa.email}"
-}
-
-resource "google_cloud_run_service_iam_member" "api_sa_run_invoker" {
-  project  = var.project_id
-  location = var.region
-  service  = "f1-strategy-api-dev"
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.api_sa.email}"
-}
-
-resource "google_project_iam_member" "compute_secret_accessor" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:694267183904-compute@developer.gserviceaccount.com"
-}
-
 # Artifact Registry — Docker image repository
 resource "google_artifact_registry_repository" "docker_repo" {
   repository_id = "f1-optimizer"
@@ -347,6 +218,14 @@ resource "google_project_iam_member" "cloudbuild_ar_writer" {
   member  = "serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"
 
   depends_on = [google_project_service.required_apis]
+}
+
+resource "google_cloud_run_service_iam_member" "api_sa_run_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = "f1-strategy-api-dev"
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.api_sa.email}"
 }
 
 # Monitoring and Logging
@@ -429,11 +308,6 @@ resource "google_project_iam_member" "training_sa_storage_admin" {
 }
 
 # Outputs
-output "cloud_sql_instance_connection_name" {
-  description = "Cloud SQL instance connection name"
-  value       = google_sql_database_instance.f1_db.connection_name
-}
-
 output "api_service_url" {
   description = "Cloud Run API service URL"
   value       = module.cloud_run.service_url
@@ -454,16 +328,10 @@ output "service_accounts" {
   }
 }
 
-# ── IAM: api_sa needs to publish to Pub/Sub (race events, predictions) and read DB password
+# ── IAM: api_sa needs to publish to Pub/Sub (race events, predictions)
 
 resource "google_project_iam_member" "api_sa_pubsub_publisher" {
   project = var.project_id
   role    = "roles/pubsub.publisher"
   member  = "serviceAccount:${google_service_account.api_sa.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "api_sa_secret_accessor" {
-  secret_id = google_secret_manager_secret.db_password.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.api_sa.email}"
 }

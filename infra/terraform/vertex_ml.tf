@@ -10,8 +10,7 @@
 
 resource "google_project_service" "ml_apis" {
   for_each = toset([
-    "notebooks.googleapis.com", # Vertex AI Workbench
-    "ml.googleapis.com",        # Vertex AI (legacy ML Engine alias)
+    "ml.googleapis.com", # Vertex AI (legacy ML Engine alias)
   ])
 
   service            = each.value
@@ -111,27 +110,6 @@ resource "google_cloud_run_v2_job" "f1_pipeline_trigger" {
           name  = "TRAINING_BUCKET"
           value = "gs://${google_storage_bucket.training.name}"
         }
-        env {
-          name  = "INSTANCE_CONNECTION_NAME"
-          value = google_sql_database_instance.f1_db.connection_name
-        }
-        env {
-          name  = "DB_NAME"
-          value = var.db_name
-        }
-        env {
-          name  = "DB_USER"
-          value = "f1_api"
-        }
-        env {
-          name = "DB_PASSWORD"
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.db_password.secret_id
-              version = "latest"
-            }
-          }
-        }
       }
     }
   }
@@ -161,6 +139,5 @@ output "vertex_console_urls" {
     pipelines   = "https://console.cloud.google.com/vertex-ai/pipelines?project=${var.project_id}"
     training    = "https://console.cloud.google.com/vertex-ai/training/custom-jobs?project=${var.project_id}"
     experiments = "https://console.cloud.google.com/vertex-ai/experiments?project=${var.project_id}"
-    workbench   = "https://console.cloud.google.com/vertex-ai/workbench/instances?project=${var.project_id}"
   }
 }

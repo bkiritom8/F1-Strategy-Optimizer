@@ -1,30 +1,38 @@
-# Pipeline — Ingestion & Orchestration
+# Pipeline — Data Scripts
 
-Scripts that run as Cloud Run Jobs or are baked into the ingestion Docker image.
+Utility scripts for managing F1 data in GCS.
 
 ## Directory layout
 
 ```
 pipeline/
 └── scripts/
-    ├── run_ingestion.sh       Schema → Ergast → FastF1 pipeline
-    ├── monitor_ingestion.py   Triggers + polls f1-data-ingestion, emails on completion
-    ├── init_db.py             Database schema initialisation
-    ├── workbench_startup.sh   Vertex AI Workbench startup script
-    └── run_local.sh           Local docker-compose stack (dev only)
+    ├── csv_to_parquet.py   Convert raw CSVs → Parquet and upload to GCS
+    └── verify_upload.py    Verify GCS data lake contents (file counts + sizes)
 ```
 
-## Running ingestion on GCP
+## Usage
+
+### Convert CSVs to Parquet
 
 ```bash
-# Direct job execution
-gcloud run jobs execute f1-data-ingestion --region=us-central1 --project=f1optimizer
-
-# With monitoring + email
-gcloud run jobs execute f1-ingestion-monitor --region=us-central1 --project=f1optimizer
+python pipeline/scripts/csv_to_parquet.py \
+  --input-dir raw/ \
+  --bucket f1optimizer-data-lake
 ```
 
-## Docker image
+Outputs 10 Parquet files to `gs://f1optimizer-data-lake/processed/`.
 
-`docker/Dockerfile.ingestion` copies `pipeline/scripts/` into `/app/scripts/` and
-runs `run_ingestion.sh` as the job entrypoint.
+### Verify GCS upload
+
+```bash
+python pipeline/scripts/verify_upload.py --bucket f1optimizer-data-lake
+```
+
+Reports file counts and sizes for `raw/` and `processed/` prefixes.
+
+## Data already uploaded
+
+The full F1 dataset has been uploaded:
+- `gs://f1optimizer-data-lake/raw/`: 51 files, 6.0 GB (source CSVs)
+- `gs://f1optimizer-data-lake/processed/`: 10 files, 1.0 GB (Parquet)

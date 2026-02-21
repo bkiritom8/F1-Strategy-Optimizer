@@ -222,3 +222,6 @@ __marimo__/
 # Local project memory (Claude Code - never commit)
 CLAUDE.md
 session_summary.md
+
+# Raw data — stored in GCS, not git
+raw/
