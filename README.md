@@ -220,5 +220,5 @@ Course submission pipeline is in [`Data-Pipeline/`](./Data-Pipeline/).
 
 **Status**: Production-ready — GCE Airflow VM, 3 Docker images, full data pipeline
 **Last Updated**: 2026-02-24
-**Repo**: [`bkiritom8/test`](https://github.com/bkiritom8/test)
+**Repo**: [`bkiritom8/F1-Strategy-Optimizer`](https://github.com/bkiritom8/F1-Strategy-Optimizer)
 **Branch**: `main` (stable) | `pipeline` (CI/CD) | `ml-dev` (ML development)
