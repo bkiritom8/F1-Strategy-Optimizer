@@ -1,0 +1,33 @@
+# Airflow image for F1 Strategy Optimizer
+#
+# Deploy to Artifact Registry via Cloud Build:
+#   gcloud builds submit --config cloudbuild.yaml . --project=f1optimizer
+#
+# Or build locally:
+#   docker build --platform linux/amd64 -t airflow:local -f docker/Dockerfile.airflow .
+#
+# Used for:
+#   - Local development (docker-compose.f1.yml)
+#   - GCE VM production deployment (infra/terraform/airflow_vm.tf)
+
+FROM apache/airflow:2.8.1-python3.10
+
+USER root
+
+RUN mkdir -p /opt/airflow/dags /opt/airflow/logs /opt/airflow/plugins \
+    && chown -R airflow:root /opt/airflow
+
+COPY docker/requirements-airflow.txt /requirements-airflow.txt
+
+# apache/airflow image blocks pip when run as root — switch to airflow user first
+USER airflow
+
+RUN pip install --no-cache-dir -r /requirements-airflow.txt
+
+# Copy DAGs (COPY runs as build root; --chown sets file ownership inside image)
+COPY --chown=airflow:root Data-Pipeline/dags/ /opt/airflow/dags/
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
