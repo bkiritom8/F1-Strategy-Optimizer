@@ -1,173 +1,193 @@
 """
-Feature Store — Cloud SQL → GCS via ADC.
+Feature Store — GCS Parquet reader with local + GCS cache.
 
-Loads feature sets by race_id, season, or driver from Cloud SQL.
-Writes feature DataFrames to GCS as Parquet for fast training access.
-NO hardcoded credentials — ADC only (Cloud SQL Python Connector).
+Reads from gs://f1optimizer-data-lake/processed/ via FeaturePipeline.
+Caches computed feature vectors:
+  1. Local disk: /tmp/f1_cache/race_{race_id}.parquet
+  2. GCS:        gs://f1optimizer-training/cache/race_{race_id}.parquet
 
-Usage (inside Vertex AI Workbench or training container):
+Keyed by race_id string ("{season}_{round}").
+
+Usage:
     fs = FeatureStore()
-    df = fs.load_race_features(race_id=1120)
-    df = fs.load_season_features(year=2023)
-    df = fs.load_driver_features(driver_id="hamilton")
-    uri = fs.write_to_gcs(df, "features/2023_season.parquet")
+    df = fs.load_race_features("2024_1")
+    df = fs.load_season_features(2023)
+    df = fs.load_driver_features("lewis_hamilton")
+    uri = fs.write_to_gcs(df, "features/enriched.parquet")
 """
 
 from __future__ import annotations
 
+import io
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from google.cloud import storage
-from google.cloud.sql.connector import Connector
 
 logger = logging.getLogger(__name__)
 
 PROJECT_ID = os.environ.get("PROJECT_ID", "f1optimizer")
-INSTANCE_CONNECTION_NAME = os.environ.get(
-    "INSTANCE_CONNECTION_NAME", "f1optimizer:us-central1:f1-optimizer-dev"
-)
-DB_NAME = os.environ.get("DB_NAME", "f1_strategy")
-DB_USER = os.environ.get("DB_USER", "f1_app")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
 TRAINING_BUCKET = os.environ.get("TRAINING_BUCKET", "gs://f1optimizer-training")
+LOCAL_CACHE_DIR = os.environ.get("F1_LOCAL_CACHE", "/tmp/f1_cache")
 
 
 class FeatureStore:
     """
-    Thin wrapper around Cloud SQL that returns feature DataFrames.
-    All reads go through Cloud SQL Python Connector with ADC — no passwords
-    in code.
+    Cache layer over GCS Parquet feature data.
+
+    On cache miss: computes features via FeaturePipeline, then saves to
+    local disk and GCS so subsequent calls are instant.
     """
 
-    def __init__(self) -> None:
-        self._connector = Connector()
-        self._gcs_client = storage.Client(project=PROJECT_ID)
+    GCS_CACHE_PREFIX = "cache"
 
-    def _conn(self):
-        return self._connector.connect(
-            INSTANCE_CONNECTION_NAME,
-            "pg8000",
-            user=DB_USER,
-            password=DB_PASSWORD,
-            db=DB_NAME,
-        )
+    def __init__(
+        self,
+        project: str = PROJECT_ID,
+        training_bucket: str = TRAINING_BUCKET,
+        local_cache_dir: str = LOCAL_CACHE_DIR,
+    ) -> None:
+        self._project = project
+        self._training_bucket_uri = training_bucket
+        self._training_bucket_name = training_bucket.removeprefix("gs://")
+        self._local_cache_dir = Path(local_cache_dir)
+        self._local_cache_dir.mkdir(parents=True, exist_ok=True)
+        self._gcs_client = storage.Client(project=project)
+        self._pipeline: Any = None  # lazy import to avoid circular deps
 
-    def _query(self, sql: str, params: Any = None) -> pd.DataFrame:
-        conn = self._conn()
+    # ── Cache helpers ─────────────────────────────────────────────────────────
+
+    def _local_path(self, race_id: str) -> Path:
+        safe = race_id.replace("/", "_")
+        return self._local_cache_dir / f"race_{safe}.parquet"
+
+    def _gcs_blob_path(self, race_id: str) -> str:
+        safe = race_id.replace("/", "_")
+        return f"{self.GCS_CACHE_PREFIX}/race_{safe}.parquet"
+
+    def _read_gcs_cache(self, race_id: str) -> pd.DataFrame | None:
+        blob_path = self._gcs_blob_path(race_id)
+        blob = self._gcs_client.bucket(self._training_bucket_name).blob(blob_path)
         try:
-            return pd.read_sql_query(sql, conn, params=params)
-        finally:
-            conn.close()
+            if blob.exists():
+                buf = io.BytesIO()
+                blob.download_to_file(buf)
+                buf.seek(0)
+                logger.info("FeatureStore: GCS cache hit race_id=%s", race_id)
+                return pd.read_parquet(buf)
+        except Exception as exc:
+            logger.debug("GCS cache read failed for %s: %s", race_id, exc)
+        return None
 
-    # ── Feature loading ───────────────────────────────────────────────────────
+    def _write_caches(self, race_id: str, df: pd.DataFrame) -> None:
+        # Local
+        local = self._local_path(race_id)
+        try:
+            df.to_parquet(local, index=False)
+            logger.debug("FeatureStore: wrote local cache %s", local)
+        except Exception as exc:
+            logger.debug("Local cache write failed: %s", exc)
+        # GCS
+        try:
+            buf = io.BytesIO()
+            df.to_parquet(buf, index=False)
+            buf.seek(0)
+            self._gcs_client.bucket(self._training_bucket_name).blob(
+                self._gcs_blob_path(race_id)
+            ).upload_from_file(buf, content_type="application/octet-stream")
+            logger.debug("FeatureStore: wrote GCS cache race_id=%s", race_id)
+        except Exception as exc:
+            logger.debug("GCS cache write failed: %s", exc)
 
-    def load_race_features(self, race_id: int) -> pd.DataFrame:
-        """Load all lap features for a single race."""
-        logger.info("FeatureStore: loading race_id=%d", race_id)
-        df = self._query(
-            """
-            SELECT lf.*, r.year, r.circuit_id, r.race_name,
-                   d.driver_ref, d.nationality
-            FROM lap_features lf
-            JOIN races r USING (race_id)
-            JOIN drivers d USING (driver_id)
-            WHERE lf.race_id = %s
-            ORDER BY lf.driver_id, lf.lap_number
-            """,
-            params=(race_id,),
-        )
-        logger.info("FeatureStore: loaded %d rows for race_id=%d", len(df), race_id)
+    def _pipeline_instance(self):
+        if self._pipeline is None:
+            from ml.features.feature_pipeline import FeaturePipeline
+
+            self._pipeline = FeaturePipeline(project=self._project)
+        return self._pipeline
+
+    # ── Public feature loading ─────────────────────────────────────────────
+
+    def load_race_features(
+        self, race_id: str, force_recompute: bool = False
+    ) -> pd.DataFrame:
+        """
+        Load all drivers' state vectors for one race.
+
+        Checks local cache → GCS cache → recomputes from source.
+        """
+        if not force_recompute:
+            local = self._local_path(race_id)
+            if local.exists():
+                logger.info("FeatureStore: local cache hit race_id=%s", race_id)
+                return pd.read_parquet(local)
+            cached = self._read_gcs_cache(race_id)
+            if cached is not None:
+                try:
+                    cached.to_parquet(local, index=False)
+                except Exception:
+                    pass
+                return cached
+
+        logger.info("FeatureStore: computing features for race_id=%s", race_id)
+        df = self._pipeline_instance().build_race_features(race_id)
+        if not df.empty:
+            self._write_caches(race_id, df)
         return df
+
+    def load_driver_features(
+        self, driver_id: str, race_id: str, force_recompute: bool = False
+    ) -> pd.DataFrame:
+        """
+        Load state vector for a single driver in a single race.
+
+        Falls back to loading the full race and filtering if race is cached.
+        """
+        race_df = self.load_race_features(race_id, force_recompute=force_recompute)
+        if race_df.empty or "driver_id" not in race_df.columns:
+            return race_df
+        return race_df[race_df["driver_id"] == driver_id].reset_index(drop=True)
 
     def load_season_features(self, year: int) -> pd.DataFrame:
-        """Load all lap features for a full season."""
-        logger.info("FeatureStore: loading year=%d", year)
-        df = self._query(
-            """
-            SELECT lf.*, r.year, r.circuit_id, r.race_name, r.round,
-                   d.driver_ref, d.nationality
-            FROM lap_features lf
-            JOIN races r USING (race_id)
-            JOIN drivers d USING (driver_id)
-            WHERE r.year = %s
-            ORDER BY r.round, lf.driver_id, lf.lap_number
-            """,
-            params=(year,),
-        )
-        logger.info(
-            "FeatureStore: loaded %d rows for year=%d (%d races)",
-            len(df),
-            year,
-            df["race_id"].nunique() if len(df) > 0 else 0,
-        )
-        return df
+        """Load features for an entire season (all races, all drivers)."""
+        pipeline = self._pipeline_instance()
+        races = pipeline.get_available_races()
+        season_races = [r for r in races if r["season"] == year]
+        if not season_races:
+            logger.warning("No races found for season %d", year)
+            return pd.DataFrame()
 
-    def load_driver_features(self, driver_ref: str) -> pd.DataFrame:
-        """Load all lap features for a specific driver across all seasons."""
-        logger.info("FeatureStore: loading driver=%s", driver_ref)
-        df = self._query(
-            """
-            SELECT lf.*, r.year, r.circuit_id, r.race_name,
-                   d.driver_ref, d.nationality
-            FROM lap_features lf
-            JOIN races r USING (race_id)
-            JOIN drivers d USING (driver_id)
-            WHERE d.driver_ref = %s
-            ORDER BY r.year, r.round, lf.lap_number
-            """,
-            params=(driver_ref,),
-        )
-        logger.info("FeatureStore: loaded %d rows for driver=%s", len(df), driver_ref)
-        return df
+        frames = []
+        for race in season_races:
+            rid = race["race_id"]
+            df = self.load_race_features(rid)
+            if not df.empty:
+                frames.append(df)
 
-    def load_telemetry_features(
-        self, race_id: int, driver_id: int | None = None
-    ) -> pd.DataFrame:
-        """Load telemetry features (10Hz, 2018+) for a race."""
-        sql = """
-            SELECT tf.*, r.year, r.circuit_id
-            FROM telemetry_features tf
-            JOIN races r USING (race_id)
-            WHERE tf.race_id = %s
-        """
-        params: tuple = (race_id,)
-        if driver_id is not None:
-            sql += " AND tf.driver_id = %s"
-            params = (race_id, driver_id)
-        sql += " ORDER BY tf.driver_id, tf.lap_number, tf.time_ms"
-        return self._query(sql, params=params)
+        if not frames:
+            return pd.DataFrame()
+        return pd.concat(frames, ignore_index=True)
+
+    def load_multi_season_features(self, years: list[int]) -> pd.DataFrame:
+        """Load features for multiple seasons."""
+        frames = [self.load_season_features(y) for y in years]
+        non_empty = [f for f in frames if not f.empty]
+        if not non_empty:
+            return pd.DataFrame()
+        return pd.concat(non_empty, ignore_index=True)
 
     def load_driver_profiles(self) -> pd.DataFrame:
-        """Load driver profiles (aggregated per-driver statistics)."""
-        return self._query("""
-            SELECT dp.*, d.driver_ref, d.nationality
-            FROM driver_profiles dp
-            JOIN drivers d USING (driver_id)
-            ORDER BY d.driver_ref
-            """)
-
-    def load_multi_season_features(
-        self, years: list[int], include_telemetry: bool = False
-    ) -> pd.DataFrame:
-        """Load lap features for multiple seasons."""
-        placeholders = ",".join(["%s"] * len(years))
-        df = self._query(
-            f"""
-            SELECT lf.*, r.year, r.circuit_id, r.race_name, r.round,
-                   d.driver_ref
-            FROM lap_features lf
-            JOIN races r USING (race_id)
-            JOIN drivers d USING (driver_id)
-            WHERE r.year IN ({placeholders})
-            ORDER BY r.year, r.round, lf.driver_id, lf.lap_number
-            """,
-            params=tuple(years),
-        )
-        logger.info("FeatureStore: loaded %d rows for years=%s", len(df), years)
-        return df
+        """Return career stats for all drivers found in the dataset."""
+        pipeline = self._pipeline_instance()
+        laps = pipeline._laps()
+        if "driverId" not in laps.columns:
+            return pd.DataFrame()
+        driver_ids = laps["driverId"].unique().tolist()
+        rows = [pipeline.get_driver_history(d) for d in driver_ids]
+        return pd.DataFrame(rows)
 
     # ── GCS write ─────────────────────────────────────────────────────────────
 
@@ -178,13 +198,16 @@ class FeatureStore:
         Returns the full GCS URI.
         """
         if gcs_path.startswith("gs://"):
-            bucket_name, blob_path = gcs_path.lstrip("gs://").split("/", 1)
+            remainder = gcs_path[5:]
+            bucket_name, blob_path = remainder.split("/", 1)
         else:
-            bucket_name = TRAINING_BUCKET.lstrip("gs://")
+            bucket_name = self._training_bucket_name
             blob_path = gcs_path
 
         gcs_uri = f"gs://{bucket_name}/{blob_path}"
-        data = df.to_parquet(index=False)
+        buf = io.BytesIO()
+        df.to_parquet(buf, index=False)
+        data = buf.getvalue()
         self._gcs_client.bucket(bucket_name).blob(blob_path).upload_from_string(
             data, content_type="application/octet-stream"
         )
@@ -196,8 +219,10 @@ class FeatureStore:
         )
         return gcs_uri
 
+    # ── Context manager ────────────────────────────────────────────────────────
+
     def close(self) -> None:
-        self._connector.close()
+        pass
 
     def __enter__(self) -> "FeatureStore":
         return self

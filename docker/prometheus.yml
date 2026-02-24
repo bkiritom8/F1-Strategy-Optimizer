@@ -5,28 +5,10 @@ global:
     monitor: 'f1-strategy-optimizer'
 
 scrape_configs:
-  # Airflow metrics
-  - job_name: 'airflow'
-    static_configs:
-      - targets: ['airflow-webserver:8080']
-    metrics_path: /admin/metrics
-
-  # API metrics
+  # F1 Strategy API metrics
   - job_name: 'api'
     static_configs:
       - targets: ['api:8000']
-    metrics_path: /metrics
-
-  # Mock services
-  - job_name: 'mock-dataflow'
-    static_configs:
-      - targets: ['mock-dataflow:9051']
-    metrics_path: /metrics
-
-  # Ray cluster
-  - job_name: 'ray'
-    static_configs:
-      - targets: ['ray-head:8265']
     metrics_path: /metrics
 
   # Prometheus itself

@@ -6,9 +6,9 @@ FastAPI application with security, monitoring, and operational guarantees.
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -62,6 +62,28 @@ ENV = os.getenv("ENV", "local")
 # ML model state — loaded once at startup
 _strategy_model = None
 _models_loaded_from_gcs = False
+
+# Lazy-loaded pipeline / simulator singletons (instantiated on first request)
+_feature_pipeline: Any = None
+_simulators: Dict[str, Any] = {}  # race_id → RaceSimulator
+
+
+def _get_pipeline():
+    global _feature_pipeline
+    if _feature_pipeline is None:
+        from ml.features.feature_pipeline import FeaturePipeline
+
+        _feature_pipeline = FeaturePipeline()
+    return _feature_pipeline
+
+
+def _get_simulator(race_id: str):
+    if race_id not in _simulators:
+        from pipeline.simulator.race_simulator import RaceSimulator
+
+        _simulators[race_id] = RaceSimulator(race_id)
+    return _simulators[race_id]
+
 
 # Add middleware
 if ENABLE_HTTPS:
@@ -405,6 +427,230 @@ async def startup_event():
             )
     except Exception as e:
         logger.warning("Model load failed, using rule-based fallback: %s", e)
+
+
+# ── /api/v1 router ─────────────────────────────────────────────────────────
+
+v1 = APIRouter(prefix="/api/v1")
+
+
+# Pydantic models for v1 endpoints
+
+
+class SimulateRequest(BaseModel):
+    race_id: str
+    driver_id: str
+    strategy: List[List]  # [[pit_lap, compound], ...]
+
+
+class SimulateResponse(BaseModel):
+    driver_id: str
+    race_id: str
+    predicted_final_position: int
+    predicted_total_time_s: float
+    strategy: List[List]
+    lap_times_s: List[float]
+
+
+@v1.get("/race/state")
+async def race_state(
+    race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
+    lap: int = Query(..., ge=1, description="Lap number"),
+    current_user=Depends(get_current_user),
+):
+    """Return full RaceState at a given lap (all drivers)."""
+    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
+    try:
+        sim = _get_simulator(race_id)
+        race_state_obj = sim.step(lap)
+        return {
+            "race_id": race_state_obj.race_id,
+            "lap_number": race_state_obj.lap_number,
+            "total_laps": race_state_obj.total_laps,
+            "weather": race_state_obj.weather,
+            "track_temp": race_state_obj.track_temp,
+            "air_temp": race_state_obj.air_temp,
+            "safety_car": race_state_obj.safety_car,
+            "drivers": [
+                {
+                    "driver_id": d.driver_id,
+                    "position": d.position,
+                    "gap_to_leader": d.gap_to_leader,
+                    "gap_to_ahead": d.gap_to_ahead,
+                    "lap_time_ms": d.lap_time_ms,
+                    "tire_compound": d.tire_compound,
+                    "tire_age_laps": d.tire_age_laps,
+                    "pit_stops_count": d.pit_stops_count,
+                    "fuel_remaining_kg": d.fuel_remaining_kg,
+                }
+                for d in race_state_obj.drivers
+            ],
+        }
+    except Exception as exc:
+        logger.error("race_state error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@v1.get("/race/standings")
+async def race_standings(
+    race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
+    lap: int = Query(..., ge=1, description="Lap number"),
+    current_user=Depends(get_current_user),
+):
+    """Return driver standings at a given lap."""
+    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
+    try:
+        sim = _get_simulator(race_id)
+        return {"race_id": race_id, "lap": lap, "standings": sim.get_standings(lap)}
+    except Exception as exc:
+        logger.error("race_standings error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@v1.get("/telemetry/{driver_id}/lap/{lap}")
+async def driver_lap_telemetry(
+    driver_id: str,
+    lap: int,
+    race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
+    current_user=Depends(get_current_user),
+):
+    """Return telemetry data for a specific driver and lap in a race."""
+    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
+    try:
+        pipeline = _get_pipeline()
+        df = pipeline.build_state_vector(race_id, driver_id)
+        if df.empty:
+            raise HTTPException(
+                status_code=404, detail=f"No data for {driver_id} in {race_id}"
+            )
+        lap_row = df[df["lap_number"] == lap]
+        if lap_row.empty:
+            raise HTTPException(status_code=404, detail=f"Lap {lap} not found")
+        row = lap_row.iloc[0].to_dict()
+        # Convert Int64 to plain int for JSON serialisation
+        return {k: (int(v) if hasattr(v, "item") else v) for k, v in row.items()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("driver_lap_telemetry error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@v1.get("/drivers")
+async def list_drivers(current_user=Depends(get_current_user)):
+    """Return all driver profiles with computed career stats."""
+    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
+    try:
+        pipeline = _get_pipeline()
+        drv_df = pipeline._drivers()
+        drivers_out = []
+        for _, row in drv_df.iterrows():
+            driver_id = str(row.get("driverId", ""))
+            history = pipeline.get_driver_history(driver_id)
+            drivers_out.append(
+                {
+                    "driver_id": driver_id,
+                    "given_name": str(row.get("givenName", "")),
+                    "family_name": str(row.get("familyName", "")),
+                    "nationality": str(row.get("nationality", "")),
+                    "code": str(row.get("code", "")),
+                    "permanent_number": str(row.get("permanentNumber", "")),
+                    **{k: v for k, v in history.items() if k != "driver_id"},
+                }
+            )
+        return {"count": len(drivers_out), "drivers": drivers_out}
+    except Exception as exc:
+        logger.error("list_drivers error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@v1.get("/drivers/{driver_id}/history")
+async def driver_history(driver_id: str, current_user=Depends(get_current_user)):
+    """Return career race history for a driver."""
+    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
+    try:
+        pipeline = _get_pipeline()
+        history = pipeline.get_driver_history(driver_id)
+        if history.get("races", 0) == 0:
+            raise HTTPException(
+                status_code=404, detail=f"Driver not found: {driver_id}"
+            )
+        return history
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("driver_history error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@v1.post("/strategy/simulate", response_model=SimulateResponse)
+async def simulate_strategy(
+    request: SimulateRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Simulate a custom pit strategy and return predicted outcome.
+
+    strategy: [[pit_lap, compound], ...]  e.g. [[20, "MEDIUM"], [42, "HARD"]]
+    """
+    if not iam_simulator.check_permission(current_user, Permission.ML_MODEL_READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
+    try:
+        strategy_tuples = [(int(s[0]), str(s[1])) for s in request.strategy]
+        sim = _get_simulator(request.race_id)
+        result = sim.simulate_strategy(request.driver_id, strategy_tuples)
+        return SimulateResponse(
+            driver_id=result.driver_id,
+            race_id=result.race_id,
+            predicted_final_position=result.predicted_final_position,
+            predicted_total_time_s=result.predicted_total_time_s,
+            strategy=[[p, c] for p, c in result.strategy],
+            lap_times_s=result.lap_times_s,
+        )
+    except Exception as exc:
+        logger.error("simulate_strategy error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@v1.get("/health/system")
+async def system_health():
+    """Return basic system health and pipeline status."""
+    checks: Dict[str, Any] = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "status": "healthy",
+        "feature_pipeline": "not_loaded",
+        "simulators_cached": len(_simulators),
+        "ml_model": "loaded" if _strategy_model is not None else "fallback",
+    }
+    if _feature_pipeline is not None:
+        checks["feature_pipeline"] = "loaded"
+        try:
+            n_races = len(_feature_pipeline._cache.get("laps_all", []))
+            checks["laps_cached_rows"] = n_races
+        except Exception:
+            pass
+    return checks
+
+
+# Register v1 router
+app.include_router(v1)
 
 
 if __name__ == "__main__":
