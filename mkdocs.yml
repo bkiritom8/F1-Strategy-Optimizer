@@ -1,0 +1,32 @@
+site_name: F1 Strategy Optimizer
+site_description: Production-grade real-time F1 race strategy system
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    primary: red
+    accent: red
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+
+nav:
+  - Architecture: architecture.md
+  - Data: data.md
+  - Models: models.md
+  - Training Pipeline: training-pipeline.md
+  - Metrics: metrics.md
+  - Monitoring: monitoring.md
+  - Roadmap: roadmap.md
+  - Progress: progress.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - fenced_code
+
+plugins:
+  - search
