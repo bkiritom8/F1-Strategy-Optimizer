@@ -56,9 +56,9 @@ class TestPipelineCompilation:
 
     def test_pipeline_root_is_gcs(self, compiled_pipeline):
         root = compiled_pipeline.get("defaultPipelineRoot", "")
-        assert root.startswith(
-            "gs://"
-        ), f"Pipeline root must be a GCS URI, got: {root!r}"
+        assert root.startswith("gs://"), (
+            f"Pipeline root must be a GCS URI, got: {root!r}"
+        )
 
     def test_all_components_present(self, compiled_pipeline):
         executors = compiled_pipeline.get("deploymentSpec", {}).get("executors", {})
@@ -80,9 +80,9 @@ class TestPipelineCompilation:
 
     def test_six_components_total(self, compiled_pipeline):
         executors = compiled_pipeline.get("deploymentSpec", {}).get("executors", {})
-        assert (
-            len(executors) >= 6
-        ), f"Expected >= 6 executor components, got {len(executors)}"
+        assert len(executors) >= 6, (
+            f"Expected >= 6 executor components, got {len(executors)}"
+        )
 
     def test_parallel_training_paths(self, compiled_pipeline):
         """
@@ -109,12 +109,12 @@ class TestPipelineCompilation:
         # Neither should depend on the other
         strategy_names = " ".join(strategy_deps).lower()
         pit_names = " ".join(pit_deps).lower()
-        assert (
-            "pit" not in strategy_names
-        ), "train_strategy should not depend on train_pit_stop"
-        assert (
-            "strategy" not in pit_names
-        ), "train_pit_stop should not depend on train_strategy"
+        assert "pit" not in strategy_names, (
+            "train_strategy should not depend on train_pit_stop"
+        )
+        assert "strategy" not in pit_names, (
+            "train_pit_stop should not depend on train_strategy"
+        )
 
     def test_deploy_depends_on_both_evals(self, compiled_pipeline):
         """deploy must wait for both evaluate tasks."""
@@ -125,9 +125,9 @@ class TestPipelineCompilation:
         )
         assert deploy_task is not None, "deploy task not found in DAG"
         deps = " ".join(deploy_task.get("dependentTasks", [])).lower()
-        assert (
-            "eval" in deps or "evaluate" in deps
-        ), f"deploy should depend on evaluation tasks, deps={deps}"
+        assert "eval" in deps or "evaluate" in deps, (
+            f"deploy should depend on evaluation tasks, deps={deps}"
+        )
 
 
 class TestPipelineRunnerCLI:

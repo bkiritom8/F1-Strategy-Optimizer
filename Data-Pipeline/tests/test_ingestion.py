@@ -128,10 +128,13 @@ class TestFetchJson:
         """HTTP 429 triggers the 60s-sleep-and-retry path; second call succeeds."""
         rate_limit_resp = _mock_response({}, status_code=429)
         success_resp = _mock_response({"MRData": {"total": "0", "SeasonTable": {}}})
-        with patch(
-            "src.ingestion.ergast_ingestion._rate_limited_get",
-            side_effect=[rate_limit_resp, success_resp],
-        ) as mock_get, patch("src.ingestion.ergast_ingestion.time.sleep") as mock_sleep:
+        with (
+            patch(
+                "src.ingestion.ergast_ingestion._rate_limited_get",
+                side_effect=[rate_limit_resp, success_resp],
+            ) as mock_get,
+            patch("src.ingestion.ergast_ingestion.time.sleep") as mock_sleep,
+        ):
             result = _fetch_json("https://api.jolpi.ca/ergast/f1/seasons/")
         # _rate_limited_get called twice: once for 429, once for the retry
         assert mock_get.call_count == 2

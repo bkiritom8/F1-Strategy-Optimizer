@@ -38,8 +38,11 @@ pytest-mock>=3.12.0
 
 # Linters / formatters / type checker
 ruff>=0.1.14
-black>=24.1.0
 mypy>=1.8.0
+# pathspec pinned to resolve DVC vs black conflict:
+# DVC requires pathspec<1.0.0; black requires pathspec>=1.0.0.
+# black is replaced by `ruff format` which has no pathspec dependency.
+pathspec==0.11.2
 types-requests>=2.31.0
 
 # Security scanners

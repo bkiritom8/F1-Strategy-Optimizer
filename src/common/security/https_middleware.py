@@ -130,9 +130,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.request_counts: Dict[str, Tuple[int, float]] = (
-            {}
-        )  # IP -> (count, window_start)
+        self.request_counts: Dict[
+            str, Tuple[int, float]
+        ] = {}  # IP -> (count, window_start)
 
     async def dispatch(self, request: Request, call_next: Callable):
         import time

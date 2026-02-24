@@ -1,7 +1,7 @@
 # F1 Strategy Optimizer — Developer Setup Guide
 
 **Project**: `f1optimizer` (GCP, `us-central1`)
-**Repo**: [`bkiritom8/F1-Strategy-Optimizer`](https://github.com/bkiritom8/F1-Strategy-Optimizer) | Branch: `pipeline`
+**Repo**: [`bkiritom8/test`](https://github.com/bkiritom8/test) | Branch: `main` (stable) | `pipeline` (CI/CD)
 
 ---
 
@@ -32,7 +32,7 @@ Install the following before starting:
 ### Clone and install Python dependencies
 
 ```bash
-git clone https://github.com/bkiritom8/F1-Strategy-Optimizer.git
+git clone https://github.com/bkiritom8/test.git
 cd test
 
 # Install all ML + dev dependencies
@@ -289,9 +289,9 @@ df = pd.read_parquet("gs://f1optimizer-data-lake/processed/laps.parquet")
 
 ```python
 import subprocess
-subprocess.run(["git", "clone", "https://github.com/bkiritom8/F1-Strategy-Optimizer.git"], check=True)
+subprocess.run(["git", "clone", "https://github.com/bkiritom8/test.git"], check=True)
 import sys
-sys.path.insert(0, "/content/test")
+sys.path.insert(0, "/content/test")  # repo cloned to /content/test
 ```
 
 ---
@@ -335,4 +335,4 @@ export $(grep -v '^#' .env | xargs)
 
 ---
 
-*Last updated: 2026-02-20. See `ml/HANDOFF.md` for infrastructure details and known gaps.*
+*Last updated: 2026-02-24. See `team-docs/ml_module_handoff.md` for infrastructure details and known gaps.*

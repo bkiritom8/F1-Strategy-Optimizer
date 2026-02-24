@@ -53,7 +53,6 @@ def dummy_laps() -> pd.DataFrame:
 
 
 class TestFeaturePipeline:
-
     @pytest.fixture
     def pipeline(self):
         from unittest.mock import MagicMock, patch
@@ -71,9 +70,9 @@ class TestFeaturePipeline:
     def test_encode_compounds(self, pipeline, dummy_laps):
         df = pipeline._encode_compounds(dummy_laps)
         for compound in ["SOFT", "MEDIUM", "HARD"]:
-            assert (
-                f"compound_{compound}" in df.columns
-            ), f"compound_{compound} column missing after encoding"
+            assert f"compound_{compound}" in df.columns, (
+                f"compound_{compound} column missing after encoding"
+            )
 
     def test_tire_degradation_creates_delta(self, pipeline, dummy_laps):
         df = pipeline._sort(dummy_laps)
@@ -105,9 +104,9 @@ class TestFeaturePipeline:
         df = pipeline._sort(dummy_laps)
         df = pipeline._fuel_load_estimate(df)
         assert "fuel_load_pct" in df.columns
-        assert (
-            df["fuel_load_pct"].between(0, 1).all()
-        ), "fuel_load_pct must be in [0, 1]"
+        assert df["fuel_load_pct"].between(0, 1).all(), (
+            "fuel_load_pct must be in [0, 1]"
+        )
 
     def test_safety_car_probability_range(self, pipeline, dummy_laps):
         df = pipeline._sort(dummy_laps)
@@ -126,9 +125,9 @@ class TestFeaturePipeline:
         df = pipeline._tire_degradation(df)
         df = pipeline._clean(df)
         numeric_cols = df.select_dtypes(include=[np.number]).columns
-        assert (
-            not df[numeric_cols].isna().any().any()
-        ), "clean() should fill all numeric NaNs"
+        assert not df[numeric_cols].isna().any().any(), (
+            "clean() should fill all numeric NaNs"
+        )
 
     def test_full_run_shape(self, pipeline, dummy_laps):
         """run() on mock data produces more columns than raw input."""
@@ -141,16 +140,15 @@ class TestFeaturePipeline:
         ):
             df = pipeline.run(years=[2023])
         assert len(df) == len(dummy_laps)
-        assert len(df.columns) > len(
-            dummy_laps.columns
-        ), "run() should add derived feature columns"
+        assert len(df.columns) > len(dummy_laps.columns), (
+            "run() should add derived feature columns"
+        )
 
 
 # ── FeatureStore unit tests (no Cloud SQL) ────────────────────────────────────
 
 
 class TestFeatureStore:
-
     def test_import_cleanly(self):
         from ml.features.feature_store import FeatureStore
 
@@ -166,10 +164,10 @@ class TestFeatureStore:
         """write_to_gcs constructs the correct URI without actually uploading."""
         from unittest.mock import MagicMock, patch
 
-        with patch("ml.features.feature_store.Connector"), patch(
-            "ml.features.feature_store.storage.Client"
-        ) as MockClient:
-
+        with (
+            patch("ml.features.feature_store.Connector"),
+            patch("ml.features.feature_store.storage.Client") as MockClient,
+        ):
             mock_bucket = MagicMock()
             mock_blob = MagicMock()
             MockClient.return_value.bucket.return_value = mock_bucket

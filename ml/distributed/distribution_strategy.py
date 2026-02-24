@@ -64,13 +64,13 @@ class DataParallelStrategy(BaseDistributionStrategy):
                 communication_options=options
             )
             logger.info(
-                "DataParallelStrategy: MultiWorkerMirroredStrategy, " "num_workers=%d",
+                "DataParallelStrategy: MultiWorkerMirroredStrategy, num_workers=%d",
                 strategy.num_replicas_in_sync,
             )
         else:
             strategy = tf.distribute.MirroredStrategy()
             logger.info(
-                "DataParallelStrategy: MirroredStrategy, " "num_replicas=%d",
+                "DataParallelStrategy: MirroredStrategy, num_replicas=%d",
                 strategy.num_replicas_in_sync,
             )
         return strategy

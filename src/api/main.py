@@ -291,7 +291,7 @@ async def recommend_strategy(
 
         logger.info(
             f"Strategy recommendation for {request.driver_id} at lap {request.current_lap}: "
-            f"{recommendation.recommended_action} (latency: {duration*1000:.2f}ms)"
+            f"{recommendation.recommended_action} (latency: {duration * 1000:.2f}ms)"
         )
 
         return recommendation

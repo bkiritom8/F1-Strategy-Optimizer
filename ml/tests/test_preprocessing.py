@@ -17,7 +17,6 @@ from ml.preprocessing.preprocess_data import (
 
 
 class TestLoadData:
-
     def test_load_fastf1_data_returns_dataframe(self):
         df = load_fastf1_data()
         assert isinstance(df, pd.DataFrame)
@@ -36,7 +35,6 @@ class TestLoadData:
 
 
 class TestPreprocessFastF1:
-
     @pytest.fixture
     def raw_data(self):
         return load_fastf1_data()
@@ -87,7 +85,6 @@ class TestPreprocessFastF1:
 
 
 class TestPreprocessRaceResults:
-
     @pytest.fixture
     def raw_data(self):
         return load_race_results()
@@ -115,7 +112,6 @@ class TestPreprocessRaceResults:
 
 
 class TestDataIntegrity:
-
     def test_seasons_in_expected_range(self):
         df = load_fastf1_data()
         df = preprocess_fastf1(df)

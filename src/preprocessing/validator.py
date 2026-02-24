@@ -162,7 +162,7 @@ class DataValidator:
 
         logger.info(
             f"Validation complete: {len(valid_records)}/{len(df)} valid "
-            f"({validation_report['validation_rate']*100:.2f}%)"
+            f"({validation_report['validation_rate'] * 100:.2f}%)"
         )
 
         return valid_df, validation_report
@@ -262,8 +262,7 @@ class DataValidator:
         }
 
         logger.info(
-            f"Data quality: {quality_level.value.upper()} "
-            f"(score: {overall_score:.2f})"
+            f"Data quality: {quality_level.value.upper()} (score: {overall_score:.2f})"
         )
 
         return quality_level, quality_report

@@ -19,6 +19,22 @@ Usage:
     python Data-Pipeline/scripts/validate_data.py --data-dir data/processed
 """
 
+# SCHEMA AND STATISTICS GENERATION
+# This module generates data schema and statistics equivalent to
+# Great Expectations ExpectationSuites and TFDV StatisticsGen.
+#
+# Statistics saved to: Data-Pipeline/logs/data_statistics.json
+# Validation suite saved to: Data-Pipeline/scripts/expectations/
+#
+# To upgrade to full Great Expectations:
+#   pip install great-expectations
+#   great_expectations init
+#   great_expectations suite new
+#
+# To upgrade to TFDV:
+#   pip install tensorflow-data-validation
+#   tfdv.generate_statistics_from_dataframe(df)
+
 from __future__ import annotations
 
 import argparse
@@ -45,6 +61,8 @@ _SCRIPT_DIR = Path(__file__).parent
 _REPO_ROOT = _SCRIPT_DIR.parents[1]
 _EXPECTATIONS_DIR = _SCRIPT_DIR / "expectations"
 _EXPECTATIONS_DIR.mkdir(parents=True, exist_ok=True)
+_LOGS_DIR = _SCRIPT_DIR.parent / "logs"
+_LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Local fallback: Data-Pipeline/data/ when USE_LOCAL_DATA=true
 _USE_LOCAL = os.getenv("USE_LOCAL_DATA", "false").lower() == "true"
@@ -228,6 +246,113 @@ def check_positive_integers(df: pd.DataFrame, col: str, source: str) -> CheckRes
 
 
 # ---------------------------------------------------------------------------
+# Statistics generation
+# ---------------------------------------------------------------------------
+
+
+def generate_statistics(df: pd.DataFrame, name: str) -> Dict[str, Any]:
+    """
+    Compute schema and descriptive statistics for a DataFrame.
+
+    Equivalent to a Great Expectations dataset profile or TFDV StatisticsGen
+    output — no external dependencies required.
+
+    Computes per dataset:
+      - Row and column counts
+      - Column dtypes (schema)
+      - Null count and null % per column
+      - Numeric columns: min, max, mean, std, median
+      - Categorical columns: unique count, top-5 value counts with %
+      - Overall completeness score (% non-null cells across the full frame)
+
+    Results are appended under ``name`` in
+    ``Data-Pipeline/logs/data_statistics.json`` so all datasets accumulate
+    in one file across runs.
+
+    Parameters
+    ----------
+    df:   DataFrame to profile.
+    name: Dataset label used as the key in the output JSON.
+
+    Returns
+    -------
+    dict containing all computed statistics.
+    """
+    n_rows = len(df)
+    n_cols = len(df.columns)
+    total_cells = n_rows * n_cols
+    non_null_cells = int(df.notnull().sum().sum())
+    completeness_pct = (
+        round(non_null_cells / total_cells * 100, 2) if total_cells > 0 else 0.0
+    )
+
+    column_stats: Dict[str, Any] = {}
+    for col in df.columns:
+        series = df[col]
+        null_count = int(series.isna().sum())
+        null_pct = round(null_count / n_rows * 100, 2) if n_rows > 0 else 0.0
+
+        col_stat: Dict[str, Any] = {
+            "dtype": str(series.dtype),
+            "null_count": null_count,
+            "null_pct": null_pct,
+        }
+
+        if pd.api.types.is_numeric_dtype(series):
+            numeric = pd.to_numeric(series, errors="coerce").dropna()
+            if not numeric.empty:
+                col_stat.update(
+                    {
+                        "min": round(float(numeric.min()), 4),
+                        "max": round(float(numeric.max()), 4),
+                        "mean": round(float(numeric.mean()), 4),
+                        "std": round(float(numeric.std()), 4),
+                        "median": round(float(numeric.median()), 4),
+                    }
+                )
+        else:
+            non_null = series.dropna()
+            col_stat["unique_count"] = int(non_null.nunique())
+            top_counts = non_null.value_counts().head(5)
+            col_stat["top_values"] = [
+                {
+                    "value": str(v),
+                    "count": int(c),
+                    "pct": round(c / len(non_null) * 100, 1)
+                    if len(non_null) > 0
+                    else 0.0,
+                }
+                for v, c in top_counts.items()
+            ]
+
+        column_stats[col] = col_stat
+
+    stats: Dict[str, Any] = {
+        "dataset": name,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "row_count": n_rows,
+        "column_count": n_cols,
+        "completeness_pct": completeness_pct,
+        "schema": {col: str(df[col].dtype) for col in df.columns},
+        "columns": column_stats,
+    }
+
+    # Append/update this dataset's entry in data_statistics.json
+    stats_path = _LOGS_DIR / "data_statistics.json"
+    existing: Dict[str, Any] = {}
+    if stats_path.exists():
+        try:
+            existing = json.loads(stats_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+    existing[name] = stats
+    stats_path.write_text(json.dumps(existing, indent=2))
+    logger.info("Statistics for '%s' saved → %s", name, stats_path)
+
+    return stats
+
+
+# ---------------------------------------------------------------------------
 # Per-file validation suites
 # ---------------------------------------------------------------------------
 
@@ -362,6 +487,7 @@ def run_validation(data_dir: Optional[str] = None) -> int:
     logger.info("Validating Parquet files in: %s", data_path)
     all_results: List[CheckResult] = []
     all_suites: List[Dict[str, Any]] = []
+    all_stats: List[Dict[str, Any]] = []
     critical_failures = 0
 
     for filename, validator_fn in FILE_VALIDATORS.items():
@@ -398,9 +524,30 @@ def run_validation(data_dir: Optional[str] = None) -> int:
             critical_failures += 1
             continue
 
+        # Generate statistics before validation so they're always saved
+        # even if a check later raises an exception.
+        dataset_name = filename.replace(".parquet", "")
+        stats = generate_statistics(df, dataset_name)
+        all_stats.append(stats)
+
         file_results, suite = validator_fn(df)
         all_results.extend(file_results)
         all_suites.append(suite)
+
+    # Print statistics summary table
+    if all_stats:
+        print("\n" + "=" * 70)
+        print("F1 Data Pipeline — Data Statistics Summary")
+        print(f"{'Dataset':<30} {'Rows':>12} {'Cols':>6} {'Completeness':>14}")
+        print("-" * 66)
+        for s in all_stats:
+            print(
+                f"{s['dataset']:<30} {s['row_count']:>12,} {s['column_count']:>6} "
+                f"{s['completeness_pct']:>13.1f}%"
+            )
+        print("-" * 66)
+        print(f"Full statistics → {_LOGS_DIR / 'data_statistics.json'}")
+        print("=" * 70)
 
     # Print results
     print("\n" + "=" * 70)
