@@ -42,7 +42,7 @@ logging.basicConfig(
 logger = logging.getLogger("anomaly_detection")
 
 _SCRIPT_DIR = Path(__file__).parent
-_REPO_ROOT = _SCRIPT_DIR.parents[1]
+_REPO_ROOT = _SCRIPT_DIR.parents[2]
 _LOGS_DIR = _SCRIPT_DIR.parent / "logs"
 _LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -120,7 +120,7 @@ def check_laps(df: pd.DataFrame) -> List[Dict[str, Any]]:
             if std == 0:
                 continue
             z = (grp_lt - mean) / std
-            outliers = grp_idx[z.abs() > LAP_TIME_Z_THRESHOLD]
+            outliers = grp_lt.index[z.abs() > LAP_TIME_Z_THRESHOLD]
             outlier_rows.extend(outliers.tolist())
         if outlier_rows:
             anomalies.append(
@@ -137,9 +137,8 @@ def check_laps(df: pd.DataFrame) -> List[Dict[str, Any]]:
 
     # Invalid compound values
     if compound_col and compound_col in df.columns:
-        invalid = df[compound_col].dropna()[
-            ~df[compound_col].dropna().isin(VALID_COMPOUNDS)
-        ]
+        valid_compounds = df[compound_col].dropna()
+        invalid = valid_compounds[~valid_compounds.isin(VALID_COMPOUNDS)]
         if len(invalid) > 0:
             unexpected = list(invalid.unique()[:10])
             anomalies.append(
