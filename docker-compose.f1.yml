@@ -1,0 +1,145 @@
+version: '3.8'
+
+# Copy .env.example to .env before running:
+#   cp .env.example .env
+# Then start services:
+#   docker-compose -f docker-compose.f1.yml up api prometheus grafana
+#   docker-compose -f docker-compose.f1.yml up airflow-webserver airflow-scheduler
+#   docker-compose -f docker-compose.f1.yml up mock-dataflow   # local dev only
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.airflow
+  env_file: .env
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'false'
+    USE_LOCAL_DATA: '${USE_LOCAL_DATA:-false}'
+    GCS_RAW: '${GCS_RAW:-gs://f1optimizer-data-lake/raw}'
+    GCS_PROCESSED: '${GCS_PROCESSED:-gs://f1optimizer-data-lake/processed}'
+    DATA_BUCKET: '${DATA_BUCKET:-f1optimizer-data-lake}'
+    MODELS_BUCKET: '${MODELS_BUCKET:-f1optimizer-models}'
+    SLACK_WEBHOOK_URL: '${SLACK_WEBHOOK_URL:-}'
+  volumes:
+    - ./Data-Pipeline/dags:/opt/airflow/dags
+    - airflow-logs:/opt/airflow/logs
+    - ./Data-Pipeline/plugins:/opt/airflow/plugins
+  networks:
+    - f1-network
+
+services:
+  # ── FastAPI ──────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      ENV: local
+      LOG_LEVEL: INFO
+      ENABLE_HTTPS: 'false'
+      ENABLE_IAM: 'true'
+    volumes:
+      - ./src:/app/src
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - f1-network
+
+  # ── Airflow ──────────────────────────────────────────────────────────────────
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command: >-
+      -c "airflow db init &&
+          airflow users create
+            --username admin --password admin
+            --firstname Admin --lastname User
+            --role Admin --email admin@f1optimizer.com || true"
+    restart: 'no'
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ── Mock Dataflow — LOCAL DEVELOPMENT ONLY, not deployed to GCP ───────────
+  mock-dataflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mock-dataflow
+    ports:
+      - "8088:8088"
+    environment:
+      PORT: '8088'
+    networks:
+      - f1-network
+    # profiles: [dev]  # uncomment to exclude from `docker-compose up` by default
+
+  # ── Prometheus ───────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - f1-network
+
+  # ── Grafana ──────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - f1-network
+
+networks:
+  f1-network:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  airflow-logs:
