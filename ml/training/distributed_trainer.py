@@ -12,10 +12,27 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import ray
-from ray import train
-from ray.train import ScalingConfig
-from ray.train.sklearn import SklearnTrainer
+
+try:
+    import ray
+    from ray import train
+    from ray.train import ScalingConfig
+    from ray.train.sklearn import SklearnTrainer
+
+    RAY_AVAILABLE = True
+except ImportError:
+    import warnings
+
+    warnings.warn(
+        "Ray not installed. Distributed training will fall back to single-node mode. "
+        "Install with: pip install 'ray[default]>=2.0.0'",
+        stacklevel=2,
+    )
+    RAY_AVAILABLE = False
+    ray = None  # type: ignore[assignment]
+    train = None  # type: ignore[assignment]
+    ScalingConfig = None  # type: ignore[assignment]
+    SklearnTrainer = None  # type: ignore[assignment]
 
 # Configure logging
 logging.basicConfig(
@@ -42,8 +59,8 @@ class DistributedTrainer:
         self.num_workers = num_workers
         self.use_gpu = use_gpu
 
-        # Initialize Ray
-        if not ray.is_initialized():
+        # Initialize Ray if available
+        if RAY_AVAILABLE and ray is not None and not ray.is_initialized():
             ray.init(
                 num_cpus=num_workers,
                 ignore_reinit_error=True,
@@ -101,7 +118,11 @@ class DistributedTrainer:
         train_data: Dict[str, Any],
         hyperparameters: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Train model with Ray distributed training"""
+        """Train model with Ray distributed training (falls back to single-node if Ray unavailable)."""
+        if not RAY_AVAILABLE:
+            raise RuntimeError(
+                "Ray is not installed. Install with: pip install 'ray[default]>=2.0.0'"
+            )
         logger.info(f"Starting distributed training for {self.model_name}")
 
         hyperparameters = hyperparameters or {}
@@ -212,9 +233,9 @@ class DistributedTrainer:
 
         return str(model_path)
 
-    def shutdown(self):
-        """Shutdown Ray"""
-        if ray.is_initialized():
+    def shutdown(self) -> None:
+        """Shutdown Ray."""
+        if RAY_AVAILABLE and ray is not None and ray.is_initialized():
             ray.shutdown()
             logger.info("Ray cluster shut down")
 

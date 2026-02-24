@@ -225,3 +225,26 @@ session_summary.md
 
 # Raw data — stored in GCS, not git
 raw/
+
+# Team internal docs (not for graders)
+team-docs/session_summary.md
+team-docs/*.local.md
+
+# Data directories
+data/raw/
+data/processed/
+data/features/
+data/raw/fastf1_cache/
+
+# DVC
+.dvc/tmp/
+.dvc/cache/
+
+# Logs
+Data-Pipeline/logs/*.json
+!Data-Pipeline/logs/.gitkeep
+
+# Airflow
+airflow.db
+airflow/logs/
+airflow/plugins/

@@ -1,0 +1,6 @@
+data/raw/fastf1_cache/
+**/__pycache__/
+*.pyc
+.env
+.venv/
+*.egg-info/
