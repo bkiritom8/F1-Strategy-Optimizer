@@ -1,20 +1,26 @@
 """
-Data Preprocessing Pipeline
+Data Preprocessing Pipeline - GCS Version
 """
 
 import pandas as pd
 import json
 import os
+import gcsfs
 
-RAW_DIR = "data/raw"
-PROCESSED_DIR = "data/processed"
-os.makedirs(PROCESSED_DIR, exist_ok=True)
+RAW_DIR = "gs://f1optimizer-data-lake/processed"
+PROCESSED_DIR = "gs://f1optimizer-data-lake/ml_features"
+
+fs = gcsfs.GCSFileSystem()
 
 
 def load_fastf1_data():
-    print("Loading FastF1 data...")
-    laps = pd.read_csv(f"{RAW_DIR}/fastf1_laps.csv")
-    telemetry = pd.read_csv(f"{RAW_DIR}/fastf1_telemetry.csv")
+    print(f"Loading FastF1 data from {RAW_DIR}...")
+    laps = pd.read_parquet(f"{RAW_DIR}/fastf1_laps.parquet")
+    telemetry = pd.read_parquet(f"{RAW_DIR}/fastf1_telemetry.parquet")
+    
+    # Remove rows with missing merge keys
+    laps = laps.dropna(subset=['season', 'round', 'Driver', 'LapNumber'])
+    telemetry = telemetry.dropna(subset=['season', 'round', 'Driver', 'LapNumber'])
 
     df = laps.merge(
         telemetry, on=["season", "round", "Driver", "LapNumber"], how="inner"
@@ -24,8 +30,8 @@ def load_fastf1_data():
 
 
 def load_race_results():
-    print("Loading race results...")
-    df = pd.read_csv(f"{RAW_DIR}/race_results.csv")
+    print(f"Loading race results from {RAW_DIR}...")
+    df = pd.read_parquet(f"{RAW_DIR}/race_results.parquet")
     print(f"  Loaded: {len(df)} rows")
     return df
 
@@ -33,16 +39,13 @@ def load_race_results():
 def preprocess_fastf1(df):
     print("Preprocessing FastF1 data...")
 
-    # Remove invalid laps
     df = df.dropna(subset=["LapTime", "TyreLife", "Compound", "mean_throttle"])
     df = df[(df["LapTime"] > 60) & (df["LapTime"] < 200)]
 
-    # Sort for time-series calculations
     df = df.sort_values(["season", "round", "Driver", "LapNumber"]).reset_index(
         drop=True
     )
 
-    # One-hot encode compound
     compounds = pd.get_dummies(df["Compound"].str.upper(), prefix="compound")
     for c in [
         "compound_SOFT",
@@ -55,41 +58,33 @@ def preprocess_fastf1(df):
             compounds[c] = 0
     df = pd.concat([df, compounds], axis=1)
 
-    # Lap time delta (degradation signal)
     df["lap_time_delta"] = df.groupby(["season", "round", "Driver"])["LapTime"].diff()
     df["lap_time_delta"] = df["lap_time_delta"].fillna(0).clip(-5, 5)
 
-    # Rolling 3-lap degradation rate
     df["deg_rate_roll3"] = df.groupby(["season", "round", "Driver"])[
         "lap_time_delta"
     ].transform(lambda x: x.rolling(3, min_periods=1).mean())
 
-    # Total laps and laps remaining
     df["total_laps"] = df.groupby(["season", "round"])["LapNumber"].transform("max")
     df["laps_remaining"] = df["total_laps"] - df["LapNumber"]
 
-    # Fuel load estimate
     df["fuel_load_pct"] = (1.0 - (df["LapNumber"] - 1) / df["total_laps"]).clip(
         lower=0.0
     )
 
-    # Fuel consumed estimate (kg per lap)
     df["fuel_consumed"] = 1.8 * (df["mean_throttle"] / 70)
 
-    # Driving style labels (based on throttle percentiles)
     throttle_33 = df["mean_throttle"].quantile(0.33)
     throttle_66 = df["mean_throttle"].quantile(0.66)
     df["driving_style"] = df["mean_throttle"].apply(
         lambda x: 0 if x < throttle_33 else (2 if x > throttle_66 else 1)
     )
 
-    # Stint change detection (for pit window)
     df["stint_change"] = (
         df.groupby(["season", "round", "Driver"])["Stint"].diff().fillna(0)
     )
     df["is_pit_lap"] = (df["stint_change"] > 0).astype(int)
 
-    # Laps to next pit
     def calc_laps_to_pit(group):
         pit_laps = group[group["is_pit_lap"] == 1]["LapNumber"].values
         result = []
@@ -108,49 +103,41 @@ def preprocess_fastf1(df):
         .reset_index(level=[0, 1, 2], drop=True)
     )
 
-    # Position calculation (based on cumulative time)
     df["cum_time"] = df.groupby(["season", "round", "Driver"])["LapTime"].cumsum()
     df["position"] = df.groupby(["season", "round", "LapNumber"])["cum_time"].rank(
         method="first"
     )
 
-    # Position change (for overtake model)
     df["next_position"] = df.groupby(["season", "round", "Driver"])["position"].shift(
         -1
     )
     df["position_change"] = df["position"] - df["next_position"]
     df["overtake_success"] = (df["position_change"] >= 1).astype(int)
 
-    # Gap to car ahead
     df["gap_ahead"] = (
         df.groupby(["season", "round", "LapNumber"])["LapTime"].diff().fillna(1.0)
     )
     df["gap_ahead"] = df["gap_ahead"].clip(-5, 5)
 
-    # Tyre delta to car ahead
     df["tyre_delta"] = (
         df.groupby(["season", "round", "LapNumber"])["TyreLife"].diff().fillna(0)
     )
 
-    # Speed delta to car ahead
     df["speed_delta"] = (
         df.groupby(["season", "round", "LapNumber"])["mean_speed"].diff().fillna(0)
     )
 
-    # Safety car detection (lap time much higher than race median)
     race_medians = df.groupby(["season", "round"])["LapTime"].transform("median")
     lap_medians = df.groupby(["season", "round", "LapNumber"])["LapTime"].transform(
         "median"
     )
     df["is_sc_lap"] = (lap_medians > race_medians * 1.2).astype(int)
 
-    # Position change after SC (5 laps later)
     df["position_5_later"] = df.groupby(["season", "round", "Driver"])[
         "position"
     ].shift(-5)
     df["sc_position_change"] = df["position"] - df["position_5_later"]
 
-    # Pitted under SC
     df["pitted_under_sc"] = ((df["stint_change"] > 0) & (df["is_sc_lap"] == 1)).astype(
         int
     )
@@ -162,7 +149,6 @@ def preprocess_fastf1(df):
 def preprocess_race_results(df):
     print("Preprocessing race results...")
 
-    # Standardize column names
     col_map = {
         "Grid": "grid",
         "Position": "position",
@@ -173,13 +159,11 @@ def preprocess_race_results(df):
     }
     df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
 
-    # Remove invalid rows
     df = df.dropna(subset=["grid", "position"])
     df = df[df["grid"] > 0]
     df = df[df["position"] > 0]
     df = df[df["position"] <= 20]
 
-    # Encode categoricals
     for col in [
         "driver",
         "constructor",
@@ -191,14 +175,12 @@ def preprocess_race_results(df):
         if col in df.columns:
             df[f"{col}_encoded"] = df[col].astype("category").cat.codes
 
-    # Extract season if not present
     if "season" not in df.columns:
         if "year" in df.columns:
             df["season"] = df["year"]
         else:
             df["season"] = 2020
 
-    # Sort
     df = df.sort_values(
         [
             "season",
@@ -206,7 +188,6 @@ def preprocess_race_results(df):
         ]
     )
 
-    # Driver rolling average finish
     driver_col = (
         "driver_encoded" if "driver_encoded" in df.columns else "driverId_encoded"
     )
@@ -217,7 +198,6 @@ def preprocess_race_results(df):
             .fillna(10)
         )
 
-    # Constructor rolling average finish
     constructor_col = (
         "constructor_encoded"
         if "constructor_encoded" in df.columns
@@ -336,28 +316,28 @@ def save_metadata(fastf1_df, race_df):
         },
     }
 
-    with open(f"{PROCESSED_DIR}/metadata.json", "w") as f:
+    metadata_path = f"{PROCESSED_DIR}/metadata.json"
+    with fs.open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=2)
-    print(f"Saved metadata to {PROCESSED_DIR}/metadata.json")
+    print(f"Saved metadata to {metadata_path}")
 
 
 def main():
-    # Load raw data
     fastf1_df = load_fastf1_data()
     race_df = load_race_results()
 
-    # Preprocess
     fastf1_df = preprocess_fastf1(fastf1_df)
     race_df = preprocess_race_results(race_df)
 
-    # Save processed data
-    fastf1_df.to_csv(f"{PROCESSED_DIR}/fastf1_features.csv", index=False)
-    print(f"Saved {PROCESSED_DIR}/fastf1_features.csv")
+    fastf1_path = f"{PROCESSED_DIR}/fastf1_features.parquet"
+    race_path = f"{PROCESSED_DIR}/race_results_features.parquet"
 
-    race_df.to_csv(f"{PROCESSED_DIR}/race_results_features.csv", index=False)
-    print(f"Saved {PROCESSED_DIR}/race_results_features.csv")
+    fastf1_df.to_parquet(fastf1_path, index=False)
+    print(f"Saved {fastf1_path}")
 
-    # Save metadata
+    race_df.to_parquet(race_path, index=False)
+    print(f"Saved {race_path}")
+
     save_metadata(fastf1_df, race_df)
 
     print("\nPreprocessing complete!")
