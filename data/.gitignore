@@ -1,0 +1,7 @@
+raw/
+processed/
+features/
+*.csv
+*.parquet
+*.json
+!.gitkeep
