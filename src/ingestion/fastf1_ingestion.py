@@ -25,8 +25,8 @@ import pandas as pd
 
 from .fastf1_extractor import (
     enable_cache, load_session, extract_laps,
-    extract_telemetry, extract_weather, normalize_timedeltas,
-    _FASTF1_AVAILABLE, SESSION_LABELS,
+    extract_telemetry, extract_weather,
+    _FASTF1_AVAILABLE,
 )
 
 logger = logging.getLogger(__name__)

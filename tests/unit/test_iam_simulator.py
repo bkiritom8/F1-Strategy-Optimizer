@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, "/home/user/test")
 
-from src.common.security.iam_simulator import IAMSimulator, Role, Permission, User
+from src.security.iam_simulator import IAMSimulator, Role, Permission, User
 
 
 class TestIAMSimulator:

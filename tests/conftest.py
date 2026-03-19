@@ -28,7 +28,7 @@ def sample_race_data():
 @pytest.fixture
 def iam_simulator():
     """IAM simulator instance for testing"""
-    from src.common.security.iam_simulator import IAMSimulator
+    from src.security.iam_simulator import IAMSimulator
 
     return IAMSimulator()
 
@@ -36,7 +36,7 @@ def iam_simulator():
 @pytest.fixture
 def test_user(iam_simulator):
     """Test user with data viewer role"""
-    from src.common.security.iam_simulator import User, Role
+    from src.security.iam_simulator import User, Role
 
     return User(
         username="test_user",
@@ -49,7 +49,7 @@ def test_user(iam_simulator):
 @pytest.fixture
 def admin_user(iam_simulator):
     """Test admin user"""
-    from src.common.security.iam_simulator import User, Role
+    from src.security.iam_simulator import User, Role
 
     return User(
         username="admin",
