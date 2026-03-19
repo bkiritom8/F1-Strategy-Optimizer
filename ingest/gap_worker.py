@@ -17,18 +17,19 @@ All jobs:
 
 from __future__ import annotations
 
-import io
 import json
 import logging
 import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
-
 import pandas as pd
-import requests
 from google.cloud import storage
+
+from .gcs_utils import blob_exists, upload_parquet
+from .http_utils import retry_forever
+from .jolpica_client import paginate
+from .telemetry_extractor import extract_telemetry
 
 # ---------------------------------------------------------------------------
 # Logging — structured JSON so Cloud Logging can parse fields
@@ -73,26 +74,11 @@ SPRINT_EVENTS: dict[int, set[str]] = {
 }
 
 JOLPICA_BASE   = "https://api.jolpi.ca/ergast/f1"
-JOLPICA_GAP    = 1.0  # seconds between API calls
-
-_last_req: float = 0.0
 
 
 # ---------------------------------------------------------------------------
-# GCS helpers
+# Done marker (job-specific path: status/job{N}.done)
 # ---------------------------------------------------------------------------
-
-def blob_exists(bucket: storage.Bucket, path: str) -> bool:
-    return bucket.blob(path).exists()
-
-
-def upload_parquet(bucket: storage.Bucket, path: str, df: pd.DataFrame) -> None:
-    buf = io.BytesIO()
-    df.to_parquet(buf, index=False, engine="pyarrow")
-    buf.seek(0)
-    bucket.blob(path).upload_from_file(buf, content_type="application/octet-stream")
-    info("uploaded", path=path, rows=len(df))
-
 
 def upload_done_marker(bucket: storage.Bucket, job_id: int) -> None:
     bucket.blob(f"status/job{job_id}.done").upload_from_string(
@@ -102,40 +88,8 @@ def upload_done_marker(bucket: storage.Bucket, job_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Retry wrapper — sleeps RETRY_SLEEP on any exception, retries forever
-# ---------------------------------------------------------------------------
-
-def retry_forever(fn, label: str):
-    attempt = 0
-    while True:
-        try:
-            return fn()
-        except Exception as exc:
-            attempt += 1
-            error("error — will retry after 3600s",
-                  label=label, attempt=attempt,
-                  exc_type=type(exc).__name__, exc=str(exc))
-            time.sleep(RETRY_SLEEP)
-
-
-# ---------------------------------------------------------------------------
 # FastF1 workers (jobs 1-4)
 # ---------------------------------------------------------------------------
-
-def _extract_telemetry(session) -> Optional[pd.DataFrame]:
-    """Per-lap raw telemetry, Driver + LapNumber prepended, no other additions."""
-    frames = []
-    for _, lap in session.laps.iterlaps():
-        try:
-            tel = lap.get_telemetry()
-            if tel is None or tel.empty:
-                continue
-            tel.insert(0, "LapNumber", lap["LapNumber"])
-            tel.insert(0, "Driver",    lap["Driver"])
-            frames.append(tel)
-        except Exception:
-            pass
-    return pd.concat(frames, ignore_index=True) if frames else None
 
 
 def _download_session(
@@ -157,11 +111,11 @@ def _download_session(
     def _do():
         session = fastf1.get_session(year, event_name, session_type)
         session.load(telemetry=True, laps=True, weather=False, messages=False)
-        tel = _extract_telemetry(session)
+        tel = extract_telemetry(session)
         if tel is None:
             info("no telemetry data", year=year, event=event_name, session=session_type)
             return
-        upload_parquet(bucket, blob_path, tel)
+        upload_parquet(tel, bucket, blob_path)
         info("session done", year=year, event=event_name, session=session_type, rows=len(tel))
 
     retry_forever(_do, label=f"{year}/{event_name}/{session_type}")
@@ -206,64 +160,9 @@ def run_fastf1_year(job_id: int, year: int, bucket: storage.Bucket) -> None:
 # Jolpica worker (job 5)
 # ---------------------------------------------------------------------------
 
-def _rate_get(url: str) -> requests.Response:
-    global _last_req
-    elapsed = time.monotonic() - _last_req
-    if elapsed < JOLPICA_GAP:
-        time.sleep(JOLPICA_GAP - elapsed)
-    resp = requests.get(url, timeout=30)
-    _last_req = time.monotonic()
-    return resp
-
-
-def _fetch_json(url: str) -> Optional[dict[str, Any]]:
-    """Fetch with infinite retry on errors, return None on 404."""
-    attempt = 0
-    while True:
-        try:
-            resp = _rate_get(url)
-            if resp.status_code == 404:
-                return None
-            if resp.status_code == 429:
-                warn("rate limited 429", url=url)
-                time.sleep(RETRY_SLEEP)
-                attempt += 1
-                continue
-            resp.raise_for_status()
-            return resp.json()
-        except Exception as exc:
-            attempt += 1
-            error("fetch error", url=url, attempt=attempt,
-                  exc_type=type(exc).__name__, exc=str(exc))
-            time.sleep(RETRY_SLEEP)
-
-
-def _paginate(base_url: str, limit: int = 100) -> list[dict[str, Any]]:
-    results: list[dict[str, Any]] = []
-    offset = 0
-    while True:
-        data = _fetch_json(f"{base_url}?limit={limit}&offset={offset}")
-        if data is None:
-            break
-        mr    = data.get("MRData", {})
-        total = int(mr.get("total", 0))
-        table = (mr.get("RaceTable") or mr.get("StandingsTable")
-                 or mr.get("SeasonTable") or {})
-        rows: list[dict[str, Any]] = []
-        for val in table.values():
-            if isinstance(val, list):
-                rows = val
-                break
-        results.extend(rows)
-        actual_limit = int(mr.get("limit", limit))
-        offset += actual_limit
-        if offset >= total or not rows:
-            break
-    return results
-
 
 def _fetch_race_results_year(year: int) -> pd.DataFrame:
-    races = _paginate(f"{JOLPICA_BASE}/{year}/results/")
+    races = paginate(f"{JOLPICA_BASE}/{year}/results/")
     rows = []
     for race in races:
         base = dict(
@@ -288,7 +187,7 @@ def _fetch_race_results_year(year: int) -> pd.DataFrame:
 
 
 def _fetch_lap_times_round(year: int, round_num: int) -> pd.DataFrame:
-    laps = _paginate(f"{JOLPICA_BASE}/{year}/{round_num}/laps/")
+    laps = paginate(f"{JOLPICA_BASE}/{year}/{round_num}/laps/")
     rows = []
     for lap in laps:
         lap_num = lap.get("number")
@@ -306,7 +205,7 @@ def run_historical(job_id: int, bucket: storage.Bucket) -> None:
     info("historical job start", job_id=job_id)
 
     # 1. Race results — all seasons 1950-2025 with correct pagination
-    seasons_data = _paginate(f"{JOLPICA_BASE}/seasons/")
+    seasons_data = paginate(f"{JOLPICA_BASE}/seasons/")
     seasons = sorted(int(s["season"]) for s in seasons_data)
     info("fetching race_results", total_seasons=len(seasons),
          range=f"{seasons[0]}-{seasons[-1]}")
@@ -322,7 +221,7 @@ def run_historical(job_id: int, bucket: storage.Bucket) -> None:
             if df.empty:
                 warn("no race results", year=y)
                 return
-            upload_parquet(bucket, f"historical/race_results/{y}.parquet", df)
+            upload_parquet(df, bucket, f"historical/race_results/{y}.parquet")
             info("race_results done", year=y,
                  rounds=df["round"].nunique(), rows=len(df))
 
@@ -336,7 +235,7 @@ def run_historical(job_id: int, bucket: storage.Bucket) -> None:
             if df.empty:
                 warn("no lap times for 2023 round 22")
                 return
-            upload_parquet(bucket, abu_dhabi_path, df)
+            upload_parquet(df, bucket, abu_dhabi_path)
             info("2023 Abu Dhabi lap_times done", rows=len(df))
 
         retry_forever(_fetch_abu_dhabi, label="lap_times/2023/22")

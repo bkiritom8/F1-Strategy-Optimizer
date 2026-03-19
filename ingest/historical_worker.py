@@ -19,107 +19,18 @@ Notes:
 from __future__ import annotations
 
 import logging
-import time
-from typing import Any, Optional
-
 import pandas as pd
-import requests
 from google.cloud import storage
 
 from .gcs_utils import upload_done_marker, upload_parquet
+from .http_utils import backoff_wait
+from .jolpica_client import paginate as _paginate
 from .progress import Progress
 
 log = logging.getLogger(__name__)
 
 BASE_URL      = "https://api.jolpi.ca/ergast/f1"
 YEARS         = range(1950, 2018)   # 1950 … 2017 inclusive
-BACKOFF_BASE  = 60      # seconds
-BACKOFF_CAP   = 3_600   # 1 hour max wait
-MIN_REQ_GAP   = 1.0     # seconds between API calls
-_last_req: float = 0.0
-
-
-# ---------------------------------------------------------------------------
-# HTTP helpers
-# ---------------------------------------------------------------------------
-
-def _get(url: str, timeout: int = 30) -> requests.Response:
-    global _last_req
-    elapsed = time.monotonic() - _last_req
-    if elapsed < MIN_REQ_GAP:
-        time.sleep(MIN_REQ_GAP - elapsed)
-    resp = requests.get(url, timeout=timeout)
-    _last_req = time.monotonic()
-    return resp
-
-
-def _is_rate_limit(exc: Exception) -> bool:
-    s = f"{type(exc).__name__} {exc}".lower()
-    return "rate limit" in s or "429" in s or "ratelimit" in s
-
-
-def _backoff_wait(attempt: int) -> None:
-    wait = min(BACKOFF_BASE * (2 ** attempt), BACKOFF_CAP)
-    log.warning("backoff: sleeping %.0fs (attempt %d)", wait, attempt + 1)
-    time.sleep(wait)
-
-
-def _fetch_json_retry(url: str) -> Optional[dict[str, Any]]:
-    """
-    Fetch URL with infinite exponential-backoff retry.
-    Returns None on 404 (data genuinely absent). Never returns on persistent errors.
-    """
-    attempt = 0
-    while True:
-        try:
-            resp = _get(url)
-            if resp.status_code == 404:
-                log.info("404 — data absent: %s", url)
-                return None
-            if resp.status_code == 429:
-                log.warning("rate limited (429): %s", url)
-                _backoff_wait(attempt)
-                attempt += 1
-                continue
-            resp.raise_for_status()
-            return resp.json()
-        except Exception as exc:
-            if _is_rate_limit(exc):
-                log.warning("rate limit: %s — %s", url, exc)
-            else:
-                log.error("fetch error (attempt %d): %s — %s: %s",
-                          attempt, url, type(exc).__name__, exc)
-            _backoff_wait(attempt)
-            attempt += 1
-
-
-def _paginate(base_url: str, limit: int = 100) -> list[dict[str, Any]]:
-    """Page through a Jolpica endpoint, returning all records."""
-    results: list[dict[str, Any]] = []
-    offset = 0
-    while True:
-        data = _fetch_json_retry(f"{base_url}?limit={limit}&offset={offset}")
-        if data is None:
-            break
-        mr = data.get("MRData", {})
-        total = int(mr.get("total", 0))
-        table = (
-            mr.get("RaceTable")
-            or mr.get("StandingsTable")
-            or mr.get("SeasonTable")
-            or {}
-        )
-        rows: list[dict[str, Any]] = []
-        for val in table.values():
-            if isinstance(val, list):
-                rows = val
-                break
-        results.extend(rows)
-        actual_limit = int(mr.get("limit", limit))
-        offset += actual_limit
-        if offset >= total or not rows:
-            break
-    return results
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +227,7 @@ def _ingest_year(year: int, bucket: storage.Bucket, progress: Progress) -> None:
                 log.error("historical error  year=%d  type=%s  attempt=%d: %s: %s",
                           year, data_type, attempt, type(exc).__name__, exc)
                 print(f"  [ERR]   {year} | {data_type}  — {type(exc).__name__}: {exc}")
-                _backoff_wait(attempt)
+                backoff_wait(attempt)
                 attempt += 1
 
 

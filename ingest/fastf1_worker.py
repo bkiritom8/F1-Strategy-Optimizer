@@ -15,14 +15,13 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Optional
-
 import fastf1
-import pandas as pd
 from google.cloud import storage
 
 from .gcs_utils import upload_done_marker, upload_parquet
+from .http_utils import backoff_wait, is_rate_limit
 from .progress import Progress
+from .telemetry_extractor import extract_telemetry
 
 log = logging.getLogger(__name__)
 
@@ -34,48 +33,7 @@ SESSION_TYPES: dict[str, list[str]] = {
     "sprint":            ["FP1", "SQ", "SS", "Q", "R"],
 }
 
-BACKOFF_BASE = 60      # seconds — doubles on each retry: 60, 120, 240, 480 …
-BACKOFF_CAP  = 3_600   # never wait longer than 1 h between retries
 SESSION_PAUSE = 0.5    # seconds between sessions
-
-
-def _is_rate_limit(exc: Exception) -> bool:
-    s = f"{type(exc).__name__} {exc}".lower()
-    return "rate limit" in s or "429" in s or "ratelimit" in s
-
-
-def _backoff_wait(attempt: int) -> float:
-    wait = min(BACKOFF_BASE * (2 ** attempt), BACKOFF_CAP)
-    log.warning("backoff: sleeping %.0fs (attempt %d)", wait, attempt + 1)
-    time.sleep(wait)
-    return wait
-
-
-# ---------------------------------------------------------------------------
-# Telemetry extraction — raw FastF1 channels, no extra columns
-# ---------------------------------------------------------------------------
-
-def _extract_telemetry(session: fastf1.core.Session) -> Optional[pd.DataFrame]:
-    """
-    Iterate every lap, call get_telemetry(), concatenate.
-    Only Driver and LapNumber are prepended as minimal identifiers.
-    All other columns are exactly what FastF1 returns from get_telemetry().
-    """
-    frames = []
-    for _, lap in session.laps.iterlaps():
-        try:
-            tel = lap.get_telemetry()
-            if tel is None or tel.empty:
-                continue
-            tel.insert(0, "LapNumber", lap["LapNumber"])
-            tel.insert(0, "Driver", lap["Driver"])
-            frames.append(tel)
-        except Exception as exc:
-            log.debug("skipped lap %s/%s: %s", lap.get("Driver"), lap.get("LapNumber"), exc)
-
-    if not frames:
-        return None
-    return pd.concat(frames, ignore_index=True)
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +63,7 @@ def _download_session(
             session = fastf1.get_session(year, event_name, session_type)
             session.load(telemetry=True, laps=True, weather=False, messages=False)
 
-            tel = _extract_telemetry(session)
+            tel = extract_telemetry(session)
             if tel is None:
                 # No telemetry data at all — mark done so we never retry
                 log.warning("no telemetry  year=%d  event=%s  type=%s  marking done",
@@ -122,7 +80,7 @@ def _download_session(
             return
 
         except Exception as exc:
-            if _is_rate_limit(exc):
+            if is_rate_limit(exc):
                 log.warning("rate limit  year=%d  event=%s  type=%s: %s",
                             year, event_name, session_type, exc)
                 print(f"  [RATE]  {year} | {event_name} | {session_type}  — rate limited, backing off")
@@ -131,7 +89,7 @@ def _download_session(
                           year, event_name, session_type, attempt, type(exc).__name__, exc)
                 print(f"  [ERR]   {year} | {event_name} | {session_type}  — {type(exc).__name__}: {exc}")
 
-            _backoff_wait(attempt)
+            backoff_wait(attempt)
             attempt += 1
 
 
