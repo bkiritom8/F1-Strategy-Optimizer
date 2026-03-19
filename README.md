@@ -12,7 +12,7 @@ of F1 data (1950–2026). Target: <500ms P99 latency.
 - **ML**: XGBoost+LightGBM ensemble (strategy) + LSTM (pit stop optimizer)
 - **Training**: Vertex AI Custom Jobs + KFP Pipeline (5-step DAG)
 - **Serving**: FastAPI on Cloud Run (<500ms P99)
-- **CI/CD**: GitHub Actions (9 jobs) + Cloud Build on `pipeline` branch — builds `api:latest`, `ml:latest`, `airflow:latest`
+- **CI/CD**: GitHub Actions (9 jobs) + Cloud Build on `pipeline` branch — builds `api:latest`, `ml:latest`, `ingest:latest`
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ gcloud auth application-default login
 gcloud config set project f1optimizer
 ```
 
-See [`team-docs/DEV_SETUP.md`](./team-docs/DEV_SETUP.md) for the complete developer onboarding guide.
+See [`docs/DEV_SETUP.md`](./docs/DEV_SETUP.md) for the complete developer onboarding guide.
 
 ## Architecture
 
@@ -89,7 +89,11 @@ pipeline/              Data management utilities
   simulator/           Race simulator
   rl/                  Reinforcement learning utilities
 infra/terraform/       All GCP infrastructure (Terraform)
-src/                   Shared code (FastAPI app, common utilities)
+src/                   Shared code
+  api/                 FastAPI application (main.py)
+  ingestion/           Ergast/FastF1 ingestion classes + HTTP client
+  preprocessing/       Schema validation, data quality, sanitisation
+  security/            IAM simulator + HTTPS middleware
 tests/                 Unit + integration tests
 docker/                Dockerfiles + requirements
   Dockerfile.api       FastAPI server (port 8000)
@@ -105,7 +109,7 @@ team-docs/             Internal team docs (DEV_SETUP, handoffs)
 |---|---|---|
 | `api:latest` | Artifact Registry | Cloud Run serving |
 | `ml:latest` | Artifact Registry | Vertex AI training jobs |
-| `airflow:latest` | Artifact Registry | Airflow (course submission) |
+| `ingest:latest` | Artifact Registry | Cloud Run ingest workers |
 
 Cloud Build builds and pushes all three on every push to `pipeline`.
 
@@ -177,7 +181,7 @@ gcloud run jobs execute f1-pipeline-trigger --region=us-central1 --project=f1opt
 python ml/tests/run_tests_on_vertex.py
 ```
 
-See [`team-docs/ml_module_handoff.md`](./team-docs/ml_module_handoff.md) for full ML documentation.
+See [`docs/ml_handoff.md`](./docs/ml_handoff.md) for full ML documentation.
 
 ## API
 

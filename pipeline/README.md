@@ -8,7 +8,8 @@ Data management scripts, race simulator, and RL utilities.
 pipeline/
 ├── scripts/
 │   ├── csv_to_parquet.py   Convert raw CSVs → Parquet, upload to GCS
-│   └── verify_upload.py    Verify GCS data lake contents (file counts + sizes)
+│   ├── verify_upload.py    Verify GCS data lake contents (file counts + sizes)
+│   └── backfill_data.py    Fix known data gaps (race results, laps, FastF1 rounds)
 ├── simulator/
 │   ├── race_simulator.py   Race strategy simulator
 │   └── validator.py        Simulation result validator
@@ -18,6 +19,25 @@ pipeline/
 
 For the full MLOps pipeline (DVC stages, Airflow DAG, validation, anomaly detection,
 bias analysis), see [`Data-Pipeline/README.md`](../Data-Pipeline/README.md).
+
+### Backfill known data gaps
+
+```bash
+# Dry run first to see what would change
+python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --dry-run
+
+# Run full backfill (race results + FastF1 missing rounds)
+python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake
+
+# Skip FastF1 (race results only — much faster)
+python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --skip-fastf1
+
+# FastF1 only
+python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --fastf1-only
+```
+
+The script pauses 90 seconds between each race when fetching FastF1 data to stay within
+API rate limits.
 
 ## Usage
 

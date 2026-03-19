@@ -132,20 +132,23 @@ python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --dry-ru
 
 ## 4. Access GCS Buckets Locally
 
-ADC credentials (§2) are sufficient for `gsutil` and the Python `google-cloud-storage` SDK.
+ADC credentials (§2) are sufficient for the `gcloud storage` CLI and the Python `google-cloud-storage` SDK.
+
+> **Note**: Google now recommends `gcloud storage` over the legacy `gsutil` CLI.
+> See the [migration guide](https://cloud.google.com/storage/docs/gsutil-transition-to-gcloud).
 
 ```bash
 # List processed data
-gsutil ls gs://f1optimizer-data-lake/processed/
+gcloud storage ls gs://f1optimizer-data-lake/processed/
 
 # List promoted models
-gsutil ls gs://f1optimizer-models/
+gcloud storage ls gs://f1optimizer-models/
 
 # Download a model artifact
-gsutil cp gs://f1optimizer-models/strategy_predictor/latest/model.pkl .
+gcloud storage cp gs://f1optimizer-models/strategy_predictor/latest/model.pkl .
 
 # Upload a file
-gsutil cp my_notebook.ipynb gs://f1optimizer-training/notebooks/
+gcloud storage cp my_notebook.ipynb gs://f1optimizer-training/notebooks/
 ```
 
 From Python:
@@ -201,10 +204,10 @@ CLOUD_RUN_TASK_INDEX=8 GCS_BUCKET=f1optimizer-data-lake python -m ingest.task
 
 ```bash
 # View ingest completion markers
-gsutil ls gs://f1optimizer-data-lake/status/
+gcloud storage ls gs://f1optimizer-data-lake/status/
 
 # Check progress tracker
-gsutil cat gs://f1optimizer-data-lake/status/progress.json
+gcloud storage cat gs://f1optimizer-data-lake/status/progress.json
 ```
 
 ---
@@ -216,7 +219,7 @@ After making changes to ML code, rebuild and push the `ml:latest` image so Verte
 ### Build all images (recommended)
 
 ```bash
-# Builds api:latest, ml:latest, and airflow:latest via Cloud Build
+# Builds api:latest, ml:latest, and ingest:latest via Cloud Build
 gcloud builds submit --config cloudbuild.yaml . --project=f1optimizer
 ```
 
@@ -398,4 +401,4 @@ export $(grep -v '^#' .env | xargs)
 
 ---
 
-*Last updated: 2026-03-19. See `team-docs/ml_module_handoff.md` for infrastructure details and known gaps.*
+*Last updated: 2026-03-19. See [`docs/ml_handoff.md`](./ml_handoff.md) for infrastructure details and known gaps.*

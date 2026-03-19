@@ -19,35 +19,32 @@ ml/
 
 ## Preprocessing
 
-Transforms raw GCS parquet files into ML-ready features.
+Data validation and sanitisation live in `src/preprocessing/`. The KFP feature
+pipeline (`ml/features/feature_pipeline.py`) runs on top of processed Parquet files
+already in GCS and produces ML-ready feature frames.
 
-**Run preprocessing:**
-
-```bash
-# Requires GCP authentication
-gcloud auth application-default login
-
-# Install dependencies
-pip install gcsfs pyarrow pandas
-
-# Run preprocessing
-python ml/preprocessing/preprocess_data.py
-```
-
-**Input (GCS):**
+**Input (GCS — already uploaded):**
 - `gs://f1optimizer-data-lake/processed/fastf1_laps.parquet`
 - `gs://f1optimizer-data-lake/processed/fastf1_telemetry.parquet`
 - `gs://f1optimizer-data-lake/processed/race_results.parquet`
 
-**Output (GCS):**
+**Output (GCS — written by the KFP feature engineering step):**
 - `gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet` (87,036 rows, 53 columns)
 - `gs://f1optimizer-data-lake/ml_features/race_results_features.parquet` (6,745 rows, 20 columns)
 - `gs://f1optimizer-data-lake/ml_features/metadata.json`
 
-**Run preprocessing tests:**
+**Run feature pipeline directly:**
 
 ```bash
-pytest ml/tests/test_preprocessing.py -v
+# Requires GCP authentication
+gcloud auth application-default login
+pip install gcsfs pyarrow pandas
+
+python -c "
+from ml.features.feature_pipeline import FeaturePipeline
+df = FeaturePipeline().run(years=list(range(2018, 2026)))
+print(df.shape)
+"
 ```
 
 ## Models
@@ -125,6 +122,6 @@ docker build --platform linux/amd64 \
 
 ## See Also
 
-- [`team-docs/ml_module_handoff.md`](../team-docs/ml_module_handoff.md) — full ML handoff
-- [`team-docs/DEV_SETUP.md`](../team-docs/DEV_SETUP.md) — environment setup
+- [`docs/ml_handoff.md`](../docs/ml_handoff.md) — full ML handoff
+- [`docs/DEV_SETUP.md`](../docs/DEV_SETUP.md) — environment setup
 - [`docs/models.md`](../docs/models.md) — model architecture details
