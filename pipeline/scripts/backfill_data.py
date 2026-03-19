@@ -377,6 +377,31 @@ def backfill_fastf1(bucket: storage.Bucket, dry_run: bool = False) -> None:
 
                 # Telemetry (aggregated per lap per driver for size)
                 tel_rows = []
+                tel_rows.append({
+                    "season": year,
+                    "round": rnd,
+                    "Driver": lap["Driver"],
+                    "LapNumber": lap["LapNumber"],
+                    # Throttle
+                    "mean_throttle": tel["Throttle"].mean() if "Throttle" in tel.columns else None,
+                    "std_throttle": tel["Throttle"].std() if "Throttle" in tel.columns else None,
+                    # Brake
+                    "mean_brake": tel["Brake"].mean() if "Brake" in tel.columns else None,
+                    "std_brake": tel["Brake"].std() if "Brake" in tel.columns else None,
+                    # Speed
+                    "mean_speed": tel["Speed"].mean() if "Speed" in tel.columns else None,
+                    "max_speed": tel["Speed"].max() if "Speed" in tel.columns else None,
+                    # RPM — engine load proxy
+                    "mean_rpm": tel["RPM"].mean() if "RPM" in tel.columns else None,
+                    "max_rpm": tel["RPM"].max() if "RPM" in tel.columns else None,
+                    # Gear — driving style/circuit character
+                    "mean_gear": tel["nGear"].mean() if "nGear" in tel.columns else None,
+                    "mode_gear": tel["nGear"].mode()[0] if "nGear" in tel.columns and not tel["nGear"].empty else None,
+                    # DRS — percentage of lap with DRS open
+                    "drs_usage_pct": (tel["DRS"].gt(0).sum() / len(tel) * 100) if "DRS" in tel.columns else None,
+                    # Distance
+                    "lap_distance": tel["Distance"].max() if "Distance" in tel.columns else None,
+                })
                 for _, lap in session.laps.iterlaps():
                     try:
                         tel = lap.get_telemetry()
