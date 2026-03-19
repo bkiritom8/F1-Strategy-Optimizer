@@ -4,7 +4,6 @@ Data Preprocessing Pipeline - GCS Version
 
 import pandas as pd
 import json
-import os
 import gcsfs
 
 RAW_DIR = "gs://f1optimizer-data-lake/processed"
@@ -17,10 +16,10 @@ def load_fastf1_data():
     print(f"Loading FastF1 data from {RAW_DIR}...")
     laps = pd.read_parquet(f"{RAW_DIR}/fastf1_laps.parquet")
     telemetry = pd.read_parquet(f"{RAW_DIR}/fastf1_telemetry.parquet")
-    
+
     # Remove rows with missing merge keys
-    laps = laps.dropna(subset=['season', 'round', 'Driver', 'LapNumber'])
-    telemetry = telemetry.dropna(subset=['season', 'round', 'Driver', 'LapNumber'])
+    laps = laps.dropna(subset=["season", "round", "Driver", "LapNumber"])
+    telemetry = telemetry.dropna(subset=["season", "round", "Driver", "LapNumber"])
 
     df = laps.merge(
         telemetry, on=["season", "round", "Driver", "LapNumber"], how="inner"

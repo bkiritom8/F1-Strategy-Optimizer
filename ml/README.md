@@ -6,14 +6,48 @@ All ML code lives here. Training runs on GCP Vertex AI.
 
 ```
 ml/
+├── preprocessing/   Data preprocessing pipeline (GCS Parquet → Features)
 ├── features/        Feature store + feature pipeline (GCS Parquet → DataFrame)
 ├── models/          Model definitions (strategy predictor, pit stop optimizer)
 ├── training/        Training entry points + distributed trainer
 ├── distributed/     Distribution strategy configs + data sharding
 ├── dag/             Vertex AI Pipeline (KFP v2) + 6 individual components
 ├── scripts/         Training job submission scripts
-├── tests/           All ML tests — run on Vertex AI
+├── tests/           All ML tests — includes preprocessing unit tests
 └── README.md
+```
+
+## Preprocessing
+
+Transforms raw GCS parquet files into ML-ready features.
+
+**Run preprocessing:**
+
+```bash
+# Requires GCP authentication
+gcloud auth application-default login
+
+# Install dependencies
+pip install gcsfs pyarrow pandas
+
+# Run preprocessing
+python ml/preprocessing/preprocess_data.py
+```
+
+**Input (GCS):**
+- `gs://f1optimizer-data-lake/processed/fastf1_laps.parquet`
+- `gs://f1optimizer-data-lake/processed/fastf1_telemetry.parquet`
+- `gs://f1optimizer-data-lake/processed/race_results.parquet`
+
+**Output (GCS):**
+- `gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet` (87,036 rows, 53 columns)
+- `gs://f1optimizer-data-lake/ml_features/race_results_features.parquet` (6,745 rows, 20 columns)
+- `gs://f1optimizer-data-lake/ml_features/metadata.json`
+
+**Run preprocessing tests:**
+
+```bash
+pytest ml/tests/test_preprocessing.py -v
 ```
 
 ## Models
@@ -29,6 +63,7 @@ artifacts are promoted to `gs://f1optimizer-models/`.
 ## Running on GCP
 
 **Submit a GPU training job (individual experiment):**
+
 ```bash
 bash ml/scripts/submit_training_job.sh --display-name your-name-experiment-1
 ```
@@ -36,11 +71,13 @@ bash ml/scripts/submit_training_job.sh --display-name your-name-experiment-1
 Machine: `n1-standard-4` + 1× NVIDIA T4, image: `ml:latest` from Artifact Registry.
 
 **Trigger full 5-step KFP pipeline:**
+
 ```bash
 python ml/dag/pipeline_runner.py --run-id $(date +%Y%m%d)
 ```
 
 **Run tests on Vertex AI:**
+
 ```bash
 python ml/tests/run_tests_on_vertex.py
 ```
@@ -65,6 +102,7 @@ Defined in `ml/distributed/cluster_config.py`:
 | Models bucket | `gs://f1optimizer-models/` |
 | Pipeline runs bucket | `gs://f1optimizer-pipeline-runs/` |
 | Data lake | `gs://f1optimizer-data-lake/` |
+| ML features | `gs://f1optimizer-data-lake/ml_features/` |
 | Vertex AI SA | `f1-training-dev@f1optimizer.iam.gserviceaccount.com` |
 | ML image | `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest` |
 
