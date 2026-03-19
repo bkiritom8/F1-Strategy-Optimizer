@@ -1,0 +1,47 @@
+#!/bin/bash
+# startup_lap_times.sh.tftpl — rendered by Terraform, runs on each VM at boot.
+# Installs dependencies, fetches the worker script from GCS, and runs it.
+# The instance stops itself when the job completes.
+
+set -euo pipefail
+exec > >(tee /var/log/lap_times_worker.log | logger -t lap-times-worker) 2>&1
+
+echo "[$(date -u +%FT%TZ)] startup: worker ${worker_id} years ${year_start}-${year_end}"
+
+# ------- system packages -------
+apt-get update -qq
+apt-get install -y --no-install-recommends python3-pip python3-venv curl
+
+# ------- Python venv -------
+python3 -m venv /opt/ltenv
+source /opt/ltenv/bin/activate
+
+pip install --quiet --no-cache-dir \
+    "google-cloud-storage>=2.14.0" \
+    "pandas>=2.1.0" \
+    "pyarrow>=14.0.0" \
+    "requests>=2.31.0"
+
+# ------- fetch worker script from GCS -------
+mkdir -p /opt/lap_times_worker/ingest
+gsutil cp gs://${bucket}/scripts/lap_times_worker.py /opt/lap_times_worker/ingest/lap_times_worker.py
+touch /opt/lap_times_worker/ingest/__init__.py
+
+# ------- run -------
+cd /opt/lap_times_worker
+
+export YEAR_START="${year_start}"
+export YEAR_END="${year_end}"
+export WORKER_ID="${worker_id}"
+export GCS_BUCKET="${bucket}"
+
+echo "[$(date -u +%FT%TZ)] starting python worker"
+python -m ingest.lap_times_worker
+echo "[$(date -u +%FT%TZ)] worker finished — stopping instance"
+
+# Self-terminate so we stop paying
+ZONE=$(curl -sf -H "Metadata-Flavor: Google" \
+    "http://metadata.google.internal/computeMetadata/v1/instance/zone" | awk -F/ '{print $NF}')
+NAME=$(curl -sf -H "Metadata-Flavor: Google" \
+    "http://metadata.google.internal/computeMetadata/v1/instance/name")
+gcloud compute instances stop "$NAME" --zone="$ZONE" --quiet

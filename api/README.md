@@ -23,7 +23,7 @@ Falls back to rule-based strategy logic if no models are present.
 Built from `docker/Dockerfile.api`, pushed to Artifact Registry:
 `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest`
 
-Cloud Build pushes on every commit to `main`.
+Cloud Build pushes on every commit to `pipeline`.
 Cloud Run picks up `:latest` automatically.
 
 ## Local Development

@@ -235,6 +235,11 @@ data/raw/
 data/processed/
 data/features/
 data/raw/fastf1_cache/
+f1_cache/
+f1_telemetry/
+raw.zip
+progress.json
+download_telemetry.py
 
 # DVC
 .dvc/tmp/

@@ -26,14 +26,14 @@ FastF1 API  ──► src/ingestion/fastf1_ingestion.py ──► data/raw/fastf
                                 │
                 pipeline/scripts/csv_to_parquet.py
                                 │
-                        data/processed/  (Parquet)
+                    gs://f1optimizer-data-lake/processed/  (Parquet)
                                 │
               ┌─────────────────┼─────────────────┐
               ▼                 ▼                  ▼
     scripts/validate_data  scripts/anomaly_    ml/features/
-                           detection.py        feature_pipeline.py
-                                                    │
-                                            data/features/
+    logs/data_statistics   detection.py        feature_pipeline.py
+    scripts/expectations/  logs/anomaly_           │
+                           report.json         data/features/
                                                     │
                                    scripts/bias_analysis.py
                                                     │
@@ -49,21 +49,28 @@ Data-Pipeline/
 ├── dags/
 │   └── f1_pipeline.py          Airflow DAG (weekly, 7 tasks)
 ├── data/
-│   └── .gitkeep                Data lives in data/ at repo root (gitignored)
+│   └── .gitkeep                Local data directory (gitignored; GCS is the source of truth)
+├── logs/
+│   ├── .gitkeep
+│   └── gantt_chart.png         Generated at runtime (gitignored)
 ├── scripts/
-│   ├── validate_data.py        Schema + data quality validation
-│   ├── anomaly_detection.py    Outlier and missing-value detection
+│   ├── validate_data.py        Schema + data quality validation + statistics
+│   ├── anomaly_detection.py    Outlier and missing-value detection (Slack alerts)
 │   ├── bias_analysis.py        Representation bias via data slicing
+│   ├── generate_gantt.py       Gantt chart from task durations (PNG + ASCII)
+│   ├── deploy_dags.sh          Push DAG to GCS for GCE VM auto-sync
 │   └── expectations/
 │       └── .gitkeep            GE-style JSON suites written here at runtime
 ├── tests/
 │   ├── __init__.py
 │   ├── test_ingestion.py       Unit tests for Jolpica ingestion
-│   ├── test_csv_to_parquet.py  Unit tests for CSV conversion
-│   └── test_preprocessing.py  Unit tests for validation logic
-├── logs/
-│   └── .gitkeep                anomaly_report.json, bias_report.json written here
-├── .env.example                Environment variable template (copy to .env)
+│   ├── test_csv_to_parquet.py  Unit tests for CSV → Parquet conversion
+│   ├── test_preprocessing.py   Unit tests for preprocessing logic
+│   ├── test_validator.py       Unit tests for Pydantic schema validator
+│   ├── test_anomaly_detection.py  Unit tests for anomaly detection
+│   ├── test_bias_analysis.py   Unit tests for bias analysis
+│   ├── test_fastf1_ingestion.py   Unit tests for FastF1 ingestion
+│   └── test_generate_gantt.py  Unit tests for Gantt chart generation
 ├── dvc.yaml                    Pipeline stages for this directory
 └── README.md                   This file
 ```
@@ -75,6 +82,8 @@ dvc.yaml                        Root-level DVC pipeline (full repo stages)
 src/ingestion/
 ├── ergast_ingestion.py         Jolpica API client
 └── fastf1_ingestion.py         FastF1 telemetry client
+src/preprocessing/
+└── validator.py                Pydantic schema validator (DataValidator)
 data/
 └── .gitignore                  Keeps data/ out of git (DVC manages it)
 docs/bias.md                    Bias findings and mitigation documentation
@@ -101,8 +110,8 @@ pip install dvc apache-airflow pandas pyarrow numpy tenacity
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/bkiritom8/F1-Strategy-Optimizer.git
-cd F1-Strategy-Optimizer
+git clone https://github.com/bkiritom8/test.git
+cd test
 
 # 2. Install dependencies
 pip install -r requirements-f1.txt
@@ -281,11 +290,126 @@ The DAG (`Data-Pipeline/dags/f1_pipeline.py`) runs weekly and includes:
 
 ---
 
+## Pipeline Flow Optimization
+
+The DAG is optimised for wall-clock time by running the two ingest tasks in
+parallel (`fetch_jolpica_data` ∥ `fetch_fastf1_data`). The FastF1 download is
+the dominant bottleneck (~30 min for 3 seasons of 10Hz telemetry); all
+downstream tasks wait on it.
+
+```
+fetch_jolpica_data  ──┐
+                       ├──► validate_raw ──► preprocess ──► detect_anomalies ──► build_features ──► bias_analysis
+fetch_fastf1_data  ───┘ ← bottleneck
+```
+
+### Gantt Chart
+
+Visualise task durations without the Airflow UI:
+
+```bash
+# Generate Gantt chart (PNG + ASCII terminal output)
+python Data-Pipeline/scripts/generate_gantt.py
+# Output: Data-Pipeline/logs/gantt_chart.png
+
+# ASCII only (no matplotlib required)
+python Data-Pipeline/scripts/generate_gantt.py --ascii-only
+
+# Use real timings from a previous run
+python Data-Pipeline/scripts/generate_gantt.py \
+  --data-file Data-Pipeline/logs/pipeline_runs.json
+
+# Via DVC
+dvc repro generate_gantt
+```
+
+When `pipeline_runs.json` is absent the script uses hardcoded estimates:
+
+```
+Task                    | 0         10        20        30        40        50        60 min
+------------------------|----------------------------------------------------------------------
+fetch_jolpica_data      | [=====]
+fetch_fastf1_data       | [==============================] ← bottleneck
+validate_raw_data       |                               [==]
+preprocess_data         |                                 [=====]
+detect_anomalies        |                                      [=]
+build_features          |                                       [=======]
+bias_analysis           |                                               [==]
+```
+
+Wall-clock total: **47 min** (parallel ingest saves ~5 min vs sequential).
+
+---
+
+## Schema and Statistics
+
+`Data-Pipeline/scripts/validate_data.py` generates data statistics equivalent
+to a Great Expectations profile or TFDV `StatisticsGen` output — no external
+dependency required.
+
+```bash
+# Generate data statistics and validate schema
+python Data-Pipeline/scripts/validate_data.py
+
+# Output files:
+# Data-Pipeline/logs/data_statistics.json  — full statistics per dataset
+# Data-Pipeline/scripts/expectations/      — validation suite results
+
+# Via DVC (tracks both output files)
+dvc repro generate_statistics
+```
+
+`data_statistics.json` contains per-dataset entries with:
+- Row count, column count, completeness %
+- Column dtypes (schema)
+- Null count and null % per column
+- Numeric columns: min, max, mean, std, median
+- Categorical columns: unique count + top-5 value frequencies
+
+Terminal output (example with real data):
+
+```
+Dataset                        Rows   Cols   Completeness
+------------------------------------------------------------------
+laps_all                     93,372     12          99.8%
+telemetry_all            30,477,110     15          97.2%
+race_results                  7,600      8          98.5%
+pit_stops                    11,077      6          99.1%
+------------------------------------------------------------------
+Full statistics → Data-Pipeline/logs/data_statistics.json
+```
+
+To upgrade to full Great Expectations or TFDV when needed:
+
+```bash
+# Great Expectations
+pip install great-expectations
+great_expectations init && great_expectations suite new
+
+# TFDV
+pip install tensorflow-data-validation
+python -c "import tensorflow_data_validation as tfdv; \
+  stats = tfdv.generate_statistics_from_dataframe(df); \
+  tfdv.visualize_statistics(stats)"
+```
+
+---
+
 ## Running Tests
 
 ```bash
-# All Data-Pipeline tests
+# Run all pipeline tests
 pytest Data-Pipeline/tests/ -v
+
+# Run specific test modules
+pytest Data-Pipeline/tests/test_anomaly_detection.py -v
+pytest Data-Pipeline/tests/test_bias_analysis.py -v
+pytest Data-Pipeline/tests/test_fastf1_ingestion.py -v
+pytest Data-Pipeline/tests/test_validator.py -v
+pytest Data-Pipeline/tests/test_generate_gantt.py -v
+pytest Data-Pipeline/tests/test_ingestion.py -v
+pytest Data-Pipeline/tests/test_csv_to_parquet.py -v
+pytest Data-Pipeline/tests/test_preprocessing.py -v
 
 # With coverage
 pytest Data-Pipeline/tests/ -v --cov=Data-Pipeline/scripts --cov=src/ingestion --cov-report=term-missing
@@ -294,7 +418,7 @@ pytest Data-Pipeline/tests/ -v --cov=Data-Pipeline/scripts --cov=src/ingestion -
 pytest tests/ ml/tests/ Data-Pipeline/tests/ -v
 ```
 
-Expected output: all tests pass in < 5 seconds (all network calls are mocked).
+Expected output: all tests pass (all network calls are mocked).
 
 ---
 
@@ -307,9 +431,9 @@ All code in this repository passes the following checks with **0 errors**:
 ruff check src/ ml/ pipeline/ Data-Pipeline/ tests/
 # Expected: no output (0 errors)
 
-# Auto-formatting check
-black --check src/ ml/ pipeline/ Data-Pipeline/ tests/
-# Expected: All done! ✨ 🍰 ✨  0 files would be reformatted.
+# Auto-formatting check (ruff replaces black — no pathspec dependency conflict)
+ruff format --check src/ ml/ pipeline/ Data-Pipeline/ tests/
+# Expected: no output (0 files would be reformatted)
 
 # Type checking
 mypy src/ ml/ --ignore-missing-imports
@@ -335,7 +459,7 @@ dvc pull
 ```
 
 The DVC pipeline is defined in `dvc.yaml` at the repo root.
-Stages: `ingest_jolpica → ingest_fastf1 → preprocess → validate → detect_anomalies → build_features → bias_analysis`
+Stages: `ingest_jolpica → ingest_fastf1 → preprocess → validate → detect_anomalies → build_features → bias_analysis → generate_gantt`
 
 ---
 
@@ -350,6 +474,7 @@ Stages: `ingest_jolpica → ingest_fastf1 → preprocess → validate → detect
 | `Data-Pipeline/scripts/expectations/validation_suite.json` | Validation results |
 | `Data-Pipeline/logs/anomaly_report.json` | Anomaly detection report |
 | `Data-Pipeline/logs/bias_report.json` | Bias analysis report |
+| `Data-Pipeline/logs/gantt_chart.png` | Pipeline Gantt chart (PNG) |
 
 ---
 

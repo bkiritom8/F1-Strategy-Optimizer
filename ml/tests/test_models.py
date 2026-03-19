@@ -52,13 +52,14 @@ def _make_lap_df(n_drivers: int = 3, laps_per_driver: int = 60) -> pd.DataFrame:
 
 
 class TestStrategyPredictor:
-
     @pytest.fixture(autouse=True)
     def _patch_gcp(self):
         """Suppress all GCP calls (Cloud Logging, Pub/Sub, GCS)."""
-        with patch("ml.models.base_model.cloud_logging.Client"), patch(
-            "ml.models.base_model.pubsub_v1.PublisherClient"
-        ), patch("ml.models.base_model.storage.Client"):
+        with (
+            patch("ml.models.base_model.cloud_logging.Client"),
+            patch("ml.models.base_model.pubsub_v1.PublisherClient"),
+            patch("ml.models.base_model.storage.Client"),
+        ):
             yield
 
     @pytest.fixture
@@ -152,12 +153,13 @@ class TestStrategyPredictor:
 
 
 class TestPitStopOptimizer:
-
     @pytest.fixture(autouse=True)
     def _patch_gcp(self):
-        with patch("ml.models.base_model.cloud_logging.Client"), patch(
-            "ml.models.base_model.pubsub_v1.PublisherClient"
-        ), patch("ml.models.base_model.storage.Client"):
+        with (
+            patch("ml.models.base_model.cloud_logging.Client"),
+            patch("ml.models.base_model.pubsub_v1.PublisherClient"),
+            patch("ml.models.base_model.storage.Client"),
+        ):
             yield
 
     @pytest.fixture
@@ -221,7 +223,6 @@ class TestPitStopOptimizer:
 
 
 class TestBaseModelInterface:
-
     def test_cannot_instantiate_base(self):
         from ml.models.base_model import BaseF1Model
 
@@ -231,11 +232,13 @@ class TestBaseModelInterface:
     def test_concrete_model_has_all_methods(self):
         from ml.models.strategy_predictor import StrategyPredictor
 
-        with patch("ml.models.base_model.cloud_logging.Client"), patch(
-            "ml.models.base_model.pubsub_v1.PublisherClient"
-        ), patch("ml.models.base_model.storage.Client"):
+        with (
+            patch("ml.models.base_model.cloud_logging.Client"),
+            patch("ml.models.base_model.pubsub_v1.PublisherClient"),
+            patch("ml.models.base_model.storage.Client"),
+        ):
             m = StrategyPredictor()
         for method in ("train", "predict", "evaluate", "save", "load"):
-            assert hasattr(m, method) and callable(
-                getattr(m, method)
-            ), f"StrategyPredictor missing method: {method}"
+            assert hasattr(m, method) and callable(getattr(m, method)), (
+                f"StrategyPredictor missing method: {method}"
+            )

@@ -327,9 +327,9 @@ class TestPreprocessingInvariants:
         )
         for driver, grp in df.groupby("Driver"):
             laps = grp["LapNumber"].values
-            assert all(
-                laps[i] < laps[i + 1] for i in range(len(laps) - 1)
-            ), f"Lap numbers not sequential for {driver}"
+            assert all(laps[i] < laps[i + 1] for i in range(len(laps) - 1)), (
+                f"Lap numbers not sequential for {driver}"
+            )
 
     def test_null_handling_fills_numeric_nulls(self) -> None:
         """Numeric columns with nulls can be filled with column mean."""

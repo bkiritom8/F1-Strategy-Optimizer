@@ -1,14 +1,19 @@
-# Pipeline — Data Scripts
+# Pipeline — Data Management Utilities
 
-Utility scripts for managing F1 data in GCS.
+Data management scripts, race simulator, and RL utilities.
 
 ## Directory Layout
 
 ```
 pipeline/
-└── scripts/
-    ├── csv_to_parquet.py   Convert raw CSVs → Parquet, upload to GCS
-    └── verify_upload.py    Verify GCS data lake contents (file counts + sizes)
+├── scripts/
+│   ├── csv_to_parquet.py   Convert raw CSVs → Parquet, upload to GCS
+│   └── verify_upload.py    Verify GCS data lake contents (file counts + sizes)
+├── simulator/
+│   ├── race_simulator.py   Race strategy simulator
+│   └── validator.py        Simulation result validator
+└── rl/
+    └── experience_builder.py  Build RL experience tuples from race data
 ```
 
 For the full MLOps pipeline (DVC stages, Airflow DAG, validation, anomaly detection,

@@ -344,7 +344,6 @@ with DAG(
     tags=["f1", "ingestion", "ml"],
     doc_md=__doc__,
 ) as dag:
-
     fetch_jolpica = PythonOperator(
         task_id="fetch_jolpica",
         python_callable=_fetch_jolpica,

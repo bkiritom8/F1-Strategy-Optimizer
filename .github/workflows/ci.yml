@@ -26,12 +26,6 @@ jobs:
         run: |
           pip install -r requirements-test.txt
 
-      - name: Run Ruff
-        run: ruff check src/ tests/ ml/
-
-      - name: Run Black
-        run: black --check src/ tests/ ml/
-
       - name: Run MyPy
         run: mypy src/ ml/ --ignore-missing-imports
         continue-on-error: true

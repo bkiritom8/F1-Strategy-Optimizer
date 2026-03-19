@@ -100,8 +100,9 @@ def _paginate(base_url: str, limit: int = 1000) -> List[Dict[str, Any]]:
                 rows = val
                 break
         results.extend(rows)
-        offset += limit
-        if offset >= total:
+        actual_limit = int(mr.get("limit", limit))
+        offset += actual_limit
+        if offset >= total or not rows:
             break
     logger.info("Fetched %d records from %s", len(results), base_url)
     return results
@@ -274,8 +275,8 @@ class ErgastIngestion:
             try:
                 result = self.fetch_race_results(year, rnd)
                 if not result:
-                    logger.info("No results for %d round %d — stopping", year, rnd)
-                    break
+                    logger.info("No results for %d round %d — skipping", year, rnd)
+                    continue
                 results_count += len(result.get("Results", []))
             except requests.HTTPError as exc:
                 if exc.response is not None and exc.response.status_code == 404:
@@ -284,7 +285,7 @@ class ErgastIngestion:
                 raise
             except Exception:
                 logger.exception("Failed to fetch results for %d round %d", year, rnd)
-                break
+                continue
         counts["results"] = results_count
 
         # Lap times
@@ -293,7 +294,7 @@ class ErgastIngestion:
             try:
                 laps = self.fetch_lap_times(year, rnd)
                 if not laps:
-                    break
+                    continue
                 laps_count += len(laps)
             except Exception:
                 logger.warning(
@@ -307,7 +308,7 @@ class ErgastIngestion:
             try:
                 pits = self.fetch_pit_stops(year, rnd)
                 if not pits:
-                    break
+                    continue
                 pit_count += len(pits)
             except Exception:
                 logger.warning(

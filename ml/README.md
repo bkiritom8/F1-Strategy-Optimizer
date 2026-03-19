@@ -109,7 +109,7 @@ Defined in `ml/distributed/cluster_config.py`:
 ## Docker Image
 
 Built from `docker/Dockerfile.ml` (base: `nvidia/cuda:11.8.0-python3.10`).
-Pushed to Artifact Registry on every push to `main` via Cloud Build.
+Pushed to Artifact Registry on every push to `pipeline` via Cloud Build.
 
 ```bash
 # Build locally (requires Docker Desktop)
@@ -120,8 +120,8 @@ docker build --platform linux/amd64 \
 
 ## Known Gaps
 
-- `predict()` raises `NotImplementedError` in both models — API uses rule-based fallback
-- Ray distributed training requires `ray` in `docker/requirements-ml.txt` (added; untested on Vertex)
+- `predict()` raises `NotImplementedError` in both models — API uses rule-based fallback until a training run completes
+- `ml/training/distributed_trainer.py` imports `ray` but `ray` is **not** in `docker/requirements-ml.txt` — Ray distributed training is not yet functional
 
 ## See Also
 

@@ -94,8 +94,8 @@ def validate_data_op(
 
     if not (races_ok and laps_ok):
         msg = (
-            f"Data validation failed: races={checks.get('races',0)} "
-            f"(need {min_races}), lap_features={checks.get('lap_features',0)}"
+            f"Data validation failed: races={checks.get('races', 0)} "
+            f"(need {min_races}), lap_features={checks.get('lap_features', 0)}"
         )
         publish("component_failed", "failed", msg)
         raise RuntimeError(msg)
