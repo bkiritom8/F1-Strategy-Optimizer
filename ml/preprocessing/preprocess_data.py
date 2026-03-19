@@ -213,13 +213,6 @@ def preprocess_race_results(df):
     return df
 
 
-def create_splits(df, train_end, val_end):
-    train = df[df["season"] <= train_end].copy()
-    val = df[(df["season"] > train_end) & (df["season"] <= val_end)].copy()
-    test = df[df["season"] > val_end].copy()
-    return train, val, test
-
-
 def save_metadata(fastf1_df, race_df):
     metadata = {
         "fastf1": {

@@ -95,14 +95,6 @@ _MIXED_CIRCUITS = {
 }
 
 
-def _classify_era(season: int) -> str:
-    if season < 2010:
-        return "pre-2010 (NA)"
-    if season <= 2013:
-        return "2010-2013 (V8 KERS)"
-    return "2014+ (hybrid)"
-
-
 def _classify_team(constructor: str) -> str:
     c = str(constructor).lower().replace(" ", "_").replace("-", "_")
     if any(t in c for t in _TOP_TEAMS):

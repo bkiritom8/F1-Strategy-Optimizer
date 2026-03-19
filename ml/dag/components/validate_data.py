@@ -45,9 +45,7 @@ def validate_data_op(
     topic_path = publisher.topic_path(project_id, "f1-predictions-dev")
 
     def publish(event: str, status: str, detail: str = "") -> None:
-        import json as _json
-
-        payload = _json.dumps(
+        payload = json.dumps(
             {
                 "event": event,
                 "component": "validate_data",

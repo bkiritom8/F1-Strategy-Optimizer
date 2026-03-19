@@ -10,12 +10,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-@pytest.fixture(scope="session")
-def test_data_dir():
-    """Test data directory fixture"""
-    return Path(__file__).parent / "data"
-
-
 @pytest.fixture
 def sample_race_data():
     """Sample race data for testing"""
@@ -29,30 +23,6 @@ def sample_race_data():
         "time": "15:00:00",
         "url": "http://example.com",
     }
-
-
-@pytest.fixture
-def sample_driver_data():
-    """Sample driver data for testing"""
-    return {
-        "driver_id": "max_verstappen",
-        "driver_number": 1,
-        "code": "VER",
-        "givenName": "Max",
-        "familyName": "Verstappen",
-        "dateOfBirth": "1997-09-30",
-        "nationality": "Dutch",
-        "url": "http://example.com",
-    }
-
-
-@pytest.fixture
-def mock_pubsub_client():
-    """Mock Pub/Sub client for testing"""
-    from unittest.mock import MagicMock
-
-    client = MagicMock()
-    return client
 
 
 @pytest.fixture

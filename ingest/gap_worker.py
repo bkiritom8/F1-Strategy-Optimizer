@@ -39,8 +39,6 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
 )
-log = logging.getLogger("gap_worker")
-
 def _log(level: str, msg: str, **kw) -> None:
     record = {"severity": level, "message": msg, **kw}
     print(json.dumps(record), flush=True)
