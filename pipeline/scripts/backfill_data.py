@@ -278,6 +278,9 @@ def backfill_lap_times_2023(bucket: storage.Bucket, dry_run: bool = False) -> No
         except Exception:
             logger.exception("  Failed to fetch 2023 round %d", rnd)
 
+        logger.info("  Sleeping 90s after round %d...", rnd)
+        time.sleep(90)
+
     combined = pd.concat(new_frames, ignore_index=True)
     combined = combined.sort_values(["round", "lap"]).reset_index(drop=True)
 
@@ -427,6 +430,9 @@ def backfill_fastf1(bucket: storage.Bucket, dry_run: bool = False) -> None:
 
             except Exception:
                 logger.exception("    Failed %d round %d — skipping", year, rnd)
+
+            logger.info("  Sleeping 90s after round %d/%d...", rnd, year)
+            time.sleep(90)
 
         if dry_run:
             logger.info("[dry-run] Would update telemetry/laps_%d.csv + telemetry/telemetry_%d.csv", year, year)
