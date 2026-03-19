@@ -21,91 +21,17 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
+
+from .http_client import fetch_json as _fetch_json
+from .ergast_client import paginate as _paginate
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.jolpi.ca/ergast/f1"
-
-# Rate limiting: 500 calls/hr → ~1.38 req/s; we stay conservative at 1 req/s
-_MIN_REQUEST_INTERVAL = 1.0  # seconds between requests
-_last_request_time: float = 0.0
-
-
-def _rate_limited_get(url: str, timeout: int = 30) -> requests.Response:
-    """HTTP GET with rate limiting (1 req/s). Does NOT call raise_for_status."""
-    global _last_request_time
-    elapsed = time.monotonic() - _last_request_time
-    if elapsed < _MIN_REQUEST_INTERVAL:
-        time.sleep(_MIN_REQUEST_INTERVAL - elapsed)
-    resp = requests.get(url, timeout=timeout)
-    _last_request_time = time.monotonic()
-    return resp
-
-
-@retry(
-    retry=retry_if_exception_type((requests.ConnectionError, requests.Timeout)),
-    wait=wait_exponential(multiplier=2, min=2, max=60),
-    stop=stop_after_attempt(5),
-    reraise=True,
-)
-def _fetch_json(url: str) -> Dict[str, Any]:
-    """Fetch a Jolpica URL and return parsed JSON.
-
-    - Retries automatically on connection errors and timeouts (up to 5 attempts).
-    - On HTTP 429 (rate limited), sleeps 60 s and retries once.
-    - Non-retriable HTTP errors (404, other 4xx) are raised immediately.
-    - 5xx errors raise immediately; callers should retry at a higher level.
-    """
-    logger.debug("GET %s", url)
-    resp = _rate_limited_get(url)
-    if resp.status_code == 429:
-        logger.warning("Rate limited (429) — sleeping 60s before retry")
-        time.sleep(60)
-        resp = _rate_limited_get(url)
-    resp.raise_for_status()
-    return resp.json()  # type: ignore[no-any-return]
-
-
-def _paginate(base_url: str, limit: int = 1000) -> List[Dict[str, Any]]:
-    """Fetch all pages from a Jolpica endpoint."""
-    results: List[Dict[str, Any]] = []
-    offset = 0
-    while True:
-        url = f"{base_url}?limit={limit}&offset={offset}"
-        data = _fetch_json(url)
-        mr = data.get("MRData", {})
-        total = int(mr.get("total", 0))
-        # Flatten — pick whichever table key exists
-        table = (
-            mr.get("RaceTable")
-            or mr.get("SeasonTable")
-            or mr.get("DriverTable")
-            or mr.get("CircuitTable")
-            or {}
-        )
-        rows: List[Dict[str, Any]] = []
-        for val in table.values():
-            if isinstance(val, list):
-                rows = val
-                break
-        results.extend(rows)
-        actual_limit = int(mr.get("limit", limit))
-        offset += actual_limit
-        if offset >= total or not rows:
-            break
-    logger.info("Fetched %d records from %s", len(results), base_url)
-    return results
 
 
 class ErgastIngestion:
