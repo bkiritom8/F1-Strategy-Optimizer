@@ -31,7 +31,13 @@ Keep original filenames as public entry points. Extract distinct concerns into s
 | `ingest/http_utils.py` | Rate-limited GET, exponential backoff, retry-forever wrapper | gap_worker, historical_worker, fastf1_worker |
 | `ingest/jolpica_client.py` | Jolpica API pagination + response parsing (seasons, results, laps, pit stops) | gap_worker, historical_worker |
 | `ingest/telemetry_extractor.py` | FastF1 telemetry extraction per lap, column normalization | gap_worker, fastf1_worker |
-| `ingest/gcs_utils.py` | Absorbs `blob_exists`, `upload_parquet`, `upload_done_marker` from gap_worker (deduplication) | gap_worker |
+| `ingest/gcs_utils.py` | Absorbs `blob_exists` from gap_worker and lap_times_worker (deduplication); `upload_parquet` and `upload_done_marker` already exist here | gap_worker, lap_times_worker |
+
+**`gcs_utils.py` merge rules:**
+- Canonical `upload_parquet` signature: `(df, bucket, blob_path)` — matching the existing file. Callers in `gap_worker` and `lap_times_worker` that pass arguments in a different order must be updated in the same commit.
+- Add `blob_exists(bucket: storage.Bucket, path: str) -> bool` consolidated from both `gap_worker` and `lap_times_worker`.
+
+**Files not touched in this layer:** `ingest/progress.py` (GCS-backed progress tracker, already correctly scoped) and `ingest/task.py` (Cloud Run entry point, already thin) are left as-is.
 
 **Result:** `gap_worker.py`, `fastf1_worker.py`, `historical_worker.py`, `lap_times_worker.py` become thin orchestrators containing only job routing and high-level loop logic.
 
@@ -76,8 +82,16 @@ Keep original filenames as public entry points. Extract distinct concerns into s
 | `src/common/security/role_permissions.py` | `Role`, `Permission` enums + role→permission mapping | iam_simulator |
 
 **Result:**
-- `https_middleware.py` — keeps only `HTTPSRedirectMiddleware`, imports + re-exports the 4 extracted classes for backward compatibility
+- `https_middleware.py` — keeps only `HTTPSRedirectMiddleware`, imports + re-exports the 4 extracted classes for backward compatibility. `get_current_user` (auth logic, not middleware) is moved to `src/common/security/auth_helper.py` in this layer so it is not left stranded until Layer 4.
 - `iam_simulator.py` — keeps only `IAMSimulator` user CRUD + authorization logic
+
+**Additional extraction:**
+
+| New file | Responsibility | Extracted from |
+|---|---|---|
+| `src/common/security/auth_helper.py` | `get_current_user` FastAPI dependency — token validation + user lookup | https_middleware |
+
+**Naming note:** The custom `CORSMiddleware` in `cors_middleware.py` does not conflict with Starlette's own `CORSMiddleware` since the app registers it by direct class reference; no aliasing needed.
 
 ---
 
@@ -90,13 +104,18 @@ Keep original filenames as public entry points. Extract distinct concerns into s
 | New file | Responsibility | Extracted from |
 |---|---|---|
 | `src/api/models.py` | All Pydantic request/response schemas | main.py |
-| `src/api/auth.py` | `get_current_user` dependency, token validation, user extraction | main.py |
+| `src/api/auth.py` | `get_current_user` dependency, token validation, user extraction | auth_helper.py (moved there in Layer 3) |
 | `src/api/metrics.py` | Prometheus counter/histogram definitions + tracking helpers | main.py |
 | `src/api/startup.py` | `lifespan` handler — ML model loading from GCS, lazy pipeline init | main.py |
 | `src/api/routes/strategy.py` | `/strategy/recommend` endpoint logic | main.py |
 | `src/api/routes/data.py` | `/drivers`, `/models/status`, `/telemetry` endpoints | main.py |
 | `src/api/routes/simulation.py` | `/simulate` endpoint + race state logic | main.py |
 | `src/api/routes/health.py` | `/health`, `/metrics` endpoints | main.py |
+
+**Scope clarification:**
+- `startup.py` owns only the `lifespan` handler and GCS-loaded model state (`_strategy_model`, `_pit_model`). It does NOT own the per-request simulator cache.
+- `_simulators: Dict[str, Any]` and `_get_simulator()` belong in `routes/simulation.py` alongside the `/simulate` endpoint — they are per-request lazy state, not startup state.
+- `get_current_user` moves from `https_middleware.py` (Layer 3) to `auth.py` in this layer.
 
 **Result:** `main.py` becomes a ~60-line app factory: creates `FastAPI` instance, registers middleware, includes routers, wires `startup.py` lifespan.
 
@@ -113,19 +132,24 @@ Keep original filenames as public entry points. Extract distinct concerns into s
 | `ml/features/gcs_loader.py` | GCS Parquet reading + local caching for raw data files | feature_pipeline |
 | `ml/features/parsers.py` | `_parse_lap_time_ms`, `_parse_race_id`, driver code mapping | feature_pipeline |
 | `ml/features/cache_layer.py` | Local disk + GCS cache read/write for computed feature vectors | feature_store |
-| `ml/distributed/checkpoint_selector.py` | Best checkpoint selection by val_loss | aggregator |
+| `ml/distributed/checkpoint_selector.py` | GCS checkpoint scanning (`list_checkpoints`) + best selection by val_loss | aggregator |
 | `ml/distributed/model_promoter.py` | GCS copy to `latest/` + versioned path, model card writing | aggregator |
+| `ml/dag/components/feature_calculators/gcs_writer.py` | `upload_df` helper — DataFrame serialization + GCS upload | feature_engineering |
 | `ml/distributed/shard_partitioner.py` | Race ID fetching from Cloud SQL + division across workers | data_sharding |
 | `ml/dag/components/feature_calculators/tire_degradation.py` | Tire degradation curve calculation | feature_engineering |
 | `ml/dag/components/feature_calculators/gap_evolution.py` | Gap tracking feature computation | feature_engineering |
 | `ml/dag/components/feature_calculators/undercut_analyzer.py` | Undercut/overcut window analysis | feature_engineering |
 
+**`checkpoint_selector.py` design:** takes no external input — it calls `list_checkpoints` internally (scanning GCS) and returns the best `CheckpointMeta`. `list_checkpoints` moves entirely into `checkpoint_selector.py`. This avoids any circular import with `aggregator.py`.
+
+**`feature_engineering.py` KFP wrapper scope:** DB connection setup (`Connector`, `get_conn`), Pub/Sub client init, and the `publish()` helper remain in the KFP component wrapper as KFP-specific infrastructure plumbing — acknowledged as out-of-scope for this pass. Only the three calculation blocks and the GCS upload helper are extracted.
+
 **Result:**
-- `feature_pipeline.py` — state vector assembly only
+- `feature_pipeline.py` — state vector assembly only, imports from `gcs_loader`, `parsers`
 - `feature_store.py` — public API coordinating `cache_layer` + `feature_pipeline`
-- `aggregator.py` — `list_checkpoints` + `publish_completion` only
-- `data_sharding.py` — GCS shard I/O only
-- `feature_engineering.py` — thin KFP component wrapper calling `feature_calculators/`
+- `aggregator.py` — pure coordinator: calls `checkpoint_selector`, `model_promoter`, and `publish_completion`; `publish_completion` stays here as Pub/Sub notification
+- `data_sharding.py` — GCS shard I/O only, imports from `shard_partitioner`
+- `feature_engineering.py` — thin KFP wrapper: DB/Pub/Sub init + calls `feature_calculators/`
 
 ---
 
