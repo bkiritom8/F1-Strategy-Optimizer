@@ -22,7 +22,7 @@
 
 locals {
   lt_bucket = "f1optimizer-data-lake"
-  lt_sa     = google_service_account.ingest.email  # reuse existing SA
+  lt_sa     = google_service_account.ingest.email # reuse existing SA
 
   # Workers with ephemeral external IPs (unique Jolpica source IP each)
   # Jolpica only for pre-2018; FastF1 handles 2018+ with richer telemetry
@@ -184,7 +184,7 @@ resource "google_compute_instance" "lap_times_worker_nat" {
 output "lt_worker_names" {
   description = "Lap-times worker VM names"
   value = merge(
-    { for k, v in google_compute_instance.lap_times_worker     : k => v.name },
+    { for k, v in google_compute_instance.lap_times_worker : k => v.name },
     { for k, v in google_compute_instance.lap_times_worker_nat : k => v.name },
   )
 }

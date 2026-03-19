@@ -1,31 +1,36 @@
 # System Architecture and Deployment
 
-**Last Updated**: 2026-02-20
+**Last Updated**: 2026-03-19
 
 ## Overview
 
-The F1 Strategy Optimizer is a production-grade system built on Google Cloud Platform, designed for real-time race strategy recommendations with <500ms P99 latency. Infrastructure is fully managed by Terraform and deployed to `us-central1`. All data lives in GCS — there is no database.
+The F1 Strategy Optimizer is a production-grade system built on Google Cloud Platform, designed for real-time race strategy recommendations with <500ms P99 latency. Infrastructure is fully managed by Terraform and deployed to `us-central1`. All data lives in GCS — there is no operational database.
 
 ## High-Level Architecture
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                     DATA LAYER                                 │
+│                     INGEST LAYER                               │
 ├───────────────────────────────────────────────────────────────┤
 │                                                                │
 │  ┌────────────┐                                               │
-│  │ Jolpica API│────────> gs://f1optimizer-data-lake/raw/     │
-│  │ (1950-2026)│                        │                      │
-│  └────────────┘                        │ csv_to_parquet.py    │
-│                                        ▼                      │
-│  ┌────────────┐         gs://f1optimizer-data-lake/processed/ │
-│  │ FastF1 SDK │────────>        (10 Parquet files, 1.0 GB)   │
-│  │ (2018-2026)│                        │                      │
-│  └────────────┘                        │                      │
-│                                        ▼                      │
-│                               Feature Pipeline (KFP)          │
-│                                        │                      │
-│                             gs://f1optimizer-training/        │
+│  │ Jolpica API│──────────┐                                    │
+│  │ (1950-2026)│          │                                    │
+│  └────────────┘          ▼                                    │
+│                  Cloud Run Ingest Jobs (ingest/)               │
+│  ┌────────────┐  9 parallel tasks (CLOUD_RUN_TASK_INDEX 0–8) │
+│  │ FastF1 SDK │          │                                    │
+│  │ (2018-2026)│  Task 0–7: fastf1_worker (one year each)     │
+│  └────────────┘  Task 8:  historical_worker (1950–2017)       │
+│                           │                                    │
+│                           ▼                                    │
+│         gs://f1optimizer-data-lake/raw/       (51 files, 6 GB)│
+│         gs://f1optimizer-data-lake/telemetry/ (per-year)      │
+│         gs://f1optimizer-data-lake/historical/(per-season)    │
+│                           │                                    │
+│              pipeline/scripts/csv_to_parquet.py               │
+│                           ▼                                    │
+│         gs://f1optimizer-data-lake/processed/ (10 files, 1 GB)│
 └───────────────────────────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────────────────────────┐
@@ -44,14 +49,15 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 ├───────────────────────────────────────────────────────────────┤
 │                                                                │
 │  Vertex AI KFP Pipeline (5-step DAG)                         │
-│  validate → feature_engineering → [train x2 parallel]        │
-│  → [evaluate x2 parallel] → deploy                           │
+│  ml/dag/f1_pipeline.py + ml/dag/pipeline_runner.py           │
 │                                                                │
-│  Models:                                                       │
-│  ┌────────────────────────┐  ┌────────────────────────┐      │
-│  │  StrategyPredictor     │  │  PitStopOptimizer      │      │
-│  │  XGBoost + LightGBM   │  │  LSTM + MirroredStrat  │      │
-│  └────────────────────────┘  └────────────────────────┘      │
+│  validate_data                                                 │
+│    └─> feature_engineering                                     │
+│          ├─> train_strategy    (XGBoost+LightGBM, 4×VM×T4)  │
+│          └─> train_pit_stop   (LSTM+MirroredStrategy, 4×T4) │
+│                ├─> eval_strategy  (parallel)                  │
+│                └─> eval_pit_stop  (parallel)                  │
+│                      └─> deploy                               │
 │                                                                │
 │  Artifacts promoted to: gs://f1optimizer-models/              │
 └───────────────────────────────────────────────────────────────┘
@@ -60,13 +66,13 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │                  CI / CD LAYER                                 │
 ├───────────────────────────────────────────────────────────────┤
 │                                                                │
-│  GitHub push                                                   │
-│  (pipeline branch) ──> Cloud Build ──> Artifact Registry      │
-│                         (cloudbuild.yaml)                      │
-│                           api:latest + ml:latest               │
-│                                │                               │
-│                                v                               │
-│                         Cloud Run deploy                       │
+│  GitHub push (pipeline branch)                                 │
+│    ├─> GitHub Actions (.github/workflows/ci.yml)              │
+│    │   lint / security / test / integration / docker-build /  │
+│    │   terraform-validate / docs / all-checks-passed          │
+│    └─> Cloud Build (cloudbuild.yaml)                          │
+│         Build api:latest + ml:latest + airflow:latest          │
+│         Push → us-central1-docker.pkg.dev/f1optimizer/        │
 └───────────────────────────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────────────────────────┐
@@ -96,12 +102,15 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 
 ### Data Storage: GCS
 
-All F1 data is stored in Google Cloud Storage — there is no database.
+All F1 data is stored in Google Cloud Storage.
 
 | Bucket | Contents |
 |---|---|
 | `gs://f1optimizer-data-lake/raw/` | 51 source CSV files, 6.0 GB (Jolpica + FastF1) |
 | `gs://f1optimizer-data-lake/processed/` | 10 Parquet files, 1.0 GB (ML-ready) |
+| `gs://f1optimizer-data-lake/telemetry/` | Per-year FastF1 telemetry Parquet (ingest workers) |
+| `gs://f1optimizer-data-lake/historical/` | Jolpica 1950–2017 per-season Parquet (ingest workers) |
+| `gs://f1optimizer-data-lake/status/` | Ingest progress markers (`progress.json`, `task_N.done`) |
 | `gs://f1optimizer-models/` | Promoted model artifacts |
 | `gs://f1optimizer-training/` | Checkpoints, feature exports, pipeline artifacts |
 | `gs://f1optimizer-pipeline-runs/` | KFP pipeline run roots |
@@ -134,27 +143,46 @@ race_results = pd.read_parquet("gs://f1optimizer-data-lake/processed/race_result
 circuits     = pd.read_parquet("gs://f1optimizer-data-lake/processed/circuits.parquet")
 ```
 
+### Ingest Layer: Cloud Run Jobs
+
+Data ingestion runs as Cloud Run Jobs. The dispatcher `ingest/task.py` reads `CLOUD_RUN_TASK_INDEX` and routes to the appropriate worker:
+
+| Task Index | Worker | Data |
+|---|---|---|
+| 0–7 | `fastf1_worker.py` | FastF1 telemetry for years 2018–2025 |
+| 8 | `historical_worker.py` | Jolpica race results, lap times, pit stops 1950–2017 |
+
+Supporting workers:
+- `lap_times_worker.py` — Jolpica paginated lap times (rate-limited to 450 req/hr)
+- `gap_worker.py` — Targeted backfill for 5 known data-gap scenarios
+
+Design patterns:
+- **Idempotent**: every worker checks GCS before downloading
+- **Infinite backoff**: retries forever on transient errors (60s → 3600s cap)
+- **Atomic progress**: `ingest/progress.py` uses GCS generation-match for lock-free concurrent writes
+- **Structured logging**: JSON logs → Cloud Logging auto-parsed
+
 ### Data Sources
 
-**Jolpica** (`src/ingestion/ergast_ingestion.py`):
+**Jolpica** (`ingest/historical_worker.py`, `ingest/lap_times_worker.py`):
 - Base URL: `https://api.jolpi.ca/ergast/f1`
-- All endpoints require trailing slash
-- Coverage: 1950–2026, 1,300+ races, 7,600 race results
+- Coverage: 1950–2026, 1,300+ races
+- Rate limit: 500 req/hr (workers enforce ≥8s between requests)
 
-**FastF1** (`src/ingestion/fastf1_ingestion.py`):
-- Coverage: 2018–2026, qualifying and race sessions
-- 10 Hz telemetry (throttle, speed, brake, DRS, gear)
-- Seasons ≥ 2025: missing rounds logged at INFO (expected, not errors)
+**FastF1** (`ingest/fastf1_worker.py`):
+- Coverage: 2018–2026, all session types (FP1–FP3, Q, Sprint, Race)
+- 10 Hz telemetry: throttle, speed, brake, DRS, gear
+- Session types adjust by format year (conventional / sprint_qualifying / sprint)
 
 ### Streaming Layer (Pub/Sub)
 
-Pub/Sub topics provisioned for live telemetry during race weekends:
+Pub/Sub topics provisioned for live telemetry and pipeline events:
 
 | Topic | Purpose |
 |---|---|
 | `f1-race-events-dev` | Race status updates, pipeline triggers |
 | `f1-telemetry-stream-dev` | Live car telemetry |
-| `f1-predictions-dev` | Strategy recommendation outputs |
+| `f1-predictions-dev` | Strategy outputs + pipeline stage status |
 | `f1-alerts-dev` | System alerts and training job status |
 
 ### ML Layer: Vertex AI
@@ -177,9 +205,9 @@ validate_data
 | Profile | Machine | GPUs | Workers | Use Case |
 |---|---|---|---|---|
 | `VERTEX_T4` | `n1-standard-4` | 1× T4 | 1 | Default for experiments |
-| `SINGLE_NODE_MULTI_GPU` | `n1-standard-16` | 4× T4 | 1 | Full training run |
+| `SINGLE_NODE_MULTI_GPU` | `n1-standard-16` | 4× T4 | 1 | Full PitStopOptimizer training |
 | `MULTI_NODE_DATA_PARALLEL` | `n1-standard-8` | 1× T4 each | 4 | Large dataset sharding |
-| `HYPERPARAMETER_SEARCH` | `n1-standard-4` | 0 | 8 | HP sweep |
+| `HYPERPARAMETER_SEARCH` | `n1-standard-4` | 0 | 8 | HP sweep via Vertex AI Vizier |
 | `CPU_DISTRIBUTED` | `n1-highmem-16` | 0 | 8 | Feature engineering |
 
 **Service Account**: `f1-training-dev@f1optimizer.iam.gserviceaccount.com`
@@ -200,12 +228,26 @@ back to rule-based strategy recommendations when promoted models are not yet ava
 - `POST /recommend` — strategy recommendations (<500ms P99)
 - `GET /docs` — interactive API documentation
 
-### CI/CD: Cloud Build
+### CI/CD
 
-Triggered on every push to the `pipeline` branch (`cloudbuild.yaml`):
-1. Build `api:latest` from `docker/Dockerfile.api`
-2. Build `ml:latest` from `docker/Dockerfile.ml` (CUDA 11.8)
-3. Push both to `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/`
+**GitHub Actions** (`.github/workflows/ci.yml`) — triggered on push to `pipeline`, `main`, `develop`, `claude/**`:
+
+| Job | What |
+|---|---|
+| `lint` | Ruff, Black, MyPy |
+| `security` | Bandit + Safety CVE scan |
+| `test` | pytest unit tests + Codecov coverage |
+| `integration-test` | pytest integration tests |
+| `docker-build` | Matrix build: api / ml / airflow |
+| `terraform-validate` | fmt check, init, validate |
+| `docs` | mkdocs build |
+| `all-checks-passed` | Gating job |
+
+**Cloud Build** (`cloudbuild.yaml`) — triggered on push to `pipeline`:
+1. Build `api:latest`, `ml:latest`, `airflow:latest` (parallel)
+2. Run Data-Pipeline tests
+3. Validate Airflow DAG import
+4. Push all images to `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/`
 
 ### Infrastructure: Terraform
 
@@ -231,7 +273,13 @@ MODELS_BUCKET=gs://f1optimizer-models
 DATA_BUCKET=gs://f1optimizer-data-lake
 ```
 
-See `DEV_SETUP.md` §8 for the full list.
+Required for ingest workers (`ingest/task.py`):
+```bash
+CLOUD_RUN_TASK_INDEX=0        # Set automatically by Cloud Run
+GCS_BUCKET=f1optimizer-data-lake
+```
+
+See `team-docs/DEV_SETUP.md` §8 for the full list.
 
 ## Performance Targets
 
@@ -243,3 +291,9 @@ See `DEV_SETUP.md` §8 for the full list.
 | Winner Accuracy | ≥65% |
 | Cost per Prediction | <$0.001 |
 | Monthly Budget | <$70 |
+
+## Known Gaps
+
+1. `predict()` raises `NotImplementedError` in both models — API falls back to rule-based logic
+2. `ml/training/distributed_trainer.py` imports `ray` but Ray is not in `docker/requirements-ml.txt`
+3. Monitoring dashboards and alerting policies not yet created

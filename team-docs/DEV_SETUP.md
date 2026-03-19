@@ -1,7 +1,7 @@
 # F1 Strategy Optimizer — Developer Setup Guide
 
 **Project**: `f1optimizer` (GCP, `us-central1`)
-**Repo**: [`bkiritom8/test`](https://github.com/bkiritom8/test) | Branch: `main` (stable) | `pipeline` (CI/CD)
+**Repo**: [`bkiritom8/F1-Strategy-Optimizer`](https://github.com/bkiritom8/F1-Strategy-Optimizer) | Branch: `main` (stable) | `pipeline` (CI/CD)
 
 ---
 
@@ -11,10 +11,11 @@
 2. [Authenticate with GCP](#2-authenticate-with-gcp)
 3. [Data Storage](#3-data-storage)
 4. [Access GCS Buckets Locally](#4-access-gcs-buckets-locally)
-5. [Build and Push the ML Image](#5-build-and-push-the-ml-image)
-6. [Submit a Vertex AI Training Job with GPU](#6-submit-a-vertex-ai-training-job-with-gpu)
-7. [Colab Enterprise (GPU Alternative)](#7-colab-enterprise-gpu-alternative)
-8. [Required Environment Variables](#8-required-environment-variables)
+5. [Run Ingest Workers](#5-run-ingest-workers)
+6. [Build and Push the ML Image](#6-build-and-push-the-ml-image)
+7. [Submit a Vertex AI Training Job with GPU](#7-submit-a-vertex-ai-training-job-with-gpu)
+8. [Colab Enterprise (GPU Alternative)](#8-colab-enterprise-gpu-alternative)
+9. [Required Environment Variables](#9-required-environment-variables)
 
 ---
 
@@ -32,11 +33,11 @@ Install the following before starting:
 ### Clone and install Python dependencies
 
 ```bash
-git clone https://github.com/bkiritom8/test.git
-cd test
+git clone https://github.com/bkiritom8/F1-Strategy-Optimizer.git
+cd F1-Strategy-Optimizer
 
-# Install all ML + dev dependencies
-pip install -r requirements-f1.txt
+# Install API + dev dependencies
+pip install -r docker/requirements-api.txt
 ```
 
 ---
@@ -72,12 +73,14 @@ gcloud auth application-default print-access-token   # should print a token
 
 ## 3. Data Storage
 
-All F1 data is stored in GCS — there is no database.
+All F1 data is stored in GCS.
 
 | Bucket | Path | Contents |
 |---|---|---|
 | `gs://f1optimizer-data-lake/raw/` | Source CSVs | 51 files, 6.0 GB — Jolpica API + FastF1 |
 | `gs://f1optimizer-data-lake/processed/` | Parquet | 10 files, 1.0 GB — ML-ready, compressed |
+| `gs://f1optimizer-data-lake/telemetry/` | Per-year FastF1 | Written by ingest workers |
+| `gs://f1optimizer-data-lake/historical/` | Per-season Jolpica | Written by ingest workers |
 | `gs://f1optimizer-models/` | Promoted models | `strategy_predictor/latest/model.pkl` etc. |
 | `gs://f1optimizer-training/` | Training artifacts | Checkpoints, feature files, pipeline runs |
 
@@ -116,7 +119,13 @@ ADC credentials (§2) are all that is required — no proxy or VPN needed.
 ```bash
 python pipeline/scripts/csv_to_parquet.py \
   --input-dir /path/to/local/csvs \
-  --gcs-prefix gs://f1optimizer-data-lake/processed/
+  --bucket f1optimizer-data-lake
+
+# Verify data lake contents
+python pipeline/scripts/verify_upload.py --bucket f1optimizer-data-lake
+
+# Backfill known data gaps (dry-run first)
+python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --dry-run
 ```
 
 ---
@@ -152,14 +161,62 @@ blob.download_to_filename("train_features.parquet")
 
 ---
 
-## 5. Build and Push the ML Image
+## 5. Run Ingest Workers
+
+Data ingestion runs as Cloud Run Jobs. The `ingest/task.py` dispatcher routes `CLOUD_RUN_TASK_INDEX` (0–8) to the appropriate worker.
+
+| Task Index | Worker | Data |
+|---|---|---|
+| 0–7 | `fastf1_worker.py` | FastF1 telemetry for 2018–2025 (one year per task) |
+| 8 | `historical_worker.py` | Jolpica race results, lap times, pit stops 1950–2017 |
+
+### Trigger all tasks via Cloud Run Job
+
+```bash
+gcloud run jobs execute f1-ingest \
+  --region=us-central1 \
+  --project=f1optimizer
+```
+
+### Run a single task locally (for debugging)
+
+```bash
+pip install -r docker/requirements-ingest.txt
+
+# Task 3 = FastF1 year 2021
+CLOUD_RUN_TASK_INDEX=3 GCS_BUCKET=f1optimizer-data-lake python -m ingest.task
+
+# Task 8 = historical 1950–2017
+CLOUD_RUN_TASK_INDEX=8 GCS_BUCKET=f1optimizer-data-lake python -m ingest.task
+```
+
+### Ingest design patterns
+
+- **Idempotent**: every worker checks GCS for an existing blob before downloading — safe to re-run
+- **Infinite backoff**: retries forever on transient errors (60s → 3600s cap)
+- **Atomic progress**: `ingest/progress.py` uses GCS generation-match to prevent concurrent write conflicts
+- **Rate limiting**: Jolpica workers enforce ≥8s between requests (≤450 req/hr, safely under the 500 req/hr cap)
+
+### Check progress
+
+```bash
+# View ingest completion markers
+gsutil ls gs://f1optimizer-data-lake/status/
+
+# Check progress tracker
+gsutil cat gs://f1optimizer-data-lake/status/progress.json
+```
+
+---
+
+## 6. Build and Push the ML Image
 
 After making changes to ML code, rebuild and push the `ml:latest` image so Vertex AI jobs pick up the new code.
 
 ### Build all images (recommended)
 
 ```bash
-# Builds api:latest and ml:latest via Cloud Build
+# Builds api:latest, ml:latest, and airflow:latest via Cloud Build
 gcloud builds submit --config cloudbuild.yaml . --project=f1optimizer
 ```
 
@@ -186,7 +243,7 @@ docker push us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest
 
 ---
 
-## 6. Submit a Vertex AI Training Job with GPU
+## 7. Submit a Vertex AI Training Job with GPU
 
 The recommended way to run GPU training is to submit a **Vertex AI Custom Job** using the convenience script.
 
@@ -256,7 +313,7 @@ job.run(service_account="f1-training-dev@f1optimizer.iam.gserviceaccount.com")
 
 ---
 
-## 7. Colab Enterprise (GPU Alternative)
+## 8. Colab Enterprise (GPU Alternative)
 
 Colab Enterprise gives you an interactive GPU notebook without provisioning a dedicated instance. It uses the same GCP project and ADC credentials.
 
@@ -282,21 +339,22 @@ bucket = client.bucket("f1optimizer-training")
 ```python
 import pandas as pd
 
-df = pd.read_parquet("gs://f1optimizer-data-lake/processed/laps.parquet")
+df = pd.read_parquet("gs://f1optimizer-data-lake/processed/laps_all.parquet")
 ```
 
 ### Clone the repo in Colab
 
 ```python
 import subprocess
-subprocess.run(["git", "clone", "https://github.com/bkiritom8/test.git"], check=True)
+subprocess.run(["git", "clone",
+    "https://github.com/bkiritom8/F1-Strategy-Optimizer.git"], check=True)
 import sys
-sys.path.insert(0, "/content/test")  # repo cloned to /content/test
+sys.path.insert(0, "/content/F1-Strategy-Optimizer")
 ```
 
 ---
 
-## 8. Required Environment Variables
+## 9. Required Environment Variables
 
 Set these in your shell or in a local `.env` file (never commit `.env`).
 
@@ -313,6 +371,10 @@ export DATA_BUCKET=gs://f1optimizer-data-lake
 
 # FastF1 cache (optional — speeds up local development)
 export FASTF1_CACHE=/tmp/fastf1_cache
+
+# Ingest workers (set automatically by Cloud Run; needed for local runs)
+export GCS_BUCKET=f1optimizer-data-lake
+export CLOUD_RUN_TASK_INDEX=0
 ```
 
 ### `.env` file for local development
@@ -324,6 +386,7 @@ REGION=us-central1
 TRAINING_BUCKET=gs://f1optimizer-training
 MODELS_BUCKET=gs://f1optimizer-models
 DATA_BUCKET=gs://f1optimizer-data-lake
+GCS_BUCKET=f1optimizer-data-lake
 ```
 
 Load with:
@@ -335,4 +398,4 @@ export $(grep -v '^#' .env | xargs)
 
 ---
 
-*Last updated: 2026-02-24. See `team-docs/ml_module_handoff.md` for infrastructure details and known gaps.*
+*Last updated: 2026-03-19. See `team-docs/ml_module_handoff.md` for infrastructure details and known gaps.*
