@@ -80,17 +80,25 @@ def _download_session(
             return
 
         except Exception as exc:
-            if is_rate_limit(exc):
-                log.warning("rate limit  year=%d  event=%s  type=%s: %s",
-                            year, event_name, session_type, exc)
-                print(f"  [RATE]  {year} | {event_name} | {session_type}  — rate limited, backing off")
-            else:
-                log.error("error  year=%d  event=%s  type=%s  attempt=%d: %s: %s",
-                          year, event_name, session_type, attempt, type(exc).__name__, exc)
-                print(f"  [ERR]   {year} | {event_name} | {session_type}  — {type(exc).__name__}: {exc}")
+                # Permanent error — mark done and skip, don't retry
+                if isinstance(exc, ValueError) and "does not exist" in str(exc).lower():
+                    log.warning("permanent error, skipping  year=%d  event=%s  type=%s: %s",
+                                year, event_name, session_type, exc)
+                    print(f"  [SKIP]  {year} | {event_name} | {session_type}  — {exc}")
+                    progress.mark_done(key)
+                    return
 
-            backoff_wait(attempt)
-            attempt += 1
+                if is_rate_limit(exc):
+                    log.warning("rate limit  year=%d  event=%s  type=%s: %s",
+                                year, event_name, session_type, exc)
+                    print(f"  [RATE]  {year} | {event_name} | {session_type}  — rate limited, backing off")
+                else:
+                    log.error("error  year=%d  event=%s  type=%s  attempt=%d: %s: %s",
+                            year, event_name, session_type, attempt, type(exc).__name__, exc)
+                    print(f"  [ERR]   {year} | {event_name} | {session_type}  — {type(exc).__name__}: {exc}")
+
+                backoff_wait(attempt)
+                attempt += 1
 
 
 # ---------------------------------------------------------------------------
