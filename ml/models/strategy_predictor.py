@@ -227,19 +227,6 @@ class StrategyPredictor(BaseF1Model):
             "n_samples": len(df),
         }
 
-    def feature_importance(self) -> pd.DataFrame:
-        """Return a DataFrame of feature importances from both models."""
-        rows = []
-        if self._xgb_model is not None:
-            scores = self._xgb_model.feature_importances_
-            for feat, score in zip(self._feature_cols, scores):
-                rows.append({"model": "xgb", "feature": feat, "importance": score})
-        if self._lgb_model is not None:
-            scores = self._lgb_model.feature_importances_
-            for feat, score in zip(self._feature_cols, scores):
-                rows.append({"model": "lgb", "feature": feat, "importance": score})
-        return pd.DataFrame(rows).sort_values("importance", ascending=False)
-
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _ensemble_predict(self, X: pd.DataFrame) -> np.ndarray:

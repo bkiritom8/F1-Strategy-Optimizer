@@ -25,7 +25,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import requests
@@ -278,6 +278,9 @@ def backfill_lap_times_2023(bucket: storage.Bucket, dry_run: bool = False) -> No
         except Exception:
             logger.exception("  Failed to fetch 2023 round %d", rnd)
 
+        logger.info("  Sleeping 90s after round %d...", rnd)
+        time.sleep(90)
+
     combined = pd.concat(new_frames, ignore_index=True)
     combined = combined.sort_values(["round", "lap"]).reset_index(drop=True)
 
@@ -377,31 +380,6 @@ def backfill_fastf1(bucket: storage.Bucket, dry_run: bool = False) -> None:
 
                 # Telemetry (aggregated per lap per driver for size)
                 tel_rows = []
-                tel_rows.append({
-                    "season": year,
-                    "round": rnd,
-                    "Driver": lap["Driver"],
-                    "LapNumber": lap["LapNumber"],
-                    # Throttle
-                    "mean_throttle": tel["Throttle"].mean() if "Throttle" in tel.columns else None,
-                    "std_throttle": tel["Throttle"].std() if "Throttle" in tel.columns else None,
-                    # Brake
-                    "mean_brake": tel["Brake"].mean() if "Brake" in tel.columns else None,
-                    "std_brake": tel["Brake"].std() if "Brake" in tel.columns else None,
-                    # Speed
-                    "mean_speed": tel["Speed"].mean() if "Speed" in tel.columns else None,
-                    "max_speed": tel["Speed"].max() if "Speed" in tel.columns else None,
-                    # RPM — engine load proxy
-                    "mean_rpm": tel["RPM"].mean() if "RPM" in tel.columns else None,
-                    "max_rpm": tel["RPM"].max() if "RPM" in tel.columns else None,
-                    # Gear — driving style/circuit character
-                    "mean_gear": tel["nGear"].mean() if "nGear" in tel.columns else None,
-                    "mode_gear": tel["nGear"].mode()[0] if "nGear" in tel.columns and not tel["nGear"].empty else None,
-                    # DRS — percentage of lap with DRS open
-                    "drs_usage_pct": (tel["DRS"].gt(0).sum() / len(tel) * 100) if "DRS" in tel.columns else None,
-                    # Distance
-                    "lap_distance": tel["Distance"].max() if "Distance" in tel.columns else None,
-                })
                 for _, lap in session.laps.iterlaps():
                     try:
                         tel = lap.get_telemetry()
@@ -427,6 +405,9 @@ def backfill_fastf1(bucket: storage.Bucket, dry_run: bool = False) -> None:
 
             except Exception:
                 logger.exception("    Failed %d round %d — skipping", year, rnd)
+
+            logger.info("  Sleeping 90s after round %d/%d...", rnd, year)
+            time.sleep(90)
 
         if dry_run:
             logger.info("[dry-run] Would update telemetry/laps_%d.csv + telemetry/telemetry_%d.csv", year, year)

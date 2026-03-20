@@ -20,8 +20,8 @@ import sys
 
 sys.path.insert(0, "/app")
 
-from src.common.security.iam_simulator import iam_simulator, Token, User, Permission
-from src.common.security.https_middleware import (
+from src.security.iam_simulator import iam_simulator, Token, User, Permission
+from src.security.https_middleware import (
     HTTPSRedirectMiddleware,
     SecurityHeadersMiddleware,
     RequestValidationMiddleware,

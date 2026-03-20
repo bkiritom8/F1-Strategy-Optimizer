@@ -11,7 +11,6 @@ import json
 import logging
 import random
 import time
-from typing import Optional
 
 from google.api_core import exceptions as gcp_exc
 from google.cloud import storage

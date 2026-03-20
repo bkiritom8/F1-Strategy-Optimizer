@@ -43,9 +43,6 @@ PROJECT_ID = "f1optimizer"
 # Fuel: 110 kg start, burns ~1.8 kg/lap over ~60 laps
 FUEL_START_KG = 110.0
 
-# Typical compound stint lengths (laps) for pit window heuristic
-COMPOUND_STINT = {"SOFT": 20, "MEDIUM": 30, "HARD": 45, "INTER": 25, "WET": 20}
-
 
 def _parse_race_id(race_id: str) -> tuple[int, int]:
     """Parse "2024_1" → (2024, 1)."""

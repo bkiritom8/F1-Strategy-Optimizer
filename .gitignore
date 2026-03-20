@@ -253,3 +253,14 @@ Data-Pipeline/logs/*.json
 airflow.db
 airflow/logs/
 airflow/plugins/
+
+# Runtime artifacts
+progress.json
+errors.log
+F1_Pipeline_Submission.docx
+
+# Local data caches (use GCS instead)
+f1_cache/
+f1_telemetry/
+raw/
+raw.zip

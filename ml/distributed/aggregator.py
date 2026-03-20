@@ -183,11 +183,3 @@ class Aggregator:
             "Published completion event to %s (message_id=%s)", PUBSUB_TOPIC, message_id
         )
 
-    # ── Convenience: run full aggregation ────────────────────────────────────
-
-    def run(self) -> str:
-        """Pick best checkpoint, save model, publish event. Returns final GCS URI."""
-        best = self.pick_best_checkpoint()
-        model_uri = self.save_final_model(best)
-        self.publish_completion(best, model_uri=model_uri)
-        return model_uri

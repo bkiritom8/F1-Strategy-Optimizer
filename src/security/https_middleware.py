@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from .iam_simulator import iam_simulator, Permission
+from .iam_simulator import iam_simulator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -221,12 +221,6 @@ class CORSMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def verify_api_key(api_key: str) -> bool:
-    """Verify API key (simple implementation for demo)"""
-    valid_keys = {"dev-key-12345": "development", "prod-key-67890": "production"}
-    return api_key in valid_keys
-
-
 async def get_current_user(request: Request):
     """Extract and validate user from request"""
 
@@ -263,18 +257,3 @@ async def get_current_user(request: Request):
     return User(**{k: v for k, v in user_data.items() if k != "hashed_password"})
 
 
-def require_permission(required_permission: Permission):
-    """Decorator to require specific permission"""
-
-    async def permission_checker(request: Request):
-        user = await get_current_user(request)
-
-        if not iam_simulator.check_permission(user, required_permission):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission denied: {required_permission.value} required",
-            )
-
-        return user
-
-    return permission_checker

@@ -17,7 +17,6 @@ import sys
 from google.cloud import logging as cloud_logging, storage
 
 from .fastf1_worker import run as run_fastf1
-from .gcs_utils import upload_done_marker
 from .historical_worker import run as run_historical
 from .progress import Progress
 

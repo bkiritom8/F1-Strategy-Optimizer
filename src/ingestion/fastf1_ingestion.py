@@ -23,26 +23,16 @@ from typing import List, Optional
 
 import pandas as pd
 
+from .fastf1_extractor import (
+    enable_cache, load_session, extract_laps,
+    extract_telemetry, extract_weather,
+    _FASTF1_AVAILABLE,
+)
+
 logger = logging.getLogger(__name__)
 
-# FastF1 is optional — gracefully degrade for environments without it
-try:
-    import fastf1  # type: ignore[import]
-
-    _FASTF1_AVAILABLE = True
-except ImportError:
-    _FASTF1_AVAILABLE = False
+if not _FASTF1_AVAILABLE:
     logger.warning("FastF1 not installed. FastF1Ingestion will raise on use.")
-
-# Session type codes → human label
-SESSION_LABELS = {
-    "FP1": "Practice 1",
-    "FP2": "Practice 2",
-    "FP3": "Practice 3",
-    "Q": "Qualifying",
-    "S": "Sprint",
-    "R": "Race",
-}
 
 
 class FastF1Ingestion:
@@ -74,7 +64,7 @@ class FastF1Ingestion:
         self.cache_dir = Path(cache_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        fastf1.Cache.enable_cache(str(self.cache_dir))
+        enable_cache(str(self.cache_dir))
         logger.info(
             "FastF1Ingestion initialized — output: %s, cache: %s",
             self.output_dir,
@@ -103,21 +93,7 @@ class FastF1Ingestion:
         -------
         fastf1.core.Session
         """
-        if year < 2018:
-            raise ValueError(f"FastF1 only supports 2018+. Got year={year}")
-        label = SESSION_LABELS.get(session_type, session_type)
-        logger.info(
-            "Loading session: %d Round %d %s (%s)", year, round_num, session_type, label
-        )
-        session = fastf1.get_session(year, round_num, session_type)
-        session.load(telemetry=True, laps=True, weather=True)
-        logger.info(
-            "Session loaded: %s %d — %d laps",
-            session.event["EventName"],
-            year,
-            len(session.laps),
-        )
-        return session
+        return load_session(year, round_num, session_type)
 
     def fetch_laps(
         self,
@@ -146,13 +122,7 @@ class FastF1Ingestion:
         """
         if session is None:
             session = self.fetch_session(year, round_num, session_type)
-        laps: pd.DataFrame = session.laps.copy()
-        laps["season"] = year
-        laps["round"] = round_num
-        laps["session_type"] = session_type
-        # Convert timedelta columns to seconds for CSV portability
-        for col in laps.select_dtypes(include=["timedelta64[ns]"]).columns:
-            laps[col] = laps[col].dt.total_seconds()
+        laps = extract_laps(session, year, round_num, session_type)
         out_path = self._session_dir(year, round_num, session_type) / "laps.csv"
         laps.to_csv(out_path, index=False)
         logger.info("Saved laps: %s (%d rows)", out_path, len(laps))
@@ -187,27 +157,8 @@ class FastF1Ingestion:
         """
         if session is None:
             session = self.fetch_session(year, round_num, session_type)
-        laps = session.laps
-        if driver is not None:
-            laps = laps.pick_driver(driver)
-        frames: List[pd.DataFrame] = []
-        for _, lap in laps.iterlaps():
-            try:
-                tel = lap.get_telemetry()
-                if tel is not None and not tel.empty:
-                    tel["Driver"] = lap["Driver"]
-                    tel["LapNumber"] = lap["LapNumber"]
-                    tel["season"] = year
-                    tel["round"] = round_num
-                    tel["session_type"] = session_type
-                    frames.append(tel)
-            except Exception:
-                logger.debug(
-                    "Telemetry unavailable for driver %s lap %s",
-                    lap.get("Driver"),
-                    lap.get("LapNumber"),
-                )
-        if not frames:
+        combined = extract_telemetry(session, year, round_num, session_type, driver)
+        if combined.empty:
             logger.warning(
                 "No telemetry found for %d/%d/%s driver=%s",
                 year,
@@ -215,11 +166,7 @@ class FastF1Ingestion:
                 session_type,
                 driver,
             )
-            return pd.DataFrame()
-        combined = pd.concat(frames, ignore_index=True)
-        # Convert timedelta columns to seconds
-        for col in combined.select_dtypes(include=["timedelta64[ns]"]).columns:
-            combined[col] = combined[col].dt.total_seconds()
+            return combined
         suffix = f"_{driver}" if driver else "_all"
         out_path = (
             self._session_dir(year, round_num, session_type) / f"telemetry{suffix}.csv"
@@ -242,12 +189,7 @@ class FastF1Ingestion:
         """
         if session is None:
             session = self.fetch_session(year, round_num, session_type)
-        weather: pd.DataFrame = session.weather_data.copy()
-        weather["season"] = year
-        weather["round"] = round_num
-        weather["session_type"] = session_type
-        for col in weather.select_dtypes(include=["timedelta64[ns]"]).columns:
-            weather[col] = weather[col].dt.total_seconds()
+        weather = extract_weather(session, year, round_num, session_type)
         out_path = self._session_dir(year, round_num, session_type) / "weather.csv"
         weather.to_csv(out_path, index=False)
         logger.info("Saved weather: %s (%d rows)", out_path, len(weather))

@@ -94,20 +94,3 @@ CPU_DISTRIBUTED = ClusterConfig(
     replica_count=8,
     strategy="MultiWorkerMirroredStrategy",
 )
-
-VERTEX_T4 = ClusterConfig(
-    name="vertex-t4",
-    machine_type="n1-standard-4",
-    accelerator_type="NVIDIA_TESLA_T4",
-    accelerator_count=1,
-    replica_count=1,
-    strategy="MirroredStrategy",
-)
-
-ALL_CONFIGS: dict[str, ClusterConfig] = {
-    "single_node_multi_gpu": SINGLE_NODE_MULTI_GPU,
-    "multi_node_data_parallel": MULTI_NODE_DATA_PARALLEL,
-    "hyperparameter_search": HYPERPARAMETER_SEARCH,
-    "cpu_distributed": CPU_DISTRIBUTED,
-    "vertex_t4": VERTEX_T4,
-}

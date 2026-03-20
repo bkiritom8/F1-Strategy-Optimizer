@@ -28,3 +28,8 @@ def upload_done_marker(bucket: storage.Bucket, task_id: int) -> None:
     blob = bucket.blob(f"status/task_{task_id}.done")
     blob.upload_from_string("", content_type="text/plain")
     log.info("completion marker uploaded: status/task_%d.done", task_id)
+
+
+def blob_exists(bucket: storage.Bucket, path: str) -> bool:
+    """Return True if *path* exists in *bucket*."""
+    return bucket.blob(path).exists()
