@@ -385,17 +385,23 @@ def backfill_fastf1(bucket: storage.Bucket, dry_run: bool = False) -> None:
                         tel = lap.get_telemetry()
                         if tel is not None and not tel.empty:
                             tel_rows.append({
-                                "season": year,
-                                "round": rnd,
-                                "Driver": lap["Driver"],
-                                "LapNumber": lap["LapNumber"],
-                                "mean_throttle": tel["Throttle"].mean() if "Throttle" in tel.columns else None,
-                                "std_throttle": tel["Throttle"].std() if "Throttle" in tel.columns else None,
-                                "mean_brake": tel["Brake"].mean() if "Brake" in tel.columns else None,
-                                "std_brake": tel["Brake"].std() if "Brake" in tel.columns else None,
-                                "mean_speed": tel["Speed"].mean() if "Speed" in tel.columns else None,
-                                "max_speed": tel["Speed"].max() if "Speed" in tel.columns else None,
-                            })
+                            "season": year,
+                            "round": rnd,
+                            "Driver": lap["Driver"],
+                            "LapNumber": lap["LapNumber"],
+                            "mean_throttle": tel["Throttle"].mean() if "Throttle" in tel.columns else None,
+                            "std_throttle": tel["Throttle"].std() if "Throttle" in tel.columns else None,
+                            "mean_brake": tel["Brake"].mean() if "Brake" in tel.columns else None,
+                            "std_brake": tel["Brake"].std() if "Brake" in tel.columns else None,
+                            "mean_speed": tel["Speed"].mean() if "Speed" in tel.columns else None,
+                            "max_speed": tel["Speed"].max() if "Speed" in tel.columns else None,
+                            "mean_rpm": tel["RPM"].mean() if "RPM" in tel.columns else None,
+                            "max_rpm": tel["RPM"].max() if "RPM" in tel.columns else None,
+                            "mean_gear": tel["nGear"].mean() if "nGear" in tel.columns else None,
+                            "mode_gear": int(tel["nGear"].mode()[0]) if "nGear" in tel.columns and not tel["nGear"].empty else None,
+                            "drs_usage_pct": (tel["DRS"].gt(0).sum() / len(tel) * 100) if "DRS" in tel.columns else None,
+                            "lap_distance": tel["Distance"].max() if "Distance" in tel.columns else None,
+                        })
                     except Exception:
                         pass
                 if tel_rows:
