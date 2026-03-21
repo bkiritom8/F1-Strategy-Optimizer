@@ -4,7 +4,8 @@
  * Handles JWT token lifecycle (auto-login, refresh, caching) so that
  * every downstream fetch is pre-authorized.
  *
- * The Vite dev server proxies /api requests to http://localhost:8000.
+ * DEV:  Vite proxy forwards /api to http://localhost:8000
+ * PROD: Calls the Cloud Run service directly
  */
 
 const TOKEN_KEY = 'f1_api_token';
@@ -14,8 +15,13 @@ const TOKEN_EXPIRY_KEY = 'f1_api_token_expiry';
 const DEFAULT_USER = 'admin';
 const DEFAULT_PASS = 'admin';
 
-/** Base URL is empty because Vite proxies /api to the backend */
-export const API_BASE = '';
+/**
+ * In production (Vercel/Cloudflare), call the GCP Cloud Run URL directly.
+ * In dev, leave empty so Vite proxy handles routing to localhost:8000.
+ */
+export const API_BASE: string = import.meta.env.PROD
+  ? 'https://f1-strategy-api-dev-694267183904.us-central1.run.app'
+  : '';
 
 interface TokenResponse {
   access_token: string;
