@@ -1,0 +1,5 @@
+{
+  "name": "Apex Intelligence",
+  "description": "A high-performance race strategy dashboard providing real-time telemetry, Monte Carlo pit simulations, and driver behavior analytics for Formula 1 racing.",
+  "requestFramePermissions": []
+}
