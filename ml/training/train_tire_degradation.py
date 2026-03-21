@@ -89,6 +89,8 @@ FEATURES = [
     # Speed
     'mean_speed', 'max_speed', 'speed_delta',
     'SpeedI1', 'SpeedI2', 'SpeedFL', 'SpeedST',
+    # New telemetry features (2022+)
+    'mean_rpm', 'max_rpm', 'mean_gear', 'drs_usage_pct', 'lap_distance',
     # Sector times
     'Sector1Time', 'Sector2Time', 'Sector3Time',
     # Race context
@@ -114,24 +116,22 @@ X_test,  y_test  = test[features].fillna(0),  test['tyre_delta']
 
 print(f'Target std — Train: {y_train.std():.3f}, Val: {y_val.std():.3f}, Test: {y_test.std():.3f}')
 
-# Train LightGBM
 print('\nTraining LightGBM...')
 lgb = LGBMRegressor(
-    n_estimators=2000, 
-    max_depth=10, 
+    n_estimators=2000,
+    max_depth=10,
     num_leaves=63,
-    learning_rate=0.006, 
-    subsample=0.7, 
+    learning_rate=0.006,
+    subsample=0.7,
     colsample_bytree=0.6,
-    min_child_samples=30, 
-    reg_alpha=0.5, 
+    min_child_samples=30,
+    reg_alpha=0.5,
     reg_lambda=2.0,
-    random_state=42, 
+    random_state=42,
     n_jobs=-1, verbose=-1
 )
 lgb.fit(X_train, y_train, eval_set=[(X_val, y_val)])
 
-# Train XGBoost
 print('Training XGBoost...')
 xgb = XGBRegressor(
     n_estimators=1500, max_depth=8, learning_rate=0.008,
@@ -141,7 +141,6 @@ xgb = XGBRegressor(
 )
 xgb.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 
-# Find optimal ensemble weight
 print('\nFinding optimal ensemble weight...')
 best_mae = float('inf')
 best_w   = 0.5

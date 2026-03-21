@@ -1,5 +1,8 @@
 """
-Data Preprocessing Pipeline - GCS Version (Fixed)
+Data Preprocessing Pipeline 
+Saves two versions:
+  - fastf1_features.parquet: filtered (no pit/SC laps) for tire deg + driving style
+  - fastf1_features_unfiltered.parquet: all laps including SC/pit for SC model
 """
 
 import pandas as pd
@@ -35,15 +38,14 @@ def load_race_results():
     return df
 
 
-def preprocess_fastf1(df):
-    print("Preprocessing FastF1 data...")
-
+def engineer_features(df):
+    """Shared feature engineering for both filtered and unfiltered versions."""
     df = df.dropna(subset=["LapTime", "TyreLife", "Compound", "mean_throttle"])
     df = df[(df["LapTime"] > 60) & (df["LapTime"] < 200)]
 
     df = df.sort_values(["season", "round", "Driver", "LapNumber"]).reset_index(drop=True)
 
-    # Compound dummies (all known compounds)
+    # Compound dummies
     compounds = pd.get_dummies(df["Compound"].str.upper(), prefix="compound")
     all_compounds = [
         "compound_SOFT", "compound_MEDIUM", "compound_HARD",
@@ -120,7 +122,6 @@ def preprocess_fastf1(df):
     df["is_sc_lap"] = (lap_medians > race_medians * 1.2).astype(int)
 
     # tyre_delta = lap time deviation from per-lap median
-
     lap_baseline = df.groupby(["season", "round", "LapNumber"])["LapTime"].transform("median")
     df["tyre_delta"] = df["LapTime"] - lap_baseline
 
@@ -134,6 +135,13 @@ def preprocess_fastf1(df):
     df["sc_position_change"] = df["position"] - df["position_5_later"]
     df["pitted_under_sc"] = ((df["stint_change"] > 0) & (df["is_sc_lap"] == 1)).astype(int)
 
+    return df
+
+
+def preprocess_fastf1(df):
+    print("Preprocessing FastF1 data (filtered)...")
+    df = engineer_features(df)
+
     # Filter out pit laps, SC laps and extreme tyre_delta values
     df = df[df['is_pit_lap'] == 0]
     df = df[df['is_sc_lap'] == 0]
@@ -142,13 +150,31 @@ def preprocess_fastf1(df):
 
     print(f"  Final: {len(df)} rows, {len(df.columns)} columns")
 
-    # Sanity checks
     print("\n  Sanity checks:")
     print(f"    tyre_delta mean: {df['tyre_delta'].mean():.3f}, std: {df['tyre_delta'].std():.3f}")
     print(f"    tyre_delta range: [{df['tyre_delta'].min():.2f}, {df['tyre_delta'].max():.2f}]")
     print(f"    is_pit_lap: {df['is_pit_lap'].sum()} pit laps")
     print(f"    is_sc_lap: {df['is_sc_lap'].sum()} SC laps")
     print(f"    Compounds: {df['Compound'].str.upper().value_counts().to_dict()}")
+
+    return df
+
+
+def preprocess_fastf1_unfiltered(df):
+    print("Preprocessing FastF1 data (unfiltered)...")
+    df = engineer_features(df)
+
+    # Only filter extreme values, keep all lap types
+    df = df[df['TyreLife'] >= 1]
+
+    print(f"  Final: {len(df)} rows, {len(df.columns)} columns")
+
+    print("\n  Sanity checks:")
+    print(f"    SC laps: {df['is_sc_lap'].sum()} ({df['is_sc_lap'].mean()*100:.1f}%)")
+    print(f"    Pit laps: {df['is_pit_lap'].sum()} ({df['is_pit_lap'].mean()*100:.1f}%)")
+    print(f"    pitted_under_sc: {df['pitted_under_sc'].sum()}")
+    print(f"    sc_position_change nulls: {df['sc_position_change'].isnull().sum()}")
+    print(f"    Seasons: {sorted(df['season'].unique().tolist())}")
 
     return df
 
@@ -267,26 +293,29 @@ def save_metadata(fastf1_df, race_df):
 
 
 def main():
-    fastf1_df = load_fastf1_data()
+    fastf1_raw = load_fastf1_data()
     race_df = load_race_results()
 
-    fastf1_df = preprocess_fastf1(fastf1_df)
+    # Filtered version — for tire deg + driving style models
+    fastf1_filtered = preprocess_fastf1(fastf1_raw.copy())
+    fastf1_filtered.to_parquet(f"{PROCESSED_DIR}/fastf1_features.parquet", index=False)
+    print(f"Saved fastf1_features.parquet ({len(fastf1_filtered)} rows)")
+
+    # Unfiltered version — for SC model
+    fastf1_unfiltered = preprocess_fastf1_unfiltered(fastf1_raw.copy())
+    fastf1_unfiltered.to_parquet(f"{PROCESSED_DIR}/fastf1_features_unfiltered.parquet", index=False)
+    print(f"Saved fastf1_features_unfiltered.parquet ({len(fastf1_unfiltered)} rows)")
+
     race_df = preprocess_race_results(race_df)
-
-    fastf1_df.to_parquet(f"{PROCESSED_DIR}/fastf1_features.parquet", index=False)
-    print(f"Saved fastf1_features.parquet")
-
     race_df.to_parquet(f"{PROCESSED_DIR}/race_results_features.parquet", index=False)
     print(f"Saved race_results_features.parquet")
 
-    save_metadata(fastf1_df, race_df)
+    save_metadata(fastf1_filtered, race_df)
 
     print("\nPreprocessing complete!")
-    print(f"  FastF1: {len(fastf1_df)} rows")
+    print(f"  FastF1 filtered: {len(fastf1_filtered)} rows")
+    print(f"  FastF1 unfiltered: {len(fastf1_unfiltered)} rows")
     print(f"  Race Results: {len(race_df)} rows")
-
-
-
 
 
 if __name__ == "__main__":

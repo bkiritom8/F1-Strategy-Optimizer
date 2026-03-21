@@ -22,7 +22,6 @@ df['driver_encoded'] = le_driver.fit_transform(df['Driver'].astype(str))
 df = df.sort_values(['season', 'round', 'Driver', 'LapNumber']).reset_index(drop=True)
 
 # Composite aggression score normalized within season
-# Avoids leaking mean_throttle directly as both feature and label
 for col in ['mean_throttle', 'std_throttle', 'mean_brake', 'mean_speed']:
     season_mean = df.groupby('season')[col].transform('mean')
     season_std = df.groupby('season')[col].transform('std')
@@ -34,7 +33,6 @@ df['aggression_score'] = (
     0.2 * df['std_throttle_norm']
 )
 
-# Per-lap label based on aggression score quantiles within season
 p33 = df.groupby('season')['aggression_score'].transform(lambda x: x.quantile(0.33))
 p66 = df.groupby('season')['aggression_score'].transform(lambda x: x.quantile(0.66))
 
@@ -46,7 +44,6 @@ print(f'\nLabel distribution:')
 print(df['style_label'].value_counts())
 print(df['style_label'].value_counts(normalize=True))
 
-# Encode label
 le_label = LabelEncoder()
 df['style_encoded'] = le_label.fit_transform(df['style_label'])
 
@@ -89,6 +86,8 @@ FEATURES = [
     'throttle_roll3',
     # Previous style
     'prev_style',
+    # New telemetry features (2022+)
+    'mean_rpm', 'max_rpm', 'mean_gear', 'drs_usage_pct',
 ]
 
 df['lap_progress'] = df['LapNumber'] / df['total_laps']
@@ -125,7 +124,6 @@ xgb = XGBClassifier(
 )
 xgb.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 
-# Find optimal ensemble weight
 print('\nFinding optimal ensemble weight...')
 best_f1 = 0
 best_w = 0.5
