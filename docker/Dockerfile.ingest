@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+# System deps: build tools for pyarrow, plus ca-certs for HTTPS
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY docker/requirements-ingest.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the ingest package
+COPY ingest/ ./ingest/
+
+# Cloud Run Jobs: CLOUD_RUN_TASK_INDEX injected automatically
+# GCS_BUCKET must be set in the job definition
+ENV PYTHONUNBUFFERED=1
+
+CMD ["python", "-m", "ingest.task"]

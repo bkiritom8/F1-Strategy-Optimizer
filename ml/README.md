@@ -6,14 +6,45 @@ All ML code lives here. Training runs on GCP Vertex AI.
 
 ```
 ml/
+├── preprocessing/   Data preprocessing pipeline (GCS Parquet → Features)
 ├── features/        Feature store + feature pipeline (GCS Parquet → DataFrame)
 ├── models/          Model definitions (strategy predictor, pit stop optimizer)
 ├── training/        Training entry points + distributed trainer
 ├── distributed/     Distribution strategy configs + data sharding
 ├── dag/             Vertex AI Pipeline (KFP v2) + 6 individual components
 ├── scripts/         Training job submission scripts
-├── tests/           All ML tests — run on Vertex AI
+├── tests/           All ML tests — includes preprocessing unit tests
 └── README.md
+```
+
+## Preprocessing
+
+Data validation and sanitisation live in `src/preprocessing/`. The KFP feature
+pipeline (`ml/features/feature_pipeline.py`) runs on top of processed Parquet files
+already in GCS and produces ML-ready feature frames.
+
+**Input (GCS — already uploaded):**
+- `gs://f1optimizer-data-lake/processed/fastf1_laps.parquet`
+- `gs://f1optimizer-data-lake/processed/fastf1_telemetry.parquet`
+- `gs://f1optimizer-data-lake/processed/race_results.parquet`
+
+**Output (GCS — written by the KFP feature engineering step):**
+- `gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet` (87,036 rows, 53 columns)
+- `gs://f1optimizer-data-lake/ml_features/race_results_features.parquet` (6,745 rows, 20 columns)
+- `gs://f1optimizer-data-lake/ml_features/metadata.json`
+
+**Run feature pipeline directly:**
+
+```bash
+# Requires GCP authentication
+gcloud auth application-default login
+pip install gcsfs pyarrow pandas
+
+python -c "
+from ml.features.feature_pipeline import FeaturePipeline
+df = FeaturePipeline().run(years=list(range(2018, 2026)))
+print(df.shape)
+"
 ```
 
 ## Models
@@ -29,6 +60,7 @@ artifacts are promoted to `gs://f1optimizer-models/`.
 ## Running on GCP
 
 **Submit a GPU training job (individual experiment):**
+
 ```bash
 bash ml/scripts/submit_training_job.sh --display-name your-name-experiment-1
 ```
@@ -36,11 +68,13 @@ bash ml/scripts/submit_training_job.sh --display-name your-name-experiment-1
 Machine: `n1-standard-4` + 1× NVIDIA T4, image: `ml:latest` from Artifact Registry.
 
 **Trigger full 5-step KFP pipeline:**
+
 ```bash
 python ml/dag/pipeline_runner.py --run-id $(date +%Y%m%d)
 ```
 
 **Run tests on Vertex AI:**
+
 ```bash
 python ml/tests/run_tests_on_vertex.py
 ```
@@ -65,13 +99,14 @@ Defined in `ml/distributed/cluster_config.py`:
 | Models bucket | `gs://f1optimizer-models/` |
 | Pipeline runs bucket | `gs://f1optimizer-pipeline-runs/` |
 | Data lake | `gs://f1optimizer-data-lake/` |
+| ML features | `gs://f1optimizer-data-lake/ml_features/` |
 | Vertex AI SA | `f1-training-dev@f1optimizer.iam.gserviceaccount.com` |
 | ML image | `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest` |
 
 ## Docker Image
 
 Built from `docker/Dockerfile.ml` (base: `nvidia/cuda:11.8.0-python3.10`).
-Pushed to Artifact Registry on every push to `main` via Cloud Build.
+Pushed to Artifact Registry on every push to `pipeline` via Cloud Build.
 
 ```bash
 # Build locally (requires Docker Desktop)
@@ -82,11 +117,11 @@ docker build --platform linux/amd64 \
 
 ## Known Gaps
 
-- `predict()` raises `NotImplementedError` in both models — API uses rule-based fallback
-- Ray distributed training requires `ray` in `docker/requirements-ml.txt` (added; untested on Vertex)
+- `predict()` raises `NotImplementedError` in both models — API uses rule-based fallback until a training run completes
+- `ml/training/distributed_trainer.py` imports `ray` but `ray` is **not** in `docker/requirements-ml.txt` — Ray distributed training is not yet functional
 
 ## See Also
 
-- [`team-docs/ml_module_handoff.md`](../team-docs/ml_module_handoff.md) — full ML handoff
-- [`team-docs/DEV_SETUP.md`](../team-docs/DEV_SETUP.md) — environment setup
+- [`docs/ml_handoff.md`](../docs/ml_handoff.md) — full ML handoff
+- [`docs/DEV_SETUP.md`](../docs/DEV_SETUP.md) — environment setup
 - [`docs/models.md`](../docs/models.md) — model architecture details

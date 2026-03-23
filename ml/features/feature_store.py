@@ -221,11 +221,8 @@ class FeatureStore:
 
     # ── Context manager ────────────────────────────────────────────────────────
 
-    def close(self) -> None:
-        pass
-
     def __enter__(self) -> "FeatureStore":
         return self
 
     def __exit__(self, *_: Any) -> None:
-        self.close()
+        pass

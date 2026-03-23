@@ -7,12 +7,12 @@ of F1 data (1950–2026). Target: <500ms P99 latency.
 ## Features
 
 - **Data**: Jolpica API (1950–2026) + FastF1 telemetry (2018–2026, 10Hz)
+- **Ingest**: Cloud Run Jobs — 9 parallel tasks, one per year/epoch (ingest/)
 - **Storage**: GCS — 51 raw files (6.0 GB CSV) + 10 processed Parquet files (1.0 GB)
 - **ML**: XGBoost+LightGBM ensemble (strategy) + LSTM (pit stop optimizer)
 - **Training**: Vertex AI Custom Jobs + KFP Pipeline (5-step DAG)
 - **Serving**: FastAPI on Cloud Run (<500ms P99)
-- **Orchestration**: Airflow DAG on GCE VM (`f1-airflow-vm`, e2-standard-2)
-- **CI/CD**: Cloud Build on `main` branch — builds `api:latest`, `ml:latest`, `airflow:latest`
+- **CI/CD**: GitHub Actions (9 jobs) + Cloud Build on `pipeline` branch — builds `api:latest`, `ml:latest`, `ingest:latest`
 
 ## Quick Start
 
@@ -26,13 +26,10 @@ of F1 data (1950–2026). Target: <500ms P99 latency.
 ### Setup
 
 ```bash
-git clone https://github.com/bkiritom8/test.git
-cd test
+git clone https://github.com/bkiritom8/F1-Strategy-Optimizer.git
+cd F1-Strategy-Optimizer
 
-pip install -r requirements-f1.txt
-
-# Copy env vars
-cp .env.example .env
+pip install -r docker/requirements-api.txt
 
 # Authenticate with GCP
 gcloud auth login
@@ -40,51 +37,68 @@ gcloud auth application-default login
 gcloud config set project f1optimizer
 ```
 
-See [`team-docs/DEV_SETUP.md`](./team-docs/DEV_SETUP.md) for the complete developer onboarding guide.
+See [`docs/DEV_SETUP.md`](./docs/DEV_SETUP.md) for the complete developer onboarding guide.
 
 ## Architecture
 
 ```
-Jolpica API (1950-2026) ──┐
-                           ├──> gs://f1optimizer-data-lake/raw/
-FastF1 (2018-2026)    ────┘              │
-                                  csv_to_parquet.py
-                                         │
+Jolpica API (1950–2026)  ──┐
+                            ├──> Cloud Run Ingest Jobs (ingest/)
+FastF1 SDK (2018–2026)  ───┘   9 parallel tasks (0-8)
+                                        │
+                          gs://f1optimizer-data-lake/raw/
+                                        │
+                              pipeline/scripts/csv_to_parquet.py
+                                        │
                           gs://f1optimizer-data-lake/processed/
-                                         │
-                          ┌──────────────┴──────────────┐
-                          ▼                             ▼
-                   Airflow DAG (GCE VM)        Feature Pipeline (KFP)
-                   f1-airflow-vm:8080                   │
-                   Data-Pipeline/dags/         Vertex AI Training Jobs
-                                                        │
-                                          gs://f1optimizer-models/
-                                                        │
-                                              FastAPI (Cloud Run)
-                                  https://f1-strategy-api-dev-694267183904.us-central1.run.app
-                                              <500ms P99
+                                   (10 Parquet files)
+                                        │
+                               Feature Pipeline (KFP)
+                              ml/dag/f1_pipeline.py
+                                        │
+                            Vertex AI Training Jobs
+                        (XGBoost+LightGBM ∥ LSTM+MirroredStrategy)
+                                        │
+                          gs://f1optimizer-models/*/latest/
+                                        │
+                              FastAPI (Cloud Run)
+                         f1-strategy-api-dev  <500ms P99
 ```
 
 ## Repository Structure
 
 ```
+ingest/                Cloud Run ingest workers (one per year/data type)
+  task.py              Cloud Run entrypoint — routes CLOUD_RUN_TASK_INDEX 0–8
+  fastf1_worker.py     FastF1 telemetry per year (Tasks 0–7: 2018–2025)
+  historical_worker.py Jolpica historical data 1950–2017 (Task 8)
+  lap_times_worker.py  Jolpica lap-by-lap times
+  gap_worker.py        Targeted backfill (5 gap scenarios)
+  progress.py          GCS-backed optimistic locking
+  gcs_utils.py         Upload helpers
 ml/                    ML code — features, models, dag, distributed, tests
+  dag/                 KFP v2 pipeline (f1_pipeline.py, pipeline_runner.py)
+  dag/components/      6 KFP components (validate, features, train×2, eval×2, deploy)
+  models/              StrategyPredictor, PitStopOptimizer
+  features/            feature_store.py — GCS Parquet → DataFrame
+  distributed/         cluster_config.py — 5 named Vertex AI cluster profiles
+  tests/               run_tests_on_vertex.py
 Data-Pipeline/         Course submission — Airflow DAG, DVC pipeline, tests
-pipeline/scripts/      Data scripts (csv_to_parquet.py, verify_upload.py)
+pipeline/              Data management utilities
+  scripts/             csv_to_parquet.py, backfill_data.py, verify_upload.py
+  simulator/           Race simulator
+  rl/                  Reinforcement learning utilities
 infra/terraform/       All GCP infrastructure (Terraform)
-  airflow_vm.tf        GCE VM for Airflow (e2-standard-2, Container-Optimized OS)
-  scripts/             VM startup scripts
-api/                   FastAPI serving notes
-monitoring/            Observability notes
-docker/                Dockerfiles + requirements
-  Dockerfile.api       FastAPI server
-  Dockerfile.ml        ML training (CUDA 11.8)
-  Dockerfile.airflow   Airflow webserver + scheduler
-  Dockerfile.mock-dataflow  Local Dataflow mock (dev only)
 src/                   Shared code
-  ingestion/           Jolpica + FastF1 ingestion clients
-  mocks/               Local mock servers (dev only)
+  api/                 FastAPI application (main.py)
+  ingestion/           Ergast/FastF1 ingestion classes + HTTP client
+  preprocessing/       Schema validation, data quality, sanitisation
+  security/            IAM simulator + HTTPS middleware
 tests/                 Unit + integration tests
+docker/                Dockerfiles + requirements
+  Dockerfile.api       FastAPI server (port 8000)
+  Dockerfile.ml        ML training (CUDA 11.8, no CMD)
+  Dockerfile.ingest    Cloud Run ingest workers
 docs/                  Technical documentation
 team-docs/             Internal team docs (DEV_SETUP, handoffs)
 ```
@@ -95,38 +109,22 @@ team-docs/             Internal team docs (DEV_SETUP, handoffs)
 |---|---|---|
 | `api:latest` | Artifact Registry | Cloud Run serving |
 | `ml:latest` | Artifact Registry | Vertex AI training jobs |
-| `airflow:latest` | Artifact Registry | GCE VM + local docker-compose |
-| `mock-dataflow` | Local only | Local Dataflow simulation (dev only) |
+| `ingest:latest` | Artifact Registry | Cloud Run ingest workers |
 
-Cloud Build builds and pushes `api`, `ml`, and `airflow` on every push to `main`.
-
-## Local Development
-
-```bash
-# Start core services
-cp .env.example .env
-docker-compose -f docker-compose.f1.yml up api prometheus grafana
-
-# Start Airflow locally
-docker-compose -f docker-compose.f1.yml up airflow-webserver airflow-scheduler
-# UI → http://localhost:8080 (admin / admin)
-
-# Start Dataflow mock (simulates GCP Dataflow, no cost)
-docker-compose -f docker-compose.f1.yml up mock-dataflow
-# API → http://localhost:8088/docs
-```
+Cloud Build builds and pushes all three on every push to `pipeline`.
 
 ## Data
 
-All F1 data lives in GCS — no database.
+All F1 data lives in GCS.
 
 | Bucket Path | Files | Size | Contents |
 |---|---|---|---|
 | `gs://f1optimizer-data-lake/raw/` | 51 | 6.0 GB | Source CSVs (Jolpica + FastF1) |
 | `gs://f1optimizer-data-lake/processed/` | 10 | 1.0 GB | Parquet files (ML-ready) |
-| `gs://f1optimizer-training/dags/` | — | — | Airflow DAGs synced to GCE VM |
+| `gs://f1optimizer-data-lake/telemetry/` | — | — | Per-year FastF1 telemetry Parquet |
+| `gs://f1optimizer-data-lake/historical/` | — | — | Jolpica 1950–2017 per-season Parquet |
 | `gs://f1optimizer-models/` | — | — | Promoted model artifacts |
-| `gs://f1optimizer-training/` | — | — | Checkpoints, feature exports |
+| `gs://f1optimizer-training/` | — | — | Checkpoints, feature exports, pipeline runs |
 
 ```python
 import pandas as pd
@@ -134,6 +132,26 @@ import pandas as pd
 laps      = pd.read_parquet("gs://f1optimizer-data-lake/processed/laps_all.parquet")
 telemetry = pd.read_parquet("gs://f1optimizer-data-lake/processed/telemetry_all.parquet")
 ```
+
+## Ingest Workers
+
+Ingest runs as Cloud Run Jobs with 9 parallelised tasks:
+
+```bash
+# Trigger all ingest tasks (runs tasks 0–8 in parallel)
+gcloud run jobs execute f1-ingest --region=us-central1 --project=f1optimizer
+
+# Verify data lake contents
+python pipeline/scripts/verify_upload.py --bucket f1optimizer-data-lake
+
+# Backfill known gaps
+python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --dry-run
+```
+
+| Task Index | Worker | Coverage |
+|---|---|---|
+| 0–7 | `fastf1_worker` | FastF1 telemetry 2018–2025 (one year per task) |
+| 8 | `historical_worker` | Jolpica race results + lap times 1950–2017 |
 
 ## Data Pipeline (Course Submission)
 
@@ -145,9 +163,6 @@ USE_LOCAL_DATA=true dvc repro
 
 # GCP mode
 dvc repro
-
-# Deploy DAG updates to GCE VM
-bash Data-Pipeline/scripts/deploy_dags.sh
 ```
 
 ## Training
@@ -156,14 +171,17 @@ bash Data-Pipeline/scripts/deploy_dags.sh
 # Individual GPU experiment (recommended for dev work)
 bash ml/scripts/submit_training_job.sh --display-name your-name-strategy-v1
 
-# Full pipeline (5-step KFP)
-python ml/dag/pipeline_runner.py --run-id $(date +%Y%m%d)
+# Full pipeline (5-step KFP DAG)
+python ml/dag/pipeline_runner.py --run-id $(date +%Y%m%d-%H%M%S)
+
+# Trigger via Cloud Run Job (automated)
+gcloud run jobs execute f1-pipeline-trigger --region=us-central1 --project=f1optimizer
 
 # Run ML tests on Vertex AI
 python ml/tests/run_tests_on_vertex.py
 ```
 
-See [`team-docs/ml_module_handoff.md`](./team-docs/ml_module_handoff.md) for full ML documentation.
+See [`docs/ml_handoff.md`](./docs/ml_handoff.md) for full ML documentation.
 
 ## API
 
@@ -172,19 +190,6 @@ See [`team-docs/ml_module_handoff.md`](./team-docs/ml_module_handoff.md) for ful
 ```bash
 curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/health
 curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/docs
-```
-
-## Airflow on GCP
-
-```bash
-# Provision GCE VM
-terraform -chdir=infra/terraform apply -var-file=dev.tfvars
-
-# Deploy DAGs to GCS (VM syncs every 5 min)
-bash Data-Pipeline/scripts/deploy_dags.sh
-
-# Get Airflow UI URL
-terraform -chdir=infra/terraform output airflow_url
 ```
 
 ## Performance Targets
@@ -212,7 +217,6 @@ Course submission pipeline is in [`Data-Pipeline/`](./Data-Pipeline/).
 
 ---
 
-**Status**: Production-ready — GCE Airflow VM, 3 Docker images, full data pipeline
-**Last Updated**: 2026-02-23
-**Repo**: [`bkiritom8/test`](https://github.com/bkiritom8/test)
-**Branch**: `main` (stable + CI/CD) | `ml-dev` (ML development)
+**Status**: ML handoff complete — distributed pipeline, models, tests ready. Data in GCS.
+**Last Updated**: 2026-03-19
+**Branch**: `main` (stable) | `pipeline` (CI/CD) | `ml-dev` (ML development)

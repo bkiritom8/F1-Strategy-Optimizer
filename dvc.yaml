@@ -29,11 +29,14 @@ stages:
     outs:
       - data/features/
 
-  validate:
+  generate_statistics:
     cmd: python Data-Pipeline/scripts/validate_data.py
     deps:
       - data/processed/
       - Data-Pipeline/scripts/validate_data.py
+    outs:
+      - Data-Pipeline/logs/data_statistics.json
+      - Data-Pipeline/scripts/expectations/
 
   detect_anomalies:
     cmd: python Data-Pipeline/scripts/anomaly_detection.py
@@ -50,3 +53,10 @@ stages:
       - Data-Pipeline/scripts/bias_analysis.py
     outs:
       - Data-Pipeline/logs/bias_report.json
+
+  generate_gantt:
+    cmd: python Data-Pipeline/scripts/generate_gantt.py
+    deps:
+      - Data-Pipeline/scripts/generate_gantt.py
+    outs:
+      - Data-Pipeline/logs/gantt_chart.png

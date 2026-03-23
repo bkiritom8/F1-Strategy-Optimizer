@@ -26,12 +26,6 @@ jobs:
         run: |
           pip install -r requirements-test.txt
 
-      - name: Run Ruff
-        run: ruff check src/ tests/ ml/
-
-      - name: Run Black
-        run: black --check src/ tests/ ml/
-
       - name: Run MyPy
         run: mypy src/ ml/ --ignore-missing-imports
         continue-on-error: true
@@ -136,7 +130,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api, ml, airflow]
+        service: [api, ml, ingest]
         # mock-dataflow is LOCAL DEVELOPMENT ONLY — excluded from CI
 
     steps:

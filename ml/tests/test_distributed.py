@@ -21,7 +21,6 @@ import pytest
 
 
 class TestClusterConfig:
-
     def test_all_configs_importable(self):
         from ml.distributed.cluster_config import (
             SINGLE_NODE_MULTI_GPU,
@@ -100,7 +99,6 @@ class TestClusterConfig:
 
 
 class TestDataSharding:
-
     def _make_sharding(self, num_workers: int, mock_race_ids: list[int]):
         from ml.distributed.data_sharding import DataSharding
 
@@ -139,9 +137,9 @@ class TestDataSharding:
         total = sum(sizes)
         assert total == 41, f"Expected 41 total races, got {total}"
         # First worker gets the extra race
-        assert (
-            sizes[0] == sizes[1] + 1 or sizes[0] == sizes[1]
-        ), "Remainder not distributed to leading workers"
+        assert sizes[0] == sizes[1] + 1 or sizes[0] == sizes[1], (
+            "Remainder not distributed to leading workers"
+        )
 
     def test_empty_race_list(self):
         sharding = self._make_sharding(4, [])
@@ -168,11 +166,11 @@ class TestDataSharding:
 
 
 class TestAggregator:
-
     @pytest.fixture(autouse=True)
     def _patch_gcp(self):
-        with patch("ml.distributed.aggregator.storage.Client"), patch(
-            "ml.distributed.aggregator.pubsub_v1.PublisherClient"
+        with (
+            patch("ml.distributed.aggregator.storage.Client"),
+            patch("ml.distributed.aggregator.pubsub_v1.PublisherClient"),
         ):
             yield
 
@@ -222,7 +220,6 @@ class TestAggregator:
 
 
 class TestDistributionStrategy:
-
     def test_data_parallel_single_node_describe(self):
         from ml.distributed.distribution_strategy import DataParallelStrategy
 

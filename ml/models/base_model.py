@@ -174,36 +174,6 @@ class BaseF1Model(ABC):
 
         self._trained = True
 
-    # ── Vertex AI Experiments logging ─────────────────────────────────────────
-
-    def log_to_experiment(
-        self,
-        experiment_name: str,
-        run_name: str,
-        params: dict[str, Any],
-        metrics: dict[str, float],
-    ) -> None:
-        """Log params and metrics to a Vertex AI Experiment run."""
-        try:
-            from google.cloud import aiplatform
-
-            aiplatform.init(
-                project=PROJECT_ID, location=REGION, experiment=experiment_name
-            )
-            with aiplatform.start_run(run=run_name):
-                aiplatform.log_params(params)
-                aiplatform.log_metrics(metrics)
-            self.logger.info(
-                "%s: logged to experiment=%s run=%s",
-                self.model_name,
-                experiment_name,
-                run_name,
-            )
-        except Exception as exc:
-            self.logger.warning(
-                "%s: Vertex AI Experiments logging failed: %s", self.model_name, exc
-            )
-
     # ── Pub/Sub ───────────────────────────────────────────────────────────────
 
     def _publish(self, event: str, status: str, detail: str = "") -> None:

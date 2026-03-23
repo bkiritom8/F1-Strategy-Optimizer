@@ -20,8 +20,8 @@ import sys
 
 sys.path.insert(0, "/app")
 
-from src.common.security.iam_simulator import iam_simulator, Token, User, Permission
-from src.common.security.https_middleware import (
+from src.security.iam_simulator import iam_simulator, Token, User, Permission
+from src.security.https_middleware import (
     HTTPSRedirectMiddleware,
     SecurityHeadersMiddleware,
     RequestValidationMiddleware,
@@ -291,7 +291,7 @@ async def recommend_strategy(
 
         logger.info(
             f"Strategy recommendation for {request.driver_id} at lap {request.current_lap}: "
-            f"{recommendation.recommended_action} (latency: {duration*1000:.2f}ms)"
+            f"{recommendation.recommended_action} (latency: {duration * 1000:.2f}ms)"
         )
 
         return recommendation
