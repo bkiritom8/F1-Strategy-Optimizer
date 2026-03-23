@@ -34,31 +34,32 @@ from google.cloud import storage
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-# Matches pandas timedelta repr: "0 days 00:01:39.019000" or "-1 days +23:58:20"
-_TIMEDELTA_RE = re.compile(r"^-?\d+ days [+\-]?\d{2}:\d{2}:\d{2}(\.\d+)?$")
+
+def _parse_td(val):
+    """Parse a timedelta string to float seconds."""
+    try:
+        return pd.Timedelta(str(val)).total_seconds()
+    except Exception:
+        return None
 
 
 def fix_timedelta_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Detect columns containing pandas timedelta strings and convert to float seconds.
-
-    A column is considered a timedelta column if at least one value in a sample
-    drawn from across the full column matches '0 days 00:01:39.019000'.
-    Sampling across the column (not just head) catches columns where the first
-    rows happen to be NaN or numeric while timedelta strings appear later.
-    Non-parseable values become NaN.
-    """
+    """Detect columns containing pandas timedelta strings and convert to float seconds."""
     for col in df.columns:
-        if df[col].dtype != object:
+        if df[col].dtype not in [object, "string", "str"] and str(df[col].dtype) != "string":
             continue
         non_null = df[col].dropna()
         if non_null.empty:
             continue
-        # Sample up to 50 values spread across the column to detect mixed columns
-        step = max(1, len(non_null) // 50)
-        sample = non_null.iloc[::step].head(50)
-        if sample.astype(str).str.match(_TIMEDELTA_RE).any():
+        sample = non_null.iloc[::max(1, len(non_null) // 50)].head(50)
+        has_timedelta = False
+        for val in sample:
+            if "days" in str(val):
+                has_timedelta = True
+                break
+        if has_timedelta:
             logger.info("  Converting timedelta column '%s' to float seconds", col)
-            df[col] = pd.to_timedelta(df[col], errors="coerce").dt.total_seconds()
+            df[col] = df[col].apply(_parse_td)
     return df
 
 
@@ -123,7 +124,6 @@ def convert_and_upload(input_dir: str, bucket_name: str) -> Dict[str, int]:
     # 2. Telemetry subdirectory
     telemetry_dir = base / "telemetry"
     if telemetry_dir.is_dir():
-        # telemetry_YYYY.csv → telemetry_all.parquet
         tel_csvs = sorted(telemetry_dir.glob("telemetry_*.csv"))
         if tel_csvs:
             logger.info(
@@ -134,7 +134,6 @@ def convert_and_upload(input_dir: str, bucket_name: str) -> Dict[str, int]:
             _upload_df(df, bucket, f"{prefix}/telemetry_all.parquet")
             row_counts["telemetry_all"] = len(df)
 
-        # laps_YYYY.csv (inside telemetry/) → telemetry_laps_all.parquet
         tel_laps_csvs = sorted(telemetry_dir.glob("laps_*.csv"))
         if tel_laps_csvs:
             logger.info(
