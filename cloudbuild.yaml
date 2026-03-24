@@ -31,7 +31,7 @@ steps:
   # ── Train all ML models on Vertex AI ────────────────────────────────────────
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
     id: "train-models"
-    waitFor: ["build-ml"]
+    waitFor: ["push-ml"]
     entrypoint: "bash"
     args:
       - "-c"
