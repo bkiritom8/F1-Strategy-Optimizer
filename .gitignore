@@ -266,3 +266,6 @@ raw/
 raw.zip
 models/overtake_prob.pkl
 catboost_info/
+models/*.pkl
+models/rl/*.zip
+models/rl/*.pkl
