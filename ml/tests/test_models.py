@@ -1,244 +1,290 @@
 """
-Smoke tests for ML models.
-
-Tests:
-  - StrategyPredictor: train on dummy data, predict, evaluate, save/load (GCS mocked)
-  - PitStopOptimizer:  train on dummy data, predict, evaluate, save/load (GCS mocked)
-  - BaseF1Model:       abstract interface is enforced
-
-All tests run on Vertex AI (n1-standard-4, no GPU).
-GCS calls are intercepted via unittest.mock — no actual GCS uploads.
+Smoke tests for ML model wrapper classes.
+Loads real .pkl files from models/ and uses a real GCS data slice.
+Only base_model GCP clients are mocked (Cloud Logging, Pub/Sub, Storage).
 """
+from __future__ import annotations
 
 import os
-import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
+import joblib
 import numpy as np
 import pandas as pd
 import pytest
 
-# ── Dummy data ────────────────────────────────────────────────────────────────
+MODELS_DIR = "models"
+FEATURES_URI  = "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet"
+RACE_RESULTS_URI = "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet"
 
 
-def _make_lap_df(n_drivers: int = 3, laps_per_driver: int = 60) -> pd.DataFrame:
-    rng = np.random.default_rng(0)
-    rows = []
-    for driver_id in range(n_drivers):
-        for lap in range(1, laps_per_driver + 1):
-            compound = rng.choice(["SOFT", "MEDIUM", "HARD"])
-            rows.append(
-                {
-                    "race_id": 1,
-                    "driver_id": driver_id,
-                    "lap_number": lap,
-                    "lap_time_ms": 85000 + rng.integers(-3000, 3000),
-                    "tire_compound": compound,
-                    "tire_age_laps": lap % 20 + 1,
-                    "gap_to_car_ahead_ms": int(rng.integers(0, 20000)),
-                    "gap_to_leader_ms": int(rng.integers(0, 100000)),
-                    "position": int(rng.integers(1, 20)),
-                    "pit_stop_flag": int(lap % 20 == 0),
-                    "year": 2023,
-                    "circuit_id": "monza",
-                    "round": 1,
-                    "driver_ref": f"driver_{driver_id}",
-                }
-            )
-    return pd.DataFrame(rows)
+@pytest.fixture(scope="module")
+def real_laps():
+    df = pd.read_parquet(FEATURES_URI)
+    slice_df = df[(df["season"] == 2022) & (df["round"] == 1)].reset_index(drop=True)
+    # driver_encoded is created by the training script but not saved to parquet
+    # encode using the bundle's encoder
+    bundle = joblib.load(os.path.join(MODELS_DIR, "overtake_prob.pkl"))
+    le = bundle["driver_encoder"]
+    known = set(le.classes_)
+    slice_df["driver_encoded"] = slice_df["Driver"].apply(
+        lambda v: le.transform([v])[0] if v in known else -1
+    )
+    return slice_df
 
 
-# ── StrategyPredictor tests ───────────────────────────────────────────────────
+@pytest.fixture(scope="module")
+def real_race_results():
+    df = pd.read_parquet(RACE_RESULTS_URI)
+    slice_df = df[(df["season"] == 2022) & (df["round"] == 1)].reset_index(drop=True)
+    # finish_tier is computed at training time from position
+    slice_df["position"] = pd.to_numeric(slice_df["position"], errors="coerce")
+    slice_df["finish_tier"] = pd.cut(
+        slice_df["position"], bins=[0, 3, 10, 100],
+        labels=["Podium", "Points", "Outside"]
+    ).astype(str)
+    return slice_df
 
 
-class TestStrategyPredictor:
+class TestTireDegradationModel:
     @pytest.fixture(autouse=True)
-    def _patch_gcp(self):
-        """Suppress all GCP calls (Cloud Logging, Pub/Sub, GCS)."""
-        with (
-            patch("ml.models.base_model.cloud_logging.Client"),
-            patch("ml.models.base_model.pubsub_v1.PublisherClient"),
-            patch("ml.models.base_model.storage.Client"),
-        ):
+    def _patch(self):
+        with patch("ml.models.base_model.cloud_logging.Client"), \
+             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
+             patch("ml.models.base_model.storage.Client"):
             yield
 
     @pytest.fixture
     def model(self):
-        from ml.models.strategy_predictor import StrategyPredictor
+        from ml.models.tire_degradation_model import TireDegradationModel
+        m = TireDegradationModel()
+        m._bundle = joblib.load(os.path.join(MODELS_DIR, "tire_degradation.pkl"))
+        return m
 
-        # Use CPU-friendly params for fast smoke test
-        return StrategyPredictor(
-            xgb_params={
-                "n_estimators": 10,
-                "max_depth": 3,
-                "learning_rate": 0.1,
-                "tree_method": "hist",  # CPU (not gpu_hist)
-                "random_state": 0,
-            },
-            lgb_params={
-                "n_estimators": 10,
-                "max_depth": 3,
-                "learning_rate": 0.1,
-                "device": "cpu",
-                "verbose": -1,
-                "random_state": 0,
-            },
-        )
+    def test_loads_without_error(self, model):
+        assert model._bundle is not None
 
-    @pytest.fixture
-    def trained_model(self, model):
-        df = _make_lap_df()
-        model.train(df)
-        return model, df
+    def test_predict_returns_dataframe(self, model, real_laps):
+        out = model.predict(real_laps)
+        assert isinstance(out, pd.DataFrame)
+        assert "prediction" in out.columns
+        assert len(out) > 0
 
-    def test_train_returns_metrics(self, model):
-        df = _make_lap_df()
-        metrics = model.train(df)
-        assert "val_mae" in metrics
-        assert "val_loss" in metrics
-        assert metrics["val_mae"] >= 0
+    def test_predict_values_are_numeric(self, model, real_laps):
+        out = model.predict(real_laps)
+        assert pd.to_numeric(out["prediction"], errors="coerce").notna().all()
 
-    def test_predict_adds_column(self, trained_model):
-        model, df = trained_model
-        out = model.predict(df)
-        assert "strategy_score_pred" in out.columns
-        assert len(out) == len(df)
+    def test_evaluate_returns_mae_and_r2(self, model, real_laps):
+        metrics = model.evaluate(real_laps)
+        assert "mae" in metrics
+        assert "r2" in metrics
+        assert metrics["mae"] >= 0
 
-    def test_evaluate_returns_metrics(self, trained_model):
-        model, df = trained_model
-        metrics = model.evaluate(df)
-        assert "val_mae" in metrics
-        assert "val_loss" in metrics
-        assert "n_samples" in metrics
-
-    def test_predict_before_train_raises(self, model):
-        with pytest.raises(RuntimeError, match="not trained"):
-            model.predict(_make_lap_df())
-
-    def test_feature_importance_shape(self, trained_model):
-        model, _ = trained_model
-        fi = model.feature_importance()
-        assert "feature" in fi.columns
-        assert "importance" in fi.columns
-        assert len(fi) > 0
-
-    def test_save_load_roundtrip(self, trained_model):
-        model, df = trained_model
-        with tempfile.TemporaryDirectory() as tmp:
-            # Patch GCS save to write to a local dir
-            with patch.object(model, "_storage_client") as mock_client:
-                mock_bucket = MagicMock()
-                mock_blob = MagicMock()
-                mock_client.bucket.return_value = mock_bucket
-                mock_bucket.blob.return_value = mock_blob
-                mock_bucket.list_blobs.return_value = []
-
-                # Save natively to temp dir
-                native_dir = os.path.join(tmp, "native")
-                os.makedirs(native_dir)
-                model._save_native(native_dir)
-
-                # Load from same temp dir
-                from ml.models.strategy_predictor import StrategyPredictor
-
-                new_model = StrategyPredictor()
-                new_model._load_native(native_dir)
-
-            assert new_model._trained
-            preds = new_model.predict(df)
-            assert "strategy_score_pred" in preds.columns
+    def test_train_raises_not_implemented(self, model, real_laps):
+        with pytest.raises(NotImplementedError):
+            model.train(real_laps)
 
 
-# ── PitStopOptimizer tests ────────────────────────────────────────────────────
-
-
-class TestPitStopOptimizer:
+class TestDrivingStyleModel:
     @pytest.fixture(autouse=True)
-    def _patch_gcp(self):
-        with (
-            patch("ml.models.base_model.cloud_logging.Client"),
-            patch("ml.models.base_model.pubsub_v1.PublisherClient"),
-            patch("ml.models.base_model.storage.Client"),
-        ):
+    def _patch(self):
+        with patch("ml.models.base_model.cloud_logging.Client"), \
+             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
+             patch("ml.models.base_model.storage.Client"):
             yield
 
     @pytest.fixture
     def model(self):
-        from ml.models.pit_stop_optimizer import PitStopOptimizer
+        from ml.models.driving_style_model import DrivingStyleModel
+        m = DrivingStyleModel()
+        m._bundle = joblib.load(os.path.join(MODELS_DIR, "driving_style.pkl"))
+        return m
 
-        return PitStopOptimizer(
-            sequence_len=5,
-            lstm_units=[16],
-            dense_units=[8],
-            dropout_rate=0.0,
-            learning_rate=1e-3,
-            batch_size=32,
-            epochs=2,
+    def test_loads_without_error(self, model):
+        assert model._bundle is not None
+
+    def test_predict_returns_valid_classes(self, model, real_laps):
+        out = model.predict(real_laps)
+        assert "prediction" in out.columns
+        assert set(out["prediction"].unique()).issubset({"PUSH", "BALANCE", "NEUTRAL"})
+
+    def test_evaluate_returns_f1(self, model, real_laps):
+        df = real_laps.copy()
+        # driving_style must be string labels to match string predictions
+        df["driving_style"] = np.random.choice(
+            ["PUSH", "BALANCE", "NEUTRAL"], size=len(df)
         )
+        metrics = model.evaluate(df)
+        assert "accuracy" in metrics
+        assert "f1_macro" in metrics
+
+    def test_train_raises_not_implemented(self, model, real_laps):
+        with pytest.raises(NotImplementedError):
+            model.train(real_laps)
+
+
+class TestSafetyCarModel:
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        with patch("ml.models.base_model.cloud_logging.Client"), \
+             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
+             patch("ml.models.base_model.storage.Client"):
+            yield
 
     @pytest.fixture
-    def trained_model(self, model):
-        # Need enough laps to form sequences: sequence_len + 1 per driver
-        df = _make_lap_df(n_drivers=3, laps_per_driver=30)
-        model.train(df)
-        return model, df
+    def model(self):
+        from ml.models.safety_car_model import SafetyCarModel
+        m = SafetyCarModel()
+        m._bundle = joblib.load(os.path.join(MODELS_DIR, "safety_car.pkl"))
+        return m
 
-    def test_train_returns_metrics(self, model):
-        df = _make_lap_df(n_drivers=3, laps_per_driver=30)
-        metrics = model.train(df)
-        assert "val_loss" in metrics
-        assert "val_auc" in metrics
+    def test_loads_without_error(self, model):
+        assert model._bundle is not None
 
-    def test_predict_adds_urgency(self, trained_model):
-        model, df = trained_model
-        out = model.predict(df)
-        assert "pit_urgency" in out.columns
-        assert "recommend_pit" in out.columns
-        assert out["pit_urgency"].between(0, 1).all()
+    def test_predict_returns_binary(self, model, real_laps):
+        out = model.predict(real_laps)
+        assert "prediction" in out.columns
+        assert "probability" in out.columns
+        assert out["prediction"].isin([0, 1]).all()
 
-    def test_evaluate_returns_metrics(self, trained_model):
-        model, df = trained_model
-        metrics = model.evaluate(df)
-        assert "val_roc_auc" in metrics
-        assert "n_samples" in metrics
+    def test_probability_in_range(self, model, real_laps):
+        out = model.predict(real_laps)
+        assert out["probability"].between(0, 1).all()
 
-    def test_predict_before_train_raises(self, model):
-        with pytest.raises(RuntimeError, match="not trained"):
-            model.predict(_make_lap_df())
+    def test_circuit_sc_prob_known(self, model):
+        prob = model.predict_circuit_sc_prob("Monaco Grand Prix")
+        assert prob >= 0.0
 
-    def test_save_load_native(self, trained_model):
-        model, df = trained_model
-        with tempfile.TemporaryDirectory() as tmp:
-            model._save_native(tmp)
-            assert os.path.exists(os.path.join(tmp, "config.json"))
+    def test_circuit_sc_prob_unknown_returns_default(self, model):
+        prob = model.predict_circuit_sc_prob("Unknown Circuit XYZ")
+        assert prob == 0.1
 
-            from ml.models.pit_stop_optimizer import PitStopOptimizer
-
-            new_model = PitStopOptimizer()
-            new_model._load_native(tmp)
-            assert new_model._trained
+    def test_train_raises_not_implemented(self, model, real_laps):
+        with pytest.raises(NotImplementedError):
+            model.train(real_laps)
 
 
-# ── BaseF1Model interface enforcement ─────────────────────────────────────────
+class TestPitWindowModel:
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        with patch("ml.models.base_model.cloud_logging.Client"), \
+             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
+             patch("ml.models.base_model.storage.Client"):
+            yield
+
+    @pytest.fixture
+    def model(self):
+        from ml.models.pit_window_model import PitWindowModel
+        m = PitWindowModel()
+        m._bundle = joblib.load(os.path.join(MODELS_DIR, "pit_window.pkl"))
+        return m
+
+    def test_loads_without_error(self, model):
+        assert model._bundle is not None
+
+    def test_predict_returns_dataframe(self, model, real_laps):
+        out = model.predict(real_laps)
+        assert isinstance(out, pd.DataFrame)
+        assert "prediction" in out.columns
+        assert len(out) > 0
+
+    def test_predict_values_are_numeric(self, model, real_laps):
+        out = model.predict(real_laps)
+        assert pd.to_numeric(out["prediction"], errors="coerce").notna().all()
+
+    def test_train_raises_not_implemented(self, model, real_laps):
+        with pytest.raises(NotImplementedError):
+            model.train(real_laps)
+
+
+class TestOvertakeProbModel:
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        with patch("ml.models.base_model.cloud_logging.Client"), \
+             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
+             patch("ml.models.base_model.storage.Client"):
+            yield
+
+    @pytest.fixture
+    def model(self):
+        from ml.models.overtake_prob_model import OvertakeProbModel
+        m = OvertakeProbModel()
+        m._bundle = joblib.load(os.path.join(MODELS_DIR, "overtake_prob.pkl"))
+        return m
+
+    def test_loads_without_error(self, model):
+        assert model._bundle is not None
+
+    def test_predict_returns_binary(self, model, real_laps):
+        out = model.predict(real_laps)
+        assert "prediction" in out.columns
+        assert "probability" in out.columns
+        assert out["prediction"].isin([0, 1]).all()
+
+    def test_probability_in_range(self, model, real_laps):
+        out = model.predict(real_laps)
+        assert out["probability"].between(0, 1).all()
+
+    def test_evaluate_returns_f1(self, model, real_laps):
+        metrics = model.evaluate(real_laps)
+        assert "accuracy" in metrics
+        assert "f1_macro" in metrics
+
+    def test_train_raises_not_implemented(self, model, real_laps):
+        with pytest.raises(NotImplementedError):
+            model.train(real_laps)
+
+
+class TestRaceOutcomeModel:
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        with patch("ml.models.base_model.cloud_logging.Client"), \
+             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
+             patch("ml.models.base_model.storage.Client"):
+            yield
+
+    @pytest.fixture
+    def model(self):
+        from ml.models.race_outcome_model import RaceOutcomeModel
+        m = RaceOutcomeModel()
+        m._bundle = joblib.load(os.path.join(MODELS_DIR, "race_outcome.pkl"))
+        return m
+
+    def test_loads_without_error(self, model):
+        assert model._bundle is not None
+
+    def test_predict_returns_dataframe(self, model, real_race_results):
+        out = model.predict(real_race_results)
+        assert isinstance(out, pd.DataFrame)
+        assert "prediction" in out.columns
+        assert len(out) > 0
+
+    def test_predict_classes_valid(self, model, real_race_results):
+        out = model.predict(real_race_results)
+        assert set(out["prediction"].unique()).issubset({"Podium", "Points", "Outside"})
+
+    def test_evaluate_returns_f1(self, model, real_race_results):
+        metrics = model.evaluate(real_race_results)
+        assert "accuracy" in metrics
+        assert "f1_macro" in metrics
+
+    def test_train_raises_not_implemented(self, model, real_race_results):
+        with pytest.raises(NotImplementedError):
+            model.train(real_race_results)
 
 
 class TestBaseModelInterface:
     def test_cannot_instantiate_base(self):
         from ml.models.base_model import BaseF1Model
-
         with pytest.raises(TypeError):
             BaseF1Model()
 
-    def test_concrete_model_has_all_methods(self):
-        from ml.models.strategy_predictor import StrategyPredictor
-
-        with (
-            patch("ml.models.base_model.cloud_logging.Client"),
-            patch("ml.models.base_model.pubsub_v1.PublisherClient"),
-            patch("ml.models.base_model.storage.Client"),
-        ):
-            m = StrategyPredictor()
-        for method in ("train", "predict", "evaluate", "save", "load"):
-            assert hasattr(m, method) and callable(getattr(m, method)), (
-                f"StrategyPredictor missing method: {method}"
-            )
+    def test_all_wrappers_have_required_methods(self):
+        with patch("ml.models.base_model.cloud_logging.Client"), \
+             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
+             patch("ml.models.base_model.storage.Client"):
+            from ml.models.tire_degradation_model import TireDegradationModel
+            m = TireDegradationModel()
+        for method in ("train", "predict", "evaluate", "save", "load",
+                       "_save_native", "_load_native"):
+            assert hasattr(m, method) and callable(getattr(m, method))

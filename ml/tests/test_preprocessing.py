@@ -1,11 +1,12 @@
 """
-Unit tests for preprocessing pipeline
+Unit tests for preprocessing pipeline.
+Hits GCS directly — requires GCP auth.
 """
-
-import pytest
-import pandas as pd
 import os
 import sys
+
+import pandas as pd
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from ml.preprocessing.preprocess_data import (
@@ -23,7 +24,7 @@ class TestLoadData:
         assert len(df) > 0
 
     def test_load_fastf1_data_has_required_columns(self):
-        df = load_fastf1_data()
+        df       = load_fastf1_data()
         required = ["season", "round", "Driver", "LapNumber", "LapTime"]
         for col in required:
             assert col in df.columns, f"Missing column: {col}"
@@ -46,9 +47,8 @@ class TestPreprocessFastF1:
 
     def test_creates_compound_columns(self, raw_data):
         df = preprocess_fastf1(raw_data.copy())
-        compound_cols = ["compound_SOFT", "compound_MEDIUM", "compound_HARD"]
-        for col in compound_cols:
-            assert col in df.columns, f"Missing column: {col}"
+        for col in ["compound_SOFT", "compound_MEDIUM", "compound_HARD"]:
+            assert col in df.columns
 
     def test_creates_lap_time_delta(self, raw_data):
         df = preprocess_fastf1(raw_data.copy())
@@ -100,30 +100,20 @@ class TestPreprocessRaceResults:
 
     def test_creates_encoded_columns(self, raw_data):
         df = preprocess_race_results(raw_data.copy())
-        encoded_cols = [c for c in df.columns if "_encoded" in c]
-        assert len(encoded_cols) > 0
+        assert len([c for c in df.columns if "_encoded" in c]) > 0
 
     def test_creates_driver_avg_finish(self, raw_data):
         df = preprocess_race_results(raw_data.copy())
-        has_avg = (
-            "driver_avg_finish" in df.columns or "constructor_avg_finish" in df.columns
-        )
-        assert has_avg
+        assert "driver_avg_finish" in df.columns or "constructor_avg_finish" in df.columns
 
 
 class TestDataIntegrity:
     def test_seasons_in_expected_range(self):
-        df = load_fastf1_data()
-        df = preprocess_fastf1(df)
+        df = preprocess_fastf1(load_fastf1_data())
         assert df["season"].min() >= 2018
         assert df["season"].max() <= 2025
 
     def test_no_duplicate_laps(self):
-        df = load_fastf1_data()
-        df = preprocess_fastf1(df)
-        duplicates = df.duplicated(subset=["season", "round", "Driver", "LapNumber"])
-        assert duplicates.sum() == 0, f"Found {duplicates.sum()} duplicate laps"
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+        df   = preprocess_fastf1(load_fastf1_data())
+        dups = df.duplicated(subset=["season", "round", "Driver", "LapNumber"])
+        assert dups.sum() == 0
