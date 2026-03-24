@@ -7,6 +7,25 @@ on:
     branches: [ main, develop, pipeline ]
 
 jobs:
+  # ── Path detection ────────────────────────────────────────────────────────
+  # Determines whether RL-specific files changed so downstream jobs can gate.
+  changes:
+    name: Detect Changed Paths
+    runs-on: ubuntu-latest
+    outputs:
+      rl: ${{ steps.filter.outputs.rl }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rl:
+              - 'ml/rl/**'
+              - 'ml/training/train_rl.py'
+              - 'docker/Dockerfile.ml'
+
+  # ── General CI ────────────────────────────────────────────────────────────
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
@@ -23,8 +42,7 @@ jobs:
           cache-dependency-path: requirements-test.txt
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements-test.txt
+        run: pip install -r requirements-test.txt
 
       - name: Run MyPy
         run: mypy src/ ml/ --ignore-missing-imports
@@ -44,8 +62,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install security tools
-        run: |
-          pip install bandit safety
+        run: pip install bandit safety
 
       - name: Run Bandit
         run: bandit -r src/ -f json -o bandit-report.json --exit-zero
@@ -79,8 +96,7 @@ jobs:
           cache-dependency-path: requirements-test.txt
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements-test.txt
+        run: pip install -r requirements-test.txt
 
       - name: Run unit tests
         run: |
@@ -115,12 +131,10 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements-test.txt
+        run: pip install -r requirements-test.txt
 
       - name: Run integration tests
-        run: |
-          pytest tests/integration/ -v
+        run: pytest tests/integration/ -v
         continue-on-error: true
 
   docker-build:
@@ -193,31 +207,152 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: |
-          pip install mkdocs mkdocs-material
+        run: pip install mkdocs mkdocs-material
 
       - name: Build documentation
-        run: |
-          mkdocs build --strict
+        run: mkdocs build --strict
         continue-on-error: true
 
+  # ── RL Model CI (path-filtered) ───────────────────────────────────────────
+  rl-smoke-test:
+    name: RL Smoke Test (physics fallback)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.rl == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install stable-baselines3==2.7.1 gymnasium==1.2.3 \
+                      numpy pandas scikit-learn matplotlib
+
+      - name: Smoke test — physics fallback (no GCS, no models)
+        run: |
+          python ml/training/train_rl.py \
+            --smoke-test \
+            --no-models \
+            --n-envs 1 \
+            --timesteps 2000 \
+            --save-dir /tmp/rl_ci_checkpoints
+        timeout-minutes: 10
+
+      - name: Verify output files exist
+        run: |
+          ls /tmp/rl_ci_checkpoints/final_policy.zip
+          ls /tmp/rl_ci_checkpoints/final_vec_normalize.pkl
+          echo "Policy and VecNormalize files saved successfully"
+
+      - name: Upload checkpoint artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rl-smoke-checkpoint-${{ github.sha }}
+          path: /tmp/rl_ci_checkpoints/
+          retention-days: 7
+
+  rl-env-validation:
+    name: RL Environment Validation
+    runs-on: ubuntu-latest
+    needs: rl-smoke-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install stable-baselines3==2.7.1 gymnasium==1.2.3 \
+                      numpy pandas scikit-learn matplotlib
+
+      - name: Validate Gymnasium environment API compliance
+        run: |
+          python - <<'EOF'
+          import sys
+          sys.path.insert(0, '.')
+          from gymnasium.utils.env_checker import check_env
+          from ml.rl.environment import F1RaceEnv
+
+          env = F1RaceEnv(
+              race_ids  = ["2024_4"],
+              driver_id = "lando_norris",
+              adapters  = {},
+          )
+          check_env(env, warn=True, skip_render_check=True)
+          print("Gymnasium env check passed")
+          env.close()
+          EOF
+
+      - name: Validate observation space dimensions
+        run: |
+          python - <<'EOF'
+          import sys
+          sys.path.insert(0, '.')
+          import numpy as np
+          from ml.rl.environment import F1RaceEnv
+          from ml.rl.state import STATE_DIM
+
+          env = F1RaceEnv(race_ids=["2024_16"], driver_id="lando_norris", adapters={})
+          obs, info = env.reset()
+          assert obs.shape == (STATE_DIM,), f"Expected ({STATE_DIM},), got {obs.shape}"
+          assert obs.dtype == np.float32, f"Expected float32, got {obs.dtype}"
+
+          action = env.action_space.sample()
+          obs2, reward, terminated, truncated, info2 = env.step(int(action))
+          assert obs2.shape == (STATE_DIM,)
+          assert isinstance(reward, float), f"Reward must be float, got {type(reward)}"
+          print(f"Obs shape: {obs.shape}, reward: {reward:.3f}, info keys: {list(info2.keys())}")
+          env.close()
+          EOF
+
+  # ── Gate job ──────────────────────────────────────────────────────────────
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [lint, security, test, docker-build, terraform-validate]
+    needs: [lint, security, test, docker-build, terraform-validate, rl-smoke-test, rl-env-validation]
     if: always()
 
     steps:
       - name: Check all jobs
         run: |
-          if [[ "${{ needs.lint.result }}" == "success" && \
-                "${{ needs.security.result }}" == "success" && \
-                "${{ needs.test.result }}" == "success" && \
-                "${{ needs.docker-build.result }}" == "success" && \
-                "${{ needs.terraform-validate.result }}" == "success" ]]; then
+          # Core jobs must succeed
+          core_ok=true
+          if [[ "${{ needs.lint.result }}"               != "success" ]]; then core_ok=false; fi
+          if [[ "${{ needs.security.result }}"           != "success" ]]; then core_ok=false; fi
+          if [[ "${{ needs.test.result }}"               != "success" ]]; then core_ok=false; fi
+          if [[ "${{ needs.docker-build.result }}"       != "success" ]]; then core_ok=false; fi
+          if [[ "${{ needs.terraform-validate.result }}" != "success" ]]; then core_ok=false; fi
+
+          # RL jobs are optional — must succeed OR be skipped (no RL file changes)
+          rl_ok=true
+          for result in "${{ needs.rl-smoke-test.result }}" "${{ needs.rl-env-validation.result }}"; do
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then rl_ok=false; fi
+          done
+
+          if $core_ok && $rl_ok; then
             echo "[OK] All checks passed!"
             exit 0
           else
             echo "[FAIL] Some checks failed"
+            echo "  lint:               ${{ needs.lint.result }}"
+            echo "  security:           ${{ needs.security.result }}"
+            echo "  test:               ${{ needs.test.result }}"
+            echo "  docker-build:       ${{ needs.docker-build.result }}"
+            echo "  terraform-validate: ${{ needs.terraform-validate.result }}"
+            echo "  rl-smoke-test:      ${{ needs.rl-smoke-test.result }}"
+            echo "  rl-env-validation:  ${{ needs.rl-env-validation.result }}"
             exit 1
           fi
