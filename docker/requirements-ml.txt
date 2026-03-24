@@ -1,11 +1,3 @@
-# ── PyTorch (CUDA 11.8) ───────────────────────────────────────────────────────
-torch==2.1.2+cu118
-torchvision==0.16.2+cu118
---extra-index-url https://download.pytorch.org/whl/cu118
-
-# ── TensorFlow (GPU, for distribution strategies) ────────────────────────────
-tensorflow==2.14.0
-
 # ── Gradient boosting ─────────────────────────────────────────────────────────
 scikit-learn==1.4.2
 xgboost==2.0.3

@@ -1,0 +1,5 @@
+# Heavy deps — layer cached separately to avoid re-downloading 2.5GB on every build
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch==2.1.2+cu118
+torchvision==0.16.2+cu118
+tensorflow==2.14.0

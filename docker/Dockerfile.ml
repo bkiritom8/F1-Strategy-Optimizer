@@ -21,7 +21,11 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
 
 WORKDIR /app
 
-# Install ML dependencies first (cached layer)
+# Heavy deps (torch + tensorflow) — separate layer, only rebuilds when these change
+COPY docker/requirements-ml-heavy.txt /tmp/requirements-ml-heavy.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-ml-heavy.txt
+
+# Light deps — rebuilds on any requirements-ml.txt change, heavy layer stays cached
 COPY docker/requirements-ml.txt /tmp/requirements-ml.txt
 RUN pip install --no-cache-dir -r /tmp/requirements-ml.txt
 
