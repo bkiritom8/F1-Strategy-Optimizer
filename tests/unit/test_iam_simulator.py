@@ -208,7 +208,7 @@ class TestRolePermissions:
 
     def test_admin_has_all_permissions(self):
         """Test admin role has wildcard permission"""
-        from src.common.security.iam_simulator import ROLE_PERMISSIONS
+        from src.security.iam_simulator import ROLE_PERMISSIONS
 
         admin_perms = ROLE_PERMISSIONS[Role.ADMIN]
 
@@ -216,7 +216,7 @@ class TestRolePermissions:
 
     def test_data_viewer_read_only(self):
         """Test data viewer has only read permissions"""
-        from src.common.security.iam_simulator import ROLE_PERMISSIONS
+        from src.security.iam_simulator import ROLE_PERMISSIONS
 
         viewer_perms = ROLE_PERMISSIONS[Role.DATA_VIEWER]
 
@@ -226,7 +226,7 @@ class TestRolePermissions:
 
     def test_ml_engineer_permissions(self):
         """Test ML engineer has model permissions"""
-        from src.common.security.iam_simulator import ROLE_PERMISSIONS
+        from src.security.iam_simulator import ROLE_PERMISSIONS
 
         ml_perms = ROLE_PERMISSIONS[Role.ML_ENGINEER]
 
