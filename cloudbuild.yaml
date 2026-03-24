@@ -1,12 +1,13 @@
 steps:
   # ── Build Docker images ──────────────────────────────────────────────────────
-
   - name: "gcr.io/cloud-builders/docker"
     id: "build-api"
     args:
       - "build"
       - "--platform"
       - "linux/amd64"
+      - "-t"
+      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:$COMMIT_SHA"
       - "-t"
       - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
       - "-f"
@@ -20,6 +21,8 @@ steps:
       - "--platform"
       - "linux/amd64"
       - "-t"
+      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:$COMMIT_SHA"
+      - "-t"
       - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
       - "-f"
       - "docker/Dockerfile.ml"
@@ -32,13 +35,14 @@ steps:
       - "--platform"
       - "linux/amd64"
       - "-t"
+      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:$COMMIT_SHA"
+      - "-t"
       - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:latest"
       - "-f"
       - "docker/Dockerfile.airflow"
       - "."
 
   # ── Run Data-Pipeline tests ──────────────────────────────────────────────────
-
   - name: "python:3.10-slim"
     id: "test-pipeline"
     entrypoint: "bash"
@@ -49,7 +53,6 @@ steps:
         pytest Data-Pipeline/tests/ -v --tb=short
 
   # ── Validate Airflow DAG imports cleanly ─────────────────────────────────────
-
   - name: "python:3.10-slim"
     id: "validate-dag"
     entrypoint: "bash"
@@ -68,29 +71,274 @@ steps:
         print('DAG valid:', mod.dag.dag_id)
         "
 
-  # ── Push images to Artifact Registry ────────────────────────────────────────
+  # ── Train all ML models on Vertex AI ────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "train-models"
+    waitFor: ["build-ml"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        for MODEL in tire_degradation driving_style safety_car pit_window overtake_prob race_outcome; do
+          echo "Submitting: $$MODEL"
+          gcloud ai custom-jobs create \
+            --region=us-central1 \
+            --display-name="train-$$MODEL-$SHORT_SHA" \
+            --worker-pool-spec="machine-type=n1-standard-8,replica-count=1,container-image-uri=us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:$COMMIT_SHA" \
+            --args="python,ml/training/train_$$MODEL.py" \
+            --project=f1optimizer \
+            --format="value(name)" > /workspace/job_$$MODEL.txt
+        done
+        for MODEL in tire_degradation driving_style safety_car pit_window overtake_prob race_outcome; do
+          JOB_ID=$$(cat /workspace/job_$$MODEL.txt)
+          for i in $$(seq 1 180); do
+            STATE=$$(gcloud ai custom-jobs describe $$JOB_ID \
+              --region=us-central1 --project=f1optimizer \
+              --format="value(state)" 2>/dev/null)
+            echo "  [$$i/180] $$MODEL state: $$STATE"
+            if [ "$$STATE" = "JOB_STATE_SUCCEEDED" ]; then break; fi
+            if [ "$$STATE" = "JOB_STATE_FAILED" ] || [ "$$STATE" = "JOB_STATE_CANCELLED" ]; then
+              echo "$$MODEL training failed"
+              exit 1
+            fi
+            sleep 60
+          done
+        done
 
+  # ── Validate trained models against performance thresholds ──────────────────
+  - name: "python:3.10-slim"
+    id: "validate-models"
+    waitFor: ["train-models"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install --quiet google-cloud-aiplatform
+        python - <<'PYEOF'
+        import sys
+        from google.cloud import aiplatform
+
+        aiplatform.init(project='f1optimizer', location='us-central1',
+                        experiment='f1-strategy-models')
+
+        THRESHOLDS = {
+            'tire-degradation-v1':  {'test_mae': 0.35,  'test_r2': 0.80},
+            'driving-style-v1':     {'test_f1_macro': 0.75},
+            'safety-car-v1':        {'test_f1_macro': 0.90},
+            'pit-window-v1':        {'test_mae': 2.0,   'test_r2': 0.90},
+            'overtake-prob-v1':     {'test_f1': 0.25},
+            'race-outcome-v1':      {'test_f1_macro': 0.60},
+        }
+
+        failures = []
+        for run_name, thresholds in THRESHOLDS.items():
+            try:
+                run     = aiplatform.ExperimentRun(run_name=run_name,
+                            experiment='f1-strategy-models',
+                            project='f1optimizer', location='us-central1')
+                metrics = run.get_metrics()
+                for metric, threshold in thresholds.items():
+                    val = metrics.get(metric)
+                    if val is None:
+                        continue
+                    ok = val <= threshold if 'mae' in metric else val >= threshold
+                    print(f'  {"OK" if ok else "FAIL"} {metric}: {val:.4f} (threshold: {threshold})')
+                    if not ok:
+                        failures.append(f'{run_name}.{metric}={val:.4f}')
+            except Exception as e:
+                print(f'  Could not fetch {run_name}: {e}')
+
+        if failures:
+            print(f'VALIDATION FAILED: {failures}')
+            sys.exit(1)
+        else:
+            print('All models pass validation')
+        PYEOF
+
+  # ── Check bias slice disparity ───────────────────────────────────────────────
+  - name: "python:3.10-slim"
+    id: "check-bias"
+    waitFor: ["validate-models"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install --quiet google-cloud-aiplatform
+        python - <<'PYEOF'
+        from google.cloud import aiplatform
+
+        aiplatform.init(project='f1optimizer', location='us-central1',
+                        experiment='f1-strategy-models')
+
+        BIAS_TOLERANCE = {
+            'tire_degradation': 0.10, 'driving_style': 0.12,
+            'safety_car': 0.15,       'pit_window': 2.0,
+            'overtake_prob': 0.10,    'race_outcome': 0.20,
+        }
+        RUN_MAP = {
+            'tire_degradation': 'tire-degradation-v1',
+            'driving_style':    'driving-style-v1',
+            'safety_car':       'safety-car-v1',
+            'pit_window':       'pit-window-v1',
+            'overtake_prob':    'overtake-prob-v1',
+            'race_outcome':     'race-outcome-v1',
+        }
+        METRIC_KEY = {
+            'tire_degradation': 'mae', 'pit_window': 'mae',
+            'driving_style': 'f1',     'safety_car': 'f1',
+            'overtake_prob': 'f1',     'race_outcome': 'f1',
+        }
+
+        for model, run_name in RUN_MAP.items():
+            try:
+                run     = aiplatform.ExperimentRun(run_name=run_name,
+                            experiment='f1-strategy-models',
+                            project='f1optimizer', location='us-central1')
+                metrics = run.get_metrics()
+                mk      = METRIC_KEY[model]
+                slices  = {k: v for k, v in metrics.items()
+                           if k.startswith('bias_') and k.endswith(f'_{mk}')}
+                if not slices:
+                    print(f'{model}: no bias metrics found')
+                    continue
+                best  = min(slices.values()) if mk == 'mae' else max(slices.values())
+                worst = max(slices.values()) if mk == 'mae' else min(slices.values())
+                gap   = abs(best - worst)
+                tol   = BIAS_TOLERANCE[model]
+                print(f'{"OK" if gap <= tol else "WARN"} {model}: disparity={gap:.3f} (tol={tol})')
+            except Exception as e:
+                print(f'{model}: error — {e}')
+        PYEOF
+
+  # ── Push models to Vertex AI Model Registry ──────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "push-models-registry"
+    waitFor: ["check-bias"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install --quiet google-cloud-aiplatform
+        python - <<'PYEOF'
+        from google.cloud import aiplatform
+
+        aiplatform.init(project='f1optimizer', location='us-central1')
+
+        MODELS = {
+            'tire-degradation':  'gs://f1optimizer-models/tire_degradation/',
+            'driving-style':     'gs://f1optimizer-models/driving_style/',
+            'safety-car':        'gs://f1optimizer-models/safety_car/',
+            'pit-window':        'gs://f1optimizer-models/pit_window/',
+            'overtake-prob':     'gs://f1optimizer-models/overtake_prob/',
+            'race-outcome':      'gs://f1optimizer-models/race_outcome/',
+        }
+
+        for display_name, artifact_uri in MODELS.items():
+            model = aiplatform.Model.upload(
+                display_name=display_name,
+                artifact_uri=artifact_uri,
+                serving_container_image_uri=(
+                    'us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest'
+                ),
+                labels={'commit': '$SHORT_SHA'},
+            )
+            print(f'Registered: {model.resource_name}')
+        PYEOF
+
+  # ── Rollback check ────────────────────────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "rollback-check"
+    waitFor: ["push-models-registry"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install --quiet google-cloud-aiplatform
+        python - <<'PYEOF'
+        import sys, json, subprocess
+        from google.cloud import aiplatform
+
+        aiplatform.init(project='f1optimizer', location='us-central1',
+                        experiment='f1-strategy-models')
+
+        ROLLBACK_METRIC = {
+            'tire-degradation-v1': ('test_mae',      'lower'),
+            'driving-style-v1':    ('test_f1_macro', 'higher'),
+            'safety-car-v1':       ('test_f1_macro', 'higher'),
+            'pit-window-v1':       ('test_mae',      'lower'),
+            'overtake-prob-v1':    ('test_f1',       'higher'),
+            'race-outcome-v1':     ('test_f1_macro', 'higher'),
+        }
+
+        try:
+            result   = subprocess.run(['gsutil', 'cat',
+                         'gs://f1optimizer-models/champion_metrics.json'],
+                         capture_output=True, text=True)
+            champion = json.loads(result.stdout) if result.returncode == 0 else {}
+        except Exception:
+            champion = {}
+
+        rollback    = False
+        new_metrics = {}
+
+        for run_name, (metric, direction) in ROLLBACK_METRIC.items():
+            try:
+                run = aiplatform.ExperimentRun(run_name=run_name,
+                        experiment='f1-strategy-models',
+                        project='f1optimizer', location='us-central1')
+                cur = run.get_metrics().get(metric)
+                if cur is None:
+                    continue
+                new_metrics[run_name] = {metric: cur}
+                prev = champion.get(run_name, {}).get(metric)
+                if prev is None:
+                    print(f'{run_name}: no previous — accepting ({cur:.4f})')
+                    continue
+                ok = cur <= prev * 1.05 if direction == 'lower' else cur >= prev * 0.95
+                print(f'{"OK" if ok else "ROLLBACK"} {run_name}: {prev:.4f} -> {cur:.4f}')
+                if not ok:
+                    rollback = True
+            except Exception as e:
+                print(f'{run_name}: error — {e}')
+
+        if rollback:
+            print('Regression detected — keeping champion models')
+            sys.exit(1)
+
+        champion.update(new_metrics)
+        with open('/workspace/champion_metrics.json', 'w') as f:
+            json.dump(champion, f)
+        subprocess.run(['gsutil', 'cp', '/workspace/champion_metrics.json',
+                        'gs://f1optimizer-models/champion_metrics.json'])
+        print('All models promoted to champion')
+        PYEOF
+
+  # ── Push images to Artifact Registry ────────────────────────────────────────
   - name: "gcr.io/cloud-builders/docker"
     id: "push-api"
-    args: ["push", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"]
+    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api"]
     waitFor: ["build-api", "test-pipeline"]
 
   - name: "gcr.io/cloud-builders/docker"
     id: "push-ml"
-    args: ["push", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"]
+    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml"]
     waitFor: ["build-ml"]
 
   - name: "gcr.io/cloud-builders/docker"
     id: "push-airflow"
-    args: ["push", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:latest"]
+    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow"]
     waitFor: ["build-airflow", "validate-dag"]
 
 images:
+  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:$COMMIT_SHA"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
+  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:$COMMIT_SHA"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
+  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:$COMMIT_SHA"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:latest"
-
-# mock-dataflow is LOCAL DEVELOPMENT ONLY — not built or pushed here
 
 options:
   logging: CLOUD_LOGGING_ONLY
+  machineType: "E2_HIGHCPU_8"
+
+timeout: "10800s"
