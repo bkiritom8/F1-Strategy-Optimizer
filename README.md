@@ -217,6 +217,35 @@ Course submission pipeline is in [`Data-Pipeline/`](./Data-Pipeline/).
 
 ---
 
+## Data Bias Detection & Mitigation
+
+The pipeline includes automated bias detection via `Data-Pipeline/scripts/bias_analysis.py`,
+which slices the dataset across four dimensions to detect representation bias:
+
+### Bias Analysis Results
+
+| Dimension | Slice | Finding |
+|---|---|---|
+| Era | pre-2010 (NA engines) | Underrepresented — fewer races per season |
+| Era | 2014+ (hybrid) | Overrepresented — larger dataset |
+| Team Tier | Backmarker teams | Underrepresented in telemetry data |
+| Circuit Type | Street circuits | Underrepresented vs permanent circuits |
+| Weather | Wet sessions | Underrepresented — rare events |
+
+### Mitigation Steps
+
+1. **Era bias**: Acknowledged in model training — pre-2010 data weighted separately
+2. **Team bias**: Stratified sampling applied during feature engineering
+3. **Circuit bias**: Circuit type included as a categorical feature
+4. **Weather bias**: Wet session data flagged separately
+
+### Running Bias Analysis
+```bash
+USE_LOCAL_DATA=true python Data-Pipeline/scripts/bias_analysis.py
+```
+
+---
+
 **Status**: ML handoff complete — distributed pipeline, models, tests ready. Data in GCS.
 **Last Updated**: 2026-03-19
 **Branch**: `main` (stable) | `pipeline` (CI/CD) | `ml-dev` (ML development)
