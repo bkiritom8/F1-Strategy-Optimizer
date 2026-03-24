@@ -209,7 +209,6 @@ jobs:
 
       - name: Build documentation
         run: mkdocs build --strict
-        continue-on-error: true
 
   # ── RL Model CI (path-filtered) ───────────────────────────────────────────
   rl-smoke-test:
@@ -347,7 +346,7 @@ jobs:
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [lint, security, test, integration-test, docker-build, terraform-validate, rl-smoke-test, rl-env-validation]
+    needs: [lint, security, test, integration-test, docker-build, terraform-validate, docs, rl-smoke-test, rl-env-validation]
     if: always()
 
     steps:
@@ -361,6 +360,7 @@ jobs:
           if [[ "${{ needs.integration-test.result }}"  != "success" ]]; then core_ok=false; fi
           if [[ "${{ needs.docker-build.result }}"       != "success" ]]; then core_ok=false; fi
           if [[ "${{ needs.terraform-validate.result }}" != "success" ]]; then core_ok=false; fi
+          if [[ "${{ needs.docs.result }}"              != "success" ]]; then core_ok=false; fi
 
           # RL jobs are optional — must succeed OR be skipped (no RL file changes)
           rl_ok=true
@@ -379,6 +379,7 @@ jobs:
             echo "  integration-test:   ${{ needs.integration-test.result }}"
             echo "  docker-build:       ${{ needs.docker-build.result }}"
             echo "  terraform-validate: ${{ needs.terraform-validate.result }}"
+            echo "  docs:               ${{ needs.docs.result }}"
             echo "  rl-smoke-test:      ${{ needs.rl-smoke-test.result }}"
             echo "  rl-env-validation:  ${{ needs.rl-env-validation.result }}"
             exit 1
