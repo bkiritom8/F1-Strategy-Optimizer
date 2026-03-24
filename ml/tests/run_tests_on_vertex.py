@@ -1,7 +1,7 @@
 """
 Run all ML tests as a Vertex AI Custom Job.
 
-Machine: n1-standard-4 (no GPU needed — tests use dummy data and CPU-only params).
+Machine: n1-standard-4 (no GPU needed — tests use real GCS data and CPU-only params).
 Reports results to Cloud Logging.
 Exits with code 1 if any test fails (fails the Vertex AI job).
 
@@ -28,10 +28,11 @@ from datetime import datetime, timezone
 
 from google.cloud import aiplatform, logging as cloud_logging
 
-PROJECT_ID = os.environ.get("PROJECT_ID", "f1optimizer")
-REGION = os.environ.get("REGION", "us-central1")
+PROJECT_ID      = os.environ.get("PROJECT_ID",      "f1optimizer")
+REGION          = os.environ.get("REGION",          "us-central1")
 TRAINING_BUCKET = os.environ.get("TRAINING_BUCKET", "gs://f1optimizer-training")
-ML_IMAGE = "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
+MODELS_BUCKET   = os.environ.get("MODELS_BUCKET",   "gs://f1optimizer-models")
+ML_IMAGE        = "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
 SERVICE_ACCOUNT = f"f1-training-dev@{PROJECT_ID}.iam.gserviceaccount.com"
 
 logging.basicConfig(
@@ -41,11 +42,35 @@ logging.basicConfig(
 logger = logging.getLogger("f1.tests.runner")
 
 
+def download_models(local_dir: str = "/app/models") -> None:
+    """
+    Download trained model .pkl files from GCS to local_dir so
+    test_models.py can load them with joblib.
+    """
+    os.makedirs(local_dir, exist_ok=True)
+    logger.info("Downloading models from %s to %s", MODELS_BUCKET, local_dir)
+    result = subprocess.run(
+        ["gsutil", "-m", "cp", f"{MODELS_BUCKET}/*.pkl", local_dir],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        logger.warning(
+            "gsutil cp returned non-zero: %s — tests may fail if models are missing",
+            result.stderr.strip(),
+        )
+    else:
+        logger.info("Models downloaded OK to %s", local_dir)
+
+
 def run_tests_locally(test_path: str) -> tuple[int, str]:
     """
     Run pytest in-process (used when already inside a Vertex AI container).
+    Downloads model artifacts from GCS before running.
     Returns (exit_code, output_text).
     """
+    download_models("/app/models")
+
     result = subprocess.run(
         [
             sys.executable,
@@ -79,7 +104,6 @@ def submit_test_job(test_path: str, run_id: str) -> aiplatform.CustomJob:
             {
                 "machine_spec": {
                     "machine_type": "n1-standard-4",
-                    # No GPU needed for tests
                 },
                 "replica_count": 1,
                 "container_spec": {
@@ -94,9 +118,10 @@ def submit_test_job(test_path: str, run_id: str) -> aiplatform.CustomJob:
                         run_id,
                     ],
                     "env": [
-                        {"name": "PROJECT_ID", "value": PROJECT_ID},
-                        {"name": "REGION", "value": REGION},
+                        {"name": "PROJECT_ID",      "value": PROJECT_ID},
+                        {"name": "REGION",          "value": REGION},
                         {"name": "TRAINING_BUCKET", "value": TRAINING_BUCKET},
+                        {"name": "MODELS_BUCKET",   "value": MODELS_BUCKET},
                     ],
                 },
             }
@@ -106,7 +131,7 @@ def submit_test_job(test_path: str, run_id: str) -> aiplatform.CustomJob:
     logger.info("Submitting test job: %s", job.display_name)
     job.run(
         service_account=SERVICE_ACCOUNT,
-        sync=True,  # block until complete
+        sync=True,
     )
     return job
 
@@ -124,12 +149,12 @@ def log_results_to_cloud(
         result_log.info(
             json.dumps(
                 {
-                    "run_id": run_id,
-                    "test_path": test_path,
-                    "exit_code": exit_code,
-                    "passed": exit_code == 0,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "output_preview": output[-2000:],  # last 2000 chars
+                    "run_id":         run_id,
+                    "test_path":      test_path,
+                    "exit_code":      exit_code,
+                    "passed":         exit_code == 0,
+                    "timestamp":      datetime.now(timezone.utc).isoformat(),
+                    "output_preview": output[-2000:],
                 }
             )
         )
@@ -161,7 +186,6 @@ def main() -> None:
     args = parse_args()
 
     if args.run_in_container:
-        # We are already inside the Vertex AI container — run pytest directly
         logger.info(
             "Running tests in container: test_path=%s run_id=%s",
             args.test_path,
@@ -182,7 +206,6 @@ def main() -> None:
             logger.info("All tests PASSED. run_id=%s", args.run_id)
 
     else:
-        # We are outside the container — submit to Vertex AI
         logger.info(
             "Submitting test job to Vertex AI: test_path=%s run_id=%s",
             args.test_path,
