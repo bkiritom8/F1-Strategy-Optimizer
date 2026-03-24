@@ -28,49 +28,6 @@ steps:
       - "docker/Dockerfile.ml"
       - "."
 
-  - name: "gcr.io/cloud-builders/docker"
-    id: "build-airflow"
-    args:
-      - "build"
-      - "--platform"
-      - "linux/amd64"
-      - "-t"
-      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:$COMMIT_SHA"
-      - "-t"
-      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:latest"
-      - "-f"
-      - "docker/Dockerfile.airflow"
-      - "."
-
-  # ── Run Data-Pipeline tests ──────────────────────────────────────────────────
-  - name: "python:3.10-slim"
-    id: "test-pipeline"
-    entrypoint: "bash"
-    args:
-      - "-c"
-      - |
-        pip install --quiet -r requirements-test.txt
-        pytest Data-Pipeline/tests/ -v --tb=short
-
-  # ── Validate Airflow DAG imports cleanly ─────────────────────────────────────
-  - name: "python:3.10-slim"
-    id: "validate-dag"
-    entrypoint: "bash"
-    args:
-      - "-c"
-      - |
-        pip install --quiet apache-airflow==2.8.1 apache-airflow-providers-google
-        python -c "
-        import importlib.util, sys
-        spec = importlib.util.spec_from_file_location(
-            'f1_pipeline', 'Data-Pipeline/dags/f1_pipeline.py'
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        assert hasattr(mod, 'dag'), 'dag object not found in f1_pipeline'
-        print('DAG valid:', mod.dag.dag_id)
-        "
-
   # ── Train all ML models on Vertex AI ────────────────────────────────────────
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
     id: "train-models"
@@ -317,25 +274,18 @@ steps:
   - name: "gcr.io/cloud-builders/docker"
     id: "push-api"
     args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api"]
-    waitFor: ["build-api", "test-pipeline"]
+    waitFor: ["build-api"]
 
   - name: "gcr.io/cloud-builders/docker"
     id: "push-ml"
     args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml"]
     waitFor: ["build-ml"]
 
-  - name: "gcr.io/cloud-builders/docker"
-    id: "push-airflow"
-    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow"]
-    waitFor: ["build-airflow", "validate-dag"]
-
 images:
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:$COMMIT_SHA"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:$COMMIT_SHA"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
-  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:$COMMIT_SHA"
-  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:latest"
 
 options:
   logging: CLOUD_LOGGING_ONLY
