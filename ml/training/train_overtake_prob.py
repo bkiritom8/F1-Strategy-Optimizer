@@ -2,6 +2,7 @@
 Overtake Probability Model - RandomForest with Isotonic Calibration
 Predicts binary overtake_success (0/1) per lap
 Uses cumulative race time gap to car ahead
+Val F1=0.326 | Test F1=0.328
 """
 import pandas as pd
 import numpy as np
@@ -14,11 +15,17 @@ from sklearn.metrics import (
 from sklearn.preprocessing import LabelEncoder
 import joblib
 import os
+from google.cloud import aiplatform
 
+# Vertex AI Experiment Tracking
+aiplatform.init(project='f1optimizer', location='us-central1', experiment='f1-strategy-models')
+
+# Load data
 df = pd.read_parquet('gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet')
 print(f'Loaded: {len(df)} rows')
 print(f'Seasons: {sorted(df["season"].unique())}')
 
+# Encode driver
 le_driver = LabelEncoder()
 df['driver_encoded'] = le_driver.fit_transform(df['Driver'].astype(str))
 
@@ -28,7 +35,7 @@ print(f'\novertake_success distribution:')
 print(df['overtake_success'].value_counts())
 print(df['overtake_success'].value_counts(normalize=True).round(3))
 
-# Compute proper cumulative gap to car ahead
+# Compute cumulative race gaps
 print('\nComputing cumulative race gaps...')
 df['cum_race_time'] = df.groupby(['season', 'round', 'Driver'])['LapTime'].cumsum()
 
@@ -39,8 +46,8 @@ def compute_gaps(group):
 
 gap_df = df.groupby(['season', 'round', 'LapNumber'], group_keys=False).apply(compute_gaps)
 df['real_gap_ahead'] = gap_df['real_gap_ahead'].reindex(df.index).fillna(0).clip(-60, 60)
-df['in_drs_zone']   = (df['real_gap_ahead'].abs() < 1.0).astype(int)
-df['in_drs_zone_2'] = (df['real_gap_ahead'].abs() < 2.0).astype(int)
+df['in_drs_zone']    = (df['real_gap_ahead'].abs() < 1.0).astype(int)
+df['in_drs_zone_2']  = (df['real_gap_ahead'].abs() < 2.0).astype(int)
 
 print(f'  Real DRS zone laps (< 1s): {df["in_drs_zone"].sum()}')
 print(f'  Real DRS zone laps (< 2s): {df["in_drs_zone_2"].sum()}')
@@ -50,7 +57,6 @@ df['tyre_squared']        = df['TyreLife'] ** 2
 df['tyre_cubed']          = df['TyreLife'] ** 3
 df['tyre_per_stint']      = df['TyreLife'] / (df['Stint'] + 1)
 df['lap_progress']        = df['LapNumber'] / df['total_laps']
-
 df['compound_age_soft']   = df['compound_SOFT']   * df['TyreLife']
 df['compound_age_medium'] = df['compound_MEDIUM']  * df['TyreLife']
 df['compound_age_hard']   = df['compound_HARD']    * df['TyreLife']
@@ -100,8 +106,11 @@ df = df.dropna(subset=['overtake_success', 'position'])
 print(f'\nAfter feature engineering: {len(df)} rows')
 
 FEATURES = [
+    # Real gap features
     'real_gap_ahead', 'in_drs_zone', 'in_drs_zone_2',
+    # Old gap proxy
     'gap_ahead', 'drs_zone',
+    # Tyre state
     'TyreLife', 'Stint', 'FreshTyre',
     'compound_SOFT', 'compound_MEDIUM', 'compound_HARD',
     'compound_INTERMEDIATE', 'compound_WET',
@@ -109,26 +118,36 @@ FEATURES = [
     'compound_age_soft', 'compound_age_medium', 'compound_age_hard',
     'tyre_squared', 'tyre_cubed', 'tyre_per_stint',
     'tyre_x_throttle', 'tyre_x_brake',
+    # Degradation
     'tyre_delta', 'deg_rate_roll3',
     'prev_delta', 'prev_delta_2', 'delta_diff',
     'delta_roll3', 'delta_roll5', 'delta_roll7',
+    # Throttle/brake
     'mean_throttle', 'std_throttle', 'throttle_roll3',
     'mean_brake', 'std_brake', 'brake_roll3',
     'cum_throttle', 'cum_brake',
+    # Speed
     'mean_speed', 'max_speed', 'speed_delta',
     'SpeedI1', 'SpeedI2', 'SpeedFL', 'SpeedST',
+    # Sector times
     'Sector1Time', 'Sector2Time', 'Sector3Time',
+    # Race context
     'LapNumber', 'lap_progress', 'laps_remaining', 'fuel_load_pct',
     'position', 'position_pct', 'field_size',
+    # Overtake history
     'overtake_roll3',
+    # New telemetry
     'mean_rpm', 'max_rpm', 'mean_gear', 'drs_usage_pct',
+    # Driving style
     'driving_style_encoded',
+    # Driver
     'driver_encoded',
 ]
 
 features = [f for f in FEATURES if f in df.columns]
 print(f'Features: {len(features)} / {len(FEATURES)}')
 
+# Temporal split
 train = df[df['season'] <= 2021]
 val   = df[(df['season'] >= 2022) & (df['season'] <= 2023)]
 test  = df[df['season'] == 2024]
@@ -140,60 +159,83 @@ X_test,  y_test  = test[features].fillna(0),  test['overtake_success']
 
 print(f'\nClass balance — Train: {y_train.mean():.3f}, Val: {y_val.mean():.3f}, Test: {y_test.mean():.3f}')
 
-print('\nTraining RandomForest...')
-base_rf = RandomForestClassifier(
-    n_estimators=1000,
-    max_depth=12,
-    min_samples_leaf=30,
-    max_features='sqrt',
-    class_weight='balanced',
-    random_state=42,
-    n_jobs=-1,
+# Hyperparameters
+RF_PARAMS = dict(
+    n_estimators=1000, max_depth=12, min_samples_leaf=30,
+    max_features='sqrt', class_weight='balanced',
+    random_state=42, n_jobs=-1,
 )
-model = CalibratedClassifierCV(base_rf, method='isotonic', cv=3)
-model.fit(X_train, y_train)
 
-val_proba = model.predict_proba(X_val)[:, 1]
+# Train and track experiment
+with aiplatform.start_run(run='overtake-prob-v1'):
+    aiplatform.log_params({
+        'model': 'RandomForest+IsotonicCalibration',
+        'n_estimators': RF_PARAMS['n_estimators'],
+        'max_depth': RF_PARAMS['max_depth'],
+        'min_samples_leaf': RF_PARAMS['min_samples_leaf'],
+        'calibration': 'isotonic cv=3',
+        'positive_rate': float(y_train.mean()),
+        'train_seasons': '2018-2021',
+        'n_features': len(features),
+    })
 
-best_f1, best_thresh = 0, 0.5
-for thresh in np.arange(0.1, 0.6, 0.01):
-    pred = (val_proba >= thresh).astype(int)
-    f1 = f1_score(y_val, pred, zero_division=0)
-    if f1 > best_f1:
-        best_f1 = f1
-        best_thresh = round(thresh, 2)
+    print('\nTraining RandomForest...')
+    base_rf = RandomForestClassifier(**RF_PARAMS)
+    model   = CalibratedClassifierCV(base_rf, method='isotonic', cv=3)
+    model.fit(X_train, y_train)
 
-print(f'Optimal threshold: {best_thresh}')
+    # Find optimal threshold
+    val_proba = model.predict_proba(X_val)[:, 1]
+    best_f1, best_thresh = 0, 0.5
+    for thresh in np.arange(0.1, 0.6, 0.01):
+        pred = (val_proba >= thresh).astype(int)
+        f1   = f1_score(y_val, pred, zero_division=0)
+        if f1 > best_f1:
+            best_f1    = f1
+            best_thresh = round(thresh, 2)
 
-val_pred   = (val_proba >= best_thresh).astype(int)
-test_proba = model.predict_proba(X_test)[:, 1]
-test_pred  = (test_proba >= best_thresh).astype(int)
+    print(f'Optimal threshold: {best_thresh}')
 
-try:
-    frac_pos, mean_pred = calibration_curve(y_val, val_proba, n_bins=10)
-    ece = float(np.mean(np.abs(frac_pos - mean_pred)))
-except Exception:
-    ece = float('nan')
+    val_pred   = (val_proba >= best_thresh).astype(int)
+    test_proba = model.predict_proba(X_test)[:, 1]
+    test_pred  = (test_proba >= best_thresh).astype(int)
 
-print('\nOVERTAKE PROBABILITY RESULTS')
-print(f'Val  — F1: {f1_score(y_val, val_pred, zero_division=0):.3f}, '
-      f'Acc: {accuracy_score(y_val, val_pred):.3f}, '
-      f'Prec: {precision_score(y_val, val_pred, zero_division=0):.3f}, '
-      f'Rec: {recall_score(y_val, val_pred, zero_division=0):.3f}')
-print(f'Test — F1: {f1_score(y_test, test_pred, zero_division=0):.3f}, '
-      f'Acc: {accuracy_score(y_test, test_pred):.3f}, '
-      f'Prec: {precision_score(y_test, test_pred, zero_division=0):.3f}, '
-      f'Rec: {recall_score(y_test, test_pred, zero_division=0):.3f}')
-print(f'Val ECE: {ece:.4f} (target < 0.05)')
+    try:
+        frac_pos, mean_pred = calibration_curve(y_val, val_proba, n_bins=10)
+        ece = float(np.mean(np.abs(frac_pos - mean_pred)))
+    except Exception:
+        ece = float('nan')
 
-print('\nVal Classification Report:')
-print(classification_report(y_val, val_pred, target_names=['No overtake', 'Overtake'], zero_division=0))
+    val_f1   = float(f1_score(y_val,  val_pred,  zero_division=0))
+    val_acc  = float(accuracy_score(y_val,  val_pred))
+    test_f1  = float(f1_score(y_test, test_pred, zero_division=0))
+    test_acc = float(accuracy_score(y_test, test_pred))
 
-print('\nTop 15 Features:')
-rf = model.calibrated_classifiers_[0].estimator
-for feat, imp in sorted(zip(features, rf.feature_importances_), key=lambda x: -x[1])[:15]:
-    print(f'  {feat}: {imp:.4f}')
+    print('\nOVERTAKE PROBABILITY RESULTS')
+    print(f'Val  — F1: {val_f1:.3f}, Acc: {val_acc:.3f}, '
+          f'Prec: {precision_score(y_val, val_pred, zero_division=0):.3f}, '
+          f'Rec: {recall_score(y_val, val_pred, zero_division=0):.3f}')
+    print(f'Test — F1: {test_f1:.3f}, Acc: {test_acc:.3f}, '
+          f'Prec: {precision_score(y_test, test_pred, zero_division=0):.3f}, '
+          f'Rec: {recall_score(y_test, test_pred, zero_division=0):.3f}')
+    print(f'Val ECE: {ece:.4f} (target < 0.05)')
 
+    print('\nVal Classification Report:')
+    print(classification_report(y_val, val_pred, target_names=['No overtake', 'Overtake'], zero_division=0))
+
+    print('\nTop 15 Features:')
+    rf = model.calibrated_classifiers_[0].estimator
+    for feat, imp in sorted(zip(features, rf.feature_importances_), key=lambda x: -x[1])[:15]:
+        print(f'  {feat}: {imp:.4f}')
+
+    # Log metrics
+    aiplatform.log_metrics({
+        'val_f1': val_f1, 'val_accuracy': val_acc,
+        'test_f1': test_f1, 'test_accuracy': test_acc,
+        'val_ece': ece, 'threshold': best_thresh,
+    })
+
+# Save
 os.makedirs('models', exist_ok=True)
 joblib.dump({
     'model': model,

@@ -3,6 +3,7 @@ Race Outcome Model - CatBoost + LightGBM Ensemble
 Predicts finish tier: Podium / Points / Outside Points
 Pre-race features only — no leakage
 Championship points features from race_results.parquet
+Val Acc=0.633 F1=0.630 | Test Acc=0.790 F1=0.778
 """
 import ast
 import pandas as pd
@@ -13,6 +14,10 @@ from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 import joblib
 import os
+from google.cloud import aiplatform
+
+# Vertex AI Experiment Tracking
+aiplatform.init(project='f1optimizer', location='us-central1', experiment='f1-strategy-models')
 
 def extract_id(s, key):
     try:
@@ -25,6 +30,7 @@ def extract_id(s, key):
 df = pd.read_parquet('gs://f1optimizer-data-lake/ml_features/race_results_features.parquet')
 print(f'Loaded: {len(df)} rows')
 
+# Filter modern era
 df = df[df['season'] >= 2000].copy()
 print(f'After 2000+ filter: {len(df)} rows')
 
@@ -40,24 +46,20 @@ print(f'Sample driverId: {df["driverId"].head(3).tolist()}')
 
 # 3-class target
 df['finish_tier'] = pd.cut(
-    df['position'],
-    bins=[0, 3, 10, 100],
+    df['position'], bins=[0, 3, 10, 100],
     labels=['Podium', 'Points', 'Outside']
 ).astype(str)
 
 print(f'\nFinish tier distribution:')
 print(df['finish_tier'].value_counts())
 
-# Championship points from race_results.parquet
+# Championship points features from race_results.parquet
 print('\nLoading race results for championship features...')
 rr = pd.read_parquet('gs://f1optimizer-data-lake/processed/race_results.parquet')
-rr['points']   = pd.to_numeric(rr['points'], errors='coerce').fillna(0)
-rr['position'] = pd.to_numeric(rr['position'], errors='coerce')
+rr['points']           = pd.to_numeric(rr['points'], errors='coerce').fillna(0)
 rr['driverId_rr']      = rr['Driver'].apply(lambda x: extract_id(x, 'driverId'))
 rr['constructorId_rr'] = rr['Constructor'].apply(lambda x: extract_id(x, 'constructorId'))
 rr = rr[rr['season'] >= 2000].sort_values(['season', 'round']).reset_index(drop=True)
-
-print(f'Sample rr driverId: {rr["driverId_rr"].head(3).tolist()}')
 
 # Cumulative points before each race — shift(1) per driver per season
 rr['driver_cum_points'] = rr.groupby(['season', 'driverId_rr'])['points'].transform(
@@ -87,12 +89,8 @@ rr_features = rr[['season', 'round', 'driverId_rr',
     subset=['season', 'round', 'driverId_rr']
 )
 
-df = df.merge(
-    rr_features,
-    left_on=['season', 'round', 'driverId'],
-    right_on=['season', 'round', 'driverId_rr'],
-    how='left'
-)
+df = df.merge(rr_features, left_on=['season', 'round', 'driverId'],
+              right_on=['season', 'round', 'driverId_rr'], how='left')
 df['driver_cum_points']      = df['driver_cum_points'].fillna(0)
 df['driver_champ_pos']       = df['driver_champ_pos'].fillna(10)
 df['constructor_cum_points'] = df['constructor_cum_points'].fillna(0)
@@ -101,7 +99,7 @@ df['driver_points_last3']    = df['driver_points_last3'].fillna(0)
 print(f'After championship merge: {len(df)} rows')
 print(f'driver_cum_points non-zero: {(df["driver_cum_points"] > 0).sum()}')
 
-# Rolling features — properly lagged
+# Rolling features — properly lagged, no leakage
 ROLLING_WINDOW = 10
 df['driver_rolling_avg_finish'] = (
     df.groupby('driverId')['position']
@@ -148,7 +146,6 @@ print(f'Train: {len(train)}, Val: {len(val)}, Test: {len(test)}')
 # Fit encoders on train only
 le_driver      = LabelEncoder()
 le_constructor = LabelEncoder()
-
 train['driver_enc']      = le_driver.fit_transform(train['driverId'])
 train['constructor_enc'] = le_constructor.fit_transform(train['constructorId'])
 
@@ -162,12 +159,15 @@ test['driver_enc']      = safe_encode(le_driver,      test['driverId'])
 test['constructor_enc'] = safe_encode(le_constructor, test['constructorId'])
 
 FEATURES = [
+    # Pre-race features only — no position-derived features
     'grid', 'grid_last', 'grid_improvement',
     'driver_enc', 'constructor_enc', 'circuitId_encoded', 'season',
+    # Historical performance (properly lagged)
     'driver_rolling_avg_finish', 'constructor_rolling_avg_finish',
     'driver_season_avg_finish',
     'driver_rolling_podiums', 'constructor_rolling_podiums',
     'driver_rolling_points_finishes',
+    # Championship standing going into race
     'driver_cum_points', 'driver_champ_pos',
     'constructor_cum_points', 'constructor_champ_pos',
     'driver_points_last3',
@@ -183,73 +183,105 @@ X_test,  y_test  = test[features].fillna(0),  test['finish_tier']
 print(f'\nVal class distribution:')
 print(pd.Series(y_val).value_counts())
 
-print('\nTraining CatBoost...')
-cat_model = CatBoostClassifier(
+# Hyperparameters
+CAT_PARAMS = dict(
     iterations=1000, depth=6, learning_rate=0.01,
     l2_leaf_reg=3.0, random_seed=42,
     loss_function='MultiClass', eval_metric='Accuracy',
     early_stopping_rounds=50, verbose=False,
     class_weights={'Podium': 3, 'Points': 2, 'Outside': 1},
 )
-cat_model.fit(X_train, y_train, eval_set=(X_val, y_val))
-
-print('Training LightGBM...')
-lgb_model = LGBMClassifier(
+LGB_PARAMS = dict(
     n_estimators=1000, max_depth=6, num_leaves=31,
     learning_rate=0.01, subsample=0.8, colsample_bytree=0.7,
     min_child_samples=20, reg_alpha=0.5, reg_lambda=1.0,
-    random_state=42, n_jobs=-1, verbose=-1,
-    class_weight='balanced',
+    random_state=42, n_jobs=-1, verbose=-1, class_weight='balanced',
 )
-lgb_model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
 
-print('\nFinding optimal ensemble weight...')
-best_f1, best_w = 0, 0.5
-classes     = cat_model.classes_
-lgb_classes = lgb_model.classes_
+# Train and track experiment
+with aiplatform.start_run(run='race-outcome-v1'):
+    aiplatform.log_params({
+        'model': 'CatBoost+LGB ensemble',
+        'target': 'Podium/Points/Outside',
+        'cat_iterations': CAT_PARAMS['iterations'],
+        'lgb_n_estimators': LGB_PARAMS['n_estimators'],
+        'seasons_filter': '2000+',
+        'train_seasons': '2000-2021',
+        'n_features': len(features),
+        'train_rows': len(train),
+    })
 
-for w in np.arange(0.1, 0.95, 0.05):
-    cat_p = cat_model.predict_proba(X_val)
-    lgb_p = lgb_model.predict_proba(X_val)
-    lgb_aligned = np.zeros_like(cat_p)
-    for i, c in enumerate(classes):
-        if c in lgb_classes:
-            lgb_aligned[:, i] = lgb_p[:, list(lgb_classes).index(c)]
-    pred = classes[np.argmax(w * cat_p + (1 - w) * lgb_aligned, axis=1)]
-    f1 = f1_score(y_val, pred, average='macro', zero_division=0)
-    if f1 > best_f1:
-        best_f1 = f1
-        best_w  = round(w, 2)
+    print('\nTraining CatBoost...')
+    cat_model = CatBoostClassifier(**CAT_PARAMS)
+    cat_model.fit(X_train, y_train, eval_set=(X_val, y_val))
 
-print(f'Best weight: CatBoost={best_w}, LGB={round(1-best_w, 2)}')
+    print('Training LightGBM...')
+    lgb_model = LGBMClassifier(**LGB_PARAMS)
+    lgb_model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
 
-def predict_ensemble(X):
-    cat_p = cat_model.predict_proba(X)
-    lgb_p = lgb_model.predict_proba(X)
-    lgb_aligned = np.zeros_like(cat_p)
-    for i, c in enumerate(classes):
-        if c in lgb_classes:
-            lgb_aligned[:, i] = lgb_p[:, list(lgb_classes).index(c)]
-    return classes[np.argmax(best_w * cat_p + (1 - best_w) * lgb_aligned, axis=1)]
+    # Find optimal ensemble weight
+    print('\nFinding optimal ensemble weight...')
+    best_f1, best_w = 0, 0.5
+    classes         = cat_model.classes_
+    lgb_classes     = lgb_model.classes_
 
-val_pred  = predict_ensemble(X_val)
-test_pred = predict_ensemble(X_test)
+    for w in np.arange(0.1, 0.95, 0.05):
+        cat_p = cat_model.predict_proba(X_val)
+        lgb_p = lgb_model.predict_proba(X_val)
+        lgb_aligned = np.zeros_like(cat_p)
+        for i, c in enumerate(classes):
+            if c in lgb_classes:
+                lgb_aligned[:, i] = lgb_p[:, list(lgb_classes).index(c)]
+        pred = classes[np.argmax(w * cat_p + (1 - w) * lgb_aligned, axis=1)]
+        f1   = f1_score(y_val, pred, average='macro', zero_division=0)
+        if f1 > best_f1:
+            best_f1 = f1
+            best_w  = round(w, 2)
 
-print('\nRACE OUTCOME RESULTS')
-print(f'Val  — Accuracy: {accuracy_score(y_val,  val_pred):.3f}, F1 macro: {f1_score(y_val,  val_pred,  average="macro", zero_division=0):.3f}')
-print(f'Test — Accuracy: {accuracy_score(y_test, test_pred):.3f}, F1 macro: {f1_score(y_test, test_pred, average="macro", zero_division=0):.3f}')
+    print(f'Best weight: CatBoost={best_w}, LGB={round(1-best_w, 2)}')
 
-print('\nIndividual models:')
-print(f'  CatBoost — Val Acc: {accuracy_score(y_val, cat_model.predict(X_val)):.3f}, Test Acc: {accuracy_score(y_test, cat_model.predict(X_test)):.3f}')
-print(f'  LGB      — Val Acc: {accuracy_score(y_val, lgb_model.predict(X_val)):.3f}, Test Acc: {accuracy_score(y_test, lgb_model.predict(X_test)):.3f}')
+    def predict_ensemble(X):
+        cat_p = cat_model.predict_proba(X)
+        lgb_p = lgb_model.predict_proba(X)
+        lgb_aligned = np.zeros_like(cat_p)
+        for i, c in enumerate(classes):
+            if c in lgb_classes:
+                lgb_aligned[:, i] = lgb_p[:, list(lgb_classes).index(c)]
+        return classes[np.argmax(best_w * cat_p + (1 - best_w) * lgb_aligned, axis=1)]
 
-print('\nVal Classification Report:')
-print(classification_report(y_val, val_pred, zero_division=0))
+    val_pred  = predict_ensemble(X_val)
+    test_pred = predict_ensemble(X_test)
 
-print('\nTop 10 features (LGB):')
-for feat, imp in sorted(zip(features, lgb_model.feature_importances_), key=lambda x: -x[1])[:10]:
-    print(f'  {feat}: {imp}')
+    val_acc  = float(accuracy_score(y_val,  val_pred))
+    val_f1   = float(f1_score(y_val,  val_pred,  average='macro', zero_division=0))
+    test_acc = float(accuracy_score(y_test, test_pred))
+    test_f1  = float(f1_score(y_test, test_pred, average='macro', zero_division=0))
 
+    print('\nRACE OUTCOME RESULTS')
+    print(f'Val  — Accuracy: {val_acc:.3f}, F1 macro: {val_f1:.3f}')
+    print(f'Test — Accuracy: {test_acc:.3f}, F1 macro: {test_f1:.3f}')
+
+    print('\nIndividual models:')
+    print(f'  CatBoost — Val Acc: {accuracy_score(y_val, cat_model.predict(X_val)):.3f}, '
+          f'Test Acc: {accuracy_score(y_test, cat_model.predict(X_test)):.3f}')
+    print(f'  LGB      — Val Acc: {accuracy_score(y_val, lgb_model.predict(X_val)):.3f}, '
+          f'Test Acc: {accuracy_score(y_test, lgb_model.predict(X_test)):.3f}')
+
+    print('\nVal Classification Report:')
+    print(classification_report(y_val, val_pred, zero_division=0))
+
+    print('\nTop 10 features (LGB):')
+    for feat, imp in sorted(zip(features, lgb_model.feature_importances_), key=lambda x: -x[1])[:10]:
+        print(f'  {feat}: {imp}')
+
+    # Log metrics
+    aiplatform.log_metrics({
+        'val_accuracy': val_acc, 'val_f1_macro': val_f1,
+        'test_accuracy': test_acc, 'test_f1_macro': test_f1,
+        'ensemble_weight_cat': best_w,
+    })
+
+# Save
 os.makedirs('models', exist_ok=True)
 joblib.dump({
     'cat': cat_model, 'lgb': lgb_model,
