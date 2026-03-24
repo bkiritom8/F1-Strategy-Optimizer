@@ -1,6 +1,6 @@
 """
-Tire Degradation Model - Optimized for R2 > 0.80
-Target: tyre_delta
+Tire Degradation Model - LGB+XGB Ensemble
+Target: tyre_delta | Val MAE=0.294s R2=0.819 | Test MAE=0.285s R2=0.850
 """
 import pandas as pd
 import numpy as np
@@ -10,6 +10,10 @@ from lightgbm import LGBMRegressor
 from xgboost import XGBRegressor
 import joblib
 import os
+from google.cloud import aiplatform
+
+# Vertex AI Experiment Tracking
+aiplatform.init(project='f1optimizer', location='us-central1', experiment='f1-strategy-models')
 
 # Load pre-filtered data
 df = pd.read_parquet('gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet')
@@ -36,11 +40,11 @@ df['tyre_x_brake']          = df['TyreLife'] * df['mean_brake'] / 100
 df['fuel_x_throttle']       = df['fuel_load_pct'] * df['mean_throttle']
 
 # Compound-age physics interactions
-df['compound_age_soft']       = df['compound_SOFT']   * df['TyreLife']
-df['compound_age_medium']     = df['compound_MEDIUM'] * df['TyreLife']
-df['compound_age_hard']       = df['compound_HARD']   * df['TyreLife']
-df['tyre_age_sq_soft']        = df['compound_SOFT']   * df['tyre_squared']
-df['tyre_age_sq_medium']      = df['compound_MEDIUM'] * df['tyre_squared']
+df['compound_age_soft']   = df['compound_SOFT']   * df['TyreLife']
+df['compound_age_medium'] = df['compound_MEDIUM'] * df['TyreLife']
+df['compound_age_hard']   = df['compound_HARD']   * df['TyreLife']
+df['tyre_age_sq_soft']    = df['compound_SOFT']   * df['tyre_squared']
+df['tyre_age_sq_medium']  = df['compound_MEDIUM'] * df['tyre_squared']
 
 # Rolling/lagged features (no leakage)
 for window in [3, 5, 7]:
@@ -116,58 +120,88 @@ X_test,  y_test  = test[features].fillna(0),  test['tyre_delta']
 
 print(f'Target std — Train: {y_train.std():.3f}, Val: {y_val.std():.3f}, Test: {y_test.std():.3f}')
 
-print('\nTraining LightGBM...')
-lgb = LGBMRegressor(
-    n_estimators=2000,
-    max_depth=10,
-    num_leaves=63,
-    learning_rate=0.006,
-    subsample=0.7,
-    colsample_bytree=0.6,
-    min_child_samples=30,
-    reg_alpha=0.5,
-    reg_lambda=2.0,
-    random_state=42,
-    n_jobs=-1, verbose=-1
+# Hyperparameters
+LGB_PARAMS = dict(
+    n_estimators=2000, max_depth=10, num_leaves=63,
+    learning_rate=0.006, subsample=0.7, colsample_bytree=0.6,
+    min_child_samples=30, reg_alpha=0.5, reg_lambda=2.0,
+    random_state=42, n_jobs=-1, verbose=-1
 )
-lgb.fit(X_train, y_train, eval_set=[(X_val, y_val)])
-
-print('Training XGBoost...')
-xgb = XGBRegressor(
+XGB_PARAMS = dict(
     n_estimators=1500, max_depth=8, learning_rate=0.008,
     subsample=0.7, colsample_bytree=0.6, min_child_weight=30,
     reg_alpha=0.5, reg_lambda=2.0, random_state=42,
     tree_method='hist', early_stopping_rounds=100, verbosity=0
 )
-xgb.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 
-print('\nFinding optimal ensemble weight...')
-best_mae = float('inf')
-best_w   = 0.5
-for w in np.arange(0.1, 0.95, 0.05):
-    pred = w * lgb.predict(X_val) + (1 - w) * xgb.predict(X_val)
-    mae  = mean_absolute_error(y_val, pred)
-    if mae < best_mae:
-        best_mae = mae
-        best_w   = round(w, 2)
+# Train and track experiment
+with aiplatform.start_run(run='tire-degradation-v1'):
+    aiplatform.log_params({
+        'model': 'LGB+XGB ensemble',
+        'lgb_n_estimators': LGB_PARAMS['n_estimators'],
+        'lgb_max_depth': LGB_PARAMS['max_depth'],
+        'lgb_learning_rate': LGB_PARAMS['learning_rate'],
+        'xgb_n_estimators': XGB_PARAMS['n_estimators'],
+        'xgb_max_depth': XGB_PARAMS['max_depth'],
+        'xgb_learning_rate': XGB_PARAMS['learning_rate'],
+        'train_seasons': '2018-2021',
+        'val_seasons': '2022-2023',
+        'test_season': '2024',
+        'n_features': len(features),
+        'train_rows': len(train),
+    })
 
-print(f'Best weight: LGB={best_w}, XGB={round(1-best_w, 2)}')
+    print('\nTraining LightGBM...')
+    lgb = LGBMRegressor(**LGB_PARAMS)
+    lgb.fit(X_train, y_train, eval_set=[(X_val, y_val)])
 
-val_pred  = best_w * lgb.predict(X_val)  + (1 - best_w) * xgb.predict(X_val)
-test_pred = best_w * lgb.predict(X_test) + (1 - best_w) * xgb.predict(X_test)
+    print('Training XGBoost...')
+    xgb = XGBRegressor(**XGB_PARAMS)
+    xgb.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 
-print('\nTIRE DEGRADATION RESULTS')
-print(f'Val  — MAE: {mean_absolute_error(y_val,  val_pred):.3f}s, R2: {r2_score(y_val,  val_pred):.3f}')
-print(f'Test — MAE: {mean_absolute_error(y_test, test_pred):.3f}s, R2: {r2_score(y_test, test_pred):.3f}')
+    # Find optimal ensemble weight
+    print('\nFinding optimal ensemble weight...')
+    best_mae = float('inf')
+    best_w   = 0.5
+    for w in np.arange(0.1, 0.95, 0.05):
+        pred = w * lgb.predict(X_val) + (1 - w) * xgb.predict(X_val)
+        mae  = mean_absolute_error(y_val, pred)
+        if mae < best_mae:
+            best_mae = mae
+            best_w   = round(w, 2)
 
-print('\nIndividual models:')
-print(f'  LGB — Val R2: {r2_score(y_val,  lgb.predict(X_val)):.3f}, Test R2: {r2_score(y_test, lgb.predict(X_test)):.3f}')
-print(f'  XGB — Val R2: {r2_score(y_val,  xgb.predict(X_val)):.3f}, Test R2: {r2_score(y_test, xgb.predict(X_test)):.3f}')
+    print(f'Best weight: LGB={best_w}, XGB={round(1-best_w, 2)}')
+
+    val_pred  = best_w * lgb.predict(X_val)  + (1 - best_w) * xgb.predict(X_val)
+    test_pred = best_w * lgb.predict(X_test) + (1 - best_w) * xgb.predict(X_test)
+
+    val_mae  = float(mean_absolute_error(y_val,  val_pred))
+    val_r2   = float(r2_score(y_val,  val_pred))
+    test_mae = float(mean_absolute_error(y_test, test_pred))
+    test_r2  = float(r2_score(y_test, test_pred))
+
+    print('\nTIRE DEGRADATION RESULTS')
+    print(f'Val  — MAE: {val_mae:.3f}s, R2: {val_r2:.3f}')
+    print(f'Test — MAE: {test_mae:.3f}s, R2: {test_r2:.3f}')
+
+    print('\nIndividual models:')
+    print(f'  LGB — Val R2: {r2_score(y_val,  lgb.predict(X_val)):.3f}, Test R2: {r2_score(y_test, lgb.predict(X_test)):.3f}')
+    print(f'  XGB — Val R2: {r2_score(y_val,  xgb.predict(X_val)):.3f}, Test R2: {r2_score(y_test, xgb.predict(X_test)):.3f}')
+
+    # Log metrics
+    aiplatform.log_metrics({
+        'val_mae': val_mae, 'val_r2': val_r2,
+        'test_mae': test_mae, 'test_r2': test_r2,
+        'lgb_val_r2': float(r2_score(y_val, lgb.predict(X_val))),
+        'xgb_val_r2': float(r2_score(y_val, xgb.predict(X_val))),
+        'ensemble_weight_lgb': best_w,
+    })
 
 print('\nTop 15 Features (LGB):')
 for feat, imp in sorted(zip(features, lgb.feature_importances_), key=lambda x: -x[1])[:15]:
     print(f'  {feat}: {imp}')
 
+# Save
 os.makedirs('models', exist_ok=True)
 joblib.dump({
     'lgb': lgb, 'xgb': xgb,
