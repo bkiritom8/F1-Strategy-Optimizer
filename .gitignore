@@ -265,3 +265,4 @@ f1_telemetry/
 raw/
 raw.zip
 models/overtake_prob.pkl
+catboost_info/

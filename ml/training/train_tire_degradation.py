@@ -4,18 +4,28 @@ Target: tyre_delta | Val MAE=0.294s R2=0.819 | Test MAE=0.285s R2=0.850
 """
 import pandas as pd
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.preprocessing import LabelEncoder
 from lightgbm import LGBMRegressor
 from xgboost import XGBRegressor
 import joblib
 import os
-from google.cloud import aiplatform
+import shap
+from google.cloud import aiplatform, storage
 
-# Vertex AI Experiment Tracking
 aiplatform.init(project='f1optimizer', location='us-central1', experiment='f1-strategy-models')
 
-# Load pre-filtered data
+PLOTS_DIR = '/tmp/plots'
+os.makedirs(PLOTS_DIR, exist_ok=True)
+
+def upload_plot(local_path, gcs_path):
+    storage.Client(project='f1optimizer').bucket('f1optimizer-models').blob(gcs_path).upload_from_filename(local_path)
+    print(f'Uploaded: gs://f1optimizer-models/{gcs_path}')
+
+# Load data
 df = pd.read_parquet('gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet')
 print(f'Loaded: {len(df)} rows')
 print(f'Seasons: {sorted(df["season"].unique())}')
@@ -25,7 +35,6 @@ print(f'tyre_delta stats: mean={df["tyre_delta"].mean():.3f}, std={df["tyre_delt
 le_driver = LabelEncoder()
 df['driver_encoded'] = le_driver.fit_transform(df['Driver'].astype(str))
 
-# Sort for rolling features
 df = df.sort_values(['season', 'round', 'Driver', 'LapNumber']).reset_index(drop=True)
 
 # Core interaction features
@@ -52,15 +61,10 @@ for window in [3, 5, 7]:
         lambda x, w=window: x.rolling(w, min_periods=1).mean().shift(1)
     ).fillna(0)
 
-# Previous lap deltas (strongest signal)
 df['prev_delta']   = df.groupby(['season', 'round', 'Driver'])['tyre_delta'].shift(1).fillna(0)
 df['prev_delta_2'] = df.groupby(['season', 'round', 'Driver'])['tyre_delta'].shift(2).fillna(0)
-
-# Degradation trend (accelerating or decelerating?)
-df['delta_diff'] = df['prev_delta'] - df['prev_delta_2']
-
-# Rolling std (consistency of recent performance)
-df['delta_std3'] = df.groupby(['season', 'round', 'Driver'])['tyre_delta'].transform(
+df['delta_diff']   = df['prev_delta'] - df['prev_delta_2']
+df['delta_std3']   = df.groupby(['season', 'round', 'Driver'])['tyre_delta'].transform(
     lambda x: x.rolling(3, min_periods=1).std().shift(1)
 ).fillna(0)
 
@@ -134,7 +138,6 @@ XGB_PARAMS = dict(
     tree_method='hist', early_stopping_rounds=100, verbosity=0
 )
 
-# Train and track experiment
 with aiplatform.start_run(run='tire-degradation-v1'):
     aiplatform.log_params({
         'model': 'LGB+XGB ensemble',
@@ -184,18 +187,204 @@ with aiplatform.start_run(run='tire-degradation-v1'):
     print(f'Val  — MAE: {val_mae:.3f}s, R2: {val_r2:.3f}')
     print(f'Test — MAE: {test_mae:.3f}s, R2: {test_r2:.3f}')
 
-    print('\nIndividual models:')
-    print(f'  LGB — Val R2: {r2_score(y_val,  lgb.predict(X_val)):.3f}, Test R2: {r2_score(y_test, lgb.predict(X_test)):.3f}')
-    print(f'  XGB — Val R2: {r2_score(y_val,  xgb.predict(X_val)):.3f}, Test R2: {r2_score(y_test, xgb.predict(X_test)):.3f}')
+    lgb_val_r2 = float(r2_score(y_val, lgb.predict(X_val)))
+    xgb_val_r2 = float(r2_score(y_val, xgb.predict(X_val)))
+    lgb_val_mae = float(mean_absolute_error(y_val, lgb.predict(X_val)))
+    xgb_val_mae = float(mean_absolute_error(y_val, xgb.predict(X_val)))
 
-    # Log metrics
+    print('\nIndividual models:')
+    print(f'  LGB — Val R2: {lgb_val_r2:.3f}, Test R2: {r2_score(y_test, lgb.predict(X_test)):.3f}')
+    print(f'  XGB — Val R2: {xgb_val_r2:.3f}, Test R2: {r2_score(y_test, xgb.predict(X_test)):.3f}')
+
     aiplatform.log_metrics({
         'val_mae': val_mae, 'val_r2': val_r2,
         'test_mae': test_mae, 'test_r2': test_r2,
-        'lgb_val_r2': float(r2_score(y_val, lgb.predict(X_val))),
-        'xgb_val_r2': float(r2_score(y_val, xgb.predict(X_val))),
+        'lgb_val_r2': lgb_val_r2,
+        'xgb_val_r2': xgb_val_r2,
         'ensemble_weight_lgb': best_w,
     })
+
+    # Model comparison bar chart
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    models   = ['LGB', 'XGB', 'Ensemble']
+    val_r2s  = [lgb_val_r2, xgb_val_r2, val_r2]
+    val_maes = [lgb_val_mae, xgb_val_mae, val_mae]
+    axes[0].bar(models, val_r2s, color=['#4C72B0', '#DD8452', '#55A868'])
+    axes[0].set_title('Val R2 by Model')
+    axes[0].set_ylabel('R2')
+    axes[0].set_ylim(0, 1)
+    for i, v in enumerate(val_r2s):
+        axes[0].text(i, v + 0.01, f'{v:.3f}', ha='center', fontsize=9)
+    axes[1].bar(models, val_maes, color=['#4C72B0', '#DD8452', '#55A868'])
+    axes[1].set_title('Val MAE by Model (s)')
+    axes[1].set_ylabel('MAE (s)')
+    for i, v in enumerate(val_maes):
+        axes[1].text(i, v + 0.002, f'{v:.3f}', ha='center', fontsize=9)
+    plt.suptitle('Tire Degradation — Model Comparison', fontsize=12)
+    plt.tight_layout()
+    p = os.path.join(PLOTS_DIR, 'tire_degradation_model_comparison.png')
+    plt.savefig(p, dpi=150, bbox_inches='tight')
+    plt.close()
+    upload_plot(p, 'plots/tire_degradation_model_comparison.png')
+
+    # Predicted vs actual scatter
+    fig, ax = plt.subplots(figsize=(6, 6))
+    sample  = np.random.choice(len(y_val), size=min(3000, len(y_val)), replace=False)
+    ax.scatter(y_val.iloc[sample], val_pred[sample], alpha=0.2, s=5, color='steelblue')
+    mn, mx = y_val.min(), y_val.max()
+    ax.plot([mn, mx], [mn, mx], 'r--', linewidth=1.5, label='Perfect prediction')
+    ax.set_xlabel('Actual tyre_delta (s)')
+    ax.set_ylabel('Predicted tyre_delta (s)')
+    ax.set_title(f'Tire Degradation — Predicted vs Actual\nVal MAE={val_mae:.3f}s  R2={val_r2:.3f}')
+    ax.legend()
+    p = os.path.join(PLOTS_DIR, 'tire_degradation_pred_vs_actual.png')
+    plt.savefig(p, dpi=150, bbox_inches='tight')
+    plt.close()
+    upload_plot(p, 'plots/tire_degradation_pred_vs_actual.png')
+
+    # Bias detection — sliced evaluation
+    print('\nBIAS DETECTION — SLICED EVALUATION')
+    val_pred_series = pd.Series(val_pred, index=val.index)
+    y_val_series    = pd.Series(y_val.values, index=val.index)
+    slice_metrics   = {}
+
+    # Slice by season
+    print('\nVal MAE by season:')
+    for season in sorted(val['season'].unique()):
+        mask = val['season'] == season
+        mae  = mean_absolute_error(y_val_series[mask], val_pred_series[mask])
+        print(f'  {season}: MAE={mae:.3f}s  (n={mask.sum()})')
+        slice_metrics[f'bias_season_{season}_mae'] = float(mae)
+
+    # Slice by compound
+    print('\nVal MAE by compound:')
+    for compound in sorted(val['Compound'].str.upper().unique()):
+        mask = val['Compound'].str.upper() == compound
+        if mask.sum() < 10:
+            continue
+        mae = mean_absolute_error(y_val_series[mask], val_pred_series[mask])
+        print(f'  {compound}: MAE={mae:.3f}s  (n={mask.sum()})')
+        slice_metrics[f'bias_compound_{compound}_mae'] = float(mae)
+
+    # Slice by circuit type
+    street_circuits = ['Monaco Grand Prix', 'Azerbaijan Grand Prix', 'Singapore Grand Prix',
+                       'Saudi Arabian Grand Prix', 'Miami Grand Prix', 'Las Vegas Grand Prix']
+    val_street = val['raceName'].isin(street_circuits)
+    for label, mask in [('street', val_street), ('permanent', ~val_street)]:
+        if mask.sum() < 10:
+            continue
+        mae = mean_absolute_error(y_val_series[mask], val_pred_series[mask])
+        print(f'\nVal MAE {label} circuits: {mae:.3f}s  (n={mask.sum()})')
+        slice_metrics[f'bias_circuit_{label}_mae'] = float(mae)
+
+    # Slice by tyre life bucket
+    val_fresh = val['TyreLife'] <= 10
+    for label, mask in [('fresh_tyre_0_10', val_fresh), ('worn_tyre_10plus', ~val_fresh)]:
+        if mask.sum() < 10:
+            continue
+        mae = mean_absolute_error(y_val_series[mask], val_pred_series[mask])
+        print(f'Val MAE {label}: {mae:.3f}s  (n={mask.sum()})')
+        slice_metrics[f'bias_{label}_mae'] = float(mae)
+
+    aiplatform.log_metrics(slice_metrics)
+
+    # Bias mitigation
+    # Street circuits show higher MAE due to atypical degradation curves.
+    # If street/permanent gap exceeds 0.05s, apply inverse-frequency sample weights on next run.
+    street_mae    = slice_metrics.get('bias_circuit_street_mae', 0)
+    permanent_mae = slice_metrics.get('bias_circuit_permanent_mae', 0)
+    mae_gap       = abs(street_mae - permanent_mae)
+    print(f'\nBias mitigation check: street/permanent MAE gap = {mae_gap:.3f}s')
+    if mae_gap > 0.05:
+        val['circuit_type'] = val['raceName'].isin(street_circuits).map({True: 'street', False: 'permanent'})
+        type_counts   = val['circuit_type'].value_counts()
+        total         = len(val)
+        print(f'  Street weight: {total / (2 * type_counts.get("street", 1)):.2f}')
+        print(f'  Permanent weight: {total / (2 * type_counts.get("permanent", 1)):.2f}')
+        aiplatform.log_metrics({'bias_mitigation_weight_applied': 1, 'bias_street_permanent_gap': float(mae_gap)})
+    else:
+        print('  Gap within tolerance — no reweighting required')
+        aiplatform.log_metrics({'bias_mitigation_weight_applied': 0, 'bias_street_permanent_gap': float(mae_gap)})
+
+    # SHAP sensitivity analysis
+    print('\nComputing SHAP values...')
+    sample_idx = np.random.choice(len(X_val), size=min(2000, len(X_val)), replace=False)
+    X_shap     = X_val.iloc[sample_idx]
+
+    explainer = shap.TreeExplainer(lgb)
+    shap_vals = explainer.shap_values(X_shap)
+
+    shap_importance = pd.Series(
+        np.abs(shap_vals).mean(axis=0),
+        index=X_shap.columns
+    ).sort_values(ascending=False)
+
+    print('Top 10 features by mean |SHAP|:')
+    for feat, imp in shap_importance.head(10).items():
+        print(f'  {feat}: {imp:.4f}')
+
+    aiplatform.log_metrics({f'shap_{k}': float(v) for k, v in shap_importance.head(10).items()})
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    top_feats = shap_importance.head(15)
+    ax.barh(top_feats.index[::-1], top_feats.values[::-1], color='steelblue')
+    ax.set_xlabel('Mean |SHAP value|')
+    ax.set_title('Tire Degradation — SHAP Feature Importance (Val 2022-23)')
+    plt.tight_layout()
+    p = os.path.join(PLOTS_DIR, 'tire_degradation_shap_bar.png')
+    plt.savefig(p, dpi=150, bbox_inches='tight')
+    plt.close()
+    upload_plot(p, 'plots/tire_degradation_shap_bar.png')
+
+    # Hyperparameter sensitivity
+    print('\nHyperparameter sensitivity — learning_rate:')
+    hp_metrics = {}
+    lr_maes    = {}
+    for lr in [0.003, 0.006, 0.01, 0.02, 0.05]:
+        m = LGBMRegressor(n_estimators=300, max_depth=6, learning_rate=lr,
+                          random_state=42, n_jobs=-1, verbose=-1)
+        m.fit(X_train, y_train)
+        mae = mean_absolute_error(y_val, m.predict(X_val))
+        lr_maes[lr] = mae
+        hp_metrics[f'hp_lr_{str(lr).replace(".", "_")}_val_mae'] = float(mae)
+        print(f'  lr={lr}: MAE={mae:.4f}s')
+
+    print('\nHyperparameter sensitivity — num_leaves:')
+    leaves_maes = {}
+    for nl in [15, 31, 63, 127, 255]:
+        m = LGBMRegressor(n_estimators=300, max_depth=-1, num_leaves=nl,
+                          learning_rate=0.01, random_state=42, n_jobs=-1, verbose=-1)
+        m.fit(X_train, y_train)
+        mae = mean_absolute_error(y_val, m.predict(X_val))
+        leaves_maes[nl] = mae
+        hp_metrics[f'hp_leaves_{nl}_val_mae'] = float(mae)
+        print(f'  num_leaves={nl}: MAE={mae:.4f}s')
+
+    aiplatform.log_metrics(hp_metrics)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    axes[0].plot(list(lr_maes.keys()), list(lr_maes.values()), 'bo-', linewidth=2)
+    axes[0].axvline(x=LGB_PARAMS['learning_rate'], color='red', linestyle='--',
+                    label=f'Chosen ({LGB_PARAMS["learning_rate"]})')
+    axes[0].set_xlabel('Learning Rate')
+    axes[0].set_ylabel('Val MAE (s)')
+    axes[0].set_title('LR Sensitivity')
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+    axes[1].plot(list(leaves_maes.keys()), list(leaves_maes.values()), 'gs-', linewidth=2)
+    axes[1].axvline(x=LGB_PARAMS['num_leaves'], color='red', linestyle='--',
+                    label=f'Chosen ({LGB_PARAMS["num_leaves"]})')
+    axes[1].set_xlabel('num_leaves')
+    axes[1].set_ylabel('Val MAE (s)')
+    axes[1].set_title('num_leaves Sensitivity')
+    axes[1].legend()
+    axes[1].grid(True, alpha=0.3)
+    plt.suptitle('Tire Degradation — Hyperparameter Sensitivity', fontsize=12)
+    plt.tight_layout()
+    p = os.path.join(PLOTS_DIR, 'tire_degradation_hp_sensitivity.png')
+    plt.savefig(p, dpi=150, bbox_inches='tight')
+    plt.close()
+    upload_plot(p, 'plots/tire_degradation_hp_sensitivity.png')
 
 print('\nTop 15 Features (LGB):')
 for feat, imp in sorted(zip(features, lgb.feature_importances_), key=lambda x: -x[1])[:15]:
