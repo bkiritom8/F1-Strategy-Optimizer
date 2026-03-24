@@ -28,6 +28,17 @@ steps:
       - "docker/Dockerfile.ml"
       - "."
 
+  # ── Push images to Artifact Registry ────────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-api"
+    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api"]
+    waitFor: ["build-api"]
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-ml"
+    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml"]
+    waitFor: ["build-ml"]
+
   # ── Train all ML models on Vertex AI ────────────────────────────────────────
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
     id: "train-models"
@@ -269,17 +280,6 @@ steps:
                         'gs://f1optimizer-models/champion_metrics.json'])
         print('All models promoted to champion')
         PYEOF
-
-  # ── Push images to Artifact Registry ────────────────────────────────────────
-  - name: "gcr.io/cloud-builders/docker"
-    id: "push-api"
-    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api"]
-    waitFor: ["build-api"]
-
-  - name: "gcr.io/cloud-builders/docker"
-    id: "push-ml"
-    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml"]
-    waitFor: ["build-ml"]
 
 images:
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:$COMMIT_SHA"
