@@ -20,6 +20,13 @@ sys.modules["google.cloud.sql.connector"].Connector = MagicMock
 sys.modules.setdefault("tensorflow", MagicMock())
 sys.modules.setdefault("tensorflow.distribute", MagicMock())
 
+# mock google cloud modules not available in CI
+sys.modules.setdefault("google", MagicMock())
+sys.modules.setdefault("google.cloud", MagicMock())
+sys.modules.setdefault("google.cloud.storage", MagicMock())
+sys.modules.setdefault("google.cloud.pubsub_v1", MagicMock())
+sys.modules.setdefault("google.cloud.aiplatform", MagicMock())
+
 class TestClusterConfig:
     def test_all_configs_importable(self):
         from ml.distributed.cluster_config import (
