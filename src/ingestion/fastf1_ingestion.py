@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import pandas as pd
 
@@ -78,7 +78,7 @@ class FastF1Ingestion:
 
     def fetch_session(
         self, year: int, round_num: int, session_type: str = "R"
-    ) -> "fastf1.core.Session":
+    ) -> Any:
         """
         Load a FastF1 session object (downloads if not cached).
 
@@ -100,7 +100,7 @@ class FastF1Ingestion:
         year: int,
         round_num: int,
         session_type: str = "R",
-        session: Optional["fastf1.core.Session"] = None,
+        session: Optional[Any] = None,
     ) -> pd.DataFrame:
         """
         Fetch lap timing data for a session.
@@ -134,7 +134,7 @@ class FastF1Ingestion:
         round_num: int,
         session_type: str = "R",
         driver: Optional[str] = None,
-        session: Optional["fastf1.core.Session"] = None,
+        session: Optional[Any] = None,
     ) -> pd.DataFrame:
         """
         Fetch 10Hz car telemetry for a session.
@@ -180,7 +180,7 @@ class FastF1Ingestion:
         year: int,
         round_num: int,
         session_type: str = "R",
-        session: Optional["fastf1.core.Session"] = None,
+        session: Optional[Any] = None,
     ) -> pd.DataFrame:
         """
         Fetch weather data for a session.
