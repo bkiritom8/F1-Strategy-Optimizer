@@ -91,3 +91,6 @@ images:
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:latest"
 
 # mock-dataflow is LOCAL DEVELOPMENT ONLY — not built or pushed here
+
+options:
+  logging: CLOUD_LOGGING_ONLY
