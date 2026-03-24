@@ -629,6 +629,116 @@ async def simulate_strategy(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# ── Full race simulation via StrategySimulator ──────────────────────────────
+
+class FullSimulateRequest(BaseModel):
+    """Request body for POST /api/v1/strategy/full-simulate."""
+    race_id: str
+    driver_id: str
+    driver_profile: Optional[Dict[str, float]] = None   # aggression/consistency/tire_management/pressure_response
+    rivals: Optional[List[str]] = None
+    start_position: int = 10
+    start_compound: str = "MEDIUM"
+    n_stochastic_runs: int = 6
+
+
+class StintPlanOut(BaseModel):
+    compound: str
+    laps: int
+    driving_mode: str
+
+
+class StrategyVariantOut(BaseModel):
+    name: str
+    stint_plan: List[StintPlanOut]
+    pit_laps: List[int]
+    win_probability: float
+    podium_probability: float
+    risk_level: str
+    estimated_total_time_s: float
+    predicted_position: int
+
+
+class FullSimulateResponse(BaseModel):
+    race_id: str
+    user_driver_id: str
+    circuit_id: str
+    total_laps: int
+    variants: List[StrategyVariantOut]
+    finishing_probabilities: List[float]   # P(P1)…P(P10)
+    final_standings: List[Dict]
+
+
+_strategy_simulator: Any = None
+
+
+def _get_strategy_simulator():
+    global _strategy_simulator
+    if _strategy_simulator is None:
+        from ml.rl.model_adapters import load_local_adapters
+        from ml.rl.strategy_simulator import StrategySimulator
+        try:
+            adapters = load_local_adapters("models/")
+        except Exception:
+            adapters = {}
+        _strategy_simulator = StrategySimulator(adapters=adapters)
+    return _strategy_simulator
+
+
+@v1.post("/strategy/full-simulate", response_model=FullSimulateResponse)
+async def full_simulate(
+    request: FullSimulateRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Run a full 20-driver race simulation and return three strategy variants
+    (Optimal / Aggressive Undercut / Conserve 1-Stop) plus final standings
+    and finishing probability distribution.
+    """
+    if not iam_simulator.check_permission(current_user, Permission.ML_MODEL_READ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
+    try:
+        sim = _get_strategy_simulator()
+        output = sim.simulate(
+            race_id=request.race_id,
+            user_driver_id=request.driver_id,
+            driver_profile=request.driver_profile,
+            rivals=request.rivals,
+            start_position=request.start_position,
+            start_compound=request.start_compound,
+            n_stochastic_runs=request.n_stochastic_runs,
+        )
+        return FullSimulateResponse(
+            race_id=output.race_id,
+            user_driver_id=output.user_driver_id,
+            circuit_id=output.circuit_id,
+            total_laps=output.total_laps,
+            variants=[
+                StrategyVariantOut(
+                    name=v.name,
+                    stint_plan=[
+                        StintPlanOut(compound=s.compound, laps=s.laps, driving_mode=s.driving_mode)
+                        for s in v.stint_plan
+                    ],
+                    pit_laps=v.pit_laps,
+                    win_probability=v.win_probability,
+                    podium_probability=v.podium_probability,
+                    risk_level=v.risk_level,
+                    estimated_total_time_s=v.estimated_total_time_s,
+                    predicted_position=v.predicted_position,
+                )
+                for v in output.variants
+            ],
+            finishing_probabilities=output.finishing_probabilities,
+            final_standings=output.final_standings,
+        )
+    except Exception as exc:
+        logger.error("full_simulate error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @v1.get("/health/system")
 async def system_health():
     """Return basic system health and pipeline status."""

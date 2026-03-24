@@ -11,8 +11,7 @@ log = logging.getLogger(__name__)
 
 _last_req: float = 0.0
 BACKOFF_BASE = 60
-BACKOFF_CAP = 3_600
-
+BACKOFF_CAP = 120  
 
 def rate_limited_get(url: str, gap: float = 1.0, timeout: int = 30) -> requests.Response:
     """HTTP GET with rate limiting. *gap* = min seconds between calls."""
