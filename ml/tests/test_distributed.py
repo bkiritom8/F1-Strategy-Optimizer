@@ -16,6 +16,9 @@ sys.modules.setdefault("google.cloud.sql", MagicMock())
 sys.modules.setdefault("google.cloud.sql.connector", MagicMock())
 sys.modules["google.cloud.sql.connector"].Connector = MagicMock
 
+# mock tensorflow before any import touches it
+sys.modules.setdefault("tensorflow", MagicMock())
+sys.modules.setdefault("tensorflow.distribute", MagicMock())
 
 class TestClusterConfig:
     def test_all_configs_importable(self):
