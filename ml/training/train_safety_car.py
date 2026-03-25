@@ -197,7 +197,7 @@ XGB_PARAMS = dict(
     scale_pos_weight=(1 - y_train.mean()) / y_train.mean(),
 )
 
-with aiplatform.start_run(run="safety-car-v1"):
+with aiplatform.start_run(run="safety-car-v1", resume=True):
     aiplatform.log_params(
         {
             "model": "LGB+XGB ensemble",

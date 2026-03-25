@@ -253,7 +253,7 @@ RF_PARAMS = dict(
     n_jobs=-1,
 )
 
-with aiplatform.start_run(run="overtake-prob-v2"):
+with aiplatform.start_run(run="overtake-prob-v2", resume=True):
     aiplatform.log_params(
         {
             "model": "RandomForest+IsotonicCalibration",

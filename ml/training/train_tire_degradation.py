@@ -222,7 +222,7 @@ XGB_PARAMS = dict(
     verbosity=0,
 )
 
-with aiplatform.start_run(run="tire-degradation-v1"):
+with aiplatform.start_run(run="tire-degradation-v1", resume=True):
     aiplatform.log_params(
         {
             "model": "LGB+XGB ensemble",

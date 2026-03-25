@@ -194,7 +194,7 @@ XGB_PARAMS = dict(
     eval_metric="mlogloss",
 )
 
-with aiplatform.start_run(run="driving-style-v3"):
+with aiplatform.start_run(run="driving-style-v3", resume=True):
     aiplatform.log_params(
         {
             "model": "LGB+XGB ensemble",

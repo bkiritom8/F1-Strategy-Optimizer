@@ -313,7 +313,7 @@ LGB_PARAMS = dict(
     verbose=-1,
 )
 
-with aiplatform.start_run(run="pit-window-v1"):
+with aiplatform.start_run(run="pit-window-v1", resume=True):
     aiplatform.log_params(
         {
             "model": "XGB+LGB ensemble",

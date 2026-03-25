@@ -262,7 +262,7 @@ LGB_PARAMS = dict(
     class_weight="balanced",
 )
 
-with aiplatform.start_run(run="race-outcome-v3"):
+with aiplatform.start_run(run="race-outcome-v3", resume=True):
     aiplatform.log_params(
         {
             "model": "CatBoost+LGB ensemble",
