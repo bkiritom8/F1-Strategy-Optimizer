@@ -68,6 +68,7 @@ FastF1 (2018-2026)    ────┘              │
 ## Repository Structure
 
 ```
+frontend/             Apex Intelligence dashboard (React + Vite + Framer Motion)
 ml/                    ML code — features, models, dag, distributed, tests
 Data-Pipeline/         Course submission — Airflow DAG, DVC pipeline, tests
 pipeline/scripts/      Data scripts (csv_to_parquet.py, verify_upload.py)
@@ -87,6 +88,7 @@ src/                   Shared code
 tests/                 Unit + integration tests
 docs/                  Technical documentation
 team-docs/             Internal team docs (DEV_SETUP, handoffs)
+GAP_ANALYSIS.md        Latest audit of stability goals and roadmap
 ```
 
 ## Docker Images
@@ -114,6 +116,12 @@ docker-compose -f docker-compose.f1.yml up airflow-webserver airflow-scheduler
 # Start Dataflow mock (simulates GCP Dataflow, no cost)
 docker-compose -f docker-compose.f1.yml up mock-dataflow
 # API → http://localhost:8088/docs
+
+# Start Frontend (Apex Intelligence)
+cd frontend
+npm install
+npm run dev
+# UI → http://localhost:3000
 ```
 
 ## Data
@@ -212,7 +220,7 @@ Course submission pipeline is in [`Data-Pipeline/`](./Data-Pipeline/).
 
 ---
 
-**Status**: Production-ready — GCE Airflow VM, 3 Docker images, full data pipeline
-**Last Updated**: 2026-02-23
+**Status**: Production-ready — GCE Airflow VM, 3 Docker images, Unified Apex Intelligence Frontend, Hardened API
+**Last Updated**: 2026-03-25
 **Repo**: [`bkiritom8/test`](https://github.com/bkiritom8/test)
 **Branch**: `main` (stable + CI/CD) | `ml-dev` (ML development)

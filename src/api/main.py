@@ -18,8 +18,6 @@ from prometheus_client import CONTENT_TYPE_LATEST
 # Import security components
 import sys
 
-sys.path.insert(0, "/app")
-
 from src.common.security.iam_simulator import iam_simulator, Token, User, Permission
 from src.common.security.https_middleware import (
     HTTPSRedirectMiddleware,
@@ -92,10 +90,21 @@ if ENABLE_HTTPS:
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
+
+# Secure CORS policy for production
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",  # Vite default
+    "https://apexintelligence.vercel.app",
+    "https://apex-intelligence.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8080", "*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # OAuth2 scheme
@@ -312,8 +321,8 @@ async def get_drivers(
     current_user: User = Depends(get_current_user), year: Optional[int] = 2024
 ):
     """
-    Get driver list
-
+    Get driver list for the specified year.
+    
     Requires: DATA_READ permission
     """
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
@@ -321,22 +330,32 @@ async def get_drivers(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
 
-    drivers = [
-        {
-            "driver_id": "max_verstappen",
-            "name": "Max Verstappen",
-            "nationality": "Dutch",
-        },
-        {
-            "driver_id": "lewis_hamilton",
-            "name": "Lewis Hamilton",
-            "nationality": "British",
-        },
-    ]
-
-    REQUEST_COUNT.labels(method="GET", endpoint="/data/drivers", status="200").inc()
-
-    return drivers
+    try:
+        pipeline = _get_pipeline()
+        drv_df = pipeline._drivers()
+        
+        # Filter by year if necessary (FeaturePipeline usually returns all known)
+        # For now, we return the full set of known drivers
+        drivers = []
+        for _, row in drv_df.iterrows():
+            drivers.append({
+                "driver_id": str(row.get("driverId", "")),
+                "name": f"{row.get('givenName', '')} {row.get('familyName', '')}".strip(),
+                "nationality": str(row.get("nationality", "")),
+                "code": str(row.get("code", "")),
+            })
+        
+        REQUEST_COUNT.labels(method="GET", endpoint="/data/drivers", status="200").inc()
+        return drivers
+        
+    except Exception as e:
+        logger.error(f"Error fetching drivers: {e}")
+        REQUEST_COUNT.labels(method="GET", endpoint="/data/drivers", status="500").inc()
+        # Fallback to a minimal list if the pipeline fails to ensure UI doesn't break
+        return [
+            {"driver_id": "max_verstappen", "name": "Max Verstappen", "nationality": "Dutch"},
+            {"driver_id": "lewis_hamilton", "name": "Lewis Hamilton", "nationality": "British"}
+        ]
 
 
 @app.get("/models/status")

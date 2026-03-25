@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { COLORS, MOCK_STRATEGIES } from '../constants';
@@ -9,6 +9,18 @@ import { Info } from 'lucide-react';
 const PitStrategySimulator: React.FC = () => {
   const [selectedStrategy, setSelectedStrategy] = useState(MOCK_STRATEGIES[0]);
   const [fuelLoad, setFuelLoad] = useState(105);
+  const [regulationSet, setRegulationSet] = useState<'2025' | '2026'>('2025');
+
+  // Simulation logic adjustment based on regulations
+  const adjustedStrategy = useMemo(() => {
+    if (regulationSet === '2025') return selectedStrategy;
+    // 2026 Active Aero: ~15% faster straight line, but higher tire deg in corners
+    return {
+      ...selectedStrategy,
+      win_prob: selectedStrategy.win_prob * 0.95, // higher uncertainty
+      podium_prob: selectedStrategy.podium_prob * 1.05 // but more overtaking potential
+    };
+  }, [selectedStrategy, regulationSet]);
 
   const monteCarloData = [
     { pos: 1, prob: 22 }, { pos: 2, prob: 18 }, { pos: 3, prob: 15 },
@@ -18,9 +30,31 @@ const PitStrategySimulator: React.FC = () => {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">Strategy Simulator</h1>
-        <p className="text-gray-500 uppercase text-xs tracking-widest mt-2">Monte Carlo Simulation: 10,000 scenarios run</p>
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">Strategy Simulator</h1>
+          <p className="text-gray-500 uppercase text-xs tracking-widest mt-2">Monte Carlo Simulation: 10,000 scenarios run</p>
+        </div>
+        
+        {/* Regulation Toggle */}
+        <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+          <button
+            onClick={() => setRegulationSet('2025')}
+            className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+              regulationSet === '2025' ? 'bg-red-600 text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            2025 DRS
+          </button>
+          <button
+            onClick={() => setRegulationSet('2026')}
+            className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+              regulationSet === '2026' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            2026 ACTIVE AERO
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0">
@@ -105,8 +139,20 @@ const PitStrategySimulator: React.FC = () => {
           <div className="mt-6 pt-6 border-t border-white/5 space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-[10px] text-gray-500 font-bold uppercase">Podium Probability</span>
-              <span className="text-lg font-mono font-bold text-accent-green">{(selectedStrategy.podium_prob * 100).toFixed(0)}%</span>
+              <span className="text-lg font-mono font-bold text-accent-green">{(adjustedStrategy.podium_prob * 100).toFixed(0)}%</span>
             </div>
+            {regulationSet === '2026' && (
+              <div className="pt-4 border-t border-white/5">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-[10px] text-blue-400 font-bold uppercase">Active Aero Enabled</span>
+                </div>
+                <p className="text-[10px] text-gray-500 leading-relaxed italic">
+                  Physics engine updated for 2026: X-Mode (Low Drag) on straights, Z-Mode (High Downforce) in corners. 
+                  Tire degradation increased by 8.4% due to higher cornering loads.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

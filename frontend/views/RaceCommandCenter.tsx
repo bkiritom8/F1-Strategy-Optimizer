@@ -44,15 +44,10 @@ const RaceCommandCenter: React.FC = () => {
   const { data: apiDrivers, isLive: driversLive } = useDrivers();
   const { online } = useBackendStatus();
 
-  // Use top 5 drivers from API if available, else mock
+  // Use all drivers from API if available, else mock
   const drivers: DriverProfile[] = useMemo(() => {
     if (apiDrivers && apiDrivers.length > 0) {
-      // Pick recognizable 2024 grid drivers
-      const priorityIds = ['max_verstappen', 'hamilton', 'norris', 'leclerc', 'alonso'];
-      const priority = priorityIds
-        .map(id => apiDrivers.find(d => d.driver_id === id))
-        .filter(Boolean) as DriverProfile[];
-      return priority.length >= 3 ? priority.slice(0, 5) : apiDrivers.slice(0, 5);
+      return apiDrivers;
     }
     return MOCK_DRIVERS;
   }, [apiDrivers]);
