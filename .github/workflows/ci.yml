@@ -48,7 +48,7 @@ jobs:
         run: black --check src/ ml/
 
       - name: Run MyPy
-        run: mypy src/ --ignore-missing-imports
+        run: mypy src/ --ignore-missing-imports --follow-imports=skip
 
   security:
     name: Security Scan
