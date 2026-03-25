@@ -231,10 +231,7 @@ team-docs/session_summary.md
 team-docs/*.local.md
 
 # Data directories
-data/raw/
-data/processed/
-data/features/
-data/raw/fastf1_cache/
+data/
 f1_cache/
 f1_telemetry/
 raw.zip
@@ -264,8 +261,13 @@ f1_cache/
 f1_telemetry/
 raw/
 raw.zip
-models/overtake_prob.pkl
 catboost_info/
-models/*.pkl
-models/rl/*.zip
-models/rl/*.pkl
+
+# Model artifacts (stored in GCS, not git)
+models/
+ml/models/artifacts/
+
+# Data file types — never commit locally
+*.csv
+*.parquet
+*.pkl
