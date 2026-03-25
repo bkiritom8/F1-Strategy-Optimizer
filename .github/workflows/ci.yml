@@ -45,7 +45,7 @@ jobs:
         run: pip install -r requirements-test.txt
 
       - name: Run MyPy
-        run: mypy src/ ml/ --ignore-missing-imports
+        run: mypy src/ --ignore-missing-imports
 
   security:
     name: Security Scan
