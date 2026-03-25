@@ -343,10 +343,12 @@ jobs:
 
       - name: Submit Cloud Build and stream logs
         run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           gcloud builds submit \
             --config cloudbuild.yaml \
             --project=f1optimizer \
             --region=us-central1 \
+            --substitutions=COMMIT_SHA=${{ github.sha }},SHORT_SHA=${SHORT_SHA} \
             .
 
   all-checks-passed:
