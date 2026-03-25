@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-test.txt
 
+      - name: Run Black
+        run: black --check src/ ml/
+
       - name: Run MyPy
         run: mypy src/ --ignore-missing-imports
 

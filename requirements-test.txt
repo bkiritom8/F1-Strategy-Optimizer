@@ -48,6 +48,9 @@ pytest-mock>=3.12.0
 mypy>=1.8.0
 types-requests>=2.31.0
 
+# Formatter
+black>=25.1.0
+
 # Security scanners
 bandit>=1.7.6
 safety>=3.0.0
