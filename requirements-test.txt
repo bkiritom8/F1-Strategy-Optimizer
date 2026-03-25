@@ -54,3 +54,4 @@ safety>=3.0.0
 
 # Misc
 pathspec==0.11.2
+fastf1>=3.3.0
