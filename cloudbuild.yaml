@@ -127,3 +127,5 @@ options:
   logging: LEGACY
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
   machineType: "E2_HIGHCPU_8"
+
+timeout: "14400s"
