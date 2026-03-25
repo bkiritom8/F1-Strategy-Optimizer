@@ -96,28 +96,26 @@ steps:
         python /workspace/cloudbuild/check_bias.py
 
   # ── Push models to Vertex AI Model Registry ──────────────────────────────────
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+  - name: "python:3.10-slim"
     id: "push-models-registry"
     waitFor: ["check-bias"]
     entrypoint: "bash"
     args:
       - "-c"
       - |
-        python3 -m pip install --quiet --break-system-packages google-cloud-aiplatform
-        python3 /workspace/cloudbuild/push_registry.py
-    env:
-      - "SHORT_SHA=$SHORT_SHA"
+        pip install --quiet google-cloud-aiplatform
+        python /workspace/cloudbuild/push_registry.py
 
   # ── Rollback check ────────────────────────────────────────────────────────────
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+  - name: "python:3.10-slim"
     id: "rollback-check"
     waitFor: ["push-models-registry"]
     entrypoint: "bash"
     args:
       - "-c"
       - |
-        python3 -m pip install --quiet --break-system-packages google-cloud-aiplatform
-        python3 /workspace/cloudbuild/rollback.py
+        pip install --quiet google-cloud-aiplatform google-cloud-storage
+        python /workspace/cloudbuild/rollback.py
 
 images:
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:$COMMIT_SHA"

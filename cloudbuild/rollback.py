@@ -1,9 +1,11 @@
 import sys
 import json
-import subprocess
-from google.cloud import aiplatform
+from google.cloud import aiplatform, storage
 
 aiplatform.init(project='f1optimizer', location='us-central1', experiment='f1-strategy-models')
+
+BUCKET = 'f1optimizer-models'
+CHAMPION_BLOB = 'champion_metrics.json'
 
 ROLLBACK_METRIC = {
     'tire-degradation-v1': ('test_mae',      'lower'),
@@ -14,10 +16,11 @@ ROLLBACK_METRIC = {
     'race-outcome-v1':     ('test_f1_macro', 'higher'),
 }
 
+gcs = storage.Client(project='f1optimizer')
+bucket = gcs.bucket(BUCKET)
+
 try:
-    result = subprocess.run(['gsutil', 'cat', 'gs://f1optimizer-models/champion_metrics.json'],
-                            capture_output=True, text=True)
-    champion = json.loads(result.stdout) if result.returncode == 0 else {}
+    champion = json.loads(bucket.blob(CHAMPION_BLOB).download_as_text())
 except Exception:
     champion = {}
 
@@ -48,8 +51,5 @@ if rollback:
     sys.exit(1)
 
 champion.update(new_metrics)
-with open('/workspace/champion_metrics.json', 'w') as f:
-    json.dump(champion, f)
-subprocess.run(['gsutil', 'cp', '/workspace/champion_metrics.json',
-                'gs://f1optimizer-models/champion_metrics.json'])
+bucket.blob(CHAMPION_BLOB).upload_from_string(json.dumps(champion))
 print('All models promoted to champion')
