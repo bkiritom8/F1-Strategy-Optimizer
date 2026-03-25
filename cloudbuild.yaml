@@ -173,7 +173,7 @@ EOF
     args:
       - "-c"
       - |
-        pip install --quiet --break-system-packages google-cloud-aiplatform
+        python3 -m pip install --quiet --break-system-packages google-cloud-aiplatform
         cat > /workspace/push_registry.py << 'EOF'
 from google.cloud import aiplatform
 aiplatform.init(project='f1optimizer', location='us-central1')
@@ -204,7 +204,7 @@ EOF
     args:
       - "-c"
       - |
-        pip install --quiet --break-system-packages google-cloud-aiplatform
+        python3 -m pip install --quiet --break-system-packages google-cloud-aiplatform
         cat > /workspace/rollback.py << 'EOF'
 import sys, json, subprocess
 from google.cloud import aiplatform
