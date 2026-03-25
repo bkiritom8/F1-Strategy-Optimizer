@@ -639,3 +639,7 @@ joblib.dump(
     "models/pit_window.pkl",
 )
 print("\nSaved: models/pit_window.pkl")
+storage.Client(project="f1optimizer").bucket("f1optimizer-models").blob(
+    "pit_window/model.pkl"
+).upload_from_filename("models/pit_window.pkl")
+print("Uploaded: gs://f1optimizer-models/pit_window/model.pkl")

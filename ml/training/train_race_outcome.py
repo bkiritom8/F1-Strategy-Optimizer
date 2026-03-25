@@ -631,3 +631,7 @@ joblib.dump(
     "models/race_outcome.pkl",
 )
 print("\nSaved: models/race_outcome.pkl")
+storage.Client(project="f1optimizer").bucket("f1optimizer-models").blob(
+    "race_outcome/model.pkl"
+).upload_from_filename("models/race_outcome.pkl")
+print("Uploaded: gs://f1optimizer-models/race_outcome/model.pkl")

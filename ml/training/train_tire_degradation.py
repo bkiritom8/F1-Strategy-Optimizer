@@ -550,3 +550,7 @@ joblib.dump(
     "models/tire_degradation.pkl",
 )
 print("\nSaved: models/tire_degradation.pkl")
+storage.Client(project="f1optimizer").bucket("f1optimizer-models").blob(
+    "tire_degradation/model.pkl"
+).upload_from_filename("models/tire_degradation.pkl")
+print("Uploaded: gs://f1optimizer-models/tire_degradation/model.pkl")

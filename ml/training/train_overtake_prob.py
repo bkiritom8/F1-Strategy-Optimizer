@@ -582,3 +582,7 @@ joblib.dump(
     "models/overtake_prob.pkl",
 )
 print("\nSaved: models/overtake_prob.pkl")
+storage.Client(project="f1optimizer").bucket("f1optimizer-models").blob(
+    "overtake_prob/model.pkl"
+).upload_from_filename("models/overtake_prob.pkl")
+print("Uploaded: gs://f1optimizer-models/overtake_prob/model.pkl")

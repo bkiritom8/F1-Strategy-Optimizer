@@ -504,3 +504,7 @@ joblib.dump(
     "models/driving_style.pkl",
 )
 print("\nSaved: models/driving_style.pkl")
+storage.Client(project="f1optimizer").bucket("f1optimizer-models").blob(
+    "driving_style/model.pkl"
+).upload_from_filename("models/driving_style.pkl")
+print("Uploaded: gs://f1optimizer-models/driving_style/model.pkl")

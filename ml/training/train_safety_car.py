@@ -548,5 +548,9 @@ joblib.dump(
     "models/safety_car.pkl",
 )
 print("\nSaved: models/safety_car.pkl")
+storage.Client(project="f1optimizer").bucket("f1optimizer-models").blob(
+    "safety_car/model.pkl"
+).upload_from_filename("models/safety_car.pkl")
+print("Uploaded: gs://f1optimizer-models/safety_car/model.pkl")
 print(f"  Circuit SC probabilities: {len(circuit_prob)} circuits")
 print(f"  Pit decision — Val F1: {best_f1:.3f}")
