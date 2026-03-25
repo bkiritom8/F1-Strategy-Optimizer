@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 
@@ -965,7 +965,7 @@ class RaceRunner:
                 }
                 for s in self._states.values()
             ],
-            key=lambda x: x["position"],
+            key=lambda x: cast(int, x["position"]),
         )
 
         strategy_summary = [

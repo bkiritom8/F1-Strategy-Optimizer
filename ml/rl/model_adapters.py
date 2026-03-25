@@ -900,7 +900,7 @@ class RaceOutcomeAdapter(_BaseAdapter):
             return "Outside"
         try:
             proba = self._predict_tier_proba(state)
-            return max(proba, key=proba.get)
+            return max(proba, key=lambda k: proba[k])
         except Exception as exc:
             logger.warning("RaceOutcomeAdapter.predict_tier error: %s", exc)
             pos = state.get("position", 10)

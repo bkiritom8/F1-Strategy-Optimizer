@@ -185,7 +185,7 @@ class F1StrategyAgent:
         # loads its own copy, avoiding pickling ~100 MB of model objects.
         if n_envs == 1:
             vec_cls = DummyVecEnv
-            factory_kw = {"adapters": self._adapters}
+            factory_kw: dict[str, Any] = {"adapters": self._adapters}
         else:
             vec_cls = SubprocVecEnv
             if models_dir is not None:

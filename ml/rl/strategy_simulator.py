@@ -37,7 +37,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+if TYPE_CHECKING:
+    from ml.rl.agent import F1StrategyAgent
 
 import numpy as np
 
@@ -108,7 +111,7 @@ class StrategySimulator:
     ) -> None:
         self._project = project
         self._adapters = adapters or {}
-        self._agent = None
+        self._agent: Optional["F1StrategyAgent"] = None
 
     def load_agent(self, gcs_uri: str) -> None:
         """Load a trained F1StrategyAgent from GCS."""
