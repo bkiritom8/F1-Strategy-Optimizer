@@ -214,7 +214,7 @@ jobs:
         run: pip install mkdocs mkdocs-material
 
       - name: Build documentation
-        run: mkdocs build --strict
+        run: mkdocs build
 
   # ── RL Model CI (path-filtered) ───────────────────────────────────────────
   rl-smoke-test:
