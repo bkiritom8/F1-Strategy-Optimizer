@@ -1,4 +1,5 @@
 """schema_validator.py — Pydantic schema definitions and per-record validation."""
+
 from __future__ import annotations
 
 import logging
@@ -84,7 +85,9 @@ def validate_dataframe(
             validated = schema_class(**row.to_dict())
             valid_records.append(validated.dict())
         except Exception as e:
-            invalid_records.append({"index": idx, "record": row.to_dict(), "error": str(e)})
+            invalid_records.append(
+                {"index": idx, "record": row.to_dict(), "error": str(e)}
+            )
             errors.append(str(e))
 
     valid_df = pd.DataFrame(valid_records) if valid_records else pd.DataFrame()
@@ -96,5 +99,10 @@ def validate_dataframe(
         "errors": errors[:10],
         "invalid_records": invalid_records[:10],
     }
-    logger.info("Validation complete: %d/%d valid (%.2f%%)", len(valid_records), len(df), report["validation_rate"] * 100)
+    logger.info(
+        "Validation complete: %d/%d valid (%.2f%%)",
+        len(valid_records),
+        len(df),
+        report["validation_rate"] * 100,
+    )
     return valid_df, report

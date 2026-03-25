@@ -33,8 +33,16 @@ SC_PIT_BONUS = 8.0
 
 # P1–P10 terminal rewards; any position worse than 10 = −2
 _FINISH_REWARDS: dict[int, float] = {
-    1: 50.0, 2: 30.0, 3: 20.0, 4: 12.0, 5: 8.0,
-    6: 5.0,  7: 3.0,  8: 2.0,  9: 1.0, 10: 0.0,
+    1: 50.0,
+    2: 30.0,
+    3: 20.0,
+    4: 12.0,
+    5: 8.0,
+    6: 5.0,
+    7: 3.0,
+    8: 2.0,
+    9: 1.0,
+    10: 0.0,
 }
 
 
@@ -123,7 +131,7 @@ class RewardFunction:
         # ── Pit cost ──────────────────────────────────────────────────────────
         if pitted:
             if tire_age_laps >= optimal:
-                r.pit_cost = -0.5   # tire was due — almost free
+                r.pit_cost = -0.5  # tire was due — almost free
             else:
                 r.pit_cost = -PIT_BASE_COST
 

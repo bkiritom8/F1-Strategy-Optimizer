@@ -2,7 +2,11 @@
 
 from ml.rl.environment import F1RaceEnv
 from ml.rl.agent import F1StrategyAgent
-from ml.rl.strategy_simulator import SimulationOutput, StrategySimulator, StrategyVariant
+from ml.rl.strategy_simulator import (
+    SimulationOutput,
+    StrategySimulator,
+    StrategyVariant,
+)
 from ml.rl.race_runner import LapRecord, RaceResult, RaceRunner
 from ml.rl.driver_profiles import DriverEntry, build_race_lineup
 from ml.rl.model_adapters import (

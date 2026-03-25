@@ -1,4 +1,5 @@
 """data_sanitizer.py — Deduplication, whitespace stripping, null handling."""
+
 from __future__ import annotations
 
 import logging
@@ -18,5 +19,7 @@ def sanitize_data(df: pd.DataFrame) -> pd.DataFrame:
     df_clean = df_clean.replace(r"^\s*$", np.nan, regex=True)
     original_count = len(df_clean)
     df_clean = df_clean.drop_duplicates()
-    logger.info("Sanitization complete: removed %d duplicates", original_count - len(df_clean))
+    logger.info(
+        "Sanitization complete: removed %d duplicates", original_count - len(df_clean)
+    )
     return df_clean

@@ -129,7 +129,7 @@ class StateEncoder:
         obs[_COMPOUND_IDX.get(key, 5)] = 1.0
 
         # Race position
-        obs[9]  = float(np.clip(position / 20.0, 0.0, 1.0))
+        obs[9] = float(np.clip(position / 20.0, 0.0, 1.0))
         obs[10] = float(np.clip(gap_to_leader / 120.0, 0.0, 1.0))
         obs[11] = float(np.clip(gap_to_ahead / 30.0, 0.0, 1.0))
 

@@ -1,4 +1,5 @@
 """quality_metrics.py — Completeness, validity, consistency scoring."""
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,10 @@ def check_data_quality(
 ) -> Tuple[DataQualityLevel, Dict[str, Any]]:
     logger.info("Assessing data quality for %d records", len(df))
     metrics: Dict[str, Dict[str, Any]] = {
-        "completeness": {}, "validity": {}, "consistency": {}, "accuracy": {},
+        "completeness": {},
+        "validity": {},
+        "consistency": {},
+        "accuracy": {},
     }
 
     for col in df.columns:

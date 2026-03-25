@@ -16,8 +16,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from .schema_validator import (
-    ValidationError, RaceDataSchema, DriverDataSchema,
-    TelemetryDataSchema, validate_dataframe as _validate_dataframe,
+    ValidationError,
+    RaceDataSchema,
+    DriverDataSchema,
+    TelemetryDataSchema,
+    validate_dataframe as _validate_dataframe,
 )
 from .quality_metrics import DataQualityLevel, check_data_quality as _check_data_quality
 from .data_sanitizer import sanitize_data as _sanitize_data

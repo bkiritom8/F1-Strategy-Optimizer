@@ -53,42 +53,45 @@ _PROJECT_DEFAULT = "f1optimizer"
 
 # ── Output types ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class StintPlan:
-    compound:     str
-    laps:         int
+    compound: str
+    laps: int
     driving_mode: str  # PUSH / BALANCED / NEUTRAL
 
 
 @dataclass
 class StrategyVariant:
-    name:                   str          # "OPTIMAL 2-STOP" / "AGGRESSIVE UNDERCUT" / "CONSERVE 1-STOP"
-    stint_plan:             list[StintPlan]
-    pit_laps:               list[int]
-    win_probability:        float
-    podium_probability:     float
-    risk_level:             str          # LOW / MEDIUM / HIGH
+    name: str  # "OPTIMAL 2-STOP" / "AGGRESSIVE UNDERCUT" / "CONSERVE 1-STOP"
+    stint_plan: list[StintPlan]
+    pit_laps: list[int]
+    win_probability: float
+    podium_probability: float
+    risk_level: str  # LOW / MEDIUM / HIGH
     estimated_total_time_s: float
-    predicted_position:     int
-    fuel_load_start_kg:     float = 110.0
+    predicted_position: int
+    fuel_load_start_kg: float = 110.0
 
 
 @dataclass
 class SimulationOutput:
     """Complete output from StrategySimulator.simulate()."""
-    race_id:                 str
-    user_driver_id:          str
-    circuit_id:              str
-    total_laps:              int
-    variants:                list[StrategyVariant]
-    finishing_probabilities: list[float]   # P(finish P1)…P(finish P10)
+
+    race_id: str
+    user_driver_id: str
+    circuit_id: str
+    total_laps: int
+    variants: list[StrategyVariant]
+    finishing_probabilities: list[float]  # P(finish P1)…P(finish P10)
     # Full race data from the optimal run
-    final_standings:         list[dict]
-    lap_data:                dict[str, list[LapRecord]]   # driver_id → laps
-    strategy_summary:        list[dict]                   # per-driver stints
+    final_standings: list[dict]
+    lap_data: dict[str, list[LapRecord]]  # driver_id → laps
+    strategy_summary: list[dict]  # per-driver stints
 
 
 # ── Simulator ─────────────────────────────────────────────────────────────────
+
 
 class StrategySimulator:
     """
@@ -100,16 +103,17 @@ class StrategySimulator:
 
     def __init__(
         self,
-        project:  str              = _PROJECT_DEFAULT,
-        adapters: Optional[dict]   = None,
+        project: str = _PROJECT_DEFAULT,
+        adapters: Optional[dict] = None,
     ) -> None:
-        self._project  = project
+        self._project = project
         self._adapters = adapters or {}
-        self._agent    = None
+        self._agent = None
 
     def load_agent(self, gcs_uri: str) -> None:
         """Load a trained F1StrategyAgent from GCS."""
         from ml.rl.agent import F1StrategyAgent
+
         self._agent = F1StrategyAgent(project=self._project)
         self._agent.load(gcs_uri)
         logger.info("Agent loaded from %s", gcs_uri)
@@ -118,13 +122,13 @@ class StrategySimulator:
 
     def simulate(
         self,
-        race_id:          str,
-        user_driver_id:   str,
-        driver_profile:   Optional[dict]  = None,
-        rivals:           Optional[list[str]] = None,
-        start_position:   int             = 10,
-        start_compound:   str             = "MEDIUM",
-        n_stochastic_runs: int            = 6,
+        race_id: str,
+        user_driver_id: str,
+        driver_profile: Optional[dict] = None,
+        rivals: Optional[list[str]] = None,
+        start_position: int = 10,
+        start_compound: str = "MEDIUM",
+        n_stochastic_runs: int = 6,
     ) -> SimulationOutput:
         """
         Simulate a full race and return three strategy options.
@@ -145,16 +149,27 @@ class StrategySimulator:
 
         # ── Deterministic optimal run ──────────────────────────────────────
         optimal_result = self._run_race(
-            race_id, user_driver_id, profile, rivals, start_position, start_compound,
-            strategy_override=None, seed=42,
+            race_id,
+            user_driver_id,
+            profile,
+            rivals,
+            start_position,
+            start_compound,
+            strategy_override=None,
+            seed=42,
         )
 
         # ── Stochastic runs for probability distribution ───────────────────
         position_counts = [0] * 21
         for seed in range(n_stochastic_runs):
             r = self._run_race(
-                race_id, user_driver_id, profile, rivals,
-                start_position, start_compound, seed=seed,
+                race_id,
+                user_driver_id,
+                profile,
+                rivals,
+                start_position,
+                start_compound,
+                seed=seed,
             )
             pos = max(1, min(r.user_final_position, 20))
             position_counts[pos] += 1
@@ -162,64 +177,78 @@ class StrategySimulator:
         finishing_probs = [
             position_counts[p] / max(n_stochastic_runs, 1) for p in range(1, 11)
         ]
-        win_prob    = finishing_probs[0]
+        win_prob = finishing_probs[0]
         podium_prob = sum(finishing_probs[:3])
 
         # ── Build three strategy variants ──────────────────────────────────
-        optimal_variant  = self._build_optimal_variant(optimal_result, win_prob, podium_prob)
+        optimal_variant = self._build_optimal_variant(
+            optimal_result, win_prob, podium_prob
+        )
 
-        undercut_result  = self._run_race(
-            race_id, user_driver_id, profile, rivals, start_position, start_compound,
-            strategy_override=self._undercut_override(optimal_result), seed=10,
+        undercut_result = self._run_race(
+            race_id,
+            user_driver_id,
+            profile,
+            rivals,
+            start_position,
+            start_compound,
+            strategy_override=self._undercut_override(optimal_result),
+            seed=10,
         )
         undercut_variant = self._build_undercut_variant(undercut_result, win_prob)
 
-        conserve_result  = self._run_race(
-            race_id, user_driver_id, profile, rivals, start_position, start_compound,
-            strategy_override=self._conserve_override(optimal_result), seed=20,
+        conserve_result = self._run_race(
+            race_id,
+            user_driver_id,
+            profile,
+            rivals,
+            start_position,
+            start_compound,
+            strategy_override=self._conserve_override(optimal_result),
+            seed=20,
         )
         conserve_variant = self._build_conserve_variant(conserve_result, win_prob)
 
         return SimulationOutput(
-            race_id                 = race_id,
-            user_driver_id          = user_driver_id,
-            circuit_id              = optimal_result.circuit_id,
-            total_laps              = optimal_result.total_laps,
-            variants                = [optimal_variant, undercut_variant, conserve_variant],
-            finishing_probabilities = finishing_probs,
-            final_standings         = optimal_result.final_standings,
-            lap_data                = optimal_result.lap_data,
-            strategy_summary        = optimal_result.strategy_summary,
+            race_id=race_id,
+            user_driver_id=user_driver_id,
+            circuit_id=optimal_result.circuit_id,
+            total_laps=optimal_result.total_laps,
+            variants=[optimal_variant, undercut_variant, conserve_variant],
+            finishing_probabilities=finishing_probs,
+            final_standings=optimal_result.final_standings,
+            lap_data=optimal_result.lap_data,
+            strategy_summary=optimal_result.strategy_summary,
         )
 
     # ── Race runner ───────────────────────────────────────────────────────────
 
     def _run_race(
         self,
-        race_id:           str,
-        user_driver_id:    str,
-        driver_profile:    dict,
-        rivals:            Optional[list[str]],
-        start_position:    int,
-        start_compound:    str,
+        race_id: str,
+        user_driver_id: str,
+        driver_profile: dict,
+        rivals: Optional[list[str]],
+        start_position: int,
+        start_compound: str,
         strategy_override: Optional[list[tuple[int, str]]] = None,
-        seed:              int = 0,
+        seed: int = 0,
     ) -> RaceResult:
         """Run one full race and return the RaceResult."""
         lineup = build_race_lineup(
-            user_driver_id      = user_driver_id,
-            user_profile        = driver_profile,
-            user_start_position = start_position,
-            user_start_compound = start_compound,
-            rivals              = rivals,
+            user_driver_id=user_driver_id,
+            user_profile=driver_profile,
+            user_start_position=start_position,
+            user_start_compound=start_compound,
+            rivals=rivals,
         )
 
         runner = RaceRunner(
-            race_id  = race_id,
-            drivers  = lineup,
-            adapters = self._adapters,
-            project  = self._project,
-            seed     = seed,
+            race_id=race_id,
+            drivers=lineup,
+            adapters=self._adapters,
+            project=self._project,
+            seed=seed,
         )
 
         forced_pits: dict[int, str] = (
@@ -239,13 +268,13 @@ class StrategySimulator:
     # ── Heuristic fallback ────────────────────────────────────────────────────
 
     def _heuristic_action(self, info: dict) -> int:
-        lap       = info.get("lap_number", 1)
-        total     = max(info.get("total_laps", 60), 1)
-        tire_age  = info.get("tire_age_laps", 0)
-        compound  = info.get("tire_compound", "MEDIUM").upper()
+        lap = info.get("lap_number", 1)
+        total = max(info.get("total_laps", 60), 1)
+        tire_age = info.get("tire_age_laps", 0)
+        compound = info.get("tire_compound", "MEDIUM").upper()
         pit_count = info.get("pit_stops_count", 0)
-        laps_pct  = lap / total
-        optimal   = COMPOUND_OPTIMAL_LAPS.get(compound, 30)
+        laps_pct = lap / total
+        optimal = COMPOUND_OPTIMAL_LAPS.get(compound, 30)
 
         if info.get("safety_car") and tire_age > 10:
             return int(Action.PIT_MEDIUM)
@@ -261,86 +290,100 @@ class StrategySimulator:
 
     def _undercut_override(self, reference: RaceResult) -> list[tuple[int, str]]:
         """Pit 4 laps earlier than optimal → SOFT, then HARD."""
-        total    = reference.total_laps
+        total = reference.total_laps
         user_laps = reference.lap_data.get(reference.user_driver_id, [])
         pit_laps = [r.lap_number for r in user_laps if r.pit_stop]
         if pit_laps:
-            early  = max(2, pit_laps[0] - 4)
+            early = max(2, pit_laps[0] - 4)
             second = min(early + 22, total - 6)
             return [(early, "SOFT"), (second, "HARD")]
         return [(int(total * 0.36), "SOFT"), (int(total * 0.62), "HARD")]
 
     def _conserve_override(self, reference: RaceResult) -> list[tuple[int, str]]:
         """Single pit at ~55 % race distance, MEDIUM → HARD."""
-        total   = reference.total_laps
+        total = reference.total_laps
         pit_lap = int(total * 0.55)
         return [(pit_lap, "HARD")]
 
     # ── Variant builders ──────────────────────────────────────────────────────
 
     def _build_optimal_variant(
-        self, result: RaceResult, win_prob: float, podium_prob: float,
+        self,
+        result: RaceResult,
+        win_prob: float,
+        podium_prob: float,
     ) -> StrategyVariant:
         user_laps = result.lap_data.get(result.user_driver_id, [])
         stint_plan = _laps_to_stints(user_laps)
-        n_stops    = sum(1 for r in user_laps if r.pit_stop)
-        pit_laps   = [r.lap_number for r in user_laps if r.pit_stop]
-        risk       = _compute_risk(user_laps)
+        n_stops = sum(1 for r in user_laps if r.pit_stop)
+        pit_laps = [r.lap_number for r in user_laps if r.pit_stop]
+        risk = _compute_risk(user_laps)
 
         return StrategyVariant(
-            name                   = f"OPTIMAL {n_stops + 1}-STOP",
-            stint_plan             = stint_plan,
-            pit_laps               = pit_laps,
-            win_probability        = round(win_prob, 3),
-            podium_probability     = round(podium_prob, 3),
-            risk_level             = risk,
-            estimated_total_time_s = round(
+            name=f"OPTIMAL {n_stops + 1}-STOP",
+            stint_plan=stint_plan,
+            pit_laps=pit_laps,
+            win_probability=round(win_prob, 3),
+            podium_probability=round(podium_prob, 3),
+            risk_level=risk,
+            estimated_total_time_s=round(
                 _total_time(result, result.user_driver_id) / 1000.0, 1
             ),
-            predicted_position     = result.user_final_position,
+            predicted_position=result.user_final_position,
         )
 
-    def _build_undercut_variant(self, result: RaceResult, base_win: float) -> StrategyVariant:
+    def _build_undercut_variant(
+        self, result: RaceResult, base_win: float
+    ) -> StrategyVariant:
         user_laps = result.lap_data.get(result.user_driver_id, [])
         stint_plan = _laps_to_stints(user_laps)
-        pit_laps   = [r.lap_number for r in user_laps if r.pit_stop]
+        pit_laps = [r.lap_number for r in user_laps if r.pit_stop]
         return StrategyVariant(
-            name                   = "AGGRESSIVE UNDERCUT",
-            stint_plan             = stint_plan,
-            pit_laps               = pit_laps,
-            win_probability        = round(min(1.0, base_win * 1.4), 3),
-            podium_probability     = round(min(1.0, base_win * 2.2), 3),
-            risk_level             = "HIGH",
-            estimated_total_time_s = round(_total_time(result, result.user_driver_id) / 1000.0, 1),
-            predicted_position     = result.user_final_position,
+            name="AGGRESSIVE UNDERCUT",
+            stint_plan=stint_plan,
+            pit_laps=pit_laps,
+            win_probability=round(min(1.0, base_win * 1.4), 3),
+            podium_probability=round(min(1.0, base_win * 2.2), 3),
+            risk_level="HIGH",
+            estimated_total_time_s=round(
+                _total_time(result, result.user_driver_id) / 1000.0, 1
+            ),
+            predicted_position=result.user_final_position,
         )
 
-    def _build_conserve_variant(self, result: RaceResult, base_win: float) -> StrategyVariant:
+    def _build_conserve_variant(
+        self, result: RaceResult, base_win: float
+    ) -> StrategyVariant:
         user_laps = result.lap_data.get(result.user_driver_id, [])
         stint_plan = _laps_to_stints(user_laps)
-        pit_laps   = [r.lap_number for r in user_laps if r.pit_stop]
+        pit_laps = [r.lap_number for r in user_laps if r.pit_stop]
         return StrategyVariant(
-            name                   = "CONSERVE 1-STOP",
-            stint_plan             = stint_plan,
-            pit_laps               = pit_laps,
-            win_probability        = round(max(0.0, base_win * 0.55), 3),
-            podium_probability     = round(max(0.0, base_win * 1.15), 3),
-            risk_level             = "LOW",
-            estimated_total_time_s = round(_total_time(result, result.user_driver_id) / 1000.0, 1),
-            predicted_position     = result.user_final_position,
+            name="CONSERVE 1-STOP",
+            stint_plan=stint_plan,
+            pit_laps=pit_laps,
+            win_probability=round(max(0.0, base_win * 0.55), 3),
+            podium_probability=round(max(0.0, base_win * 1.15), 3),
+            risk_level="LOW",
+            estimated_total_time_s=round(
+                _total_time(result, result.user_driver_id) / 1000.0, 1
+            ),
+            predicted_position=result.user_final_position,
         )
 
 
 # ── Module-level helpers ──────────────────────────────────────────────────────
 
+
 def _compound_to_action(compound: str) -> int:
-    return int({
-        "SOFT":         Action.PIT_SOFT,
-        "MEDIUM":       Action.PIT_MEDIUM,
-        "HARD":         Action.PIT_HARD,
-        "INTER":        Action.PIT_INTER,
-        "INTERMEDIATE": Action.PIT_INTER,
-    }.get(compound.upper(), Action.PIT_MEDIUM))
+    return int(
+        {
+            "SOFT": Action.PIT_SOFT,
+            "MEDIUM": Action.PIT_MEDIUM,
+            "HARD": Action.PIT_HARD,
+            "INTER": Action.PIT_INTER,
+            "INTERMEDIATE": Action.PIT_INTER,
+        }.get(compound.upper(), Action.PIT_MEDIUM)
+    )
 
 
 def _laps_to_stints(laps: list[LapRecord]) -> list[StintPlan]:
@@ -349,20 +392,20 @@ def _laps_to_stints(laps: list[LapRecord]) -> list[StintPlan]:
         return []
     stints: list[StintPlan] = []
     current_compound = laps[0].tire_compound
-    stint_start      = laps[0].lap_number
-    modes:           list[str] = []
+    stint_start = laps[0].lap_number
+    modes: list[str] = []
 
     for rec in laps:
         modes.append(rec.driving_mode)
         if rec.pit_stop and rec.new_compound:
             laps_in_stint = rec.lap_number - stint_start
-            modal_mode    = max(set(modes), key=modes.count) if modes else "BALANCED"
+            modal_mode = max(set(modes), key=modes.count) if modes else "BALANCED"
             stints.append(StintPlan(current_compound, laps_in_stint, modal_mode))
             current_compound = rec.new_compound
-            stint_start      = rec.lap_number
-            modes            = []
+            stint_start = rec.lap_number
+            modes = []
 
-    last_laps  = laps[-1].lap_number - stint_start + 1
+    last_laps = laps[-1].lap_number - stint_start + 1
     modal_mode = max(set(modes), key=modes.count) if modes else "BALANCED"
     stints.append(StintPlan(current_compound, last_laps, modal_mode))
     return stints
@@ -372,8 +415,8 @@ def _compute_risk(laps: list[LapRecord]) -> str:
     if not laps:
         return "MEDIUM"
     positions = [r.position for r in laps]
-    n_pits    = sum(1 for r in laps if r.pit_stop)
-    pos_std   = float(np.std(positions)) if len(positions) > 1 else 0.0
+    n_pits = sum(1 for r in laps if r.pit_stop)
+    pos_std = float(np.std(positions)) if len(positions) > 1 else 0.0
     if pos_std > 3.5 or n_pits >= 3:
         return "HIGH"
     if pos_std < 1.5 and n_pits <= 1:

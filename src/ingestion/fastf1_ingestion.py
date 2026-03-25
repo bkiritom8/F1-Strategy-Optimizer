@@ -24,8 +24,11 @@ from typing import Any, List, Optional
 import pandas as pd
 
 from .fastf1_extractor import (
-    enable_cache, load_session, extract_laps,
-    extract_telemetry, extract_weather,
+    enable_cache,
+    load_session,
+    extract_laps,
+    extract_telemetry,
+    extract_weather,
     _FASTF1_AVAILABLE,
 )
 
@@ -76,9 +79,7 @@ class FastF1Ingestion:
         out.mkdir(parents=True, exist_ok=True)
         return out
 
-    def fetch_session(
-        self, year: int, round_num: int, session_type: str = "R"
-    ) -> Any:
+    def fetch_session(self, year: int, round_num: int, session_type: str = "R") -> Any:
         """
         Load a FastF1 session object (downloads if not cached).
 

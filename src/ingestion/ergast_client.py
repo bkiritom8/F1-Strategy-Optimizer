@@ -1,4 +1,5 @@
 """ergast_client.py — Jolpica/Ergast endpoint pagination."""
+
 from __future__ import annotations
 
 import logging

@@ -2,6 +2,7 @@
 Tests for the Vertex AI Pipeline DAG and pipeline runner CLI.
 KFP dsl.component decorator is mocked to prevent execution at import time.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -13,20 +14,18 @@ import pytest
 
 def pytest_configure(config):
     """Mock kfp before any imports."""
-    kfp_mock     = MagicMock()
+    kfp_mock = MagicMock()
     kfp_dsl_mock = MagicMock()
     kfp_dsl_mock.component = lambda **kwargs: (lambda fn: fn)
-    kfp_dsl_mock.pipeline  = lambda **kwargs: (lambda fn: fn)
-    kfp_dsl_mock.Output    = MagicMock()
-    kfp_dsl_mock.Input     = MagicMock()
-    kfp_dsl_mock.Dataset   = MagicMock()
-    kfp_dsl_mock.Model     = MagicMock()
-    kfp_dsl_mock.Metrics   = MagicMock()
+    kfp_dsl_mock.pipeline = lambda **kwargs: (lambda fn: fn)
+    kfp_dsl_mock.Output = MagicMock()
+    kfp_dsl_mock.Input = MagicMock()
+    kfp_dsl_mock.Dataset = MagicMock()
+    kfp_dsl_mock.Model = MagicMock()
+    kfp_dsl_mock.Metrics = MagicMock()
     kfp_mock.dsl = kfp_dsl_mock
-    sys.modules["kfp"]     = kfp_mock
+    sys.modules["kfp"] = kfp_mock
     sys.modules["kfp.dsl"] = kfp_dsl_mock
-
-
 
 
 class TestPipelineRunnerCLI:

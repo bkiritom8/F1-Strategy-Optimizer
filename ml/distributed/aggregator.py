@@ -182,4 +182,3 @@ class Aggregator:
         logger.info(
             "Published completion event to %s (message_id=%s)", PUBSUB_TOPIC, message_id
         )
-

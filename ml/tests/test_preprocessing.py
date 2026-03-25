@@ -2,6 +2,7 @@
 Unit tests for preprocessing pipeline.
 Hits GCS directly — requires GCP auth.
 """
+
 import os
 import sys
 
@@ -24,7 +25,7 @@ class TestLoadData:
         assert len(df) > 0
 
     def test_load_fastf1_data_has_required_columns(self):
-        df       = load_fastf1_data()
+        df = load_fastf1_data()
         required = ["season", "round", "Driver", "LapNumber", "LapTime"]
         for col in required:
             assert col in df.columns, f"Missing column: {col}"
@@ -104,7 +105,9 @@ class TestPreprocessRaceResults:
 
     def test_creates_driver_avg_finish(self, raw_data):
         df = preprocess_race_results(raw_data.copy())
-        assert "driver_avg_finish" in df.columns or "constructor_avg_finish" in df.columns
+        assert (
+            "driver_avg_finish" in df.columns or "constructor_avg_finish" in df.columns
+        )
 
 
 class TestDataIntegrity:
@@ -114,6 +117,6 @@ class TestDataIntegrity:
         assert df["season"].max() <= 2025
 
     def test_no_duplicate_laps(self):
-        df   = preprocess_fastf1(load_fastf1_data())
+        df = preprocess_fastf1(load_fastf1_data())
         dups = df.duplicated(subset=["season", "round", "Driver", "LapNumber"])
         assert dups.sum() == 0

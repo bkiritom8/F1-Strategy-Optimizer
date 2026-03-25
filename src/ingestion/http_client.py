@@ -1,4 +1,5 @@
 """http_client.py — Rate-limited HTTP client for src/ingestion."""
+
 from __future__ import annotations
 
 import logging

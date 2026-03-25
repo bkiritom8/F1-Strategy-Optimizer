@@ -74,42 +74,44 @@ class F1RaceEnv(gym.Env):
 
     def __init__(
         self,
-        race_ids:        Optional[list[str]] = None,
-        driver_id:       Optional[str]       = None,
-        driver_profile:  Optional[dict]      = None,
-        adapters:        Optional[dict]      = None,
-        lineup:          Optional[list[DriverEntry]] = None,
-        start_position:  int                 = 10,
-        start_compound:  str                 = "MEDIUM",
-        rivals:          Optional[list[str]] = None,
-        project:         str                 = "f1optimizer",
-        seed:            Optional[int]       = None,
+        race_ids: Optional[list[str]] = None,
+        driver_id: Optional[str] = None,
+        driver_profile: Optional[dict] = None,
+        adapters: Optional[dict] = None,
+        lineup: Optional[list[DriverEntry]] = None,
+        start_position: int = 10,
+        start_compound: str = "MEDIUM",
+        rivals: Optional[list[str]] = None,
+        project: str = "f1optimizer",
+        seed: Optional[int] = None,
         # Legacy params (ignored — kept for backward compat)
-        tire_deg_model=None, fuel_model=None,
-        overtake_model=None, sc_model=None,
+        tire_deg_model=None,
+        fuel_model=None,
+        overtake_model=None,
+        sc_model=None,
     ) -> None:
         super().__init__()
 
-        self._race_ids       = race_ids or []
-        self._driver_id      = driver_id or "agent_driver"
+        self._race_ids = race_ids or []
+        self._driver_id = driver_id or "agent_driver"
         self._driver_profile = driver_profile or get_profile(self._driver_id)
-        self._adapters       = adapters or {}
-        self._fixed_lineup   = lineup
+        self._adapters = adapters or {}
+        self._fixed_lineup = lineup
         self._start_position = start_position
         self._start_compound = start_compound
-        self._rivals         = rivals
-        self._project        = project
-        self._rng_seed       = seed
+        self._rivals = rivals
+        self._project = project
+        self._rng_seed = seed
 
         self.observation_space = spaces.Box(
             low=np.full(STATE_DIM, -2.0, dtype=np.float32),
-            high=np.full(STATE_DIM,  2.0, dtype=np.float32),
+            high=np.full(STATE_DIM, 2.0, dtype=np.float32),
             dtype=np.float32,
         )
         self.action_space = spaces.Discrete(N_ACTIONS)
 
-        self._runner:     Optional[RaceRunner]    = None
-        self._reward_fn   = RewardFunction()
+        self._runner: Optional[RaceRunner] = None
+        self._reward_fn = RewardFunction()
         self._prev_position: int = start_position
 
     # ── Gymnasium interface ────────────────────────────────────────────────────
@@ -117,7 +119,7 @@ class F1RaceEnv(gym.Env):
     def reset(
         self,
         *,
-        seed:    Optional[int]  = None,
+        seed: Optional[int] = None,
         options: Optional[dict] = None,
     ) -> tuple[np.ndarray, dict]:
         super().reset(seed=seed)
@@ -128,19 +130,19 @@ class F1RaceEnv(gym.Env):
             lineup = self._fixed_lineup
         else:
             lineup = build_race_lineup(
-                user_driver_id      = self._driver_id,
-                user_profile        = self._driver_profile,
-                user_start_position = self._start_position,
-                user_start_compound = self._start_compound,
-                rivals              = self._rivals,
+                user_driver_id=self._driver_id,
+                user_profile=self._driver_profile,
+                user_start_position=self._start_position,
+                user_start_compound=self._start_compound,
+                rivals=self._rivals,
             )
 
         self._runner = RaceRunner(
-            race_id   = race_id,
-            drivers   = lineup,
-            adapters  = self._adapters,
-            project   = self._project,
-            seed      = seed or self._rng_seed,
+            race_id=race_id,
+            drivers=lineup,
+            adapters=self._adapters,
+            project=self._project,
+            seed=seed or self._rng_seed,
         )
         self._reward_fn.reset()
 
@@ -154,27 +156,31 @@ class F1RaceEnv(gym.Env):
 
         lap_records, obs, info = self._runner.step_lap(action)
 
-        pitted        = lap_records[self._driver_id].pit_stop if self._driver_id in lap_records else False
-        new_position  = info.get("position", self._prev_position)
+        pitted = (
+            lap_records[self._driver_id].pit_stop
+            if self._driver_id in lap_records
+            else False
+        )
+        new_position = info.get("position", self._prev_position)
 
         r = self._reward_fn.step(
-            prev_position     = self._prev_position,
-            new_position      = new_position,
-            lap_time_ms       = info.get("lap_time_ms", 95_000.0),
-            tire_compound     = info.get("tire_compound", "MEDIUM"),
-            tire_age_laps     = info.get("tire_age_laps", 0),
-            pitted            = pitted,
-            safety_car_active = info.get("safety_car", False),
+            prev_position=self._prev_position,
+            new_position=new_position,
+            lap_time_ms=info.get("lap_time_ms", 95_000.0),
+            tire_compound=info.get("tire_compound", "MEDIUM"),
+            tire_age_laps=info.get("tire_age_laps", 0),
+            pitted=pitted,
+            safety_car_active=info.get("safety_car", False),
         )
         self._prev_position = new_position
-        reward              = float(r.total)
-        terminated          = self._runner.finished
+        reward = float(r.total)
+        terminated = self._runner.finished
 
         if terminated:
             reward += float(self._reward_fn.terminal(new_position).total)
 
         info["reward_components"] = r
-        info["all_lap_records"]   = lap_records
+        info["all_lap_records"] = lap_records
         return obs, reward, terminated, False, info
 
     def render(self) -> None:

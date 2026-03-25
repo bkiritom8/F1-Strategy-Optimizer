@@ -28,11 +28,11 @@ from datetime import datetime, timezone
 
 from google.cloud import aiplatform, logging as cloud_logging
 
-PROJECT_ID      = os.environ.get("PROJECT_ID",      "f1optimizer")
-REGION          = os.environ.get("REGION",          "us-central1")
+PROJECT_ID = os.environ.get("PROJECT_ID", "f1optimizer")
+REGION = os.environ.get("REGION", "us-central1")
 TRAINING_BUCKET = os.environ.get("TRAINING_BUCKET", "gs://f1optimizer-training")
-MODELS_BUCKET   = os.environ.get("MODELS_BUCKET",   "gs://f1optimizer-models")
-ML_IMAGE        = "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
+MODELS_BUCKET = os.environ.get("MODELS_BUCKET", "gs://f1optimizer-models")
+ML_IMAGE = "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
 SERVICE_ACCOUNT = f"f1-training-dev@{PROJECT_ID}.iam.gserviceaccount.com"
 
 logging.basicConfig(
@@ -118,10 +118,10 @@ def submit_test_job(test_path: str, run_id: str) -> aiplatform.CustomJob:
                         run_id,
                     ],
                     "env": [
-                        {"name": "PROJECT_ID",      "value": PROJECT_ID},
-                        {"name": "REGION",          "value": REGION},
+                        {"name": "PROJECT_ID", "value": PROJECT_ID},
+                        {"name": "REGION", "value": REGION},
                         {"name": "TRAINING_BUCKET", "value": TRAINING_BUCKET},
-                        {"name": "MODELS_BUCKET",   "value": MODELS_BUCKET},
+                        {"name": "MODELS_BUCKET", "value": MODELS_BUCKET},
                     ],
                 },
             }
@@ -149,11 +149,11 @@ def log_results_to_cloud(
         result_log.info(
             json.dumps(
                 {
-                    "run_id":         run_id,
-                    "test_path":      test_path,
-                    "exit_code":      exit_code,
-                    "passed":         exit_code == 0,
-                    "timestamp":      datetime.now(timezone.utc).isoformat(),
+                    "run_id": run_id,
+                    "test_path": test_path,
+                    "exit_code": exit_code,
+                    "passed": exit_code == 0,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "output_preview": output[-2000:],
                 }
             )

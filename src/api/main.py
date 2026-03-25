@@ -631,11 +631,15 @@ async def simulate_strategy(
 
 # ── Full race simulation via StrategySimulator ──────────────────────────────
 
+
 class FullSimulateRequest(BaseModel):
     """Request body for POST /api/v1/strategy/full-simulate."""
+
     race_id: str
     driver_id: str
-    driver_profile: Optional[Dict[str, float]] = None   # aggression/consistency/tire_management/pressure_response
+    driver_profile: Optional[Dict[str, float]] = (
+        None  # aggression/consistency/tire_management/pressure_response
+    )
     rivals: Optional[List[str]] = None
     start_position: int = 10
     start_compound: str = "MEDIUM"
@@ -665,7 +669,7 @@ class FullSimulateResponse(BaseModel):
     circuit_id: str
     total_laps: int
     variants: List[StrategyVariantOut]
-    finishing_probabilities: List[float]   # P(P1)…P(P10)
+    finishing_probabilities: List[float]  # P(P1)…P(P10)
     final_standings: List[Dict]
 
 
@@ -677,6 +681,7 @@ def _get_strategy_simulator():
     if _strategy_simulator is None:
         from ml.rl.model_adapters import load_local_adapters
         from ml.rl.strategy_simulator import StrategySimulator
+
         try:
             adapters = load_local_adapters("models/")
         except Exception:
@@ -719,7 +724,11 @@ async def full_simulate(
                 StrategyVariantOut(
                     name=v.name,
                     stint_plan=[
-                        StintPlanOut(compound=s.compound, laps=s.laps, driving_mode=s.driving_mode)
+                        StintPlanOut(
+                            compound=s.compound,
+                            laps=s.laps,
+                            driving_mode=s.driving_mode,
+                        )
                         for s in v.stint_plan
                     ],
                     pit_laps=v.pit_laps,

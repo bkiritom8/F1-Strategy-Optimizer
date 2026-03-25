@@ -1,5 +1,5 @@
 """
-Data Preprocessing Pipeline 
+Data Preprocessing Pipeline
 Saves two versions:
   - fastf1_features.parquet: filtered (no pit/SC laps) for tire deg + driving style
   - fastf1_features_unfiltered.parquet: all laps including SC/pit for SC model
@@ -43,14 +43,21 @@ def engineer_features(df):
     df = df.dropna(subset=["LapTime", "TyreLife", "Compound", "mean_throttle"])
     df = df[(df["LapTime"] > 60) & (df["LapTime"] < 200)]
 
-    df = df.sort_values(["season", "round", "Driver", "LapNumber"]).reset_index(drop=True)
+    df = df.sort_values(["season", "round", "Driver", "LapNumber"]).reset_index(
+        drop=True
+    )
 
     # Compound dummies
     compounds = pd.get_dummies(df["Compound"].str.upper(), prefix="compound")
     all_compounds = [
-        "compound_SOFT", "compound_MEDIUM", "compound_HARD",
-        "compound_INTERMEDIATE", "compound_WET",
-        "compound_SUPERSOFT", "compound_ULTRASOFT", "compound_HYPERSOFT",
+        "compound_SOFT",
+        "compound_MEDIUM",
+        "compound_HARD",
+        "compound_INTERMEDIATE",
+        "compound_WET",
+        "compound_SUPERSOFT",
+        "compound_ULTRASOFT",
+        "compound_HYPERSOFT",
         "compound_NONE",
     ]
     for c in all_compounds:
@@ -69,7 +76,9 @@ def engineer_features(df):
     # Race context
     df["total_laps"] = df.groupby(["season", "round"])["LapNumber"].transform("max")
     df["laps_remaining"] = df["total_laps"] - df["LapNumber"]
-    df["fuel_load_pct"] = (1.0 - (df["LapNumber"] - 1) / df["total_laps"]).clip(lower=0.0)
+    df["fuel_load_pct"] = (1.0 - (df["LapNumber"] - 1) / df["total_laps"]).clip(
+        lower=0.0
+    )
     df["fuel_consumed"] = 1.8 * (df["mean_throttle"] / 70)
 
     # Driving style
@@ -105,8 +114,12 @@ def engineer_features(df):
 
     # Position features
     df["cum_time"] = df.groupby(["season", "round", "Driver"])["LapTime"].cumsum()
-    df["position"] = df.groupby(["season", "round", "LapNumber"])["cum_time"].rank(method="first")
-    df["next_position"] = df.groupby(["season", "round", "Driver"])["position"].shift(-1)
+    df["position"] = df.groupby(["season", "round", "LapNumber"])["cum_time"].rank(
+        method="first"
+    )
+    df["next_position"] = df.groupby(["season", "round", "Driver"])["position"].shift(
+        -1
+    )
     df["position_change"] = df["position"] - df["next_position"]
     df["overtake_success"] = (df["position_change"] >= 1).astype(int)
 
@@ -118,11 +131,15 @@ def engineer_features(df):
 
     # Safety car detection
     race_medians = df.groupby(["season", "round"])["LapTime"].transform("median")
-    lap_medians = df.groupby(["season", "round", "LapNumber"])["LapTime"].transform("median")
+    lap_medians = df.groupby(["season", "round", "LapNumber"])["LapTime"].transform(
+        "median"
+    )
     df["is_sc_lap"] = (lap_medians > race_medians * 1.2).astype(int)
 
     # tyre_delta = lap time deviation from per-lap median
-    lap_baseline = df.groupby(["season", "round", "LapNumber"])["LapTime"].transform("median")
+    lap_baseline = df.groupby(["season", "round", "LapNumber"])["LapTime"].transform(
+        "median"
+    )
     df["tyre_delta"] = df["LapTime"] - lap_baseline
 
     # Speed delta
@@ -131,9 +148,13 @@ def engineer_features(df):
     )
 
     # SC outcome features
-    df["position_5_later"] = df.groupby(["season", "round", "Driver"])["position"].shift(-5)
+    df["position_5_later"] = df.groupby(["season", "round", "Driver"])[
+        "position"
+    ].shift(-5)
     df["sc_position_change"] = df["position"] - df["position_5_later"]
-    df["pitted_under_sc"] = ((df["stint_change"] > 0) & (df["is_sc_lap"] == 1)).astype(int)
+    df["pitted_under_sc"] = ((df["stint_change"] > 0) & (df["is_sc_lap"] == 1)).astype(
+        int
+    )
 
     return df
 
@@ -143,16 +164,20 @@ def preprocess_fastf1(df):
     df = engineer_features(df)
 
     # Filter out pit laps, SC laps and extreme tyre_delta values
-    df = df[df['is_pit_lap'] == 0]
-    df = df[df['is_sc_lap'] == 0]
-    df = df[df['tyre_delta'].between(-5, 10)]
-    df = df[df['TyreLife'] >= 1]
+    df = df[df["is_pit_lap"] == 0]
+    df = df[df["is_sc_lap"] == 0]
+    df = df[df["tyre_delta"].between(-5, 10)]
+    df = df[df["TyreLife"] >= 1]
 
     print(f"  Final: {len(df)} rows, {len(df.columns)} columns")
 
     print("\n  Sanity checks:")
-    print(f"    tyre_delta mean: {df['tyre_delta'].mean():.3f}, std: {df['tyre_delta'].std():.3f}")
-    print(f"    tyre_delta range: [{df['tyre_delta'].min():.2f}, {df['tyre_delta'].max():.2f}]")
+    print(
+        f"    tyre_delta mean: {df['tyre_delta'].mean():.3f}, std: {df['tyre_delta'].std():.3f}"
+    )
+    print(
+        f"    tyre_delta range: [{df['tyre_delta'].min():.2f}, {df['tyre_delta'].max():.2f}]"
+    )
     print(f"    is_pit_lap: {df['is_pit_lap'].sum()} pit laps")
     print(f"    is_sc_lap: {df['is_sc_lap'].sum()} SC laps")
     print(f"    Compounds: {df['Compound'].str.upper().value_counts().to_dict()}")
@@ -165,13 +190,15 @@ def preprocess_fastf1_unfiltered(df):
     df = engineer_features(df)
 
     # Only filter extreme values, keep all lap types
-    df = df[df['TyreLife'] >= 1]
+    df = df[df["TyreLife"] >= 1]
 
     print(f"  Final: {len(df)} rows, {len(df.columns)} columns")
 
     print("\n  Sanity checks:")
     print(f"    SC laps: {df['is_sc_lap'].sum()} ({df['is_sc_lap'].mean()*100:.1f}%)")
-    print(f"    Pit laps: {df['is_pit_lap'].sum()} ({df['is_pit_lap'].mean()*100:.1f}%)")
+    print(
+        f"    Pit laps: {df['is_pit_lap'].sum()} ({df['is_pit_lap'].mean()*100:.1f}%)"
+    )
     print(f"    pitted_under_sc: {df['pitted_under_sc'].sum()}")
     print(f"    sc_position_change nulls: {df['sc_position_change'].isnull().sum()}")
     print(f"    Seasons: {sorted(df['season'].unique().tolist())}")
@@ -183,8 +210,12 @@ def preprocess_race_results(df):
     print("Preprocessing race results...")
 
     col_map = {
-        "Grid": "grid", "Position": "position", "Season": "season",
-        "Driver": "driver", "Constructor": "constructor", "Circuit": "circuit",
+        "Grid": "grid",
+        "Position": "position",
+        "Season": "season",
+        "Driver": "driver",
+        "Constructor": "constructor",
+        "Circuit": "circuit",
     }
     df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
 
@@ -193,15 +224,28 @@ def preprocess_race_results(df):
     df = df[df["position"] > 0]
     df = df[df["position"] <= 20]
 
-    for col in ["driver", "constructor", "circuit", "driverId", "constructorId", "circuitId"]:
+    for col in [
+        "driver",
+        "constructor",
+        "circuit",
+        "driverId",
+        "constructorId",
+        "circuitId",
+    ]:
         if col in df.columns:
             df[f"{col}_encoded"] = df[col].astype("category").cat.codes
 
     if "season" not in df.columns:
         df["season"] = df["year"] if "year" in df.columns else 2020
 
-    driver_col = "driver_encoded" if "driver_encoded" in df.columns else "driverId_encoded"
-    constructor_col = "constructor_encoded" if "constructor_encoded" in df.columns else "constructorId_encoded"
+    driver_col = (
+        "driver_encoded" if "driver_encoded" in df.columns else "driverId_encoded"
+    )
+    constructor_col = (
+        "constructor_encoded"
+        if "constructor_encoded" in df.columns
+        else "constructorId_encoded"
+    )
 
     df = df.sort_values(["season", driver_col])
 
@@ -231,35 +275,74 @@ def save_metadata(fastf1_df, race_df):
             "seasons": sorted(fastf1_df["season"].unique().tolist()),
             "features": {
                 "tire_degradation": [
-                    "TyreLife", "Stint", "LapNumber",
-                    "compound_SOFT", "compound_MEDIUM", "compound_HARD",
-                    "compound_INTERMEDIATE", "compound_WET",
-                    "compound_SUPERSOFT", "compound_ULTRASOFT", "compound_HYPERSOFT",
-                    "fuel_load_pct", "laps_remaining",
-                    "mean_throttle", "std_throttle", "mean_brake", "std_brake",
-                    "driving_style", "position", "gap_ahead",
+                    "TyreLife",
+                    "Stint",
+                    "LapNumber",
+                    "compound_SOFT",
+                    "compound_MEDIUM",
+                    "compound_HARD",
+                    "compound_INTERMEDIATE",
+                    "compound_WET",
+                    "compound_SUPERSOFT",
+                    "compound_ULTRASOFT",
+                    "compound_HYPERSOFT",
+                    "fuel_load_pct",
+                    "laps_remaining",
+                    "mean_throttle",
+                    "std_throttle",
+                    "mean_brake",
+                    "std_brake",
+                    "driving_style",
+                    "position",
+                    "gap_ahead",
                 ],
                 "fuel_consumption": [
-                    "mean_throttle", "std_throttle", "mean_speed",
-                    "max_speed", "LapTime", "LapNumber",
+                    "mean_throttle",
+                    "std_throttle",
+                    "mean_speed",
+                    "max_speed",
+                    "LapTime",
+                    "LapNumber",
                 ],
                 "driving_style": [
-                    "mean_throttle", "std_throttle", "mean_brake",
-                    "std_brake", "mean_speed", "max_speed",
+                    "mean_throttle",
+                    "std_throttle",
+                    "mean_brake",
+                    "std_brake",
+                    "mean_speed",
+                    "max_speed",
                 ],
                 "pit_window": [
-                    "TyreLife", "compound_SOFT", "compound_MEDIUM", "compound_HARD",
-                    "lap_time_delta", "deg_rate_roll3", "LapNumber",
-                    "laps_remaining", "Stint", "fuel_load_pct",
+                    "TyreLife",
+                    "compound_SOFT",
+                    "compound_MEDIUM",
+                    "compound_HARD",
+                    "lap_time_delta",
+                    "deg_rate_roll3",
+                    "LapNumber",
+                    "laps_remaining",
+                    "Stint",
+                    "fuel_load_pct",
                 ],
                 "overtake": [
-                    "gap_ahead", "tyre_delta", "speed_delta",
-                    "TyreLife", "mean_throttle", "mean_speed", "LapNumber",
+                    "gap_ahead",
+                    "tyre_delta",
+                    "speed_delta",
+                    "TyreLife",
+                    "mean_throttle",
+                    "mean_speed",
+                    "LapNumber",
                 ],
                 "safety_car": [
-                    "LapNumber", "position", "TyreLife",
-                    "compound_SOFT", "compound_MEDIUM", "compound_HARD",
-                    "fuel_load_pct", "laps_remaining", "pitted_under_sc",
+                    "LapNumber",
+                    "position",
+                    "TyreLife",
+                    "compound_SOFT",
+                    "compound_MEDIUM",
+                    "compound_HARD",
+                    "fuel_load_pct",
+                    "laps_remaining",
+                    "pitted_under_sc",
                 ],
             },
             "targets": {
@@ -277,9 +360,13 @@ def save_metadata(fastf1_df, race_df):
             "seasons": sorted(race_df["season"].unique().tolist()),
             "features": {
                 "race_outcome": [
-                    "grid", "driver_encoded", "constructor_encoded",
-                    "circuit_encoded", "season",
-                    "driver_avg_finish", "constructor_avg_finish",
+                    "grid",
+                    "driver_encoded",
+                    "constructor_encoded",
+                    "circuit_encoded",
+                    "season",
+                    "driver_avg_finish",
+                    "constructor_avg_finish",
                 ]
             },
             "targets": {"race_outcome": "position"},
@@ -303,7 +390,9 @@ def main():
 
     # Unfiltered version — for SC model
     fastf1_unfiltered = preprocess_fastf1_unfiltered(fastf1_raw.copy())
-    fastf1_unfiltered.to_parquet(f"{PROCESSED_DIR}/fastf1_features_unfiltered.parquet", index=False)
+    fastf1_unfiltered.to_parquet(
+        f"{PROCESSED_DIR}/fastf1_features_unfiltered.parquet", index=False
+    )
     print(f"Saved fastf1_features_unfiltered.parquet ({len(fastf1_unfiltered)} rows)")
 
     race_df = preprocess_race_results(race_df)

@@ -39,9 +39,9 @@ DRIVING_MODES: dict[Action, str] = {
     Action.STAY_NEUTRAL: "NEUTRAL",
     Action.STAY_BALANCED: "BALANCED",
     Action.STAY_PUSH: "PUSH",
-    Action.PIT_SOFT: "BALANCED",   # default mode after pitting onto soft
+    Action.PIT_SOFT: "BALANCED",  # default mode after pitting onto soft
     Action.PIT_MEDIUM: "BALANCED",
-    Action.PIT_HARD: "NEUTRAL",    # conserve on hard tires
+    Action.PIT_HARD: "NEUTRAL",  # conserve on hard tires
     Action.PIT_INTER: "NEUTRAL",
 }
 
@@ -71,8 +71,8 @@ class DecodedAction:
     raw: int
     is_pit: bool
     new_compound: Optional[str]  # None if staying out
-    driving_mode: str            # NEUTRAL / BALANCED / PUSH
-    driving_style_int: int       # 0 / 1 / 2
+    driving_mode: str  # NEUTRAL / BALANCED / PUSH
+    driving_style_int: int  # 0 / 1 / 2
 
 
 def decode(action: int) -> DecodedAction:

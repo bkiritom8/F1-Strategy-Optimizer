@@ -64,15 +64,15 @@ class _EnvFactory:
         driver_id,
         driver_profile,
         project,
-        adapters=None,        # used by DummyVecEnv (same process)
-        models_dir=None,      # used by SubprocVecEnv (loaded inside worker)
+        adapters=None,  # used by DummyVecEnv (same process)
+        models_dir=None,  # used by SubprocVecEnv (loaded inside worker)
     ):
-        self.race_ids       = race_ids
-        self.driver_id      = driver_id
+        self.race_ids = race_ids
+        self.driver_id = driver_id
         self.driver_profile = driver_profile
-        self.project        = project
-        self.adapters       = adapters   # may be None for subprocess mode
-        self.models_dir     = models_dir # path to local models/ dir
+        self.project = project
+        self.adapters = adapters  # may be None for subprocess mode
+        self.models_dir = models_dir  # path to local models/ dir
 
     def __call__(self):
         from stable_baselines3.common.monitor import Monitor
@@ -82,40 +82,42 @@ class _EnvFactory:
         if adapters is None and self.models_dir:
             try:
                 from ml.rl.model_adapters import load_local_adapters
+
                 adapters = load_local_adapters(self.models_dir)
             except Exception:
                 adapters = {}
 
         env = F1RaceEnv(
-            race_ids       = self.race_ids,
-            driver_id      = self.driver_id,
-            driver_profile = self.driver_profile,
-            adapters       = adapters or {},
-            project        = self.project,
+            race_ids=self.race_ids,
+            driver_id=self.driver_id,
+            driver_profile=self.driver_profile,
+            adapters=adapters or {},
+            project=self.project,
         )
         return Monitor(env)
 
-PROJECT_ID    = os.environ.get("PROJECT_ID", "f1optimizer")
+
+PROJECT_ID = os.environ.get("PROJECT_ID", "f1optimizer")
 MODELS_BUCKET = os.environ.get("MODELS_BUCKET", "gs://f1optimizer-models")
 
 # PPO hyperparameters — tuned for F1 discrete strategy (58-lap episodes)
 # Note: CPU is faster than GPU here — MLP with 29-dim obs is too small for
 # CUDA launch overhead to be worthwhile; env stepping is the bottleneck.
 _PPO_KWARGS: dict[str, Any] = {
-    "policy":         "MlpPolicy",
-    "learning_rate":  3e-4,
-    "n_steps":        2048,       # rollout length per env before each update
-    "batch_size":     64,
-    "n_epochs":       10,
-    "gamma":          0.99,       # discount: 1 lap ≈ 1 step → long horizon matters
-    "gae_lambda":     0.95,
-    "clip_range":     0.2,
-    "ent_coef":       0.01,       # entropy bonus encourages exploration of compounds
-    "vf_coef":        0.5,
-    "max_grad_norm":  0.5,
-    "verbose":        1,
-    "device":         "cpu",      # MLP policy trains faster on CPU than GPU
-    "policy_kwargs":  {"net_arch": [256, 256]},
+    "policy": "MlpPolicy",
+    "learning_rate": 3e-4,
+    "n_steps": 2048,  # rollout length per env before each update
+    "batch_size": 64,
+    "n_epochs": 10,
+    "gamma": 0.99,  # discount: 1 lap ≈ 1 step → long horizon matters
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "ent_coef": 0.01,  # entropy bonus encourages exploration of compounds
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "verbose": 1,
+    "device": "cpu",  # MLP policy trains faster on CPU than GPU
+    "policy_kwargs": {"net_arch": [256, 256]},
 }
 
 
@@ -140,9 +142,9 @@ class F1StrategyAgent:
         project: str = PROJECT_ID,
     ) -> None:
         self._driver_profile = driver_profile or {}
-        self._adapters       = adapters or {}
-        self._project        = project
-        self._ppo:           Optional[PPO]          = None
+        self._adapters = adapters or {}
+        self._project = project
+        self._ppo: Optional[PPO] = None
         self._vec_normalize: Optional[VecNormalize] = None
 
     # ── Training ──────────────────────────────────────────────────────────────
@@ -182,10 +184,10 @@ class F1StrategyAgent:
         # SubprocVecEnv (separate processes) → pass models_dir so each worker
         # loads its own copy, avoiding pickling ~100 MB of model objects.
         if n_envs == 1:
-            vec_cls      = DummyVecEnv
-            factory_kw   = {"adapters": self._adapters}
+            vec_cls = DummyVecEnv
+            factory_kw = {"adapters": self._adapters}
         else:
-            vec_cls      = SubprocVecEnv
+            vec_cls = SubprocVecEnv
             if models_dir is not None:
                 # Normal mode: each worker loads its own adapters from disk
                 factory_kw = {"models_dir": models_dir}
@@ -194,10 +196,10 @@ class F1StrategyAgent:
                 factory_kw = {"adapters": {}}
 
         train_factory = _EnvFactory(
-            race_ids       = race_ids,
-            driver_id      = driver_id,
-            driver_profile = self._driver_profile,
-            project        = self._project,
+            race_ids=race_ids,
+            driver_id=driver_id,
+            driver_profile=self._driver_profile,
+            project=self._project,
             **factory_kw,
         )
 
@@ -219,22 +221,22 @@ class F1StrategyAgent:
         if eval_race_ids:
             # Eval always uses DummyVecEnv (n_envs=1) with loaded adapters
             eval_factory = _EnvFactory(
-                race_ids       = eval_race_ids,
-                driver_id      = driver_id,
-                driver_profile = self._driver_profile,
-                project        = self._project,
-                adapters       = self._adapters,
+                race_ids=eval_race_ids,
+                driver_id=driver_id,
+                driver_profile=self._driver_profile,
+                project=self._project,
+                adapters=self._adapters,
             )
             eval_vec = make_vec_env(eval_factory, n_envs=1, vec_env_cls=DummyVecEnv)
             # Share obs running stats from training env so evaluation is comparable
             eval_env = VecNormalize(
                 eval_vec,
                 norm_obs=True,
-                norm_reward=False,   # don't normalise eval rewards
+                norm_reward=False,  # don't normalise eval rewards
                 training=False,
             )
-            eval_env.obs_rms  = self._vec_normalize.obs_rms
-            eval_env.ret_rms  = self._vec_normalize.ret_rms
+            eval_env.obs_rms = self._vec_normalize.obs_rms
+            eval_env.ret_rms = self._vec_normalize.ret_rms
             callbacks.append(
                 EvalCallback(
                     eval_env,
@@ -257,9 +259,9 @@ class F1StrategyAgent:
 
         return {
             "total_timesteps": total_timesteps,
-            "n_train_races":   len(race_ids),
-            "n_eval_races":    len(eval_race_ids) if eval_race_ids else 0,
-            "checkpoint_dir":  checkpoint_dir,
+            "n_train_races": len(race_ids),
+            "n_eval_races": len(eval_race_ids) if eval_race_ids else 0,
+            "checkpoint_dir": checkpoint_dir,
         }
 
     # ── Inference ─────────────────────────────────────────────────────────────
