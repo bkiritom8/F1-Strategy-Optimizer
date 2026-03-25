@@ -7,13 +7,14 @@
 import React from 'react';
 import { COLORS } from '../constants';
 import { Activity, Shield, Cpu, Database, Info, Server, Zap } from 'lucide-react';
-import { useSystemHealth, useModelStatus, useBackendStatus } from '../hooks/useApi';
+import { useSystemHealth, useModelStatus, useBackendStatus, usePipelineReports } from '../hooks/useApi';
 import ConnectionBadge from '../components/ConnectionBadge';
 
 const SystemMonitoringHealth: React.FC = () => {
   const { data: sysHealth, isLive: sysLive } = useSystemHealth();
   const { data: modelStatus, isLive: modelLive } = useModelStatus();
   const { online, latency } = useBackendStatus();
+  const { data: pipelineReports } = usePipelineReports() as { data: any };
 
   const isLive = sysLive || modelLive;
 
@@ -151,10 +152,77 @@ const SystemMonitoringHealth: React.FC = () => {
           <PipelineRow label="Airflow DAG (f1_data_pipeline)" status={online ? 'active' : 'offline'} lag={online ? '4ms' : 'N/A'} />
           <PipelineRow label="GCS Parquet Sync (10 files)" status={online ? 'active' : 'offline'} lag={online ? '2.1s' : 'N/A'} />
           <PipelineRow label="Feature Generation (FeaturePipeline)" status={pipelineStatus === 'loaded' ? 'active' : 'idle'} lag={pipelineStatus === 'loaded' ? '120ms' : 'not started'} />
-          <PipelineRow label="Anomaly Detection" status={online ? 'active' : 'offline'} lag={online ? '0 critical' : 'N/A'} />
-          <PipelineRow label="Bias Analysis" status={online ? 'active' : 'offline'} lag={online ? '6 slices' : 'N/A'} />
+          <PipelineRow label="Anomaly Detection" status={pipelineReports ? 'active' : 'offline'} lag={pipelineReports ? `${pipelineReports.anomaly.critical} critical` : 'N/A'} />
+          <PipelineRow label="Bias Analysis" status={pipelineReports ? 'active' : 'offline'} lag={pipelineReports ? `${Object.keys(pipelineReports.bias.slices).length} slices` : 'N/A'} />
         </div>
       </div>
+
+      {/* Pipeline Reports Data */}
+      {pipelineReports && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Anomaly Report */}
+          <div className="rounded-2xl p-8 border shadow-xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+            <h3 className="text-sm font-display font-bold uppercase tracking-widest text-gray-400 mb-6">Pipeline Anomalies</h3>
+            <div className="flex gap-4 mb-6">
+              <div className="flex-1 p-4 rounded-xl border bg-black/20 border-white/5">
+                <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Total</div>
+                <div className="text-2xl font-mono text-white">{pipelineReports.anomaly.total}</div>
+              </div>
+              <div className="flex-1 p-4 rounded-xl border bg-black/20 border-white/5">
+                <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Critical</div>
+                <div className="text-2xl font-mono text-red-500">{pipelineReports.anomaly.critical}</div>
+              </div>
+              <div className="flex-1 p-4 rounded-xl border bg-black/20 border-white/5">
+                <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Warnings</div>
+                <div className="text-2xl font-mono text-yellow-500">{pipelineReports.anomaly.warnings}</div>
+              </div>
+            </div>
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              {pipelineReports.anomaly.items.map((item: any, idx: number) => (
+                <div key={idx} className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="font-bold text-xs uppercase" style={{ color: item.severity === 'critical' ? 'var(--accent-red)' : 'var(--accent-yellow)' }}>
+                      {item.feature || item.type || 'Unknown'}
+                    </span>
+                    <span className="text-[9px] text-gray-500 font-mono">Row {item.row_index}</span>
+                  </div>
+                  <span className="text-sm text-gray-300">{item.reason || item.description || JSON.stringify(item)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bias Analysis */}
+          <div className="rounded-2xl p-8 border shadow-xl flex flex-col" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-sm font-display font-bold uppercase tracking-widest text-gray-400">Bias Analysis Slices</h3>
+              <span className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">{pipelineReports.bias.totalRows} Rows</span>
+            </div>
+            <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              {Object.entries(pipelineReports.bias.slices).map(([sliceName, data]: [string, any]) => {
+                const totalInSlice = Object.values(data).reduce((a: any, b: any) => a + b, 0) as number;
+                return (
+                  <div key={sliceName} className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-3">{sliceName}</div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      {Object.entries(data).sort((a: any, b: any) => b[1] - a[1]).map(([key, count]: [string, any]) => {
+                        const bgPercent = (count / totalInSlice) * 100;
+                        return (
+                          <div key={key} className="relative overflow-hidden rounded p-1.5 flex justify-between items-center z-10 border border-white/5 bg-black/10">
+                            <div className="absolute left-0 top-0 bottom-0 bg-blue-500/10 -z-10" style={{ width: `${bgPercent}%` }} />
+                            <span className="text-[11px] text-gray-300 w-20 truncate" title={key}>{key}</span>
+                            <span className="text-[10px] font-mono text-gray-400">{bgPercent.toFixed(1)}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

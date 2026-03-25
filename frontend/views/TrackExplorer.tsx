@@ -16,11 +16,11 @@ const TrackExplorer: React.FC<TrackExplorerProps> = ({ theme = 'dark' }) => {
     const [selectedTrack, setSelectedTrack] = useState<TrackInfo | null>(null);
 
     return (
-        <div className="flex h-full overflow-hidden">
+        <div className="flex h-full overflow-hidden relative">
             {/* Left Pane: Track Gallery */}
-            <div className={`flex-1 p-6 overflow-y-auto ${selectedTrack ? 'xl:w-2/3' : 'w-full'} transition-all duration-300`}>
-                <div className="mb-6 border-b pb-4" style={{ borderColor: 'var(--border-color)' }}>
-                    <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">
+            <div className={`flex-1 p-4 md:p-6 overflow-y-auto ${selectedTrack ? 'hidden xl:block xl:w-2/3' : 'w-full'} transition-all duration-300`}>
+                <div className="mb-4 md:mb-6 border-b pb-4" style={{ borderColor: 'var(--border-color)' }}>
+                    <h1 className="text-3xl md:text-4xl font-display font-black tracking-tighter uppercase italic text-gray-900 dark:text-white">
                         Circuit Directory
                     </h1>
                     <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mt-2">
@@ -38,7 +38,7 @@ const TrackExplorer: React.FC<TrackExplorerProps> = ({ theme = 'dark' }) => {
 
             {/* Right Pane: Track Details (Slide In) */}
             {selectedTrack && (
-                <div className="w-full xl:w-1/3 border-l overflow-y-auto p-6 bg-black/20 backdrop-blur-md transition-all duration-300 transform translate-x-0" style={{ borderColor: 'var(--border-color)' }}>
+                <div className="absolute inset-0 xl:static xl:w-1/3 border-l overflow-y-auto p-4 md:p-6 bg-white/95 dark:bg-black/80 xl:bg-white/50 xl:dark:bg-black/20 backdrop-blur-xl z-20 xl:z-auto transition-all duration-300" style={{ borderColor: 'var(--border-color)' }}>
                     <div className="sticky top-0">
                         <TrackDetailCard
                             trackId={selectedTrack.id}

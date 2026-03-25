@@ -58,6 +58,39 @@ const TrackItem = memo(({ track, isSelected, onSelect, theme, showDetails }: Tra
         zIndex: isHovered || isSelected ? 10 : 1,
       }}
     >
+      {/* No-data badge for speculative / future circuits */}
+      {!track.hasLiveData && (
+        <div
+          title={track.statusNote ?? 'No FastF1 telemetry data available for this circuit.'}
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            backgroundColor: 'rgba(251, 191, 36, 0.15)',
+            border: '1px solid rgba(251, 191, 36, 0.5)',
+            borderRadius: '6px',
+            padding: '3px 7px',
+            fontSize: '10px',
+            fontWeight: 700,
+            color: '#FBBF24',
+            textTransform: 'uppercase',
+            letterSpacing: '0.4px',
+            cursor: 'help',
+            zIndex: 5,
+          }}
+          aria-label={`No telemetry: ${track.statusNote ?? ''}`}
+          data-testid="no-data-badge"
+        >
+          <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          </svg>
+          Approx. Layout
+        </div>
+      )}
+
       {/* Track SVG */}
       <div
         style={{
@@ -76,6 +109,7 @@ const TrackItem = memo(({ track, isSelected, onSelect, theme, showDetails }: Tra
           strokeColor={isSelected ? COLORS.accent.red : isHovered ? COLORS.accent.green : textColor}
           strokeWidth={2.5}
           showStartFinish={true}
+          animated={isHovered || isSelected}
         />
       </div>
 
@@ -160,12 +194,6 @@ export const TrackGallery: React.FC<TrackGalleryProps> = ({
   showDetails = true,
   theme = 'dark',
 }) => {
-  const gridCols = {
-    2: 'repeat(2, 1fr)',
-    3: 'repeat(3, 1fr)',
-    4: 'repeat(4, 1fr)',
-  };
-
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -179,12 +207,11 @@ export const TrackGallery: React.FC<TrackGalleryProps> = ({
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: gridCols[columns],
-        gap: '16px',
-        padding: '16px',
-      }}
+      className={`grid gap-4 p-4 ${
+        columns === 2 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-2' : 
+        columns === 3 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 
+        'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
+      }`}
     >
       {TRACK_REGISTRY.map((track) => (
         <TrackItem
