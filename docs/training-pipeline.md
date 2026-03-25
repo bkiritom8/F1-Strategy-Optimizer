@@ -10,10 +10,11 @@ lives in `ml/`.
 
 **Key Principles**:
 - All training runs on Vertex AI — no local execution
-- Reads processed Parquet data from GCS (`gs://f1optimizer-data-lake/processed/`)
-- Writes artifacts to GCS (`gs://f1optimizer-training/`)
-- Promoted models go to `gs://f1optimizer-models/`
+- Reads features from GCS (`gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet`)
+- Each training script uploads its `.pkl` artifact to `gs://f1optimizer-models/{model_name}/model.pkl`
+- Cloud Build registers artifacts in Vertex AI Model Registry after training completes
 - All jobs use `ml:latest` Docker image from Artifact Registry
+- Vertex AI Experiments tracked under experiment name `f1-strategy-models`; all runs use `resume=True`
 
 ---
 
@@ -230,12 +231,19 @@ gs://f1optimizer-training/
 └── pipeline-runs/                        # KFP pipeline artifacts
 
 gs://f1optimizer-models/                  # Promoted (production) models
-├── strategy_predictor/
-│   └── latest/
-│       └── model.pkl
-└── pit_stop_optimizer/
-    └── latest/
-        └── model.h5
+├── tire_degradation/
+│   └── model.pkl
+├── driving_style/
+│   └── model.pkl
+├── safety_car/
+│   └── model.pkl
+├── pit_window/
+│   └── model.pkl
+├── overtake_prob/
+│   └── model.pkl
+├── race_outcome/
+│   └── model.pkl
+└── champion_metrics.json                 # Rollback baseline metrics
 ```
 
 ---

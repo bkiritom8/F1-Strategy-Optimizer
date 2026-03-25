@@ -337,6 +337,44 @@ Removed Cloud SQL and Workbench from the project entirely, uploaded all F1 data 
 
 **Blockers**: None
 
+## Session 2026-03-25 - Cloud Build Pipeline Stabilisation
+
+**Date**: 2026-03-25
+**Branch**: pipeline
+
+**Summary**:
+Full Cloud Build pipeline debugged end-to-end: diagnosed Vertex AI training failures, YAML parse errors, step image issues, missing GCS model artifacts, and build timeouts. Pipeline now reaches the model registry step successfully.
+
+**Completed**:
+- [x] Fixed `aiplatform.start_run` failing with gRPC ALREADY_EXISTS — added `resume=True` to all 6 training scripts (`tire_degradation`, `driving_style`, `safety_car`, `pit_window`, `overtake_prob`, `race_outcome`)
+- [x] Fixed YAML block scalar parse error — inline Python heredocs at 0-indentation broke YAML's block scalar indent level; moved all 4 Python scripts to `cloudbuild/` directory
+- [x] Fixed Cloud Build step image issues — switched `push-models-registry` and `rollback-check` from `cloud-sdk:slim` (no `pip`, PEP 668) to `python:3.10-slim`
+- [x] Fixed `rollback.py` — replaced `gsutil` subprocess calls with `google-cloud-storage` Python client (gsutil not present in `python:3.10-slim`)
+- [x] Fixed missing GCS model artifacts — all 6 training scripts now upload `.pkl` to `gs://f1optimizer-models/{model_name}/model.pkl` after training
+- [x] Fixed build timeout — default 60-min Cloud Build triggered-build timeout was too short for the full pipeline (~90 min); set `timeout: "14400s"` (4 hours)
+- [x] Diagnosed "no logs" as a regional issue — all triggered builds run in `us-central1`; global `gcloud builds list` misses them; correct command is `gcloud builds list --region=us-central1`
+- [x] Updated `docs/training-pipeline.md` GCS artifact paths to reflect actual model storage layout
+
+**Key Decisions**:
+1. **`cloudbuild/` scripts**: Python logic for validate/bias/registry/rollback steps now lives as real files; eliminates all YAML heredoc indentation issues
+2. **`resume=True` on start_run**: Allows re-running the pipeline without manually deleting Vertex AI Experiment runs
+3. **4-hour timeout**: Training (~45 min) + registry LROs (~30 min) + buffer; previous 20-min timeout was always wrong
+
+**Files Changed**:
+- `ml/training/train_*.py` (6 files) — `resume=True`, GCS model upload
+- `cloudbuild/validate_models.py`, `check_bias.py`, `push_registry.py`, `rollback.py` — new
+- `cloudbuild.yaml` — `python:3.10-slim` for all Python steps, 4-hour timeout
+- `docs/training-pipeline.md` — correct GCS artifact paths
+
+**Next Steps**:
+1. Confirm full pipeline run succeeds end-to-end (currently running in us-central1)
+2. Implement `predict()` in legacy model wrappers (`strategy_predictor.py`, `pit_stop_optimizer.py`)
+3. Set up monitoring dashboards (last remaining gap)
+
+**Blockers**: None — builds queued, latest code at `b217968`
+
+---
+
 ## Session 2026-03-25 - CI Fixes, Frontend Merge, Docs Refresh
 
 **Date**: 2026-03-25
