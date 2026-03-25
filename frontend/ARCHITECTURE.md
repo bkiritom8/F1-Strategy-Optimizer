@@ -20,10 +20,11 @@ for the Apex Intelligence platform.
 ## 2. Project Structure
 
 ```
-├── api/                         # Backend communication layer
+├── services/                    # Backend communication layer
 │   ├── client.ts                #   JWT auth, token lifecycle, apiFetch()
 │   ├── endpoints.ts             #   Typed endpoint wrappers + transforms
-│   └── index.ts                 #   Barrel exports
+│   ├── index.ts                 #   Barrel exports
+│   └── logger.ts                #   Client-side logging utility
 ├── hooks/                       # React data hooks
 │   └── useApi.ts                #   useDrivers, useRaceState, useBackendStatus, etc.
 ├── components/                  # Reusable UI components

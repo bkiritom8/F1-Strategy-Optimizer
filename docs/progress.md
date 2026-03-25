@@ -337,6 +337,36 @@ Removed Cloud SQL and Workbench from the project entirely, uploaded all F1 data 
 
 **Blockers**: None
 
+## Session 2026-03-25 - CI Fixes, Frontend Merge, Docs Refresh
+
+**Date**: 2026-03-25
+**Branch**: pipeline
+
+**Summary**:
+Fixed Cloud Build CI failures, merged React frontend into pipeline branch, updated all documentation to reflect actual codebase state.
+
+**Completed**:
+- [OK] Fixed Cloud Build invalid image name — `$COMMIT_SHA` was empty when using `gcloud builds submit`; fixed by passing `--substitutions=COMMIT_SHA=...,SHORT_SHA=...` in ci.yml
+- [OK] Fixed Cloud Build no console logs — changed `CLOUD_LOGGING_ONLY` → `LEGACY` + `REGIONAL_USER_OWNED_BUCKET`
+- [OK] Set Cloud Build timeout to 20 minutes (`timeout: "1200s"`)
+- [OK] Merged `frontend/` directory from `origin/frontend` branch (no common ancestor — used `git checkout origin/frontend -- frontend/`)
+- [OK] Updated all docs to reflect actual codebase: 6 supervised models + RL agent, React 19 frontend, $70/month hard cap, correct Docker image matrix (api/ml/ingest, not airflow), correct CI matrix
+- [OK] Fixed `frontend/ARCHITECTURE.md` structure: `api/` → `services/` (actual directory name)
+
+**Key Decisions**:
+1. **REGIONAL_USER_OWNED_BUCKET**: Satisfies Cloud Build constraint (custom SA + LEGACY logging) without hardcoding a bucket name
+2. **Frontend copied not merged**: `origin/frontend` had no common ancestor with `pipeline`; file copy was cleaner than `--allow-unrelated-histories`
+
+**Files Updated**:
+CLAUDE.md, docs/architecture.md, docs/models.md, docs/training-pipeline.md, docs/ml_handoff.md, docs/monitoring.md, docs/metrics.md, docs/team_overview.md, docs/roadmap.md, docs/DEV_SETUP.md, docs/SETUP.md, docs/bias.md, docs/data.md, ml/README.md, frontend/ARCHITECTURE.md, cloudbuild.yaml, .github/workflows/ci.yml
+
+**Next Steps**:
+1. Implement `predict()` in models (currently raises `NotImplementedError`)
+2. Integrate PPO RL agent into FastAPI `/recommend` endpoint
+3. Set up monitoring dashboards (last remaining gap)
+
+**Blockers**: None
+
 ---
 
 **Instructions for Future Sessions**:

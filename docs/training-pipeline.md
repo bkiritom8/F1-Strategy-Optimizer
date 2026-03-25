@@ -1,6 +1,6 @@
 # Distributed Training Pipeline
 
-**Last Updated**: 2026-03-19
+**Last Updated**: 2026-03-25
 
 ## Overview
 
@@ -99,29 +99,43 @@ All components have `retries=2` and log to Cloud Logging.
 
 ## Models
 
-### StrategyPredictor (`ml/models/strategy_predictor.py`)
+Six supervised models and one RL agent are trained and deployed.
 
-XGBoost + LightGBM ensemble for pit strategy prediction.
+### Supervised Models (`ml/training/train_*.py`)
 
-**Input features** (from `ml/features/feature_pipeline.py`):
-- Tire age, tire compound
-- Fuel remaining estimate
-- Lap number, laps remaining
-- Gap to leader, delta to next competitor
-- Circuit characteristics
-- Driver profile embeddings
+Each model has a dedicated training script and a wrapper class in `ml/models/`:
 
-**Outputs**: Pit window recommendation, compound suggestion, confidence score
+| Script | Wrapper | Algorithm |
+|---|---|---|
+| `train_tire_degradation.py` | `tire_degradation_model.py` | XGBoost + LightGBM |
+| `train_driving_style.py` | `driving_style_model.py` | LightGBM + XGBoost |
+| `train_safety_car.py` | `safety_car_model.py` | LightGBM + XGBoost |
+| `train_pit_window.py` | `pit_window_model.py` | XGBoost + LightGBM |
+| `train_overtake_prob.py` | `overtake_prob_model.py` | Random Forest (calibrated) |
+| `train_race_outcome.py` | `race_outcome_model.py` | CatBoost + LightGBM |
 
-### PitStopOptimizer (`ml/models/pit_stop_optimizer.py`)
+Input features come from `ml/preprocessing/preprocess_data.py` → `gs://f1optimizer-data-lake/ml_features/`.
 
-LSTM sequence model for optimal pit stop timing.
+**Train all supervised models:**
+```bash
+for MODEL in tire_degradation driving_style safety_car pit_window overtake_prob race_outcome; do
+  python ml/training/train_${MODEL}.py
+done
+```
 
-**Training**: Uses `tf.distribute.MirroredStrategy` (multi-GPU via `SINGLE_NODE_MULTI_GPU` config)
+### RL Agent (`ml/training/train_rl.py`)
 
-**Input**: 10-lap lookback window of telemetry + race context features
+PPO agent using Stable-Baselines3. Environment: `ml/rl/environment.py` (F1RaceEnv — 29 obs features, 7 actions).
 
-**Outputs**: Probability distribution over next N laps for pit stop
+```bash
+python ml/training/train_rl.py --timesteps 1000000 --n-envs 4
+```
+
+Artifacts saved to `models/rl/final_policy.zip` and `models/rl/final_vec_normalize.pkl`.
+
+### Legacy Wrappers
+
+`ml/models/strategy_predictor.py` (XGBoost+LightGBM) and `ml/models/pit_stop_optimizer.py` (LSTM) are legacy model classes used by the KFP pipeline components. Their `predict()` methods raise `NotImplementedError` — the API falls back to rule-based logic until a full pipeline run promotes them.
 
 ---
 

@@ -401,4 +401,4 @@ export $(grep -v '^#' .env | xargs)
 
 ---
 
-*Last updated: 2026-03-19. See [`docs/ml_handoff.md`](./ml_handoff.md) for infrastructure details and known gaps.*
+*Last updated: 2026-03-25. See [`docs/ml_handoff.md`](./ml_handoff.md) for infrastructure details and known gaps.*

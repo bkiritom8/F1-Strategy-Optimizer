@@ -49,15 +49,46 @@ print(df.shape)
 
 ## Models
 
-| Model | Architecture | Status |
-|---|---|---|
-| `StrategyPredictor` | XGBoost + LightGBM ensemble | Ready for training run |
-| `PitStopOptimizer` | LSTM + MirroredStrategy (multi-GPU) | Ready for training run |
+### Supervised (6 models)
 
-Both models fall back to rule-based logic via the API until a training run completes and
-artifacts are promoted to `gs://f1optimizer-models/`.
+| Model | Algorithm | Test Metric |
+|---|---|---|
+| `tire_degradation_model.py` | XGBoost + LightGBM | MAE=0.285s, R²=0.850 |
+| `driving_style_model.py` | LightGBM + XGBoost | F1=0.800 |
+| `safety_car_model.py` | LightGBM + XGBoost | F1=0.920 |
+| `pit_window_model.py` | XGBoost + LightGBM | MAE=1.116 laps, R²=0.968 |
+| `overtake_prob_model.py` | Random Forest (calibrated) | F1=0.326 |
+| `race_outcome_model.py` | CatBoost + LightGBM | Acc=0.790, F1=0.778 |
+
+Training split: 2018–2021 train, 2022–2023 val, 2024 test.
+
+### RL Agent
+
+`ml/rl/environment.py` — `F1RaceEnv` (Gymnasium, 29 obs features, 7 actions).
+`ml/training/train_rl.py` — PPO via Stable-Baselines3.
+Artifacts: `models/rl/final_policy.zip`, `models/rl/final_vec_normalize.pkl`.
+
+### Legacy KFP Wrappers
+
+`ml/models/strategy_predictor.py` and `ml/models/pit_stop_optimizer.py` are used by the
+KFP pipeline components. Their `predict()` methods raise `NotImplementedError` — the API
+falls back to rule-based logic until a full pipeline run promotes them.
 
 ## Running on GCP
+
+**Train all supervised models individually:**
+
+```bash
+for MODEL in tire_degradation driving_style safety_car pit_window overtake_prob race_outcome; do
+  python ml/training/train_${MODEL}.py
+done
+```
+
+**Train RL agent:**
+
+```bash
+python ml/training/train_rl.py --timesteps 1000000 --n-envs 4
+```
 
 **Submit a GPU training job (individual experiment):**
 
@@ -117,8 +148,9 @@ docker build --platform linux/amd64 \
 
 ## Known Gaps
 
-- `predict()` raises `NotImplementedError` in both models — API uses rule-based fallback until a training run completes
+- `predict()` raises `NotImplementedError` in `strategy_predictor.py` and `pit_stop_optimizer.py` (legacy KFP wrappers) — API uses rule-based fallback
 - `ml/training/distributed_trainer.py` imports `ray` but `ray` is **not** in `docker/requirements-ml.txt` — Ray distributed training is not yet functional
+- PPO RL agent trained but not yet integrated into the FastAPI `/recommend` endpoint
 
 ## See Also
 

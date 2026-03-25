@@ -1,19 +1,64 @@
 # ML Models - Architecture, Training, and Validation
 
-**Last Updated**: 2026-03-19
+**Last Updated**: 2026-03-25
 
 ## Overview
 
-The F1 Strategy Optimizer employs 4 specialized ML models integrated into a unified optimization engine. Each model targets a specific prediction task with domain-appropriate architectures and validation strategies.
+The F1 Strategy Optimizer employs 6 supervised ensemble models plus a PPO reinforcement learning agent. All supervised models are trained on FastF1 data 2018–2025 using a temporal split (train 2018–2021, val 2022–2023, test 2024). Training scripts live in `ml/training/`, model wrappers in `ml/models/`.
 
 ## Model Architecture Summary
 
-| Model | Algorithm | Target | Input Features | Output | Target Accuracy |
-|-------|-----------|--------|----------------|--------|-----------------|
-| **Tire Degradation** | XGBoost | Lap time delta | Tire age, compound, track, fuel, driver profile | Lap time +X ms | MAE <50ms |
-| **Fuel Consumption** | LSTM | Fuel burn rate | Throttle pattern, lap, circuit, driver aggression | kg/lap | RMSE <0.5 kg/lap |
-| **Brake Bias** | Linear Regression | Optimal brake bias | Tire age, fuel load, track, tire temp, driver | Bias % (front) | ±1% error |
-| **Driving Style** | Decision Tree | Driving mode | Gap to leader, lap, fuel, position, driver | PUSH/BALANCED/CONSERVE | ≥75% accuracy |
+| Model | Algorithm | Target | Test Metric |
+|-------|-----------|--------|-------------|
+| **Tire Degradation** | XGBoost + LightGBM | tyre_delta (lap time deviation) | MAE=0.285s, R²=0.850 |
+| **Driving Style** | LightGBM + XGBoost | PUSH / BALANCE / NEUTRAL | F1=0.800 |
+| **Safety Car** | LightGBM + XGBoost | pitted_under_sc (0/1) | F1=0.920 |
+| **Pit Window** | XGBoost + LightGBM | laps_to_pit | MAE=1.116 laps, R²=0.968 |
+| **Overtake Probability** | Random Forest (calibrated) | overtake_success (0/1) | F1=0.326 |
+| **Race Outcome** | CatBoost + LightGBM | Podium / Points / Outside | Acc=0.790, F1=0.778 |
+| **RL Race Strategy** | PPO (Stable-Baselines3) | End-to-end race strategy | `models/rl/final_policy.zip` |
+
+## RL Race Strategy Agent
+
+### Environment
+
+`ml/rl/environment.py` — `F1RaceEnv` (Gymnasium-compliant):
+- **Observation space**: 29 continuous features (lap, position, tire age/compound, fuel, gaps, track state, weather, safety car status)
+- **Action space**: 7 discrete actions (pit compound choices + stay out)
+- **Reward**: Custom multi-objective function in `ml/rl/reward.py` (position gain, tire health, fuel efficiency, pit timing)
+- **Physics**: Backed by supervised model adapters in `ml/rl/model_adapters.py` — falls back to rule-based physics if models unavailable
+
+### Agent
+
+`ml/rl/agent.py` — `F1StrategyAgent` wrapping PPO (Stable-Baselines3):
+
+```bash
+# Train the RL agent (requires GCS auth)
+python ml/training/train_rl.py --timesteps 1000000 --n-envs 4
+
+# Smoke test (no GCS, no models — CI-friendly)
+python ml/training/train_rl.py --smoke-test --no-models --timesteps 2000
+
+# Evaluate saved policy
+python ml/training/train_rl.py --eval-only --policy-path models/rl/final_policy.zip
+```
+
+### Artifacts
+
+```
+models/rl/
+├── final_policy.zip          # PPO policy weights
+└── final_vec_normalize.pkl   # VecNormalize statistics (observation normalization)
+```
+
+### CI
+
+The `rl-smoke-test` and `rl-env-validation` GitHub Actions jobs run on every change to `ml/rl/` or `train_rl.py`. They validate:
+- 2000-step smoke training completes and saves policy
+- Gymnasium `check_env()` API compliance
+- Observation shape matches `STATE_DIM` constant
+
+---
 
 ## Driver Profile Extraction
 

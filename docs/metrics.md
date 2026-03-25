@@ -1,6 +1,6 @@
 # KPIs, Metrics, and Validation
 
-**Last Updated**: 2026-03-19
+**Last Updated**: 2026-03-25
 
 ## Overview
 
@@ -482,16 +482,17 @@ cost_per_prediction = monthly_cost / api_calls
 
 **Cost Breakdown**:
 ```
-Monthly Budget: $200
+Monthly Budget: $70 (hard cap)
 API Calls: 100,000
 
-Cloud SQL: $12 (17%)
-Cloud Run: $20 (10%)
-Dataflow: $150 (75%)
-Vertex AI: $20 (10%)
-Other: $5 (2.5%)
+Vertex AI Training: $20 (29%)
+Cloud Run: $5 (7%)
+GCS: $5 (7%)
+Artifact Registry: $2 (3%)
+Cloud Build: $3 (4%)
+Pub/Sub + Other: $1 (1%)
 
-Cost per prediction: $0.002 (needs optimization)
+Cost per prediction: ~$0.0004 (within target <$0.001)
 ```
 
 ## Validation Cadence
@@ -508,10 +509,10 @@ Cost per prediction: $0.002 (needs optimization)
 **Project is considered successful when**:
 
 [OK] All driver profile metrics meet targets (r >0.7, <5% error, <50ms MAE)
-[OK] All 4 ML models meet accuracy targets
+[OK] All 6 ML models meet accuracy targets (supervised) + RL agent trained
 [OK] Podium accuracy ≥70% and winner accuracy ≥65% on test set
 [OK] API P99 latency <500ms with 99.5% uptime
-[OK] System operates within $250/month budget
+[OK] System operates within $70/month hard cap
 [OK] All monitoring and alerting configured
 [OK] Code coverage ≥80% with passing integration tests
 

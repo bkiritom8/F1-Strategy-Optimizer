@@ -53,4 +53,4 @@ terraform -chdir=infra/terraform apply -var-file=dev.tfvars
 
 ---
 
-*Last Updated: 2026-03-19 — See `DEV_SETUP.md` for complete instructions.*
+*Last Updated: 2026-03-25 — See `DEV_SETUP.md` for complete instructions.*

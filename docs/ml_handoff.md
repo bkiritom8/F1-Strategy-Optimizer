@@ -1,7 +1,7 @@
 # F1 Strategy Optimizer — ML Team Handoff
 
-**Date:** 2026-03-19
-**Status:** ML handoff complete — distributed pipeline, models, tests ready. Data in GCS.
+**Date:** 2026-03-25
+**Status:** Full ML pipeline complete — 6 supervised models + PPO RL agent trained, tested, and deployed.
 **GCP Project:** `f1optimizer` | **Region:** `us-central1`
 
 ---
@@ -18,15 +18,40 @@
 │   ├── progress.py              GCS-backed optimistic locking for concurrent tasks
 │   └── gcs_utils.py             Upload helpers
 ├── ml/                          ← All ML work
+│   ├── preprocessing/           FastF1 + race results feature engineering
+│   │   └── preprocess_data.py   Outputs ml_features/ Parquet to GCS
 │   ├── features/                Feature store + feature pipeline
 │   │   ├── feature_store.py     GCS Parquet → DataFrame (ADC, no hardcoded creds)
 │   │   └── feature_pipeline.py  Tire deg, gap evolution, undercut, fuel, SC prob
-│   ├── models/                  Model definitions
+│   ├── models/                  Model wrapper classes
 │   │   ├── base_model.py        Abstract base: GCS save/load, logging, Pub/Sub
-│   │   ├── strategy_predictor.py  XGBoost + LightGBM ensemble
-│   │   └── pit_stop_optimizer.py  LSTM sequence model (GPU)
-│   ├── training/                Training utilities
-│   │   └── distributed_trainer.py  (note: imports ray — not in requirements-ml.txt)
+│   │   ├── tire_degradation_model.py   XGBoost + LightGBM
+│   │   ├── driving_style_model.py      LightGBM + XGBoost
+│   │   ├── safety_car_model.py         LightGBM + XGBoost
+│   │   ├── pit_window_model.py         XGBoost + LightGBM
+│   │   ├── overtake_prob_model.py      Random Forest (calibrated)
+│   │   ├── race_outcome_model.py       CatBoost + LightGBM
+│   │   ├── strategy_predictor.py  (legacy KFP wrapper — predict() raises NotImplementedError)
+│   │   └── pit_stop_optimizer.py  (legacy KFP wrapper — predict() raises NotImplementedError)
+│   ├── training/                Training entry points
+│   │   ├── train_tire_degradation.py
+│   │   ├── train_driving_style.py
+│   │   ├── train_safety_car.py
+│   │   ├── train_pit_window.py
+│   │   ├── train_overtake_prob.py
+│   │   ├── train_race_outcome.py
+│   │   ├── train_rl.py          PPO RL agent (Stable-Baselines3, Gymnasium)
+│   │   └── distributed_trainer.py  (imports ray — not in requirements-ml.txt)
+│   ├── rl/                      RL infrastructure
+│   │   ├── environment.py       F1RaceEnv (Gymnasium, 29 obs features, 7 actions)
+│   │   ├── agent.py             F1StrategyAgent (PPO wrapper)
+│   │   ├── state.py             State encoder + STATE_DIM constant
+│   │   ├── model_adapters.py    Supervised model adapters for physics sim
+│   │   ├── driver_profiles.py   Driver characteristic profiles
+│   │   ├── reward.py            Multi-objective reward function
+│   │   ├── actions.py           Action space definitions
+│   │   ├── race_runner.py       Episode runner
+│   │   └── strategy_simulator.py  Full-race strategy simulator
 │   ├── distributed/             Distribution strategies + cluster configs
 │   │   ├── cluster_config.py    5 named configs (VERTEX_T4, single-GPU, multi-node, HP, CPU)
 │   │   ├── distribution_strategy.py  DataParallel / ModelParallel / HPParallel
@@ -391,10 +416,11 @@ In order:
 
 | Gap | File | Notes |
 |---|---|---|
-| `predict()` not implemented | `ml/models/strategy_predictor.py`, `ml/models/pit_stop_optimizer.py` | Raises `NotImplementedError` — API falls back to rule-based logic |
+| `predict()` not implemented | `ml/models/strategy_predictor.py`, `ml/models/pit_stop_optimizer.py` | Legacy KFP wrappers raise `NotImplementedError` — API falls back to rule-based logic. The 6 new model wrappers (`ml/models/*_model.py`) are separate. |
 | Ray dependency missing | `ml/training/distributed_trainer.py` | Imports `ray` but `ray` is not in `docker/requirements-ml.txt` |
 | Monitoring dashboards | GCP Console | Cloud Monitoring alerting policies not yet created |
 | SHAP explanations | `ml/models/strategy_predictor.py` | `feature_importance()` exists; SHAP DeepExplainer not yet wired up |
+| RL agent integration | `src/api/main.py` | PPO policy trained but not yet wired into the FastAPI `/recommend` endpoint |
 
 ---
 

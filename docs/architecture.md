@@ -1,6 +1,6 @@
 # System Architecture and Deployment
 
-**Last Updated**: 2026-03-19
+**Last Updated**: 2026-03-25
 
 ## Overview
 
@@ -69,10 +69,28 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │  GitHub push (pipeline branch)                                 │
 │    ├─> GitHub Actions (.github/workflows/ci.yml)              │
 │    │   lint / security / test / integration / docker-build /  │
-│    │   terraform-validate / docs / all-checks-passed          │
-│    └─> Cloud Build (cloudbuild.yaml)                          │
-│         Build api:latest + ml:latest + airflow:latest          │
+│    │   terraform-validate / docs / rl-smoke-test /            │
+│    │   all-checks-passed                                       │
+│    └─> Cloud Build (cloudbuild.yaml) — 20-min timeout         │
+│         Build api:latest + ml:latest + ingest:latest           │
+│         Train 6 Vertex AI Custom Jobs                          │
+│         Validate metrics + bias check + model registry         │
 │         Push → us-central1-docker.pkg.dev/f1optimizer/        │
+└───────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────┐
+│                  FRONTEND LAYER                                │
+├───────────────────────────────────────────────────────────────┤
+│                                                                │
+│  React 19 + TypeScript (frontend/)                            │
+│  Vite 6 · Tailwind CSS · Zustand · Recharts                   │
+│  Deployed on Vercel (SPA, client-side routing)                │
+│                                                                │
+│  Routes:  / (Race Command Center)                             │
+│           /drivers   /strategy   /ai   /circuits              │
+│           /analysis  /admin (password-protected MLOps)        │
+│                                                                │
+│  3-tier fallback: Cloud Run → static JSON → mock constants    │
 └───────────────────────────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────────────────────────┐
@@ -234,20 +252,25 @@ back to rule-based strategy recommendations when promoted models are not yet ava
 
 | Job | What |
 |---|---|
-| `lint` | Ruff, Black, MyPy |
+| `lint` | Black, MyPy |
 | `security` | Bandit + Safety CVE scan |
 | `test` | pytest unit tests + Codecov coverage |
 | `integration-test` | pytest integration tests |
-| `docker-build` | Matrix build: api / ml / airflow |
+| `docker-build` | Matrix build: api / ml / ingest |
 | `terraform-validate` | fmt check, init, validate |
 | `docs` | mkdocs build |
+| `rl-smoke-test` | 2000-step PPO smoke test (path-gated) |
+| `rl-env-validation` | Gymnasium API compliance check |
 | `all-checks-passed` | Gating job |
 
-**Cloud Build** (`cloudbuild.yaml`) — triggered on push to `pipeline`:
-1. Build `api:latest`, `ml:latest`, `airflow:latest` (parallel)
-2. Run Data-Pipeline tests
-3. Validate Airflow DAG import
-4. Push all images to `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/`
+**Cloud Build** (`cloudbuild.yaml`) — triggered on push to `pipeline` (20-min timeout, `LEGACY` logging):
+1. Build `api:latest`, `ml:latest` with `$COMMIT_SHA` + `latest` tags (parallel)
+2. Submit 6 Vertex AI Custom Jobs (`train_<model>.py`), poll until completion
+3. Validate model metrics against thresholds via Vertex AI Experiments
+4. Check bias slice disparity across seasons / circuits / compounds
+5. Push models to Vertex AI Model Registry
+6. Rollback check — compare vs champion metrics in GCS
+7. Push images to `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/`
 
 ### Infrastructure: Terraform
 
@@ -294,6 +317,6 @@ See `team-docs/DEV_SETUP.md` §8 for the full list.
 
 ## Known Gaps
 
-1. `predict()` raises `NotImplementedError` in both models — API falls back to rule-based logic
+1. `predict()` raises `NotImplementedError` in `ml/models/strategy_predictor.py` and `ml/models/pit_stop_optimizer.py` — API falls back to rule-based logic (the 6 new `ml/models/*.py` wrappers are separate)
 2. `ml/training/distributed_trainer.py` imports `ray` but Ray is not in `docker/requirements-ml.txt`
 3. Monitoring dashboards and alerting policies not yet created

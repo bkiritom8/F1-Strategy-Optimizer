@@ -29,7 +29,7 @@ All infrastructure is Terraform-managed in `infra/terraform/`:
 |---|---|---|
 | GCS buckets, Cloud Run, Pub/Sub | `main.tf` | Core infra |
 | Vertex AI IAM + pipeline runs | `vertex_ml.tf` | ML training infra |
-| GCE VM for Airflow | `airflow_vm.tf` | `f1-airflow-vm`, e2-standard-2, COS |
+| GCE VM (Airflow, legacy) | `airflow_vm.tf` | `f1-airflow-vm` — provisioned but not actively used |
 
 ## Docker Images
 
@@ -37,13 +37,13 @@ All infrastructure is Terraform-managed in `infra/terraform/`:
 |---|---|---|
 | `api:latest` | `docker/Dockerfile.api` | Artifact Registry |
 | `ml:latest` | `docker/Dockerfile.ml` | Artifact Registry |
-| `airflow:latest` | `docker/Dockerfile.airflow` | Artifact Registry |
-| `mock-dataflow` | `docker/Dockerfile.mock-dataflow` | Local only |
+| `ingest:latest` | `docker/Dockerfile.ingest` | Artifact Registry |
 
 ## Cross-References
 
 - Architecture → [`docs/architecture.md`](../docs/architecture.md)
 - ML models → [`docs/models.md`](../docs/models.md)
 - Bias analysis → [`docs/bias.md`](../docs/bias.md)
-- Monitoring → [`monitoring/README.md`](../monitoring/README.md)
-- Data pipeline → [`Data-Pipeline/README.md`](../Data-Pipeline/README.md)
+- Monitoring → [`docs/monitoring.md`](../docs/monitoring.md)
+- Training pipeline → [`docs/training-pipeline.md`](../docs/training-pipeline.md)
+- Frontend → [`frontend/README.md`](../frontend/README.md)

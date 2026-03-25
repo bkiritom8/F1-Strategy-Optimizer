@@ -1,6 +1,6 @@
 # Operational Monitoring and Alerting
 
-**Last Updated**: 2026-03-19
+**Last Updated**: 2026-03-25
 
 ## Overview
 
@@ -14,8 +14,8 @@ Production monitoring for the F1 Strategy Optimizer using Google Cloud Monitorin
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                 │
-│  │ FastAPI  │  │ Dataflow │  │Cloud SQL │                 │
-│  │(Cloud Run)│  │Pipeline  │  │  Queries │                 │
+│  │ FastAPI  │  │ Ingest   │  │  GCS     │                 │
+│  │(Cloud Run)│  │Cloud Run │  │ Parquet  │                 │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘                 │
 │       │             │             │                         │
 │       └─────────────┴─────────────┘                         │
@@ -56,11 +56,14 @@ Production monitoring for the F1 Strategy Optimizer using Google Cloud Monitorin
 
 ### 1. Model Performance Metrics
 
-**Metrics**:
-- `f1/model/tire_degradation/mae`: Mean absolute error (target: <50ms)
-- `f1/model/fuel_consumption/rmse`: Root mean square error (target: <0.5 kg/lap)
-- `f1/model/brake_bias/accuracy`: Percentage within ±1% (target: >95%)
-- `f1/model/driving_style/accuracy`: Classification accuracy (target: >75%)
+**Metrics** (logged to Vertex AI Experiments `f1-strategy-models`):
+- `f1/model/tire_degradation/mae`: Mean absolute error (target: <0.35s)
+- `f1/model/tire_degradation/r2`: R² score (target: >0.80)
+- `f1/model/driving_style/f1_macro`: F1 macro (target: >0.75)
+- `f1/model/safety_car/f1_macro`: F1 macro (target: >0.90)
+- `f1/model/pit_window/mae`: Laps MAE (target: <2.0)
+- `f1/model/overtake_prob/f1`: F1 score (target: >0.25)
+- `f1/model/race_outcome/f1_macro`: F1 macro (target: >0.60)
 
 **Collection Method**:
 ```python
@@ -108,12 +111,12 @@ log_model_metric('tire_degradation_mae', mae)
 **Alert Rules**:
 | Metric | Condition | Threshold | Action |
 |--------|-----------|-----------|--------|
-| MAE (Tire) | > | 60ms | Warning: Review model |
-| MAE (Tire) | > | 100ms | Critical: Retrain required |
-| RMSE (Fuel) | > | 0.7 kg/lap | Warning: Monitor |
-| RMSE (Fuel) | > | 1.0 kg/lap | Critical: Retrain required |
-| Accuracy (Brake) | < | 90% | Warning: Check data quality |
-| Accuracy (Style) | < | 70% | Warning: Review classifier |
+| Tire MAE | > | 0.40s | Warning: Review model |
+| Tire MAE | > | 0.60s | Critical: Retrain required |
+| Driving Style F1 | < | 0.70 | Warning: Review classifier |
+| Safety Car F1 | < | 0.85 | Warning: Review classifier |
+| Pit Window MAE | > | 2.5 laps | Warning: Monitor |
+| Race Outcome F1 | < | 0.55 | Critical: Retrain required |
 
 ### 2. API Latency Metrics
 
@@ -166,93 +169,44 @@ async def track_latency(request: Request, call_next):
 ### 3. Data Pipeline Metrics
 
 **Metrics**:
-- `f1/dataflow/lag_seconds`: Delay between telemetry arrival and processing
-- `f1/dataflow/throughput`: Messages processed per second
-- `f1/dataflow/error_rate`: Percentage of failed messages
-- `f1/cloudsql/query_latency`: Cloud SQL query execution time
+- `f1/ingest/task_success`: Ingest Cloud Run task completion rate
+- `f1/ingest/files_uploaded`: Files written to GCS `raw/` per run
+- `f1/pipeline/run_duration`: KFP pipeline end-to-end duration (seconds)
+- `f1/pipeline/step_failure`: Individual KFP step failure count
 
-**Collection Method**:
-```python
-# pipeline/dataflow_job.py
+**Collection Method**: Cloud Logging from ingest workers (structured JSON) and KFP pipeline step logs.
 
-import apache_beam as beam
-
-class MonitoringDoFn(beam.DoFn):
-    def process(self, element):
-        # Calculate lag
-        arrival_time = element['timestamp']
-        processing_time = time.time()
-        lag = processing_time - arrival_time
-
-        # Log to Cloud Monitoring
-        log_metric('dataflow_lag_seconds', lag)
-
-        yield element
-```
-
-**Frequency**: Continuous (streaming pipeline)
+**Frequency**: Per ingest run; KFP pipeline tracked in Vertex AI Pipelines console.
 
 **Alert Rules**:
-| Metric | Condition | Threshold | Duration | Action |
-|--------|-----------|-----------|----------|--------|
-| Lag | > | 60s | 5 min | Alert data team |
-| Lag | > | 300s | 1 min | Critical: Check Dataflow |
-| Error Rate | > | 1% | 10 min | Investigate errors |
-| Error Rate | > | 5% | 1 min | Critical: Pipeline failing |
+| Metric | Condition | Threshold | Action |
+|--------|-----------|-----------|--------|
+| Task failure count | > | 0 | Investigate ingest worker logs |
+| Pipeline step failure | > | 0 | Check Vertex AI Pipelines console |
+| GCS processed files | < | 10 | Warning: Parquet conversion incomplete |
 
 ### 4. Data Quality Metrics
 
 **Metrics**:
-- `f1/data/completeness`: Percentage of non-NULL values
+- `f1/data/completeness`: Percentage of non-NULL values in processed Parquet
 - `f1/data/freshness`: Age of most recent data (hours)
 - `f1/data/outliers`: Percentage of flagged outlier records
 - `f1/data/schema_drift`: Schema changes detected
 
 **Collection Method**:
 ```python
-# data/quality_checks.py
+# src/preprocessing/quality_metrics.py
 
-import psycopg2
-import os
+import pandas as pd
 
-def check_data_quality(table_name: str):
-    """Run data quality checks on Cloud SQL (PostgreSQL) table."""
+def check_data_quality(parquet_path: str) -> dict:
+    """Run data quality checks on GCS Parquet file."""
+    df = pd.read_parquet(parquet_path)
 
-    conn = psycopg2.connect(
-        host=os.environ["DB_HOST"],
-        dbname=os.environ["DB_NAME"],
-        user=os.environ["DB_USER"],
-        password=os.environ["DB_PASSWORD"],
-    )
-    cursor = conn.cursor()
-
-    # Completeness check
-    cursor.execute(
-        f"""
-        SELECT
-            COUNT(CASE WHEN lap_time IS NOT NULL THEN 1 END)::float / NULLIF(COUNT(*), 0) AS completeness
-        FROM {table_name}
-        WHERE DATE(race_date) = CURRENT_DATE
-        """
-    )
-    completeness = cursor.fetchone()[0] or 1.0
+    completeness = df.notna().mean().mean()
     log_metric("data_completeness", completeness)
 
-    # Freshness check
-    cursor.execute(
-        f"""
-        SELECT
-            EXTRACT(EPOCH FROM (NOW() - MAX(ingestion_timestamp))) / 3600 AS age_hours
-        FROM {table_name}
-        """
-    )
-    age_hours = cursor.fetchone()[0] or 0.0
-    log_metric("data_freshness_hours", age_hours)
-
-    cursor.close()
-    conn.close()
-
-    return {"completeness": completeness, "age_hours": age_hours}
+    return {"completeness": completeness, "rows": len(df)}
 ```
 
 **Frequency**: Daily (automated job at 02:00 UTC)
@@ -269,9 +223,9 @@ def check_data_quality(table_name: str):
 ### 5. Cost Metrics
 
 **Metrics**:
-- `f1/cost/cloudsql_daily`: Cloud SQL spend per day
-- `f1/cost/cloud_run_daily`: Cloud Run spend per day
-- `f1/cost/dataflow_daily`: Dataflow spend per day
+- `f1/cost/vertex_ai_daily`: Vertex AI training spend per day
+- `f1/cost/cloud_run_daily`: Cloud Run (API + ingest) spend per day
+- `f1/cost/gcs_daily`: GCS storage spend per day
 - `f1/cost/total_projected`: Projected monthly spend
 
 **Collection Method**:
@@ -300,12 +254,11 @@ def get_daily_costs():
 def estimated_monthly_cost() -> float:
     """Return rough monthly cost estimate based on known resource usage."""
     return (
-        15.0  # Cloud SQL db-f1-micro
-        + 3.0   # Cloud Run (on-demand)
+        20.0  # Vertex AI training jobs
+        + 5.0   # Cloud Run API + ingest workers
         + 2.0   # Artifact Registry
-        + 3.0   # GCS data-lake + models
-        + 2.0   # Cloud Build
-        + 10.0  # Dataflow (race weekends only)
+        + 5.0   # GCS data-lake + models + training
+        + 3.0   # Cloud Build
         + 1.0   # Pub/Sub + Secret Manager
     )
 ```
@@ -347,18 +300,14 @@ async def health_check():
     if models is None:
         return Response(status_code=503, content="Models not loaded")
 
-    # Check Cloud SQL connectivity
+    # Check GCS model bucket reachability
     try:
-        import psycopg2, os
-        conn = psycopg2.connect(
-            host=os.environ["DB_HOST"],
-            dbname=os.environ["DB_NAME"],
-            user=os.environ["DB_USER"],
-            password=os.environ["DB_PASSWORD"],
-        )
-        conn.close()
+        from google.cloud import storage
+        client = storage.Client()
+        bucket = client.bucket("f1optimizer-models")
+        list(bucket.list_blobs(max_results=1))
     except Exception as e:
-        return Response(status_code=503, content=f"Cloud SQL unreachable: {e}")
+        return Response(status_code=503, content=f"GCS unreachable: {e}")
 
     # Check driver profiles loaded
     if not driver_profiles:
@@ -558,14 +507,13 @@ alert_policy:
 **Investigation Steps**:
 1. Check Cloud Run logs for errors or exceptions
 2. Review recent deployments (last 2 hours)
-3. Check Dataflow lag (may be causing feature extraction delay)
-4. Review Cloud SQL query performance (slow queries, lock waits)
-5. Check Monte Carlo simulation time (may need optimization)
+3. Check model loading at startup (GCS latency for `gs://f1optimizer-models/`)
+4. Review feature pipeline processing time
+5. Check rule-based fallback path in `src/api/main.py`
 
 **Immediate Actions**:
-- If deployment caused issue → Rollback to previous version
-- If Monte Carlo slow → Reduce scenarios from 5K to 2K
-- If Cloud SQL slow → Check pg_stat_activity for long-running queries; add index if missing
+- If deployment caused issue → Rollback to previous image tag
+- If GCS model load slow → Pre-warm instances with `min-instances > 0`
 - If Cloud Run overloaded → Manually scale up instances
 
 **Resolution**:
@@ -605,13 +553,13 @@ alert_policy:
 - GCP Billing dashboard shows spike in specific service
 
 **Investigation Steps**:
-1. Identify which service caused spike (Cloud SQL, Dataflow, Cloud Run, Cloud Build)
-2. If Dataflow → Check worker hours and auto-scaling behavior
+1. Identify which service caused spike (Vertex AI training, Cloud Run, Cloud Build, GCS)
+2. If Vertex AI → Check if training jobs are still running (should finish in <20 min per CI run)
 3. If Cloud Run → Review request volume, instance count
 4. If Cloud Build → Check for runaway build triggers
 
 **Immediate Actions**:
-- If Dataflow → Scale down workers during non-race periods (`gcloud dataflow jobs cancel`)
+- If Vertex AI runaway → Cancel training jobs: `gcloud ai custom-jobs cancel JOB_ID --region=us-central1`
 - If Cloud Run → Reduce max instances (`terraform apply` with lower `api_max_instances`)
 - If Cloud Build → Disable the trigger temporarily in GCP Console
 
