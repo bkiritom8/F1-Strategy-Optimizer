@@ -288,7 +288,7 @@ images:
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
 
 options:
-  logging: CLOUD_LOGGING_ONLY
+  logging: LEGACY
   machineType: "E2_HIGHCPU_8"
 
 timeout: "10800s"
