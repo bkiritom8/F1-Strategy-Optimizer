@@ -258,6 +258,7 @@ F1_Pipeline_Submission.docx
 
 # Local data caches (use GCS instead)
 f1_cache/
+fastf1_cache/
 f1_telemetry/
 raw/
 raw.zip
