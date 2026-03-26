@@ -1,0 +1,12 @@
+google-cloud-aiplatform>=1.38.0
+google-cloud-storage>=2.10.0
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-google-vertexai>=1.0.0
+vertexai>=1.0.0
+pandas>=2.0.0
+pyarrow>=14.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+fastapi>=0.100.0
+uvicorn>=0.20.0

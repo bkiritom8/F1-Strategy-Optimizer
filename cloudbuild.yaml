@@ -95,10 +95,26 @@ steps:
         pip install --quiet google-cloud-aiplatform
         python /workspace/cloudbuild/check_bias.py
 
+  # ── RAG unit tests ────────────────────────────────────────────────────────────
+  - name: 'python:3.10-slim'
+    id: 'test-rag'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install -r docker/requirements-rag.txt -q
+        pip install pytest pytest-cov -q
+        PYTHONPATH=. pytest tests/unit/rag/ -v \
+          --cov=rag \
+          --cov-report=term-missing \
+          --cov-fail-under=60
+    env:
+      - 'PYTHONPATH=.'
+
   # ── Push models to Vertex AI Model Registry ──────────────────────────────────
   - name: "python:3.10-slim"
     id: "push-models-registry"
-    waitFor: ["check-bias"]
+    waitFor: ["check-bias", "test-rag"]
     entrypoint: "bash"
     args:
       - "-c"
