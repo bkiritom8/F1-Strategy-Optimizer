@@ -2,7 +2,7 @@ from google.cloud import aiplatform
 from google.cloud import storage
 from google.cloud.exceptions import NotFound
 from google.cloud.aiplatform.compat.types import matching_engine_index as gca_index
-from langchain.schema import Document
+from langchain_core.documents import Document
 import uuid
 import json
 import logging

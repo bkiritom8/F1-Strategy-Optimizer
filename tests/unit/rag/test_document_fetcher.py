@@ -2,8 +2,8 @@ import logging
 import pytest
 from unittest.mock import MagicMock, patch
 
-pytest.importorskip("langchain")
-from langchain.schema import Document
+pytest.importorskip("langchain_core")
+from langchain_core.documents import Document
 
 
 # ---------------------------------------------------------------------------

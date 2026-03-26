@@ -1,7 +1,7 @@
 import re
 import logging
 import requests
-from langchain.schema import Document
+from langchain_core.documents import Document
 from google.cloud import storage
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,6 @@
 import vertexai  # noqa: F401 — callers must call vertexai.init(project, location) before use
 from vertexai.language_models import TextEmbeddingModel
-from langchain.schema import Document
+from langchain_core.documents import Document
 import time
 import logging
 

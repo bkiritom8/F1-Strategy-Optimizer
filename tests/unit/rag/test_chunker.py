@@ -3,8 +3,8 @@ import pytest
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-pytest.importorskip("langchain")
-from langchain.schema import Document
+pytest.importorskip("langchain_core")
+from langchain_core.documents import Document
 
 
 def _make_gcs_client(df: pd.DataFrame, format: str = "parquet"):

@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch, call
 
-pytest.importorskip("langchain")
-from langchain.schema import Document
+pytest.importorskip("langchain_core")
+from langchain_core.documents import Document
 
 
 def _make_mock_model(dim: int = 768):

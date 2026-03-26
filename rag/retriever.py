@@ -1,5 +1,5 @@
 from vertexai.generative_models import GenerativeModel
-from langchain.schema import Document
+from langchain_core.documents import Document
 from rag.config import RagConfig
 from rag import embedder, vector_store
 import vertexai
