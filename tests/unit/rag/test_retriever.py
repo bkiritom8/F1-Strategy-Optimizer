@@ -1,5 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
+
+pytest.importorskip("langchain")
 from langchain.schema import Document
 
 

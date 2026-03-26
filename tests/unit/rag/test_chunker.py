@@ -2,6 +2,8 @@ import io
 import pytest
 import pandas as pd
 from unittest.mock import MagicMock, patch
+
+pytest.importorskip("langchain")
 from langchain.schema import Document
 
 

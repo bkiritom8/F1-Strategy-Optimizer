@@ -1,9 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from rag.retriever import F1Retriever
 from src.security.https_middleware import get_current_user
 from src.security.iam_simulator import iam_simulator, Permission
 import logging
+
+if TYPE_CHECKING:
+    from rag.retriever import F1Retriever
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +23,8 @@ def get_retriever() -> F1Retriever:
     """Return singleton F1Retriever, creating it on first call."""
     global _retriever
     if _retriever is None:
+        from rag.retriever import F1Retriever
+
         _retriever = F1Retriever()
     return _retriever
 
@@ -41,7 +49,7 @@ class QueryResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: str          # "ready" | "not_configured"
+    status: str  # "ready" | "not_configured"
     index_configured: bool
     endpoint_configured: bool
     model: str
@@ -63,11 +71,16 @@ async def query_rag(request: QueryRequest, current_user=Depends(get_current_user
             detail="RAG index not configured",
         )
 
-    result = retriever.query(request.query, filters=request.filters, top_k=request.top_k)
+    result = retriever.query(
+        request.query, filters=request.filters, top_k=request.top_k
+    )
 
     return QueryResponse(
         answer=result["answer"],
-        sources=[SourceDoc(content=s["content"], metadata=s["metadata"]) for s in result["sources"]],
+        sources=[
+            SourceDoc(content=s["content"], metadata=s["metadata"])
+            for s in result["sources"]
+        ],
         query=result["query"],
         num_sources=result["num_sources"],
         latency_ms=result["latency_ms"],
@@ -85,7 +98,9 @@ async def rag_health():
         config = retriever.config
         index_configured = bool(config.VECTOR_SEARCH_INDEX_ID)
         endpoint_configured = bool(config.VECTOR_SEARCH_ENDPOINT_ID)
-        rag_status = "ready" if (index_configured and endpoint_configured) else "not_configured"
+        rag_status = (
+            "ready" if (index_configured and endpoint_configured) else "not_configured"
+        )
         model = config.LLM_MODEL
     except Exception:
         index_configured = False

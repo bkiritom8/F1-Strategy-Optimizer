@@ -29,8 +29,19 @@ if __name__ == "__main__":
         # Step 3: Load all documents from GCS
         logger.info(f"[{datetime.utcnow().isoformat()}] Step 3: Loading documents from GCS")
         from rag.chunker import load_all_documents
-        documents = load_all_documents(config.GCS_DATA_BUCKET)
-        logger.info(f"Loaded {len(documents)} documents from GCS")
+        gcs_documents = load_all_documents(config.GCS_DATA_BUCKET)
+        logger.info(f"Loaded {len(gcs_documents)} documents from GCS")
+
+        # Load text documents (regulations, circuit guides)
+        from rag.document_fetcher import fetch_all_text_documents
+        text_docs = fetch_all_text_documents(
+            bucket=config.GCS_DATA_BUCKET,
+            force_refresh=False,
+        )
+        logger.info(f"Loaded {len(text_docs)} text documents")
+        all_documents = gcs_documents + text_docs
+        logger.info(f"Total documents: {len(all_documents)}")
+        documents = all_documents
 
         # Step 4: Embed all documents
         logger.info(f"[{datetime.utcnow().isoformat()}] Step 4: Generating embeddings")
