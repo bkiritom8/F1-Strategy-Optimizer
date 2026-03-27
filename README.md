@@ -10,9 +10,10 @@ driving mode, and overtake decisions. Driver-aware recommendations using 76 year
 - **Ingest**: Cloud Run Jobs — 9 parallel tasks, one per year/epoch (`ingest/`)
 - **Storage**: GCS — 51 raw files (6.0 GB CSV) + processed Parquet files (1.0 GB)
 - **ML**: 6 XGBoost/LightGBM/CatBoost ensemble models + PPO reinforcement learning agent
+- **RAG**: Natural-language Q&A over 76 years of F1 data — `rag/` (Vertex AI Vector Search + Gemini 1.5 Flash)
 - **Training**: Vertex AI Custom Jobs + KFP Pipeline (5-step DAG) + Cloud Build CI/CD
-- **Serving**: FastAPI on Cloud Run (<500ms P99)
-- **CI/CD**: GitHub Actions (lint, test, docker, terraform) + Cloud Build on `pipeline` branch
+- **Serving**: FastAPI on Cloud Run (<500ms P99) — `/recommend`, `/rag/query`, `/rag/health`
+- **CI/CD**: GitHub Actions (lint, test, docker, terraform) + Cloud Build on `pipeline` branch (includes RAG test gate)
 
 ## Quick Start
 
@@ -138,6 +139,14 @@ models/                  Saved model artifacts (.pkl bundles)
   rl/
     final_policy.zip     PPO policy
     final_vec_normalize.pkl  VecNormalize statistics
+rag/                     RAG pipeline
+  config.py              RagConfig (env vars + defaults)
+  chunker.py             GCS Parquet/CSV rows → LangChain Documents
+  document_fetcher.py    FIA regulations + circuit guides → Documents
+  embedder.py            Vertex AI text-embedding-004 (768-dim)
+  vector_store.py        Vertex AI Vector Search upsert/query + GCS metadata
+  retriever.py           F1Retriever: top-k retrieval + Gemini generation
+  ingestion_job.py       One-shot ingestion entry point (run manually)
 pipeline/                Data management utilities
   scripts/               csv_to_parquet.py, backfill_data.py, verify_upload.py
   simulator/             Race simulator
@@ -272,7 +281,17 @@ python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --dry-ru
 ```bash
 curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/health
 curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/docs
+
+# RAG natural-language query
+curl -X POST https://f1-strategy-api-dev-694267183904.us-central1.run.app/rag/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What was Hamilton'\''s average lap time at Monaco 2019?", "filters": {"season": 2019}}'
+
+# RAG configuration status
+curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/rag/health
 ```
+
+See [`docs/rag.md`](docs/rag.md) for RAG setup, environment variables, and first-time ingestion steps.
 
 ## Bias Detection & Mitigation
 
@@ -310,6 +329,6 @@ Internal team docs are in [`team-docs/`](./team-docs/).
 
 ---
 
-**Status**: ML pipeline complete — 6 supervised models + RL agent trained, tested, and deployed.
-**Last Updated**: 2026-03-24
-**Branch**: `main` (stable) | `pipeline` (CI/CD) | `ml-models` (ML development)
+**Status**: ML pipeline complete — 6 supervised models + RL agent trained, tested, and deployed. RAG pipeline added (chunker → embedder → Vector Search → Gemini).
+**Last Updated**: 2026-03-26
+**Branch**: `main` (stable) | `pipeline` (CI/CD) | `ml-dev` (ML development)

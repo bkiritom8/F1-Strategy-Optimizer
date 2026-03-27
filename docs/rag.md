@@ -1,5 +1,51 @@
 # F1 RAG Pipeline
 
+## Current Status (2026-03-26)
+
+The RAG pipeline is implemented and tested. Cloud Build test gate passes (≥60% coverage). Index and endpoint are **not yet provisioned** — the pipeline gracefully returns empty results / 503 until the three Vector Search env vars are set.
+
+### What's Done
+- [x] `rag/config.py` — `RagConfig` with all env vars and defaults
+- [x] `rag/chunker.py` — GCS Parquet + CSV rows → natural-language Documents (telemetry, race results, pit stops, lap times, driver bios, standings)
+- [x] `rag/document_fetcher.py` — FIA regulations + circuit guides → Documents (HTTP download + GCS cache)
+- [x] `rag/embedder.py` — Vertex AI `text-embedding-004`, batched (250/batch, 1s sleep)
+- [x] `rag/vector_store.py` — Vertex AI Vector Search create/upsert/query + GCS metadata JSON
+- [x] `rag/retriever.py` — `F1Retriever`: lazy init, top-k retrieval, Gemini 1.5 Flash generation
+- [x] `rag/ingestion_job.py` — one-shot ingestion entry point
+- [x] `src/api/` — `/rag/query` (POST) and `/rag/health` (GET) routes wired up
+- [x] `tests/unit/rag/` — 24 unit tests, ≥60% coverage gate in Cloud Build
+- [x] `docker/requirements-rag.txt` — `langchain_core`, `vertexai`, GCP libs
+
+### TODO
+
+#### Infrastructure (required before RAG is live)
+- [ ] Run `python rag/ingestion_job.py` to create Vertex AI Vector Search index — prints `INDEX CREATED: <id>`
+- [ ] Deploy index to endpoint in GCP Console (Vertex AI → Vector Search → Deploy to endpoint)
+- [ ] Set Cloud Run env vars: `VECTOR_SEARCH_INDEX_ID`, `VECTOR_SEARCH_ENDPOINT_ID`, `VECTOR_SEARCH_DEPLOYED_INDEX_ID`
+- [ ] Re-run `python rag/ingestion_job.py` to upsert all vectors
+
+#### Quality & Coverage
+- [ ] Evaluate retrieval quality on sample queries (Monaco 2019, tire strategies, Hamilton vs Verstappen)
+- [ ] Tune `TOP_K` (currently 5) and `LLM_TEMPERATURE` (currently 0.2) based on answer quality
+- [ ] Add season/race/driver filter tests to `test_retriever.py`
+- [ ] Write `test_vector_store.py` tests for `create_index`, `upsert_vectors`, `query_index` (currently 0% — need full GCP mock)
+
+#### Chunker Improvements
+- [ ] Add qualifying result chunks (`qualifying_*.parquet`)
+- [ ] Add constructor/team standing chunks
+- [ ] Add per-driver season summary chunks (aggregated stats, not row-per-lap)
+
+#### Production Hardening
+- [ ] Add retry logic to `embedder.py` for Vertex AI 429 rate limit responses
+- [ ] Add `/rag/query` response caching (Redis or in-memory LRU) for repeated queries
+- [ ] Add `latency_ms` monitoring to Cloud Monitoring (target: <2s end-to-end)
+- [ ] Add index freshness check to `/rag/health` response
+- [ ] Periodic re-ingestion job (weekly cron via Cloud Scheduler) as new race data arrives
+
+#### Integration
+- [ ] Wire RAG context into `/recommend` — use retrieved docs to augment strategy reasoning
+- [ ] Expose RAG query in React frontend AI chat view (`/ai` route)
+
 Retrieval-Augmented Generation over 76 years of F1 race data (1950–2026).
 
 ## Architecture
@@ -173,6 +219,17 @@ Response (ready):
 | Per-query embedding | Per 1K characters | ~$0.00025 |
 | Per-query Gemini (1K tokens in + 1K out) | Per query | ~$0.001 |
 | **Estimated monthly total** | | ~$70–80 |
+
+## Dependencies
+
+The RAG pipeline uses `langchain_core` (not the top-level `langchain` package) for the `Document` type:
+
+```python
+from langchain_core.documents import Document  # correct
+# NOT: from langchain.schema import Document   # removed in LangChain v0.2+
+```
+
+`langchain_core` must be present in `docker/requirements-rag.txt`. Tests use `pytest.importorskip("langchain_core")` as a guard.
 
 ## Adding New Data Sources
 

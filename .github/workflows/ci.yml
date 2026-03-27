@@ -321,35 +321,8 @@ jobs:
           env.close()
           EOF
 
-  # ── Gate job ──────────────────────────────────────────────────────────────
-  # ── Cloud Build (images + Vertex AI training) ─────────────────────────────
-  cloud-build:
-    name: Cloud Build (GCP)
-    runs-on: ubuntu-latest
-    needs: [lint, test, docker-build]
-    if: github.ref == 'refs/heads/pipeline' || github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Submit Cloud Build and stream logs
-        run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          gcloud builds submit \
-            --config cloudbuild.yaml \
-            --project=f1optimizer \
-            --region=us-central1 \
-            --substitutions=COMMIT_SHA=${{ github.sha }},SHORT_SHA=${SHORT_SHA} \
-            .
+  # Cloud Build is triggered automatically by the GCP Cloud Build trigger on
+  # the pipeline branch — no need to submit it again from GitHub Actions.
 
   all-checks-passed:
     name: All Checks Passed

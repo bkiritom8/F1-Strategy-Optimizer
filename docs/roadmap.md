@@ -1,6 +1,6 @@
 # Project Roadmap and Timeline
 
-**Last Updated**: 2026-03-25
+**Last Updated**: 2026-03-26
 **Project Duration**: 13 weeks
 **Target Completion**: Week 13
 
@@ -373,15 +373,17 @@ Setup & Data            Model Dev            Integration Deployment  Test & Laun
 
 | Week | Milestone | Status | Deliverable |
 |------|-----------|--------|-------------|
-| 1-2 | Infrastructure Complete | [Complete] Done | Cloud SQL, IAM, VPC, Cloud Build, Terraform applied |
-| 2 | Data Ingestion Complete | [Pending] Pending | Cloud SQL `lap_features` populated (150GB) |
-| 3 | Feature Store Ready | [Pending] Pending | `lap_features` + `telemetry_features` (1M+ rows) |
-| 4 | Driver Profiles Extracted | [Pending] Pending | `driver_profiles` table (200+ drivers) |
-| 6 | Models 1-2 Trained | [Pending] Pending | Tire degradation + Fuel consumption |
-| 7 | All 4 Models Trained | [Pending] Pending | All models meet accuracy targets |
-| 9 | Simulator Validated | [Pending] Pending | Podium accuracy ≥70% |
-| 11 | API Deployed | [Pending] Pending | Cloud Run, <500ms P99 |
-| 13 | Project Complete | [Pending] Pending | All acceptance criteria met |
+| 1-2 | Infrastructure Complete | Complete | GCS data lake, IAM, Pub/Sub, Cloud Build, Terraform applied |
+| 2 | Data Ingestion Complete | Complete | 51 raw CSVs (6.0 GB) + 10 Parquet files (1.0 GB) in GCS |
+| 3 | Feature Store Ready | Complete | `ml_features/` Parquet in GCS via `preprocess_data.py` |
+| 4 | Driver Profiles Extracted | Pending | `driver_profiles.parquet` (200+ drivers) |
+| 6 | Models 1-4 Trained | Complete | Tire degradation, Driving style, Safety car, Pit window |
+| 7 | All 6 Models + RL Trained | Complete | 6 supervised ensembles + PPO RL agent (`models/rl/final_policy.zip`) |
+| 9 | RAG Pipeline Added | Complete | `rag/` — chunker, embedder, Vector Search, Gemini retriever + API routes |
+| 11 | API Deployed | Complete | Cloud Run `f1-strategy-api-dev`, `/recommend` + `/rag/query` |
+| 11 | React Frontend Deployed | Complete | Vercel — Apex Intelligence (`frontend/`) |
+| 12 | CI/CD Stable | Complete | Cloud Build + GitHub Actions — all steps passing incl. test-rag |
+| 13 | Monitoring Dashboards | Not Started | Cloud Monitoring dashboards + alert policies |
 
 ## Critical Path
 

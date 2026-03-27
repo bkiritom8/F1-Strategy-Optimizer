@@ -1,6 +1,6 @@
 # System Architecture and Deployment
 
-**Last Updated**: 2026-03-25
+**Last Updated**: 2026-03-26
 
 ## Overview
 
@@ -94,6 +94,27 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 └───────────────────────────────────────────────────────────────┘
 
 ┌───────────────────────────────────────────────────────────────┐
+│                     RAG LAYER                                  │
+├───────────────────────────────────────────────────────────────┤
+│                                                                │
+│  rag/chunker.py   ← GCS Parquet/CSV rows → Documents         │
+│       │                                                        │
+│  rag/document_fetcher.py  ← FIA regulations + circuit guides  │
+│       │                                                        │
+│  rag/embedder.py  ← Vertex AI text-embedding-004 (768-dim)   │
+│       │                                                        │
+│  Vertex AI Vector Search  ← streaming upsert                  │
+│       │                                                        │
+│  rag/retriever.py ← top-k retrieval + Gemini 1.5 Flash        │
+│       │                                                        │
+│  FastAPI /rag/query + /rag/health                             │
+│                                                                │
+│  Metadata: gs://f1optimizer-models/rag/metadata.json          │
+│  Ingestion: python rag/ingestion_job.py (one-time + refresh)  │
+│  Lazy init: returns [] / 503 if index env vars not set        │
+└───────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────┐
 │                  SERVING LAYER                                 │
 ├───────────────────────────────────────────────────────────────┤
 │                                                                │
@@ -103,6 +124,13 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │                                                                │
 │  Loads models from gs://f1optimizer-models/ at startup.       │
 │  Falls back to rule-based strategy if models not promoted.    │
+│                                                                │
+│  Key endpoints:                                               │
+│  GET  /health       — health check                            │
+│  POST /recommend    — strategy recommendations (<500ms P99)   │
+│  POST /rag/query    — natural-language F1 Q&A (RAG pipeline)  │
+│  GET  /rag/health   — RAG configuration status                │
+│  GET  /docs         — interactive API documentation           │
 │                                                                │
 └───────────────────────────────────────────────────────────────┘
 
@@ -241,10 +269,7 @@ validate_data
 The API loads model artifacts from `gs://f1optimizer-models/` at startup and falls
 back to rule-based strategy recommendations when promoted models are not yet available.
 
-**Key endpoints**:
-- `GET /health` — health check
-- `POST /recommend` — strategy recommendations (<500ms P99)
-- `GET /docs` — interactive API documentation
+See SERVING LAYER diagram above for endpoint list.
 
 ### CI/CD
 
@@ -270,7 +295,8 @@ back to rule-based strategy recommendations when promoted models are not yet ava
 4. Check bias slice disparity across seasons / circuits / compounds
 5. Push models to Vertex AI Model Registry
 6. Rollback check — compare vs champion metrics in GCS
-7. Push images to `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/`
+7. **test-rag** — run RAG unit tests (`tests/unit/rag/`, ≥60% coverage, `rag/ingestion_job.py` omitted)
+8. Push images to `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/`
 
 ### Infrastructure: Terraform
 

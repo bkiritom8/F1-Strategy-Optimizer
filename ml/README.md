@@ -157,3 +157,4 @@ docker build --platform linux/amd64 \
 - [`docs/ml_handoff.md`](../docs/ml_handoff.md) — full ML handoff
 - [`docs/DEV_SETUP.md`](../docs/DEV_SETUP.md) — environment setup
 - [`docs/models.md`](../docs/models.md) — model architecture details
+- [`docs/rag.md`](../docs/rag.md) — RAG pipeline (chunker → embedder → Vector Search → Gemini)
