@@ -5,8 +5,32 @@ FeaturePipeline GCS reads are real but gracefully handled.
 """
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
 import pytest
+
+
+def _make_feature_store():
+    """Instantiate FeatureStore, skipping if no GCS credentials."""
+    from google.auth.exceptions import DefaultCredentialsError
+
+    from ml.features.feature_store import FeatureStore
+    try:
+        return FeatureStore()
+    except DefaultCredentialsError:
+        pytest.skip("No GCS credentials available")
+
+
+def _make_feature_pipeline():
+    """Instantiate FeaturePipeline, skipping if no GCS credentials."""
+    from google.auth.exceptions import DefaultCredentialsError
+
+    from ml.features.feature_pipeline import FeaturePipeline
+    try:
+        return FeaturePipeline()
+    except DefaultCredentialsError:
+        pytest.skip("No GCS credentials available")
 
 
 class TestFeatureStore:
@@ -19,8 +43,7 @@ class TestFeatureStore:
         assert fs_module.PROJECT_ID == "f1optimizer"
 
     def test_write_to_gcs_hits_real_gcs(self):
-        from ml.features.feature_store import FeatureStore
-        fs  = FeatureStore()
+        fs  = _make_feature_store()
         df  = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
         uri = fs.write_to_gcs(df, "features/test/pytest_write_test.parquet")
         assert uri.startswith("gs://")
@@ -28,14 +51,16 @@ class TestFeatureStore:
 
     def test_local_cache_path_construction(self):
         from ml.features.feature_store import FeatureStore
-        fs   = FeatureStore()
+        with patch("ml.features.feature_store.storage.Client", return_value=MagicMock()):
+            fs   = FeatureStore()
         path = fs._local_path("2024_1")
         assert "race_2024_1" in str(path)
         assert str(path).endswith(".parquet")
 
     def test_gcs_blob_path_construction(self):
         from ml.features.feature_store import FeatureStore
-        fs   = FeatureStore()
+        with patch("ml.features.feature_store.storage.Client", return_value=MagicMock()):
+            fs   = FeatureStore()
         path = fs._gcs_blob_path("2024_1")
         assert "race_2024_1" in path
         assert path.endswith(".parquet")
@@ -71,8 +96,7 @@ class TestFeaturePipeline:
         assert math.isnan(_parse_lap_time_ms(None))
 
     def test_get_available_races_returns_list(self):
-        from ml.features.feature_pipeline import FeaturePipeline
-        pipeline = FeaturePipeline()
+        pipeline = _make_feature_pipeline()
         try:
             races = pipeline.get_available_races()
             assert isinstance(races, list)
@@ -84,8 +108,7 @@ class TestFeaturePipeline:
             pytest.skip("GCS data not available or has NaN in season/round")
 
     def test_build_state_vector_returns_dataframe(self):
-        from ml.features.feature_pipeline import FeaturePipeline
-        pipeline = FeaturePipeline()
+        pipeline = _make_feature_pipeline()
         try:
             races = pipeline.get_available_races()
             if not races:
@@ -96,8 +119,7 @@ class TestFeaturePipeline:
             pytest.skip("GCS data not available or has NaN in season/round")
 
     def test_build_state_vector_empty_on_missing(self):
-        from ml.features.feature_pipeline import FeaturePipeline
-        pipeline = FeaturePipeline()
+        pipeline = _make_feature_pipeline()
         try:
             result = pipeline.build_state_vector("9999_99", "nobody")
             assert isinstance(result, pd.DataFrame)
