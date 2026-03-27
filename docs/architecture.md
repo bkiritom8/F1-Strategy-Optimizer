@@ -1,6 +1,6 @@
 # System Architecture and Deployment
 
-**Last Updated**: 2026-03-26
+**Last Updated**: 2026-03-27
 
 ## Overview
 
@@ -264,7 +264,7 @@ validate_data
 **Service**: `f1-strategy-api-dev` (`us-central1`)
 **URL**: `https://f1-strategy-api-dev-694267183904.us-central1.run.app`
 **Image**: `us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest`
-**Resources**: min instances 0 (dev), max 3; 512 Mi memory, 1 vCPU
+**Resources**: min instances 0 (scale-to-zero), max 3, CPU throttling enabled; 512 Mi memory, 1 vCPU
 
 The API loads model artifacts from `gs://f1optimizer-models/` at startup and falls
 back to rule-based strategy recommendations when promoted models are not yet available.

@@ -444,6 +444,51 @@ Fixed `ModuleNotFoundError: No module named 'langchain.schema'` breaking Cloud B
 
 ---
 
+## Session 2026-03-27 - GCP Cost Optimisation
+
+**Date**: 2026-03-27
+**Branch**: pipeline
+
+**Summary**:
+Audited full GCP billing breakdown and reduced projected monthly cost from ~$170+ to ~$10/month through Cloud Run config fixes, VM downgrades, idle resource removal, and Artifact Registry cleanup.
+
+**Completed**:
+- [x] Diagnosed Cloud Run `f1-strategy-api-dev` running with `minScale: 1` + `cpu-throttling: false` — always-on despite `dev.tfvars` setting `api_min_instances=0`; fixed via `gcloud run services update` (scale-to-zero, CPU throttling enabled)
+- [x] Confirmed `f1-fastf1-backfill` VM (e2-standard-2) was idle (serial output: only OS maintenance); stopped and deleted with disk
+- [x] Downgraded `f1-airflow-vm` from e2-standard-2 → e2-small via `gcloud compute instances set-machine-type`; updated `airflow_vm.tf`
+- [x] Added 2 GB swap on `/mnt/stateful_partition/swapfile` (COS writable partition); wired into `airflow_startup.sh` for persistence across reboots
+- [x] Deleted Cloud NAT `f1-ingest-nat` + router `f1-ingest-router` (no longer needed — lap-times workers all TERMINATED); removed from `cloud_run_jobs.tf`, removed `depends_on` ref in `lap_times_vms.tf`
+- [x] Deleted 63 old Artifact Registry image layers (168 GB → ~2 GB); added cleanup policy: keep last 3 versions, delete untagged images older than 7 days
+- [x] Confirmed Cloud SQL instance already deleted (GCP billing shows $0.11 residual from earlier this month; 0 instances listed)
+
+**Key Decisions**:
+1. **Swap over VM upgrade**: Added 2 GB swap on COS stateful partition instead of upgrading to e2-medium — same effective memory headroom, zero cost
+2. **Artifact Registry cleanup policy**: Automated going forward; every Cloud Build push no longer permanently accumulates image layers
+3. **Cloud NAT removal**: Lap-times data collection is complete and workers are TERMINATED; NAT was billing idle hours with no traffic
+
+**Cost Impact**:
+| Resource | Before | After |
+|---|---|---|
+| Cloud Run (gross) | ~$65/month | ~$2/month |
+| Compute Engine | ~$100/month (2× e2-standard-2) | ~$7/month (1× e2-small) |
+| Networking (NAT) | ~$2.67/month | $0 |
+| Artifact Registry | Growing (168 GB) | Stable (~2 GB, ~$0.20/month) |
+
+**Files Changed**:
+- `infra/terraform/airflow_vm.tf` — machine_type e2-standard-2 → e2-small
+- `infra/terraform/scripts/airflow_startup.sh` — swap setup block added
+- `infra/terraform/cloud_run_jobs.tf` — Cloud Router + NAT resources removed
+- `infra/terraform/lap_times_vms.tf` — `depends_on: google_compute_router_nat.ingest` removed
+- `docs/architecture.md` — Cloud Run config updated, date refreshed
+
+**Next Steps**:
+1. Implement `predict()` in legacy model wrappers (`strategy_predictor.py`, `pit_stop_optimizer.py`)
+2. Set up monitoring dashboards (last remaining gap)
+
+**Blockers**: None
+
+---
+
 **Instructions for Future Sessions**:
 1. After running `/compact`, append a new session entry above this line
 2. Include date, summary, completed tasks, decisions, next steps
