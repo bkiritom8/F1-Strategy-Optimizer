@@ -11,6 +11,15 @@
 
 set -euo pipefail
 
+# ── Swap (2 GB on stateful partition — survives reboots on COS) ───────────────
+SWAP_FILE="/mnt/stateful_partition/swapfile"
+if [ ! -f "$SWAP_FILE" ]; then
+  fallocate -l 2G "$SWAP_FILE"
+  chmod 600 "$SWAP_FILE"
+  mkswap "$SWAP_FILE"
+fi
+swapon "$SWAP_FILE" 2>/dev/null || true  # no-op if already active
+
 LOG_FILE="/var/log/airflow_startup.log"
 exec >> "$LOG_FILE" 2>&1
 echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] === Airflow VM startup BEGIN ==="
