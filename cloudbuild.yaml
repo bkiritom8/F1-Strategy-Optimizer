@@ -104,10 +104,10 @@ steps:
       - |
         pip install -r docker/requirements-rag.txt -q
         pip install pytest pytest-cov -q
+        printf '[run]\nomit = rag/ingestion_job.py\n' > .coveragerc
         PYTHONPATH=. pytest tests/unit/rag/ -v \
           --cov=rag \
           --cov-report=term-missing \
-          --cov-omit=rag/ingestion_job.py \
           --cov-fail-under=60
     env:
       - 'PYTHONPATH=.'
