@@ -35,7 +35,7 @@ resource "google_project_iam_member" "airflow_training_writer" {
 
 resource "google_compute_instance" "f1_airflow_vm" {
   name         = "f1-airflow-vm"
-  machine_type = "e2-standard-2"
+  machine_type = "e2-small"
   zone         = "us-central1-a"
 
   tags = ["airflow", "http-server"]
