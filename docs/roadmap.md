@@ -6,21 +6,37 @@
 
 ## Overview
 
-The F1 Strategy Optimizer follows a phased development approach across 13 weeks, organized into 5 major phases: Setup & Data (Weeks 1-4), Model Development (Weeks 5-7), Integration & Simulation (Weeks 8-9), Deployment (Weeks 10-11), and Testing & Launch (Weeks 12-13).
+The F1 Strategy Optimizer follows a phased development approach across 13 weeks, organized into 5 major phases: Setup & Data (Weeks 1-4), Model Development (Weeks 5-7), RAG + API (Weeks 8-9), Frontend + CI/CD (Weeks 10-11), and Driver Profiles + Monitoring (Weeks 12-13). Phases 1-4 are complete. Phase 5 is not yet started.
 
 ## Timeline Visualization
 
-```
-Week 1-2   Week 3-4   Week 5-6   Week 7     Week 8-9   Week 10-11  Week 12-13
-├──────────┼──────────┼──────────┼──────────┼──────────┼───────────┼──────────┤
-│  Data    │ Profiles │  ML      │  ML      │ Monte    │  API &    │  Testing │
-│ Ingestion│ Extract  │ Models   │ Models   │  Carlo   │ Dashboard │  Launch  │
-│          │          │  (1-2)   │  (3-4)   │  Sim     │           │          │
-└──────────┴──────────┴──────────┴──────────┴──────────┴───────────┴──────────┘
+Legend: `████` = Done  `▒▒▒▒` = In Progress  `░░░░` = Not Started
 
-Phase 1      Phase 2    Phase 3              Phase 4     Phase 5
-Setup & Data            Model Dev            Integration Deployment  Test & Launch
 ```
+Track                  Wk1-2  Wk3-4  Wk5-6  Wk7    Wk8-9  Wk10   Wk11   Wk12-13
+─────────────────────────────────────────────────────────────────────────────────
+Infrastructure         ████
+Data Ingestion         ████   ████
+Feature Engineering           ████   ████
+─────────────────────────────────────────────────────────────────────────────────
+ML: Supervised Models                ████   ████
+ML: RL Agent (PPO)                          ████   ████
+ML: RAG Pipeline                                   ████   ████
+─────────────────────────────────────────────────────────────────────────────────
+API (FastAPI)                                      ████   ████
+Frontend (React)                                          ████
+CI/CD Stabilisation                                       ████   ████
+─────────────────────────────────────────────────────────────────────────────────
+Driver Profiles                                                          ░░░░
+Monitoring Dashboards                                                    ░░░░
+─────────────────────────────────────────────────────────────────────────────────
+```
+
+**Phase 1** (Wk 1-4): Infrastructure + Data — **Complete**
+**Phase 2** (Wk 5-7): ML Models — **Complete**
+**Phase 3** (Wk 8-9): RAG + API — **Complete**
+**Phase 4** (Wk 10-11): Frontend + CI/CD — **Complete**
+**Phase 5** (Wk 12-13): Driver Profiles + Monitoring — **Not Started**
 
 ## Phase 1: Setup & Data (Weeks 1-4)
 
