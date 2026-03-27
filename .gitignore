@@ -225,6 +225,10 @@ session_summary.md
 docs/superpowers/
 .python-version
 
+# Pipeline logs — generated outputs (Gantt charts, build timing JSON)
+pipeline/logs/*.json
+pipeline/logs/*.png
+
 # Raw data — stored in GCS, not git
 raw/
 
