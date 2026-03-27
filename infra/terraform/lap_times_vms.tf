@@ -173,7 +173,6 @@ resource "google_compute_instance" "lap_times_worker_nat" {
     google_project_iam_member.ingest_storage,
     google_project_iam_member.ingest_logging,
     google_project_iam_member.ingest_instance_admin,
-    google_compute_router_nat.ingest,
   ]
 }
 
