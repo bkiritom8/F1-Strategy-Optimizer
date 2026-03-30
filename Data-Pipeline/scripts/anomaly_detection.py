@@ -87,7 +87,11 @@ def _anomaly(
 def check_laps(df: pd.DataFrame) -> List[Dict[str, Any]]:
     """Detect anomalies in laps data."""
     anomalies: List[Dict[str, Any]] = []
-    driver_col = "Driver" if "Driver" in df.columns else "driverId"
+    if "driverId" in df.columns and "Driver" in df.columns:
+        df["_merged_driver"] = df["Driver"].fillna(df["driverId"])
+        driver_col = "_merged_driver"
+    else:
+        driver_col = "Driver" if "Driver" in df.columns else "driverId"
     lap_time_col = "LapTime" if "LapTime" in df.columns else "time"
     circuit_col = "CircuitId" if "CircuitId" in df.columns else "raceName"
     compound_col = "Compound" if "Compound" in df.columns else None

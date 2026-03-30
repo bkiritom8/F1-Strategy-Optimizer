@@ -1,0 +1,141 @@
+{
+  "generated_at": "2026-02-25T02:59:02.042389+00:00",
+  "data_dir": "data/processed",
+  "total_checks": 13,
+  "passed": 12,
+  "critical_failures": 0,
+  "suites": [
+    {
+      "name": "laps_all",
+      "row_count": 93372,
+      "column_count": 39,
+      "checks": [
+        {
+          "name": "laps: required columns exist",
+          "passed": true,
+          "critical": true,
+          "details": "All 3 required columns present",
+          "failed_rows": 0,
+          "total_rows": 0
+        },
+        {
+          "name": "laps: no nulls in '_merged_driver'",
+          "passed": true,
+          "critical": true,
+          "details": "0 null values",
+          "failed_rows": 0,
+          "total_rows": 93372
+        },
+        {
+          "name": "laps: 'LapTime' in [60.0, 300.0]",
+          "passed": true,
+          "critical": false,
+          "details": "0 values outside [60.0, 300.0]; min=67.01, max=218.68",
+          "failed_rows": 0,
+          "total_rows": 40526
+        },
+        {
+          "name": "laps: 'LapNumber' positive",
+          "passed": true,
+          "critical": false,
+          "details": "0 non-positive values",
+          "failed_rows": 0,
+          "total_rows": 41252
+        },
+        {
+          "name": "laps: 'Compound' valid categories",
+          "passed": true,
+          "critical": false,
+          "details": "0 invalid values; unexpected: none",
+          "failed_rows": 0,
+          "total_rows": 40714
+        }
+      ]
+    },
+    {
+      "name": "telemetry_all",
+      "row_count": 30477110,
+      "column_count": 30,
+      "checks": [
+        {
+          "name": "telemetry: 'Speed' in [0, 400]",
+          "passed": true,
+          "critical": false,
+          "details": "0 values outside [0, 400]; min=0.00, max=366.00",
+          "failed_rows": 0,
+          "total_rows": 30386808
+        },
+        {
+          "name": "telemetry: 'Throttle' in [0, 105]",
+          "passed": true,
+          "critical": false,
+          "details": "0 values outside [0, 105]; min=0.00, max=104.00",
+          "failed_rows": 0,
+          "total_rows": 30386808
+        },
+        {
+          "name": "telemetry: 'nGear' in [0, 128]",
+          "passed": true,
+          "critical": false,
+          "details": "0 values outside [0, 128]; min=0.00, max=128.00",
+          "failed_rows": 0,
+          "total_rows": 30386808
+        },
+        {
+          "name": "telemetry: 'RPM' in [0, 20000]",
+          "passed": true,
+          "critical": false,
+          "details": "0 values outside [0, 20000]; min=0.00, max=13965.00",
+          "failed_rows": 0,
+          "total_rows": 30386808
+        }
+      ]
+    },
+    {
+      "name": "race_results",
+      "row_count": 7600,
+      "column_count": 15,
+      "checks": [
+        {
+          "name": "race_results: 'position' in [1, 40]",
+          "passed": true,
+          "critical": false,
+          "details": "0 values outside [1, 40]; min=1.00, max=33.00",
+          "failed_rows": 0,
+          "total_rows": 7600
+        },
+        {
+          "name": "race_results: no duplicate positions per race",
+          "passed": false,
+          "critical": false,
+          "details": "91 duplicate positions found",
+          "failed_rows": 91,
+          "total_rows": 7600
+        }
+      ]
+    },
+    {
+      "name": "pit_stops",
+      "row_count": 11077,
+      "column_count": 7,
+      "checks": [
+        {
+          "name": "pit_stops: 'duration' in [1.5, 60.0]",
+          "passed": true,
+          "critical": false,
+          "details": "0 values outside [1.5, 60.0]; min=12.80, max=59.55",
+          "failed_rows": 0,
+          "total_rows": 10550
+        },
+        {
+          "name": "pit_stops: no nulls in 'driverId'",
+          "passed": true,
+          "critical": false,
+          "details": "0 null values",
+          "failed_rows": 0,
+          "total_rows": 11077
+        }
+      ]
+    }
+  ]
+}

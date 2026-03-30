@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Cell } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Cell, PieChart, Pie } from 'recharts';
 import { TEAM_COLORS } from '../constants';
 import { motion } from 'framer-motion';
 import { useDrivers } from '../hooks/useApi';
@@ -27,6 +27,7 @@ const DriverProfiles: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTeam, setFilterTeam] = useState<string>('all');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Filter drivers based on search and team
   const filteredDrivers = useMemo(() => {
@@ -60,6 +61,21 @@ const DriverProfiles: React.FC = () => {
     if (!drivers) return [];
     const teamSet = new Set(drivers.map(d => d.team));
     return Array.from(teamSet).filter(t => t !== 'Unknown').sort();
+  }, [drivers]);
+
+  // Nationality Breakdown
+  const nationalityData = useMemo(() => {
+    if (!drivers) return [];
+    const counts: Record<string, number> = {};
+    drivers.forEach(d => {
+      if (d.nationality) {
+        counts[d.nationality] = (counts[d.nationality] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10); // Show top 10
   }, [drivers]);
 
   // Stats summary
@@ -137,17 +153,41 @@ const DriverProfiles: React.FC = () => {
       </div>
 
       {/* Search and Filter */}
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-4 items-center relative z-20">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
-            placeholder="Search drivers by name, code, or nationality..."
+            placeholder="Search and select driver..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setDropdownOpen(true);
+            }}
+            onFocus={() => setDropdownOpen(true)}
+            onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm bg-transparent focus:outline-none focus:border-red-600 transition-colors"
             style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
           />
+          {dropdownOpen && filteredDrivers.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] max-h-60 overflow-y-auto z-50 py-2 border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+              {filteredDrivers.map(d => (
+                <div 
+                  key={d.driver_id} 
+                  className="px-4 py-2 hover:bg-black/10 cursor-pointer text-sm flex items-center gap-3 transition-colors"
+                  onClick={() => {
+                     setSelectedId(d.driver_id);
+                     setSearchQuery('');
+                     setDropdownOpen(false);
+                  }}
+                >
+                  <span className="font-bold w-10 text-gray-500">{d.code}</span>
+                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{d.name}</span>
+                  <span className="text-xs text-gray-500 ml-auto">{d.team}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <select
           value={filterTeam}
@@ -246,6 +286,38 @@ const DriverProfiles: React.FC = () => {
               </div>
             </motion.div>
           )}
+        </div>
+      </div>
+
+      {/* Nationality Breakdown Chart */}
+      <div className="rounded-2xl p-6 border shadow-2xl mt-8" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+        <h3 className="text-xs font-display font-bold uppercase tracking-widest text-gray-400 mb-6 px-2">
+          Top 10 Driver Nationalities
+        </h3>
+        <div className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={nationalityData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              >
+                {nationalityData.map((entry, index) => {
+                  const colorKeys = Object.keys(TEAM_COLORS);
+                  const color = TEAM_COLORS[colorKeys[index % colorKeys.length]] || '#e10600';
+                  return <Cell key={`cell-${index}`} fill={color} />;
+                })}
+              </Pie>
+              <Tooltip 
+                contentStyle={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)' }}
+                itemStyle={{ color: 'var(--text-primary)' }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>

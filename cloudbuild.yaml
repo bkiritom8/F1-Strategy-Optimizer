@@ -85,9 +85,39 @@ steps:
     args: ["push", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:latest"]
     waitFor: ["build-airflow", "validate-dag"]
 
+  # ── Deploy API to Cloud Run ─────────────────────────────────────────────────
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "deploy-api"
+    entrypoint: "gcloud"
+    args:
+      - "run"
+      - "deploy"
+      - "f1-strategy-api-dev"
+      - "--image"
+      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
+      - "--region"
+      - "us-central1"
+      - "--platform"
+      - "managed"
+      - "--allow-unauthenticated"
+      - "--min-instances"
+      - "0"
+      - "--max-instances"
+      - "10"
+      - "--memory"
+      - "512Mi"
+      - "--cpu"
+      - "1"
+      - "--timeout"
+      - "60"
+      - "--set-env-vars"
+      - "ENV=production,ENABLE_IAM=true,ENABLE_HTTPS=true,LOG_LEVEL=INFO"
+    waitFor: ["push-api"]
+
 images:
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/airflow:latest"
 
-# mock-dataflow is LOCAL DEVELOPMENT ONLY — not built or pushed here
+# mock-dataflow is LOCAL DEVELOPMENT ONLY, not built or pushed here

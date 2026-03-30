@@ -79,36 +79,36 @@ export const F1_GLOSSARY: Record<string, string> = {
 };
 
 export const MOCK_DRIVERS: DriverProfile[] = [
-  // Red Bull
-  { driver_id: 'max_verstappen', name: 'Max Verstappen', team: 'Red Bull', code: 'VER', nationality: 'NED', career_races: 206, career_wins: 61, aggression_score: 92, consistency_score: 95, pressure_response: 98, tire_management: 89, wet_weather_skill: 96, qualifying_pace: 97, race_pace: 99, overtaking_ability: 94, defensive_ability: 95, fuel_efficiency: 90, experience_years: 10, rookie_status: false },
-  { driver_id: 'sergio_perez', name: 'Sergio Perez', team: 'Red Bull', code: 'PER', nationality: 'MEX', career_races: 278, career_wins: 6, aggression_score: 82, consistency_score: 84, pressure_response: 86, tire_management: 94, wet_weather_skill: 85, qualifying_pace: 84, race_pace: 88, overtaking_ability: 89, defensive_ability: 90, fuel_efficiency: 92, experience_years: 14, rookie_status: false },
-  // Ferrari
-  { driver_id: 'charles_leclerc', name: 'Charles Leclerc', team: 'Ferrari', code: 'LEC', nationality: 'MON', career_races: 144, career_wins: 7, aggression_score: 94, consistency_score: 87, pressure_response: 91, tire_management: 85, wet_weather_skill: 88, qualifying_pace: 99, race_pace: 92, overtaking_ability: 93, defensive_ability: 86, fuel_efficiency: 85, experience_years: 7, rookie_status: false },
-  { driver_id: 'lewis_hamilton', name: 'Lewis Hamilton', team: 'Ferrari', code: 'HAM', nationality: 'GBR', career_races: 352, career_wins: 105, aggression_score: 85, consistency_score: 96, pressure_response: 95, tire_management: 97, wet_weather_skill: 98, qualifying_pace: 94, race_pace: 96, overtaking_ability: 92, defensive_ability: 91, fuel_efficiency: 93, experience_years: 18, rookie_status: false },
-  // Mercedes
-  { driver_id: 'george_russell', name: 'George Russell', team: 'Mercedes', code: 'RUS', nationality: 'GBR', career_races: 124, career_wins: 2, aggression_score: 89, consistency_score: 90, pressure_response: 88, tire_management: 87, wet_weather_skill: 89, qualifying_pace: 95, race_pace: 91, overtaking_ability: 88, defensive_ability: 89, fuel_efficiency: 88, experience_years: 6, rookie_status: false },
-  { driver_id: 'kimi_antonelli', name: 'Kimi Antonelli', team: 'Mercedes', code: 'ANT', nationality: 'ITA', career_races: 0, career_wins: 0, aggression_score: 91, consistency_score: 82, pressure_response: 85, tire_management: 80, wet_weather_skill: 85, qualifying_pace: 96, race_pace: 90, overtaking_ability: 92, defensive_ability: 82, fuel_efficiency: 80, experience_years: 0, rookie_status: true },
-  // McLaren
-  { driver_id: 'lando_norris', name: 'Lando Norris', team: 'McLaren', code: 'NOR', nationality: 'GBR', career_races: 124, career_wins: 3, aggression_score: 88, consistency_score: 91, pressure_response: 89, tire_management: 90, wet_weather_skill: 92, qualifying_pace: 95, race_pace: 93, overtaking_ability: 91, defensive_ability: 88, fuel_efficiency: 87, experience_years: 6, rookie_status: false },
-  { driver_id: 'oscar_piastri', name: 'Oscar Piastri', team: 'McLaren', code: 'PIA', nationality: 'AUS', career_races: 44, career_wins: 2, aggression_score: 86, consistency_score: 93, pressure_response: 96, tire_management: 88, wet_weather_skill: 86, qualifying_pace: 93, race_pace: 94, overtaking_ability: 89, defensive_ability: 92, fuel_efficiency: 89, experience_years: 2, rookie_status: false },
-  // Aston Martin
-  { driver_id: 'fernando_alonso', name: 'Fernando Alonso', team: 'Aston Martin', code: 'ALO', nationality: 'ESP', career_races: 400, career_wins: 32, aggression_score: 91, consistency_score: 94, pressure_response: 96, tire_management: 95, wet_weather_skill: 94, qualifying_pace: 92, race_pace: 95, overtaking_ability: 97, defensive_ability: 98, fuel_efficiency: 96, experience_years: 22, rookie_status: false },
-  { driver_id: 'lance_stroll', name: 'Lance Stroll', team: 'Aston Martin', code: 'STR', nationality: 'CAN', career_races: 164, career_wins: 0, aggression_score: 80, consistency_score: 75, pressure_response: 78, tire_management: 82, wet_weather_skill: 88, qualifying_pace: 79, race_pace: 81, overtaking_ability: 83, defensive_ability: 77, fuel_efficiency: 84, experience_years: 8, rookie_status: false },
-  // Alpine
-  { driver_id: 'pierre_gasly', name: 'Pierre Gasly', team: 'Alpine', code: 'GAS', nationality: 'FRA', career_races: 150, career_wins: 1, aggression_score: 86, consistency_score: 88, pressure_response: 85, tire_management: 86, wet_weather_skill: 89, qualifying_pace: 88, race_pace: 87, overtaking_ability: 85, defensive_ability: 84, fuel_efficiency: 86, experience_years: 8, rookie_status: false },
-  { driver_id: 'jack_doohan', name: 'Jack Doohan', team: 'Alpine', code: 'DOO', nationality: 'AUS', career_races: 0, career_wins: 0, aggression_score: 84, consistency_score: 80, pressure_response: 82, tire_management: 78, wet_weather_skill: 80, qualifying_pace: 89, race_pace: 82, overtaking_ability: 84, defensive_ability: 79, fuel_efficiency: 81, experience_years: 0, rookie_status: true },
-  // Haas
-  { driver_id: 'esteban_ocon', name: 'Esteban Ocon', team: 'Haas', code: 'OCO', nationality: 'FRA', career_races: 154, career_wins: 1, aggression_score: 89, consistency_score: 87, pressure_response: 85, tire_management: 88, wet_weather_skill: 90, qualifying_pace: 87, race_pace: 86, overtaking_ability: 86, defensive_ability: 93, fuel_efficiency: 88, experience_years: 9, rookie_status: false },
-  { driver_id: 'oliver_bearman', name: 'Oliver Bearman', team: 'Haas', code: 'BEA', nationality: 'GBR', career_races: 2, career_wins: 0, aggression_score: 88, consistency_score: 85, pressure_response: 92, tire_management: 82, wet_weather_skill: 85, qualifying_pace: 91, race_pace: 87, overtaking_ability: 89, defensive_ability: 84, fuel_efficiency: 83, experience_years: 1, rookie_status: true },
-  // Williams
-  { driver_id: 'alexander_albon', name: 'Alexander Albon', team: 'Williams', code: 'ALB', nationality: 'THA', career_races: 102, career_wins: 0, aggression_score: 84, consistency_score: 91, pressure_response: 89, tire_management: 92, wet_weather_skill: 87, qualifying_pace: 92, race_pace: 89, overtaking_ability: 87, defensive_ability: 90, fuel_efficiency: 91, experience_years: 6, rookie_status: false },
-  { driver_id: 'carlos_sainz', name: 'Carlos Sainz', team: 'Williams', code: 'SAI', nationality: 'ESP', career_races: 204, career_wins: 4, aggression_score: 86, consistency_score: 94, pressure_response: 93, tire_management: 93, wet_weather_skill: 89, qualifying_pace: 93, race_pace: 95, overtaking_ability: 90, defensive_ability: 91, fuel_efficiency: 92, experience_years: 10, rookie_status: false },
-  // RB
-  { driver_id: 'yuki_tsunoda', name: 'Yuki Tsunoda', team: 'RB', code: 'TSU', nationality: 'JPN', career_races: 86, career_wins: 0, aggression_score: 93, consistency_score: 84, pressure_response: 81, tire_management: 82, wet_weather_skill: 86, qualifying_pace: 90, race_pace: 85, overtaking_ability: 88, defensive_ability: 82, fuel_efficiency: 83, experience_years: 4, rookie_status: false },
-  { driver_id: 'liam_lawson', name: 'Liam Lawson', team: 'RB', code: 'LAW', nationality: 'NZL', career_races: 11, career_wins: 0, aggression_score: 87, consistency_score: 89, pressure_response: 94, tire_management: 90, wet_weather_skill: 91, qualifying_pace: 88, race_pace: 91, overtaking_ability: 90, defensive_ability: 88, fuel_efficiency: 89, experience_years: 2, rookie_status: false },
-  // Sauber
-  { driver_id: 'nico_hulkenberg', name: 'Nico Hulkenberg', team: 'Sauber', code: 'HUL', nationality: 'GER', career_races: 224, career_wins: 0, aggression_score: 83, consistency_score: 92, pressure_response: 86, tire_management: 88, wet_weather_skill: 92, qualifying_pace: 94, race_pace: 87, overtaking_ability: 84, defensive_ability: 86, fuel_efficiency: 89, experience_years: 13, rookie_status: false },
-  { driver_id: 'gabriel_bortoleto', name: 'Gabriel Bortoleto', team: 'Sauber', code: 'BOR', nationality: 'BRA', career_races: 0, career_wins: 0, aggression_score: 88, consistency_score: 85, pressure_response: 89, tire_management: 84, wet_weather_skill: 82, qualifying_pace: 92, race_pace: 88, overtaking_ability: 90, defensive_ability: 84, fuel_efficiency: 85, experience_years: 0, rookie_status: true },
+  {
+    driver_id: 'vst', name: 'Max Verstappen', team: 'Red Bull', code: 'VER', nationality: 'NED', career_races: 185, career_wins: 54,
+    aggression_score: 92, consistency_score: 95, pressure_response: 98, tire_management: 89, wet_weather_skill: 96,
+    qualifying_pace: 97, race_pace: 99, overtaking_ability: 94, defensive_ability: 95, fuel_efficiency: 90,
+    experience_years: 9, rookie_status: false
+  },
+  {
+    driver_id: 'ham', name: 'Lewis Hamilton', team: 'Mercedes', code: 'HAM', nationality: 'GBR', career_races: 332, career_wins: 103,
+    aggression_score: 85, consistency_score: 96, pressure_response: 95, tire_management: 97, wet_weather_skill: 98,
+    qualifying_pace: 94, race_pace: 96, overtaking_ability: 92, defensive_ability: 91, fuel_efficiency: 93,
+    experience_years: 17, rookie_status: false
+  },
+  {
+    driver_id: 'nor', name: 'Lando Norris', team: 'McLaren', code: 'NOR', nationality: 'GBR', career_races: 104, career_wins: 1,
+    aggression_score: 88, consistency_score: 91, pressure_response: 89, tire_management: 90, wet_weather_skill: 92,
+    qualifying_pace: 95, race_pace: 93, overtaking_ability: 91, defensive_ability: 88, fuel_efficiency: 87,
+    experience_years: 5, rookie_status: false
+  },
+  {
+    driver_id: 'lec', name: 'Charles Leclerc', team: 'Ferrari', code: 'LEC', nationality: 'MON', career_races: 125, career_wins: 5,
+    aggression_score: 94, consistency_score: 87, pressure_response: 91, tire_management: 85, wet_weather_skill: 88,
+    qualifying_pace: 99, race_pace: 92, overtaking_ability: 93, defensive_ability: 86, fuel_efficiency: 85,
+    experience_years: 6, rookie_status: false
+  },
+  {
+    driver_id: 'alo', name: 'Fernando Alonso', team: 'Aston Martin', code: 'ALO', nationality: 'ESP', career_races: 380, career_wins: 32,
+    aggression_score: 91, consistency_score: 94, pressure_response: 96, tire_management: 95, wet_weather_skill: 94,
+    qualifying_pace: 92, race_pace: 95, overtaking_ability: 97, defensive_ability: 98, fuel_efficiency: 96,
+    experience_years: 21, rookie_status: false
+  }
 ];
 
 export const MOCK_RACE_STATE: RaceState = {

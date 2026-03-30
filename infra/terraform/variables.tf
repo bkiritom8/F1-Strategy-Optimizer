@@ -31,9 +31,9 @@ variable "api_max_instances" {
 }
 
 variable "api_min_instances" {
-  description = "Minimum number of Cloud Run API instances"
+  description = "Minimum number of Cloud Run API instances (0 = scale to zero for cost savings)"
   type        = number
-  default     = 1
+  default     = 0
 }
 
 variable "alert_email" {

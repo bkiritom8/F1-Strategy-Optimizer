@@ -16,9 +16,14 @@ RUN apt-get update && apt-get install -y \
 COPY docker/requirements-api.txt /tmp/
 RUN pip install --no-cache-dir -r /tmp/requirements-api.txt
 
-# Copy application code
+# Copy application code (src is the core API module)
 COPY src/ /app/src/
-COPY pipeline/scripts/ /app/scripts/
+
+# Copy ML module (required by FeaturePipeline and model loading)
+COPY ml/ /app/ml/
+
+# Copy pipeline module (required by RaceSimulator and strategy simulation)
+COPY pipeline/ /app/pipeline/
 
 # Set Python path
 ENV PYTHONPATH="/app:${PYTHONPATH}"

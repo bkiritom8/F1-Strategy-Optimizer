@@ -4,6 +4,8 @@ Simulates Google Cloud IAM roles and permissions.
 """
 
 import logging
+import os
+import secrets
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, List, Optional, Set
@@ -17,7 +19,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # JWT configuration
-SECRET_KEY = "f1-strategy-optimizer-secret-key-change-in-production"
+# SECURITY: Load secret from environment variable; fall back to a random
+# ephemeral key so local dev still works without configuration, but tokens
+# won't survive server restarts (which is fine for dev).
+_FALLBACK_KEY = secrets.token_hex(32)
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", _FALLBACK_KEY)
+if SECRET_KEY == _FALLBACK_KEY:
+    logger.warning(
+        "JWT_SECRET_KEY not set; using ephemeral key. "
+        "Set JWT_SECRET_KEY env var for production."
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

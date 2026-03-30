@@ -308,6 +308,7 @@ class RaceSimulator:
         self,
         driver_id: str,
         strategy: list[tuple[int, str]],
+        regulation_set: str = "2025",
     ) -> SimulationResult:
         """
         Simulate a custom pit strategy for a driver and predict the outcome.
@@ -402,6 +403,11 @@ class RaceSimulator:
             pit_loss_ms = PIT_STOP_TIME_LOSS_S * 1000.0 if lap in pit_set else 0.0
 
             simulated_lap_ms = float(base_ms + compound_delta_ms + deg_ms + pit_loss_ms)
+            
+            # Apply 2026 Active Aero (X-mode/Z-mode) physics advantage
+            if regulation_set == "2026":
+                simulated_lap_ms -= 1200.0
+                
             lap_times_s.append(simulated_lap_ms / 1000.0)
             total_time_ms += simulated_lap_ms
 

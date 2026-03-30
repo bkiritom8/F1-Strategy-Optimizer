@@ -154,6 +154,7 @@ export const TrackDetailCard: React.FC<TrackDetailCardProps> = ({
           strokeColor={COLORS.accent.red}
           strokeWidth={4}
           showStartFinish={true}
+          animated={true}
         />
       </div>
 
@@ -161,30 +162,30 @@ export const TrackDetailCard: React.FC<TrackDetailCardProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '12px',
           marginBottom: '20px',
         }}
       >
-        <div style={{ textAlign: 'center', padding: '12px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: textColor }}>{track.lengthKm}</div>
-          <div style={{ fontSize: '11px', color: textSecondary, textTransform: 'uppercase' }}>Length (km)</div>
+        <div style={{ textAlign: 'center', padding: '10px 8px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: textColor }}>{track.lengthKm}</div>
+          <div style={{ fontSize: '9px', fontWeight: 700, color: textSecondary, textTransform: 'uppercase', marginTop: '4px' }}>Length (km)</div>
         </div>
-        <div style={{ textAlign: 'center', padding: '12px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: textColor }}>{track.corners}</div>
-          <div style={{ fontSize: '11px', color: textSecondary, textTransform: 'uppercase' }}>Corners</div>
+        <div style={{ textAlign: 'center', padding: '10px 8px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: textColor }}>{track.corners}</div>
+          <div style={{ fontSize: '9px', fontWeight: 700, color: textSecondary, textTransform: 'uppercase', marginTop: '4px' }}>Corners</div>
         </div>
-        <div style={{ textAlign: 'center', padding: '12px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: COLORS.accent.green }}>{track.drsZones}</div>
-          <div style={{ fontSize: '11px', color: textSecondary, textTransform: 'uppercase' }}>DRS</div>
+        <div style={{ textAlign: 'center', padding: '10px 8px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: COLORS.accent.green }}>{track.drsZones}</div>
+          <div style={{ fontSize: '9px', fontWeight: 700, color: textSecondary, textTransform: 'uppercase', marginTop: '4px' }}>DRS</div>
         </div>
-        <div style={{ textAlign: 'center', padding: '12px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: COLORS.accent.blue }}>{track.laps}</div>
-          <div style={{ fontSize: '11px', color: textSecondary, textTransform: 'uppercase' }}>Laps</div>
+        <div style={{ textAlign: 'center', padding: '10px 8px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: COLORS.accent.blue }}>{track.laps}</div>
+          <div style={{ fontSize: '9px', fontWeight: 700, color: textSecondary, textTransform: 'uppercase', marginTop: '4px' }}>Laps</div>
         </div>
-        <div style={{ textAlign: 'center', padding: '12px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
-          <div style={{ fontSize: '18px', fontWeight: 700, color: COLORS.accent.purple }}>{extendedData?.lapRecord || '-'}</div>
-          <div style={{ fontSize: '11px', color: textSecondary, textTransform: 'uppercase' }}>Lap Record</div>
+        <div style={{ textAlign: 'center', padding: '10px 8px', backgroundColor: bgTertiary, borderRadius: '8px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: COLORS.accent.purple }}>{extendedData?.lapRecord || '-'}</div>
+          <div style={{ fontSize: '9px', fontWeight: 700, color: textSecondary, textTransform: 'uppercase', marginTop: '4px' }}>Lap Record</div>
         </div>
       </div>
 

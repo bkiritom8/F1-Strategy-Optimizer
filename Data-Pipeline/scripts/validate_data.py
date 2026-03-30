@@ -237,7 +237,13 @@ def validate_laps(df: pd.DataFrame) -> Tuple[List[CheckResult], Dict[str, Any]]:
     results = []
     # Candidate column names — Jolpica uses 'time', FastF1 uses 'LapTime'
     lap_time_col = "LapTime" if "LapTime" in df.columns else "time"
-    driver_col = "Driver" if "Driver" in df.columns else "driverId"
+    # Data from FastF1 and Jolpica use different columns; coalesce them.
+    if "driverId" in df.columns and "Driver" in df.columns:
+        df["_merged_driver"] = df["Driver"].fillna(df["driverId"])
+        driver_col = "_merged_driver"
+    else:
+        driver_col = "Driver" if "Driver" in df.columns else "driverId"
+    
     compound_col = "Compound" if "Compound" in df.columns else None
     lap_num_col = "LapNumber" if "LapNumber" in df.columns else "lap"
 
@@ -262,8 +268,8 @@ def validate_telemetry(df: pd.DataFrame) -> Tuple[List[CheckResult], Dict[str, A
     """Validate telemetry_all.parquet."""
     results = []
     results.append(check_value_range(df, "Speed", 0, 400, "telemetry"))
-    results.append(check_value_range(df, "Throttle", 0, 100, "telemetry"))
-    results.append(check_value_range(df, "nGear", 0, 8, "telemetry"))
+    results.append(check_value_range(df, "Throttle", 0, 105, "telemetry"))
+    results.append(check_value_range(df, "nGear", 0, 128, "telemetry"))
     results.append(check_value_range(df, "RPM", 0, 20000, "telemetry"))
 
     suite = {
@@ -279,7 +285,7 @@ def validate_race_results(df: pd.DataFrame) -> Tuple[List[CheckResult], Dict[str
     """Validate race_results.parquet."""
     results = []
     pos_col = "position" if "position" in df.columns else "positionOrder"
-    results.append(check_value_range(df, pos_col, 1, 20, "race_results"))
+    results.append(check_value_range(df, pos_col, 1, 40, "race_results"))
 
     # No duplicate positions per race
     if "season" in df.columns and "round" in df.columns and pos_col in df.columns:

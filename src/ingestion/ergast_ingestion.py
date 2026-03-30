@@ -212,7 +212,7 @@ class ErgastIngestion:
         List of per-lap dicts, each with a Timings list per driver.
         """
         url = f"{BASE_URL}/{year}/{round_num}/laps/"
-        laps = _paginate(url, limit=100)
+        laps = _paginate(url, limit=1000)
         self._save(laps, f"laps/{year}/{round_num}.json")
         return laps
 

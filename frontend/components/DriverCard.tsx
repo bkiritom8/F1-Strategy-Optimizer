@@ -26,7 +26,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
   const fuelColor = getFuelColor(fuelPercentage);
 
   return (
-    <div className="rounded-xl p-6 border shadow-2xl relative overflow-hidden min-h-[450px]" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+    <div className="rounded-xl p-5 border shadow-2xl relative overflow-hidden min-h-[420px]" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
       <div 
         className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none" 
         style={{ background: `radial-gradient(circle at top right, ${TEAM_COLORS[driver.team]}, transparent)` }} 
@@ -45,7 +45,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
       </div>
 
       {/* Grid of Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6">
         <StatItem icon={<Wind className="w-4 h-4" />} label="Aero Loss" value={`${telemetry.aero_loss_percent}%`} color={telemetry.aero_loss_percent > 10 ? COLORS.accent.red : COLORS.accent.blue} />
         <StatItem icon={<Fuel className="w-4 h-4" />} label="Fuel" value={`${telemetry.fuel_remaining_kg.toFixed(1)} KG`} color={fuelColor} />
         <StatItem icon={<Thermometer className="w-4 h-4" />} label="Tire Age" value={`${telemetry.tire_age_laps} LAPS`} color={COLORS.tires[telemetry.tire_compound]} />
@@ -56,7 +56,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
       {/* Energy & Fuel Management Bars */}
       <div className="space-y-4 mb-6">
         {/* ERS Bar */}
-        <div className="rounded-lg p-4 border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+        <div className="rounded-lg p-3 border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
           <div className="flex justify-between items-center mb-2">
             <ConceptTooltip term="ERS">
               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter flex items-center gap-1">
@@ -75,7 +75,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
         </div>
 
         {/* Fuel Gauge Bar */}
-        <div className="rounded-lg p-4 border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+        <div className="rounded-lg p-3 border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
           <div className="flex justify-between items-center mb-2">
             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter flex items-center gap-1">
               <Fuel className="w-3 h-3" style={{ color: fuelColor }} /> Fuel Status
@@ -98,7 +98,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
       </div>
 
       {/* Recommended Strategy Badge */}
-      <div className="border rounded-lg p-4" style={{ backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)' }}>
+      <div className="border rounded-lg p-3" style={{ backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)' }}>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] font-bold text-accent-green uppercase tracking-tighter">AI Tactical Overlay</span>
         </div>
@@ -120,12 +120,12 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
 };
 
 const StatItem = ({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) => (
-  <div className="rounded-lg p-3 border hover:bg-black/5 transition-colors" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-    <div className="flex items-center gap-2 mb-1" style={{ color }}>
-      {icon}
-      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{label}</span>
+  <div className="rounded-lg p-2 border hover:bg-black/5 transition-colors" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+    <div className="flex items-center gap-1.5 mb-1" style={{ color }}>
+      <div className="shrink-0">{icon}</div>
+      <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500 truncate">{label}</span>
     </div>
-    <div className="text-lg font-mono font-bold">{value}</div>
+    <div className="text-lg font-mono font-bold truncate">{value}</div>
   </div>
 );
 
