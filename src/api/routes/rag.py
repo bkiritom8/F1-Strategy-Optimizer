@@ -26,10 +26,13 @@ _CACHE_MAX_SIZE = 128
 _query_cache: dict = {}
 _cache_keys: list = []
 
+
 def _cache_key(query: str, filters: dict | None, top_k: int) -> str:
     """Generate a cache key from query parameters."""
     payload = {"query": query, "filters": filters or {}, "top_k": top_k}
     return hashlib.md5(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
 def get_retriever() -> F1Retriever:
     """Return singleton F1Retriever, creating it on first call."""
     global _retriever
