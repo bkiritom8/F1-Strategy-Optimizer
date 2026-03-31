@@ -109,3 +109,41 @@ def test_load_all_documents_skips_ff1pkl(mock_client_cls):
     assert mock_parquet.call_count == 1
     assert mock_csv.call_count == 1
     assert result == []
+
+@patch("rag.chunker.storage.Client")
+def test_chunk_csv_qualifying(mock_client_cls):
+    """chunk_csv creates Documents from qualifying CSV."""
+    from rag.chunker import chunk_csv
+    df = pd.DataFrame({
+        "year": [2023],
+        "raceName": ["British Grand Prix"],
+        "driverRef": ["hamilton"],
+        "position": [1],
+        "q1": ["1:26.123"],
+        "q2": ["1:25.456"],
+        "q3": ["1:24.789"],
+    })
+    mock_client_cls.return_value = _make_gcs_client(df, "csv")
+    docs = chunk_csv("gs://bucket/2023/british/qualifying.csv")
+    assert len(docs) == 1
+    assert "hamilton" in docs[0].page_content
+    assert "qualified" in docs[0].page_content
+    assert docs[0].metadata["driver"] == "hamilton"
+
+
+@patch("rag.chunker.storage.Client")
+def test_chunk_csv_constructor_standings(mock_client_cls):
+    """chunk_csv creates Documents from constructor_standings CSV."""
+    from rag.chunker import chunk_csv
+    df = pd.DataFrame({
+        "year": [2023],
+        "constructorRef": ["mercedes"],
+        "position": [2],
+        "points": [409],
+        "wins": [8],
+    })
+    mock_client_cls.return_value = _make_gcs_client(df, "csv")
+    docs = chunk_csv("gs://bucket/2023/constructor_standings.csv")
+    assert len(docs) == 1
+    assert "mercedes" in docs[0].page_content
+    assert "constructors championship" in docs[0].page_content

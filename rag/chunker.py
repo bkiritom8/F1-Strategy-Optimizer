@@ -231,6 +231,19 @@ def chunk_csv(gcs_uri: str, client: storage.Client | None = None) -> list[Docume
             driver = get(row, "driverRef") or None
         elif filename.startswith("circuits"):
             text = f"{get(row, 'name')} circuit in {get(row, 'location')}, {get(row, 'country')}."
+        elif filename.startswith("constructor_standings"):
+            text = (
+                f"{get(row, 'constructorRef')} finished P{get(row, 'position')} "
+                f"in the {get(row, 'year')} constructors championship "
+                f"with {get(row, 'points')} points and {get(row, 'wins')} wins."
+            )
+        elif filename.startswith("qualifying"):
+            text = (
+                f"{get(row, 'driverRef')} qualified P{get(row, 'position')} "
+                f"for the {get(row, 'year')} {get(row, 'raceName')} "
+                f"with a best lap of {get(row, 'q3') or get(row, 'q2') or get(row, 'q1')}."
+            )
+            driver = get(row, "driverRef") or None
         elif filename.startswith("standings"):
             text = (
                 f"{get(row, 'driverRef')} finished the {get(row, 'year')} season "
@@ -248,7 +261,6 @@ def chunk_csv(gcs_uri: str, client: storage.Client | None = None) -> list[Docume
         documents.append(Document(page_content=text, metadata=meta))
 
     return documents
-
 
 def load_all_documents(bucket: str) -> list[Document]:
     """
