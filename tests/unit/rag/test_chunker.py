@@ -29,15 +29,17 @@ def test_chunk_parquet_telemetry(mock_client_cls):
     """chunk_parquet creates Documents from telemetry columns."""
     from rag.chunker import chunk_parquet
 
-    df = pd.DataFrame({
-        "Year": [2023],
-        "EventName": ["British Grand Prix"],
-        "Driver": ["HAM"],
-        "LapNumber": [10],
-        "LapTime": ["1:30.123"],
-        "Compound": ["MEDIUM"],
-        "Position": [3],
-    })
+    df = pd.DataFrame(
+        {
+            "Year": [2023],
+            "EventName": ["British Grand Prix"],
+            "Driver": ["HAM"],
+            "LapNumber": [10],
+            "LapTime": ["1:30.123"],
+            "Compound": ["MEDIUM"],
+            "Position": [3],
+        }
+    )
     mock_client_cls.return_value = _make_gcs_client(df, "parquet")
 
     docs = chunk_parquet("gs://bucket/2023/silverstone/R_laps.parquet")
@@ -53,15 +55,17 @@ def test_chunk_csv_race_results(mock_client_cls):
     """chunk_csv creates Documents from race_results CSV."""
     from rag.chunker import chunk_csv
 
-    df = pd.DataFrame({
-        "year": [2023],
-        "raceName": ["British Grand Prix"],
-        "driverRef": ["hamilton"],
-        "positionOrder": [1],
-        "constructorRef": ["mercedes"],
-        "grid": [1],
-        "points": [25],
-    })
+    df = pd.DataFrame(
+        {
+            "year": [2023],
+            "raceName": ["British Grand Prix"],
+            "driverRef": ["hamilton"],
+            "positionOrder": [1],
+            "constructorRef": ["mercedes"],
+            "grid": [1],
+            "points": [25],
+        }
+    )
     mock_client_cls.return_value = _make_gcs_client(df, "csv")
 
     docs = chunk_csv("gs://bucket/2023/british/race_results.csv")
@@ -90,7 +94,11 @@ def test_load_all_documents_skips_ff1pkl(mock_client_cls):
 
     # Mock blob list: parquet, csv, and ff1pkl
     blobs = []
-    for name in ["data/2023/race_results.csv", "data/2023/laps.parquet", "cache/session.ff1pkl"]:
+    for name in [
+        "data/2023/race_results.csv",
+        "data/2023/laps.parquet",
+        "cache/session.ff1pkl",
+    ]:
         b = MagicMock()
         b.name = name
         blobs.append(b)
@@ -100,8 +108,9 @@ def test_load_all_documents_skips_ff1pkl(mock_client_cls):
     mock_list_client.list_blobs.return_value = blobs
 
     # chunk_parquet/chunk_csv will be called — mock them to return empty
-    with patch("rag.chunker.chunk_parquet", return_value=[]) as mock_parquet, \
-         patch("rag.chunker.chunk_csv", return_value=[]) as mock_csv:
+    with patch("rag.chunker.chunk_parquet", return_value=[]) as mock_parquet, patch(
+        "rag.chunker.chunk_csv", return_value=[]
+    ) as mock_csv:
         mock_client_cls.return_value = mock_list_client
         result = load_all_documents("my-bucket")
 
@@ -110,19 +119,23 @@ def test_load_all_documents_skips_ff1pkl(mock_client_cls):
     assert mock_csv.call_count == 1
     assert result == []
 
+
 @patch("rag.chunker.storage.Client")
 def test_chunk_csv_qualifying(mock_client_cls):
     """chunk_csv creates Documents from qualifying CSV."""
     from rag.chunker import chunk_csv
-    df = pd.DataFrame({
-        "year": [2023],
-        "raceName": ["British Grand Prix"],
-        "driverRef": ["hamilton"],
-        "position": [1],
-        "q1": ["1:26.123"],
-        "q2": ["1:25.456"],
-        "q3": ["1:24.789"],
-    })
+
+    df = pd.DataFrame(
+        {
+            "year": [2023],
+            "raceName": ["British Grand Prix"],
+            "driverRef": ["hamilton"],
+            "position": [1],
+            "q1": ["1:26.123"],
+            "q2": ["1:25.456"],
+            "q3": ["1:24.789"],
+        }
+    )
     mock_client_cls.return_value = _make_gcs_client(df, "csv")
     docs = chunk_csv("gs://bucket/2023/british/qualifying.csv")
     assert len(docs) == 1
@@ -135,15 +148,51 @@ def test_chunk_csv_qualifying(mock_client_cls):
 def test_chunk_csv_constructor_standings(mock_client_cls):
     """chunk_csv creates Documents from constructor_standings CSV."""
     from rag.chunker import chunk_csv
-    df = pd.DataFrame({
-        "year": [2023],
-        "constructorRef": ["mercedes"],
-        "position": [2],
-        "points": [409],
-        "wins": [8],
-    })
+
+    df = pd.DataFrame(
+        {
+            "year": [2023],
+            "constructorRef": ["mercedes"],
+            "position": [2],
+            "points": [409],
+            "wins": [8],
+        }
+    )
     mock_client_cls.return_value = _make_gcs_client(df, "csv")
     docs = chunk_csv("gs://bucket/2023/constructor_standings.csv")
     assert len(docs) == 1
     assert "mercedes" in docs[0].page_content
     assert "constructors championship" in docs[0].page_content
+
+
+def test_chunk_driver_season_summary_basic():
+    """chunk_driver_season_summary generates one doc per driver."""
+    from rag.chunker import chunk_driver_season_summary
+
+    df = pd.DataFrame(
+        {
+            "Driver": ["HAM", "HAM", "VER", "VER", "VER"],
+            "LapTime": [90.1, 91.2, 88.5, 89.0, 90.0],
+        }
+    )
+    docs = chunk_driver_season_summary(
+        df, season=2023, source_file="gs://bucket/laps.parquet"
+    )
+    assert len(docs) == 2
+    drivers = [d.metadata["driver"] for d in docs]
+    assert "HAM" in drivers
+    assert "VER" in drivers
+    for doc in docs:
+        assert "2023" in doc.page_content
+        assert doc.metadata["source_type"] == "season_summary"
+        assert doc.metadata["season"] == 2023
+
+
+def test_chunk_driver_season_summary_empty():
+    """chunk_driver_season_summary returns [] for empty DataFrame."""
+    from rag.chunker import chunk_driver_season_summary
+
+    docs = chunk_driver_season_summary(
+        pd.DataFrame(), season=2023, source_file="gs://bucket/laps.parquet"
+    )
+    assert docs == []

@@ -262,6 +262,58 @@ def chunk_csv(gcs_uri: str, client: storage.Client | None = None) -> list[Docume
 
     return documents
 
+
+def chunk_driver_season_summary(
+    df: pd.DataFrame, season: int, source_file: str
+) -> list[Document]:
+    """
+    Generate per-driver season summary Documents from a laps DataFrame.
+    Aggregates stats per driver across all laps in a season.
+    """
+    if df.empty:
+        return []
+
+    driver_col = "Driver" if "Driver" in df.columns else "driverRef"
+    lap_time_col = "LapTime" if "LapTime" in df.columns else "time"
+
+    if driver_col not in df.columns:
+        return []
+
+    documents = []
+    for driver, group in df.groupby(driver_col):
+        if _is_null(driver):
+            continue
+        total_laps = len(group)
+        if lap_time_col in group.columns:
+            lt = pd.to_numeric(group[lap_time_col], errors="coerce").dropna()
+            mean_lt = round(float(lt.mean()), 3) if not lt.empty else None
+            best_lt = round(float(lt.min()), 3) if not lt.empty else None
+        else:
+            mean_lt = best_lt = None
+
+        text = f"In the {season} F1 season, {driver} completed {total_laps} laps"
+        if mean_lt:
+            text += f" with an average lap time of {mean_lt}s"
+        if best_lt:
+            text += f" and a best lap time of {best_lt}s"
+        text += "."
+
+        documents.append(
+            Document(
+                page_content=text,
+                metadata={
+                    "source_file": source_file,
+                    "source_type": "season_summary",
+                    "season": season,
+                    "driver": str(driver),
+                    "race": None,
+                    "session": None,
+                },
+            )
+        )
+    return documents
+
+
 def load_all_documents(bucket: str) -> list[Document]:
     """
     Walk entire GCS bucket, call appropriate chunker per file.
@@ -303,7 +355,9 @@ def load_all_documents(bucket: str) -> list[Document]:
         processed += 1
 
         if processed % 100 == 0:
-            logger.info(f"Processed {processed} files, {len(all_docs)} documents so far...")
+            logger.info(
+                f"Processed {processed} files, {len(all_docs)} documents so far..."
+            )
 
     logger.info(f"Total documents loaded: {len(all_docs)} from {processed} files")
     return all_docs
