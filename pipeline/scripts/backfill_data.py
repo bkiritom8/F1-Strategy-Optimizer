@@ -45,16 +45,10 @@ _last_request_time: float = 0.0
 #   2024: round 1 present, 2-24 missing
 #   2025: rounds 1-16 present, 17-24 missing (2025 season complete)
 FASTF1_MISSING: Dict[int, List[int]] = {
-<<<<<<< Updated upstream
     2022: list(range(4, 23)),   # rounds 4-22
+    2023: list(range(1, 23)),   # rounds 1-22
     2024: list(range(2, 25)),   # rounds 2-24
     2025: list(range(17, 25)),  # rounds 17-24
-=======
-    2022: list(range(4, 23)),
-    2023: list(range(1, 23)),   
-    2024: list(range(2, 25)),
-    2025: list(range(17, 25)),
->>>>>>> Stashed changes
 }
 
 
@@ -402,15 +396,12 @@ def backfill_fastf1(bucket: storage.Bucket, dry_run: bool = False) -> None:
                                 "std_brake": tel["Brake"].std() if "Brake" in tel.columns else None,
                                 "mean_speed": tel["Speed"].mean() if "Speed" in tel.columns else None,
                                 "max_speed": tel["Speed"].max() if "Speed" in tel.columns else None,
-<<<<<<< Updated upstream
-=======
                                 "mean_rpm": tel["RPM"].mean() if "RPM" in tel.columns else None,
                                 "max_rpm": tel["RPM"].max() if "RPM" in tel.columns else None,
                                 "mean_gear": tel["nGear"].mean() if "nGear" in tel.columns else None,
                                 "mode_gear": int(tel["nGear"].mode()[0]) if "nGear" in tel.columns and not tel["nGear"].empty else None,
                                 "drs_usage_pct": (tel["DRS"].gt(0).sum() / len(tel) * 100) if "DRS" in tel.columns else None,
                                 "lap_distance": tel["Distance"].max() if "Distance" in tel.columns else None,
->>>>>>> Stashed changes
                             })
                     except Exception:
                         pass

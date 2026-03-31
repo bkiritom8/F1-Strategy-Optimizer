@@ -108,7 +108,6 @@ jobs:
       - name: Run unit tests
         run: |
           pytest tests/unit/ ml/tests/test_dag.py ml/tests/test_distributed.py \
-            --ignore=tests/unit/test_ml_preprocessing.py \
             --ignore=tests/unit/test_ml_models.py \
             -v --cov=src --cov-report=xml --cov-report=html
 
