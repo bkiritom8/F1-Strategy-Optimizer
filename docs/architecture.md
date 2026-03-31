@@ -1,6 +1,6 @@
 # System Architecture and Deployment
 
-**Last Updated**: 2026-03-27
+**Last Updated**: 2026-03-31
 
 ## Overview
 
@@ -105,7 +105,7 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │       │                                                        │
 │  Vertex AI Vector Search  ← streaming upsert                  │
 │       │                                                        │
-│  rag/retriever.py ← top-k retrieval + Gemini 1.5 Flash        │
+│  rag/retriever.py ← top-k retrieval + Gemini 2.5 Flash        │
 │       │                                                        │
 │  FastAPI /rag/query + /rag/health                             │
 │                                                                │
@@ -130,6 +130,7 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │  POST /recommend    — strategy recommendations (<500ms P99)   │
 │  POST /rag/query    — natural-language F1 Q&A (RAG pipeline)  │
 │  GET  /rag/health   — RAG configuration status                │
+│  POST /llm/chat     — Gemini 2.5 Flash strategy chat         │
 │  GET  /docs         — interactive API documentation           │
 │                                                                │
 └───────────────────────────────────────────────────────────────┘
@@ -328,7 +329,7 @@ CLOUD_RUN_TASK_INDEX=0        # Set automatically by Cloud Run
 GCS_BUCKET=f1optimizer-data-lake
 ```
 
-See `team-docs/DEV_SETUP.md` §8 for the full list.
+See `docs/DEV_SETUP.md` §9 for the full list.
 
 ## Performance Targets
 
