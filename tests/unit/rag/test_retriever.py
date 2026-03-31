@@ -6,11 +6,11 @@ from langchain_core.documents import Document
 
 
 def _make_retriever():
-    """Create an F1Retriever with a mock unconfigured config."""
+    """Create an F1Retriever with a mock config — bypasses Vertex AI init."""
     from rag.retriever import F1Retriever
     retriever = F1Retriever.__new__(F1Retriever)
     retriever._initialized = False
-    retriever._model = None
+    retriever._gemini_client = MagicMock()
 
     mock_config = MagicMock()
     mock_config.is_configured = True
@@ -22,7 +22,7 @@ def _make_retriever():
     mock_config.VECTOR_SEARCH_DEPLOYED_INDEX_ID = "dep-123"
     mock_config.GCS_MODELS_BUCKET = "f1optimizer-models"
     mock_config.METADATA_GCS_PATH = "rag/metadata.json"
-    mock_config.LLM_MODEL = "gemini-1.5-flash"
+    mock_config.LLM_MODEL = "gemini-2.5-flash"
     mock_config.LLM_TEMPERATURE = 0.2
     mock_config.MAX_OUTPUT_TOKENS = 1024
     retriever.config = mock_config
@@ -74,12 +74,13 @@ def test_generate_empty_context():
 
 
 def test_init_sets_attributes():
-    """F1Retriever.__init__ sets config, _initialized=False, _model=None."""
-    with patch("rag.retriever.RagConfig") as MockConfig:
+    """F1Retriever.__init__ sets config, _initialized=False, and _gemini_client."""
+    with patch("rag.retriever.RagConfig") as MockConfig, \
+         patch("rag.retriever.GeminiClient") as MockGeminiClient:
         from rag.retriever import F1Retriever
         r = F1Retriever()
     assert r._initialized is False
-    assert r._model is None
+    assert r._gemini_client is not None
     MockConfig.assert_called_once()
 
 
@@ -87,7 +88,6 @@ def test_ensure_initialized_already_initialized():
     """_ensure_initialized returns immediately when already initialized."""
     retriever = _make_retriever()
     retriever._initialized = True
-    # Should not raise or call vertexai.init
     with patch("rag.retriever.vertexai") as mock_vertexai:
         retriever._ensure_initialized()
     mock_vertexai.init.assert_not_called()
@@ -104,19 +104,17 @@ def test_ensure_initialized_not_configured_raises():
 
 
 def test_ensure_initialized_success():
-    """_ensure_initialized initializes vertexai and sets _model when configured."""
+    """_ensure_initialized calls vertexai.init and sets _initialized=True."""
     retriever = _make_retriever()
     retriever._initialized = False
 
-    with patch("rag.retriever.vertexai") as mock_vertexai, \
-         patch("rag.retriever.GenerativeModel") as MockModel:
-        mock_model_instance = MagicMock()
-        MockModel.return_value = mock_model_instance
+    with patch("rag.retriever.vertexai") as mock_vertexai:
         retriever._ensure_initialized()
 
-    mock_vertexai.init.assert_called_once()
+    mock_vertexai.init.assert_called_once_with(
+        project="f1optimizer", location="us-central1"
+    )
     assert retriever._initialized is True
-    assert retriever._model is mock_model_instance
 
 
 def test_retrieve_calls_vector_store():
@@ -151,20 +149,19 @@ def test_retrieve_with_no_filters():
 
 
 def test_generate_with_context():
-    """generate() builds prompt and returns model text when context_docs provided."""
+    """generate() delegates to _gemini_client.generate when context_docs provided."""
     retriever = _make_retriever()
     retriever._initialized = True
-
-    fake_model = MagicMock()
-    fake_model.generate_content.return_value.text = "Hamilton won."
-    retriever._model = fake_model
 
     docs = [
         Document(page_content="Hamilton dominated Monaco 2019", metadata={}),
     ]
+    retriever._gemini_client.generate.return_value = "Hamilton won."
 
     with patch.object(retriever, "_ensure_initialized"):
         answer = retriever.generate("Who won Monaco 2019?", docs)
 
     assert answer == "Hamilton won."
-    fake_model.generate_content.assert_called_once()
+    retriever._gemini_client.generate.assert_called_once_with(
+        "Who won Monaco 2019?", context_docs=docs
+    )

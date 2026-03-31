@@ -1,40 +1,33 @@
-from vertexai.generative_models import GenerativeModel
-from langchain_core.documents import Document
-from rag.config import RagConfig
-from rag import embedder, vector_store
-import vertexai
+from __future__ import annotations
+
 import logging
 import time
 
-logger = logging.getLogger(__name__)
+from langchain_core.documents import Document
+from rag.config import RagConfig
+from rag import embedder, vector_store
+from src.llm.gemini_client import GeminiClient
+import vertexai
 
-SYSTEM_PROMPT = """You are an expert F1 race strategy analyst.
-You have deep knowledge of Formula 1 racing, tire strategies,
-pit stops, lap times, and race outcomes.
-Answer questions based ONLY on the context provided.
-If the answer is not in the context, say exactly:
-"I don't have enough data to answer that."
-Be concise and specific. Include relevant numbers and statistics
-from the context when available."""
+logger = logging.getLogger(__name__)
 
 
 class F1Retriever:
     """
     Main RAG interface. Handles retrieval from Vector Search
-    and generation via Gemini.
+    and generation via GeminiClient.
 
     Lazily initialized — safe to import before Vertex AI is configured.
     """
 
-    def __init__(self):
-        """Load config. Do not initialize Vertex AI here."""
+    def __init__(self) -> None:
         self.config = RagConfig()
         self._initialized = False
-        self._model = None
+        self._gemini_client = GeminiClient(self.config)
 
     def _ensure_initialized(self) -> None:
         """
-        Initialize Vertex AI and Gemini model on first use.
+        Initialize Vertex AI on first use (needed for embedder calls).
         Raises RuntimeError if config.is_configured is False.
         """
         if self._initialized:
@@ -45,7 +38,6 @@ class F1Retriever:
                 "VECTOR_SEARCH_ENDPOINT_ID environment variables."
             )
         vertexai.init(project=self.config.PROJECT_ID, location=self.config.REGION)
-        self._model = GenerativeModel(self.config.LLM_MODEL)
         self._initialized = True
 
     def retrieve(
@@ -98,38 +90,14 @@ class F1Retriever:
         context_docs: list[Document],
     ) -> str:
         """
-        Build a prompt from query + context docs and call Gemini.
-        Returns "I don't have enough data to answer that." if context_docs is empty.
-        Raises RuntimeError if called directly on an unconfigured retriever with non-empty docs.
-        For normal usage, prefer query() which calls retrieve() + generate() together.
+        Generate an answer from context docs via GeminiClient.
+        Returns the no-data fallback string if context_docs is empty.
         """
         if not context_docs:
             return "I don't have enough data to answer that."
 
         self._ensure_initialized()
-
-        context_parts = []
-        for doc in context_docs:
-            context_parts.append("---")
-            context_parts.append(doc.page_content)
-        context_parts.append("---")
-        context_str = "\n".join(context_parts)
-
-        prompt = (
-            f"{SYSTEM_PROMPT}\n\n"
-            f"Context:\n{context_str}\n\n"
-            f"Question: {query}\n\n"
-            f"Answer:"
-        )
-
-        response = self._model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": self.config.LLM_TEMPERATURE,
-                "max_output_tokens": self.config.MAX_OUTPUT_TOKENS,
-            },
-        )
-        return response.text
+        return self._gemini_client.generate(query, context_docs=context_docs)
 
     def query(
         self,
