@@ -194,6 +194,16 @@ resource "google_storage_bucket" "models" {
     enabled = true
   }
 
+  # Delete noncurrent (superseded) model versions after 30 days
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 30
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
   labels = local.common_labels
 }
 
@@ -203,6 +213,25 @@ resource "google_artifact_registry_repository" "docker_repo" {
   format        = "DOCKER"
   location      = "us-central1"
   description   = "F1 Strategy Optimizer Docker images"
+
+  # Keep the 5 most recent tagged images per image name; delete untagged digests
+  # after 7 days. This prevents $COMMIT_SHA images from accumulating across builds.
+  cleanup_policies {
+    id     = "keep-5-most-recent"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 5
+    }
+  }
+
+  cleanup_policies {
+    id     = "delete-untagged-after-7d"
+    action = "DELETE"
+    condition {
+      tag_state  = "UNTAGGED"
+      older_than = "604800s" # 7 days
+    }
+  }
 
   depends_on = [google_project_service.required_apis]
 }
@@ -275,6 +304,27 @@ resource "google_storage_bucket" "training" {
   uniform_bucket_level_access = true
   versioning {
     enabled = true
+  }
+
+  # Delete training checkpoints and pipeline run artifacts after 45 days.
+  # Cloud Build log objects also land here — this prevents unbounded growth.
+  lifecycle_rule {
+    condition {
+      age = 45
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  # Purge noncurrent (overwritten) versions after 7 days.
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 7
+    }
+    action {
+      type = "Delete"
+    }
   }
 
   labels = local.common_labels

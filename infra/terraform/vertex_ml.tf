@@ -42,6 +42,26 @@ resource "google_storage_bucket" "pipeline_runs" {
     }
   }
 
+  # KFP pipeline run metadata accumulates on every Cloud Build run; delete after 60 days.
+  lifecycle_rule {
+    condition {
+      age = 60
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  # Purge overwritten versions after 7 days.
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 7
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
   labels     = local.common_labels
   depends_on = [google_project_service.required_apis]
 }
