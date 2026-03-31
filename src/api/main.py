@@ -227,6 +227,26 @@ async def recommend_strategy(
 
     start_time = time.time()
 
+    # Fetch RAG context for this driver/lap
+    rag_context = ""
+    try:
+        from src.api.routes.rag import get_retriever
+
+        retriever = get_retriever()
+        if retriever.config.is_configured:
+            rag_query = (
+                f"{request.driver_id} strategy lap {request.current_lap} "
+                f"compound {request.current_compound}"
+            )
+            rag_result = retriever.retrieve(rag_query, top_k=3)
+            if rag_result:
+                rag_context = " | ".join(
+                    doc.page_content[:100] for doc in rag_result[:3]
+                )
+                logger.info(f"RAG context fetched: {len(rag_result)} docs")
+    except Exception as e:
+        logger.warning(f"RAG context fetch failed (non-fatal): {e}")
+
     try:
         if _strategy_model is not None:
             import numpy as np
@@ -276,7 +296,9 @@ async def recommend_strategy(
                 driving_mode="BALANCED",
                 brake_bias=52.5,
                 confidence=0.87,
-                model_source="rule_based_fallback",
+                model_source=(
+                    "rule_based_fallback" if not rag_context else "rule_based_rag"
+                ),
             )
 
         # Track metrics
