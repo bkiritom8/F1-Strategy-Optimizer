@@ -134,6 +134,28 @@ steps:
         pip install --quiet google-cloud-aiplatform google-cloud-storage
         python /workspace/cloudbuild/rollback.py
 
+  # ── Prune old COMMIT_SHA images — keep latest + 4 most recent SHA tags ───────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "prune-old-images"
+    waitFor: ["rollback-check"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        for IMAGE in api ml; do
+          REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/$$IMAGE"
+          DIGESTS=$$(gcloud artifacts docker images list $$REPO \
+            --include-tags --sort-by="~CREATE_TIME" \
+            --filter="tags!=latest" \
+            --format="value(DIGEST)" \
+            --project=f1optimizer 2>/dev/null | tail -n +6)
+          for DIGEST in $$DIGESTS; do
+            echo "Deleting $$REPO@$$DIGEST"
+            gcloud artifacts docker images delete "$$REPO@$$DIGEST" \
+              --quiet --project=f1optimizer --async || true
+          done
+        done
+
 images:
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:$COMMIT_SHA"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"

@@ -29,6 +29,7 @@ opentelemetry-instrumentation-fastapi==0.43b0
 python-jose[cryptography]==3.3.0
 bcrypt>=3.2.0,<4.0.0
 python-multipart==0.0.6
+email-validator==2.1.0
 
 # Database
 pg8000==1.31.2
