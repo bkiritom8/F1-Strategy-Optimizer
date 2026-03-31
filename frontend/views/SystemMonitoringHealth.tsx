@@ -104,7 +104,7 @@ const SystemMonitoringHealth: React.FC = () => {
                   <div className="text-right">
                     <div className="text-[9px] text-gray-500 uppercase">Accuracy</div>
                     <div className="text-sm font-mono font-bold" style={{ color: m.accuracy > 0.9 ? COLORS.accent.green : COLORS.accent.yellow }}>
-                      {(m.accuracy * 100).toFixed(1)}%
+                      {(m.accuracy * 100).toFixed(2)}%
                     </div>
                   </div>
                   <div className="text-right">
@@ -132,7 +132,7 @@ const SystemMonitoringHealth: React.FC = () => {
               key={i}
               className="aspect-square rounded-sm transition-transform hover:scale-125 cursor-pointer"
               style={{ backgroundColor: d.val === 100 ? COLORS.accent.green : COLORS.accent.yellow, opacity: d.val / 100 }}
-              title={`Uptime: ${d.val.toFixed(0)}%`}
+              title={`Uptime: ${d.val.toFixed(2)}%`}
             />
           ))}
         </div>
@@ -211,7 +211,7 @@ const SystemMonitoringHealth: React.FC = () => {
                           <div key={key} className="relative overflow-hidden rounded p-1.5 flex justify-between items-center z-10 border border-white/5 bg-black/10">
                             <div className="absolute left-0 top-0 bottom-0 bg-blue-500/10 -z-10" style={{ width: `${bgPercent}%` }} />
                             <span className="text-[11px] text-gray-300 w-20 truncate" title={key}>{key}</span>
-                            <span className="text-[10px] font-mono text-gray-400">{bgPercent.toFixed(1)}%</span>
+                            <span className="text-[10px] font-mono text-gray-400">{bgPercent.toFixed(2)}%</span>
                           </div>
                         );
                       })}

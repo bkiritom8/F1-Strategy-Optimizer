@@ -22,7 +22,7 @@ const ValidationPerformance: React.FC = () => {
       const seed = race.round * 13;
       const baseAcc = isCorrect ? 92.5 : 72.1;
       const variance = isCorrect ? 2.0 : 5.0;
-      const podiumAcc = (baseAcc + (seed % 100 / 100) * variance).toFixed(1);
+      const podiumAcc = (baseAcc + (seed % 100 / 100) * variance).toFixed(2);
 
       return {
         id: `2024_${race.round}`,
@@ -49,19 +49,19 @@ const ValidationPerformance: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <KPI 
           label="Model Mastery" 
-          value={vStats ? `${(vStats.accuracy * 100).toFixed(1)}%` : '92.5%'} 
+          value={vStats ? `${(vStats.accuracy * 100).toFixed(2)}%` : '92.5%'} 
           trend={vStats ? (vStats.accuracy > 0.9 ? '+0.4%' : '-1.2%') : '+0.4%'} 
           positive={!vStats || vStats.accuracy > 0.9} 
         />
         <KPI 
           label="Recall Score" 
-          value={vStats ? `${(vStats.recall * 100).toFixed(1)}%` : '89.8%'} 
+          value={vStats ? `${(vStats.recall * 100).toFixed(2)}%` : '89.8%'} 
           trend="+2.1%" 
           positive 
         />
         <KPI 
           label="F1 Benchmark" 
-          value={vStats ? vStats.f1_score.toFixed(3) : '0.905'} 
+          value={vStats ? vStats.f1_score.toFixed(2) : '0.905'} 
           trend="+0.012" 
           positive 
         />

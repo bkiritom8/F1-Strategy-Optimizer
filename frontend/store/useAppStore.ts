@@ -14,8 +14,10 @@ interface AppState {
 
   // Active race context
   activeRaceId: string;
+  activeRaceRound: number;
   activeLap: number;
-  setActiveRace: (raceId: string, lap?: number) => void;
+  setActiveRace: (raceId: string, round?: number, lap?: number) => void;
+  setActiveRaceRound: (round: number) => void;
   setActiveLap: (lap: number) => void;
 
   // Theme
@@ -35,9 +37,12 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedDriverId: (id) => set({ selectedDriverId: id }),
 
   activeRaceId: '2024_1',
+  activeRaceRound: 1,
   activeLap: 1,
-  setActiveRace: (raceId, lap) =>
-    set({ activeRaceId: raceId, activeLap: lap ?? 1 }),
+  setActiveRace: (raceId, round, lap) =>
+    set({ activeRaceId: raceId, activeRaceRound: round ?? 1, activeLap: lap ?? 1 }),
+  setActiveRaceRound: (round) =>
+    set({ activeRaceRound: round, activeRaceId: `2024_${round}` }),
   setActiveLap: (lap) => set({ activeLap: lap }),
 
   theme: 'dark',

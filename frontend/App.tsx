@@ -9,13 +9,14 @@
  * - Shows the racing simulation background on every view.
  * - Lazy-loads every view for optimal code-splitting performance.
  * - Logs route transitions via the structured logger (dev only).
+ * - Wraps views in an ErrorBoundary to prevent white-screen crashes.
  */
 
 import React from 'react';
 import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Gauge, Users, Compass, BarChart3, Shield,
+  Gauge, Users, Compass, BarChart3, Shield, Activity,
   MessageSquare, Cpu, Map, Wifi, WifiOff, ChevronLeft, ChevronRight, Sun, Moon
 } from 'lucide-react';
 import { useBackendStatus } from './hooks/useApi';
@@ -37,18 +38,21 @@ const APP_NAME = 'APEX F1';
 /**
  * Primary navigation item definition.
  * Only items marked `mobile: true` appear in the mobile bottom nav strip.
+ *
+ * Validation, Model Engineering, and System Health are admin-only views
+ * accessible as tabs inside AdminPage (behind password gate).
  */
 const navItems = [
-  { path: '/',         label: 'Race Command',     icon: Gauge,          mobile: true  },
-  { path: '/drivers',  label: 'Driver Profiles',  icon: Users,          mobile: true  },
-  { path: '/strategy', label: 'Strategy Sim',     icon: Compass,        mobile: true  },
-  { path: '/ai',       label: 'AI Strategist',    icon: MessageSquare,  mobile: true,  highlight: true },
-  { path: '/circuits', label: 'Circuit Directory', icon: Map,            mobile: true  },
-  { path: '/analysis', label: 'Post-Race',         icon: BarChart3,      mobile: false },
-  { path: '/admin',    label: 'Admin Control',     icon: Shield,         mobile: false },
+  { path: '/',            label: 'Race Command',      icon: Gauge,          mobile: true  },
+  { path: '/drivers',     label: 'Driver Roster',     icon: Users,          mobile: true  },
+  { path: '/strategy',    label: 'Strategy Sim',      icon: Compass,        mobile: true  },
+  { path: '/ai',          label: 'AI Strategist',     icon: MessageSquare,  mobile: true,  highlight: true },
+  { path: '/circuits',    label: 'Circuit Directory',  icon: Map,            mobile: true  },
+  { path: '/analysis',    label: 'Post-Race',          icon: BarChart3,      mobile: false },
+  { path: '/admin',       label: 'Admin Control',      icon: Shield,         mobile: false },
 ];
 
-/** Mobile bottom-nav — shows the first 5 mobile-tagged routes as icon tabs. */
+/** Mobile bottom-nav, shows the first 5 mobile-tagged routes as icon tabs. */
 const mobileNavItems = navItems.filter((n) => n.mobile);
 
 /** Full-screen spinner shown while a lazy-loaded view is being fetched. */
@@ -62,11 +66,60 @@ const ViewLoader: React.FC = () => (
 );
 
 /**
+ * Error boundary: catches render errors in lazy-loaded views and shows a
+ * recovery UI instead of a white screen.
+ */
+class ViewErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    logger.error('[ErrorBoundary] View crash:', error.message, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-md text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-red-600/10 flex items-center justify-center">
+              <Activity className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              Something went wrong
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {this.state.error?.message || 'An unexpected error occurred while rendering this view.'}
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+              className="px-6 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+/**
  * Root application component.
- *
- * Renders the full layout shell: collapsible sidebar (desktop), a top header
- * and bottom navigation bar (mobile), the dynamic racing background and all
- * lazily-loaded route views.
  */
 const App: React.FC = () => {
   const { online, latency } = useBackendStatus();
@@ -85,13 +138,12 @@ const App: React.FC = () => {
 
   /** Log route transitions (dev only). */
   React.useEffect(() => {
-    logger.info(`[App] Route changed → ${location.pathname}`);
+    logger.info(`[App] Route changed -> ${location.pathname}`);
   }, [location.pathname]);
 
-  // Layout with Theme transitions
   return (
     <div className="flex h-screen bg-white dark:bg-[#0F0F0F] text-gray-900 dark:text-white overflow-hidden font-sans transition-colors duration-500">
-      {/* ── Mobile Top Header (hidden on lg+) ─────────────────────────── */}
+      {/* Mobile Top Header (hidden on lg+) */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white/90 dark:bg-[#1A1A1A]/90 backdrop-blur-lg border-b border-gray-200 dark:border-white/5 z-50 flex items-center justify-between px-4 transition-colors duration-500">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center">
@@ -99,7 +151,6 @@ const App: React.FC = () => {
           </div>
           <span className="font-display font-black tracking-tighter text-lg italic">{APP_NAME}</span>
         </div>
-        {/* Theme toggle accessible from mobile header */}
         <button
           onClick={toggleTheme}
           className="p-2 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10"
@@ -182,7 +233,7 @@ const App: React.FC = () => {
                     {!sidebarCollapsed && (
                       <span className="font-medium text-sm tracking-wide whitespace-nowrap overflow-hidden">{item.label}</span>
                     )}
-                    {item.highlight && !isActive && (
+                    {'highlight' in item && item.highlight && !isActive && (
                       <div className="absolute right-3 top-3 w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                     )}
                   </>
@@ -234,36 +285,28 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* ── Main Content ────────────────────────────────────────────── */}
-      {/*
-        pt-14 = offset for mobile top header
-        pb-16 = offset for mobile bottom nav bar
-        lg: offsets removed — sidebar handles layout
-      */}
+      {/* Main Content */}
       <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-16 lg:pt-0 lg:pb-0 bg-white/50 dark:bg-transparent">
         <DynamicSimulationBackground />
         <div className="relative z-10 h-full flex flex-col overflow-y-auto scrollbar-hide">
-          <React.Suspense fallback={<ViewLoader />}>
-            <Routes>
-              <Route path="/"         element={<RaceCommandCenter />} />
-              <Route path="/drivers"  element={<DriverProfiles />} />
-              <Route path="/strategy" element={<PitStrategySimulator />} />
-              <Route path="/ai"       element={<AIChatbot />} />
-              <Route path="/circuits" element={<TrackExplorer theme="dark" />} />
-              <Route path="/analysis" element={<LapByLapAnalysis />} />
-              <Route path="/admin"    element={<AdminPage />} />
-              <Route path="*"         element={<Navigate to="/" replace />} />
-            </Routes>
-          </React.Suspense>
+          <ViewErrorBoundary>
+            <React.Suspense fallback={<ViewLoader />}>
+              <Routes>
+                <Route path="/"           element={<RaceCommandCenter />} />
+                <Route path="/drivers"    element={<DriverProfiles />} />
+                <Route path="/strategy"   element={<PitStrategySimulator />} />
+                <Route path="/ai"         element={<AIChatbot />} />
+                <Route path="/circuits"   element={<TrackExplorer theme={theme} />} />
+                <Route path="/analysis"   element={<LapByLapAnalysis />} />
+                <Route path="/admin"      element={<AdminPage />} />
+                <Route path="*"           element={<Navigate to="/" replace />} />
+              </Routes>
+            </React.Suspense>
+          </ViewErrorBoundary>
         </div>
       </main>
 
-      {/* ── Mobile Bottom Navigation Bar ───────────────────────────── */}
-      {/*
-        Fixed at the bottom on phones (lg:hidden).
-        Shows 5 primary routes as icon + label tabs.
-        Replaces the hamburger drawer experience on small screens.
-      */}
+      {/* Mobile Bottom Navigation Bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#141414]/95 backdrop-blur-xl border-t border-gray-200 dark:border-white/5 flex items-stretch h-16 safe-area-inset-bottom">
         {mobileNavItems.map((item) => (
           <NavLink
@@ -280,7 +323,6 @@ const App: React.FC = () => {
           >
             {({ isActive }) => (
               <>
-                {/* Active background pill */}
                 {isActive && (
                   <motion.div
                     layoutId="mobile-nav-pill"
@@ -292,7 +334,6 @@ const App: React.FC = () => {
                 <span className={`text-[9px] font-bold uppercase tracking-wide relative z-10 ${isActive ? 'text-red-600' : ''}`}>
                   {item.label.split(' ')[0]}
                 </span>
-                {/* Notification dot for AI tab */}
                 {'highlight' in item && item.highlight && !isActive && (
                   <div className="absolute top-2 right-[calc(50%-12px)] w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                 )}

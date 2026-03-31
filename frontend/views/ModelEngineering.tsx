@@ -33,7 +33,7 @@ const FeatureImportanceCard: React.FC<{ modelName: string }> = ({ modelName }) =
           <div key={f.name} className="group">
             <div className="flex justify-between text-xs mb-1">
               <span className="text-gray-300 group-hover:text-blue-400 transition-colors">{f.name}</span>
-              <span className="text-gray-500">{(f.importance * 100).toFixed(1)}%</span>
+              <span className="text-gray-500">{(f.importance * 100).toFixed(2)}%</span>
             </div>
             <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
               <div 
@@ -71,7 +71,7 @@ const BiasReportCard: React.FC<{ modelName: string }> = ({ modelName }) => {
             </div>
             <div className="text-right">
               <div className={`text-xs font-mono ${(slice.disparity_score * 100) > 10 ? 'text-red-400' : 'text-green-400'}`}>
-                Δ {(slice.disparity_score * 100).toFixed(1)}%
+                Δ {(slice.disparity_score * 100).toFixed(2)}%
               </div>
               <span className={`text-[10px] uppercase font-bold ${
                 slice.impact === 'high' ? 'text-red-500' : 
@@ -160,7 +160,7 @@ const ModelEngineering: React.FC = () => {
                     <span className="text-[10px] text-gray-400 uppercase tracking-tight">{model.status}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-bold text-blue-400">{(model.accuracy * 100).toFixed(1)}%</span>
+                    <span className="text-xs font-bold text-blue-400">{(model.accuracy * 100).toFixed(2)}%</span>
                   </div>
                 </div>
               </button>

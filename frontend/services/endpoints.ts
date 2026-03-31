@@ -232,16 +232,16 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
         nationality: d.nationality || '',
         career_races: d.races || 0,
         career_wins: d.wins || 0,
-        aggression_score: Math.min(100, 70 + (d.wins || 0) * 0.3),
-        consistency_score: Math.min(100, 60 + (d.races || 0) * 0.05),
-        pressure_response: Math.min(100, 65 + (d.podiums || 0) * 0.4),
-        tire_management: Math.min(100, 70 + rng() * 20),
-        wet_weather_skill: Math.min(100, 65 + rng() * 25),
-        qualifying_pace: Math.min(100, 70 + (d.wins || 0) * 0.5),
-        race_pace: Math.min(100, 70 + (d.wins || 0) * 0.4),
-        overtaking_ability: Math.min(100, 65 + (d.wins || 0) * 0.35),
-        defensive_ability: Math.min(100, 65 + (d.races || 0) * 0.03),
-        fuel_efficiency: Math.min(100, 70 + rng() * 20),
+        aggression_score: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.3) * 100) / 100,
+        consistency_score: Math.round(Math.min(100, 60 + (d.races || 0) * 0.05) * 100) / 100,
+        pressure_response: Math.round(Math.min(100, 65 + (d.podiums || 0) * 0.4) * 100) / 100,
+        tire_management: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
+        wet_weather_skill: Math.round(Math.min(100, 65 + rng() * 25) * 100) / 100,
+        qualifying_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.5) * 100) / 100,
+        race_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.4) * 100) / 100,
+        overtaking_ability: Math.round(Math.min(100, 65 + (d.wins || 0) * 0.35) * 100) / 100,
+        defensive_ability: Math.round(Math.min(100, 65 + (d.races || 0) * 0.03) * 100) / 100,
+        fuel_efficiency: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
         experience_years: d.seasons?.length || 0,
         rookie_status: (d.races || 0) < 25,
       };
@@ -256,27 +256,28 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
     const staticDrivers = await fetchStatic<StaticDriver[]>('drivers.json');
     return staticDrivers.map((d) => {
       const rng = seedRandom(`static_driver_${d.id}`);
-      const perf = 70 + rng() * 25;
+      const races = Math.floor(10 + rng() * 100);
+      const wins = Math.floor(rng() * 10);
       return {
         driver_id: d.id,
         name: d.name,
         team: DRIVER_TEAM_MAP[d.id] || 'Unknown',
         code: d.code || d.id.slice(0, 3).toUpperCase(),
         nationality: d.nationality || '',
-        career_races: Math.floor(10 + rng() * 100), // Archetypes need non-zero races to show in matrix
-        career_wins: Math.floor(rng() * 10),
-        aggression_score: perf,
-        consistency_score: perf,
-        pressure_response: perf,
-        tire_management: perf,
-        wet_weather_skill: perf,
-        qualifying_pace: perf,
-        race_pace: perf,
-        overtaking_ability: perf,
-        defensive_ability: perf,
-        fuel_efficiency: perf,
+        career_races: races,
+        career_wins: wins,
+        aggression_score: Math.round((55 + rng() * 40) * 100) / 100,
+        consistency_score: Math.round((55 + rng() * 40) * 100) / 100,
+        pressure_response: Math.round((55 + rng() * 40) * 100) / 100,
+        tire_management: Math.round((55 + rng() * 40) * 100) / 100,
+        wet_weather_skill: Math.round((55 + rng() * 40) * 100) / 100,
+        qualifying_pace: Math.round((55 + rng() * 40) * 100) / 100,
+        race_pace: Math.round((55 + rng() * 40) * 100) / 100,
+        overtaking_ability: Math.round((55 + rng() * 40) * 100) / 100,
+        defensive_ability: Math.round((55 + rng() * 40) * 100) / 100,
+        fuel_efficiency: Math.round((55 + rng() * 40) * 100) / 100,
         experience_years: Math.floor(rng() * 15),
-        rookie_status: rng() > 0.8,
+        rookie_status: races < 25,
       };
     });
   } catch (err: any) {

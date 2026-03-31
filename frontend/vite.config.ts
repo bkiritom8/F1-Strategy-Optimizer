@@ -16,17 +16,13 @@ export default defineConfig(({ mode }) => {
         '/strategy':{ target: 'http://localhost:8000', changeOrigin: true },
         '/models': { target: 'http://localhost:8000', changeOrigin: true },
         '/users':  { target: 'http://localhost:8000', changeOrigin: true },
-        '/api/nvidia': {
-          target: 'https://integrate.api.nvidia.com',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/nvidia/, ''),
-        },
+        // NOTE: Do NOT proxy /data here. Static files in public/data/ (drivers.json,
+        // circuits.json, etc.) are served by Vite's built-in static file server.
+        // Proxying /data would redirect those requests to the backend, which
+        // doesn't serve them, breaking the second tier of the fallback chain.
       },
     },
     plugins: [react()],
-    define: {
-      'process.env.VITE_NVIDIA_API_KEY': JSON.stringify(env.VITE_NVIDIA_API_KEY),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

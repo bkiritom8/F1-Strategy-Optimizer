@@ -32,11 +32,11 @@ pyarrow>=14.0.0
 # GCS access (needed by feature store and API startup)
 google-cloud-storage>=2.0.0
 google-cloud-pubsub>=2.0.0
-# gcsfs omitted — tests that use it (test_ml_preprocessing, test_ml_models) are excluded from CI
+gcsfs==2024.6.1
 
 # RL tests
-gymnasium>=1.0.0
-stable-baselines3>=2.0.0
+gymnasium==1.2.3
+stable-baselines3==2.7.1
 
 # Testing
 pytest>=7.4.0

@@ -1,8 +1,13 @@
 <div align="center">
 
-# Apex Intelligence
+# Apex Intelligence | F1 Strategy Intelligence Dashboard
 
-**F1 Race Strategy Dashboard**
+**Live Production**: [https://apexintelligence.vercel.app/](https://apexintelligence.vercel.app/)
+
+## Deployment Architecture
+- **Environment**: Vercel (Production)
+- **Deployment Strategy**: Manual CLI-based deployment (`vercel --prod`).
+- **Sync Note**: Pushes to the GitHub `pipeline` branch do not automatically trigger a build (as the repo is a fork/sub-component). Deployment must be triggered via the Vercel CLI from the local workspace.
 
 Real-time telemetry · AI-driven strategy recommendations · Driver behavioural analytics
 
