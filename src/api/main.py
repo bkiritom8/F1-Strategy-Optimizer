@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from src.api.routes.rag import router as rag_router
+from src.api.routes.llm import router as llm_router
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -772,6 +773,7 @@ async def system_health():
 # Register v1 router
 app.include_router(v1)
 app.include_router(rag_router)
+app.include_router(llm_router)
 
 
 if __name__ == "__main__":
