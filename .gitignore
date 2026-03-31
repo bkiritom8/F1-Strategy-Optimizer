@@ -129,4 +129,8 @@ credentials/
 .vscode/
 .idea/
 *.swp
-*.swo
+# Node
+node_modules/
+.npm
+.yarn-error.log
+.pnpm-debug.log
