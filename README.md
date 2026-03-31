@@ -10,9 +10,10 @@ driving mode, and overtake decisions. Driver-aware recommendations using 76 year
 - **Ingest**: Cloud Run Jobs — 9 parallel tasks, one per year/epoch (`ingest/`)
 - **Storage**: GCS — 51 raw files (6.0 GB CSV) + processed Parquet files (1.0 GB)
 - **ML**: 6 XGBoost/LightGBM/CatBoost ensemble models + PPO reinforcement learning agent
-- **RAG**: Natural-language Q&A over 76 years of F1 data — `rag/` (Vertex AI Vector Search + Gemini 1.5 Flash)
+- **RAG**: Natural-language Q&A over 76 years of F1 data — `rag/` (Vertex AI Vector Search + Gemini 2.5 Flash)
+- **LLM**: Standalone strategy chat endpoint — `POST /llm/chat` (Gemini 2.5 Flash, optional structured race inputs)
 - **Training**: Vertex AI Custom Jobs + KFP Pipeline (5-step DAG) + Cloud Build CI/CD
-- **Serving**: FastAPI on Cloud Run (<500ms P99) — `/recommend`, `/rag/query`, `/rag/health`
+- **Serving**: FastAPI on Cloud Run (<500ms P99) — `/recommend`, `/rag/query`, `/rag/health`, `/llm/chat`
 - **CI/CD**: GitHub Actions (lint, test, docker, terraform) + Cloud Build on `pipeline` branch (includes RAG test gate)
 
 ## Quick Start
@@ -38,7 +39,7 @@ gcloud auth application-default login
 gcloud config set project f1optimizer
 ```
 
-See [`team-docs/DEV_SETUP.md`](./team-docs/DEV_SETUP.md) for the complete developer onboarding guide.
+See [`docs/DEV_SETUP.md`](./docs/DEV_SETUP.md) for the complete developer onboarding guide.
 
 ## Architecture
 
@@ -161,8 +162,9 @@ tests/                   Unit + integration tests
   unit/                  test_iam_simulator.py, test_rl_environment.py
 docker/                  Dockerfiles + requirements
   Dockerfile.api         FastAPI server (port 8000)
-  Dockerfile.ml          ML training (CUDA 11.8, no CMD)
+  Dockerfile.ml          ML training (CUDA 11.8, Python 3.10, no CMD)
   Dockerfile.ingest      Cloud Run ingest workers
+  Dockerfile.rag         RAG ingestion job
   requirements-ml.txt
 docs/                    Technical documentation
 team-docs/               Internal team docs (DEV_SETUP, handoffs)
@@ -196,6 +198,7 @@ val 2022-2023, test 2024.
 | `api:latest` | Artifact Registry | Cloud Run serving |
 | `ml:latest` | Artifact Registry | Vertex AI training jobs |
 | `ingest:latest` | Artifact Registry | Cloud Run ingest workers |
+| `rag:latest` | Artifact Registry | RAG ingestion job |
 
 Cloud Build builds and pushes all images with `$COMMIT_SHA` and `latest` tags on every push to `pipeline`.
 
@@ -289,6 +292,11 @@ curl -X POST https://f1-strategy-api-dev-694267183904.us-central1.run.app/rag/qu
 
 # RAG configuration status
 curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/rag/health
+
+# LLM strategy chat (Gemini 2.5 Flash)
+curl -X POST https://f1-strategy-api-dev-694267183904.us-central1.run.app/llm/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Should I pit now?", "race_inputs": {"driver": "HAM", "circuit": "monaco", "current_lap": 42, "tire_compound": "MEDIUM", "tire_age_laps": 18}}'
 ```
 
 See [`docs/rag.md`](docs/rag.md) for RAG setup, environment variables, and first-time ingestion steps.
@@ -329,6 +337,6 @@ Internal team docs are in [`team-docs/`](./team-docs/).
 
 ---
 
-**Status**: ML pipeline complete — 6 supervised models + RL agent trained, tested, and deployed. RAG pipeline added (chunker → embedder → Vector Search → Gemini).
-**Last Updated**: 2026-03-26
+**Status**: ML pipeline complete — 6 supervised models + RL agent trained, tested, and deployed. RAG pipeline + LLM chat endpoint live (Gemini 2.5 Flash).
+**Last Updated**: 2026-03-31
 **Branch**: `main` (stable) | `pipeline` (CI/CD) | `ml-dev` (ML development)

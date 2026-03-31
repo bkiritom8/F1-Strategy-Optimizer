@@ -325,13 +325,48 @@ jobs:
           env.close()
           EOF
 
+  # ── Frontend Deploy (Firebase Hosting) ───────────────────────────────────
+  deploy-frontend:
+    name: Deploy Frontend to Firebase Hosting
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+        env:
+          VITE_API_URL: https://f1-strategy-api-dev-694267183904.us-central1.run.app
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: f1optimizer
+          entryPoint: frontend
+
   # Cloud Build is triggered automatically by the GCP Cloud Build trigger on
   # the pipeline branch — no need to submit it again from GitHub Actions.
 
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [lint, security, test, integration-test, docker-build, terraform-validate, docs, rl-smoke-test, rl-env-validation]
+    needs: [lint, security, test, integration-test, docker-build, terraform-validate, docs, rl-smoke-test, rl-env-validation, deploy-frontend]
     if: always()
 
     steps:
@@ -353,7 +388,12 @@ jobs:
             if [[ "$result" != "success" && "$result" != "skipped" ]]; then rl_ok=false; fi
           done
 
-          if $core_ok && $rl_ok; then
+          # Deploy is optional — skipped if no frontend changes or secret not set
+          deploy_ok=true
+          deploy_result="${{ needs.deploy-frontend.result }}"
+          if [[ "$deploy_result" != "success" && "$deploy_result" != "skipped" ]]; then deploy_ok=false; fi
+
+          if $core_ok && $rl_ok && $deploy_ok; then
             echo "[OK] All checks passed!"
             exit 0
           else
@@ -367,5 +407,6 @@ jobs:
             echo "  docs:               ${{ needs.docs.result }}"
             echo "  rl-smoke-test:      ${{ needs.rl-smoke-test.result }}"
             echo "  rl-env-validation:  ${{ needs.rl-env-validation.result }}"
+            echo "  deploy-frontend:    ${{ needs.deploy-frontend.result }}"
             exit 1
           fi

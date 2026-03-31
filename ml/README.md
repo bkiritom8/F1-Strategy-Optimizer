@@ -136,7 +136,7 @@ Defined in `ml/distributed/cluster_config.py`:
 
 ## Docker Image
 
-Built from `docker/Dockerfile.ml` (base: `nvidia/cuda:11.8.0-python3.10`).
+Built from `docker/Dockerfile.ml` (base: `nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04`, Python 3.10).
 Pushed to Artifact Registry on every push to `pipeline` via Cloud Build.
 
 ```bash
