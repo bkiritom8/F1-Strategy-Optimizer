@@ -21,7 +21,7 @@ import os
 from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field
 
@@ -46,50 +46,54 @@ _ALLOWED_SELF_REGISTER_ROLES = {Role.API_USER, Role.DATA_VIEWER}
 
 # ── Request / response models ─────────────────────────────────────────────────
 
+
 class RegisterRequest(BaseModel):
-    username: str   = Field(..., min_length=3, max_length=40, pattern=r"^[a-zA-Z0-9_\-]+$")
-    email:    EmailStr
-    full_name: str  = Field(..., min_length=1, max_length=100)
-    password: str   = Field(..., min_length=8, max_length=128)
-    role:     str   = Field(default="roles/apiUser")
+    username: str = Field(
+        ..., min_length=3, max_length=40, pattern=r"^[a-zA-Z0-9_\-]+$"
+    )
+    email: EmailStr
+    full_name: str = Field(..., min_length=1, max_length=100)
+    password: str = Field(..., min_length=8, max_length=128)
+    role: str = Field(default="roles/apiUser")
     gdpr_consent: bool = Field(..., description="Must be true to create an account")
 
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(..., min_length=1)
-    new_password:     str = Field(..., min_length=8, max_length=128)
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 
 class UserProfile(BaseModel):
-    username:   str
-    email:      str
-    full_name:  str
-    role:       str
+    username: str
+    email: str
+    full_name: str
+    role: str
     created_at: str
     consent_at: str
-    is_admin:   bool
+    is_admin: bool
 
 
 class AdminUserView(BaseModel):
-    username:   str
-    email:      str
-    full_name:  str
-    role:       str
-    disabled:   bool
+    username: str
+    email: str
+    full_name: str
+    role: str
+    disabled: bool
     created_at: str
 
 
 class AdminDashboard(BaseModel):
-    total_users:      int
+    total_users: int
     models_available: list[str]
-    api_version:      str
-    gcp_project:      str
-    region:           str
-    model_metrics:    dict[str, Any]
-    training_bucket:  str
+    api_version: str
+    gcp_project: str
+    region: str
+    model_metrics: dict[str, Any]
+    training_bucket: str
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _require_admin(current_user: User) -> None:
     if not iam_simulator.check_permission(current_user, Permission.ADMIN_ALL):
@@ -119,6 +123,7 @@ def _to_profile(record: dict, is_admin: bool) -> UserProfile:
 
 
 # ── Public endpoints ──────────────────────────────────────────────────────────
+
 
 @router.post("/users/register", status_code=201, response_model=UserProfile)
 async def register(request: RegisterRequest) -> UserProfile:
@@ -220,17 +225,17 @@ async def gdpr_export(current_user: User = Depends(get_current_user)) -> dict:
     # Built-in account — return what's held in memory
     return {
         "personal_data": {
-            "username":  current_user.username,
-            "email":     current_user.email,
+            "username": current_user.username,
+            "email": current_user.email,
             "full_name": current_user.full_name,
-            "roles":     [r.value for r in current_user.roles],
-            "note":      "Built-in service account — no persistent personal data stored.",
+            "roles": [r.value for r in current_user.roles],
+            "note": "Built-in service account — no persistent personal data stored.",
         }
     }
 
 
-@router.delete("/users/me", status_code=204)
-async def gdpr_erase(current_user: User = Depends(get_current_user)) -> None:
+@router.delete("/users/me", status_code=204, response_class=Response)
+async def gdpr_erase(current_user: User = Depends(get_current_user)) -> Response:
     """
     GDPR right of erasure — permanently deletes your account and all stored
     personal data (username, email, full name, consent record).
@@ -244,25 +249,30 @@ async def gdpr_erase(current_user: User = Depends(get_current_user)) -> None:
             detail="Built-in service accounts cannot be erased via this endpoint.",
         )
     user_store.delete_user(current_user.username)
+    return Response(status_code=204)
 
 
-@router.put("/users/me/password", status_code=204)
+@router.put("/users/me/password", status_code=204, response_class=Response)
 async def change_password(
     request: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
-) -> None:
+) -> Response:
     """Change your password. Requires your current password for verification."""
     record = user_store.get(current_user.username)
     if not record:
-        raise HTTPException(status_code=400, detail="Cannot change password for built-in accounts.")
+        raise HTTPException(
+            status_code=400, detail="Cannot change password for built-in accounts."
+        )
 
     if not user_store.authenticate(current_user.username, request.current_password):
         raise HTTPException(status_code=403, detail="Current password is incorrect.")
 
     user_store.update_password(current_user.username, request.new_password)
+    return Response(status_code=204)
 
 
 # ── Admin endpoints ───────────────────────────────────────────────────────────
+
 
 @router.get("/admin/users", response_model=list[AdminUserView])
 async def admin_list_users(
@@ -284,11 +294,11 @@ async def admin_list_users(
     ]
 
 
-@router.delete("/admin/users/{username}", status_code=204)
+@router.delete("/admin/users/{username}", status_code=204, response_class=Response)
 async def admin_delete_user(
     username: str,
     current_user: User = Depends(get_current_user),
-) -> None:
+) -> Response:
     """Admin only — delete any user account."""
     _require_admin(current_user)
     record = user_store.get(username)
@@ -296,6 +306,7 @@ async def admin_delete_user(
         raise HTTPException(status_code=404, detail=f"User '{username}' not found.")
     user_store.delete_user(username)
     logger.info("Admin %s deleted user %s", current_user.username, username)
+    return Response(status_code=204)
 
 
 @router.get("/admin/dashboard", response_model=AdminDashboard)
@@ -312,21 +323,26 @@ async def admin_dashboard(
     _require_admin(current_user)
 
     project = os.environ.get("PROJECT_ID", "f1optimizer")
-    region  = os.environ.get("REGION", "us-central1")
+    region = os.environ.get("REGION", "us-central1")
 
     # Count registered users
     total_users = len(user_store.list_users())
 
     # Check which model artifacts exist in GCS
     model_names = [
-        "tire_degradation", "driving_style", "safety_car",
-        "pit_window", "overtake_prob", "race_outcome",
+        "tire_degradation",
+        "driving_style",
+        "safety_car",
+        "pit_window",
+        "overtake_prob",
+        "race_outcome",
     ]
     available_models: list[str] = []
     model_metrics: dict[str, Any] = {}
 
     try:
         from google.cloud import storage
+
         bucket = storage.Client(project=project).bucket("f1optimizer-models")
 
         for name in model_names:
@@ -338,6 +354,7 @@ async def admin_dashboard(
             card_blob = bucket.blob(f"{name}/model_card.json")
             if card_blob.exists():
                 import json, io
+
                 buf = io.BytesIO()
                 card_blob.download_to_file(buf)
                 buf.seek(0)
