@@ -16,6 +16,7 @@
 7. [Submit a Vertex AI Training Job with GPU](#7-submit-a-vertex-ai-training-job-with-gpu)
 8. [Colab Enterprise (GPU Alternative)](#8-colab-enterprise-gpu-alternative)
 9. [Required Environment Variables](#9-required-environment-variables)
+10. [User Auth API](#10-user-auth-api)
 
 ---
 
@@ -398,6 +399,77 @@ Load with:
 export $(grep -v '^#' .env | xargs)
 # or with python-dotenv in your scripts (already a dependency)
 ```
+
+---
+
+---
+
+## 10. User Auth API
+
+User accounts are stored in Firestore (Native mode). The Firestore database must be provisioned before auth endpoints work:
+
+```bash
+terraform -chdir=infra/terraform plan -var-file=dev.tfvars
+terraform -chdir=infra/terraform apply -var-file=dev.tfvars
+```
+
+### Register a user
+
+```bash
+curl -X POST http://localhost:8000/users/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "alice",
+    "email": "alice@example.com",
+    "full_name": "Alice Smith",
+    "password": "securepass123",
+    "role": "roles/apiUser",
+    "gdpr_consent": true
+  }'
+```
+
+### Login — get JWT
+
+```bash
+curl -X POST http://localhost:8000/users/login \
+  -F username=alice \
+  -F password=securepass123
+# → {"access_token": "...", "token_type": "bearer"}
+```
+
+### Use the token
+
+```bash
+TOKEN="<access_token from login>"
+
+curl http://localhost:8000/users/me \
+  -H "Authorization: Bearer $TOKEN"
+
+curl http://localhost:8000/users/me/data \
+  -H "Authorization: Bearer $TOKEN"
+
+# GDPR erasure
+curl -X DELETE http://localhost:8000/users/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Admin endpoints (requires admin account)
+
+```bash
+# Login as built-in admin
+curl -X POST http://localhost:8000/users/login \
+  -F username=admin -F password=<admin_password>
+
+# List all users
+curl http://localhost:8000/admin/users \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# System dashboard
+curl http://localhost:8000/admin/dashboard \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+Self-registration is limited to `roles/apiUser` and `roles/dataViewer`. Admin accounts are built-in service accounts defined in `src/security/iam_simulator.py`.
 
 ---
 

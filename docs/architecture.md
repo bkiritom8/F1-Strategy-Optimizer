@@ -4,7 +4,7 @@
 
 ## Overview
 
-The F1 Strategy Optimizer is a production-grade system built on Google Cloud Platform, designed for real-time race strategy recommendations with <500ms P99 latency. Infrastructure is fully managed by Terraform and deployed to `us-central1`. All data lives in GCS — there is no operational database.
+The F1 Strategy Optimizer is a production-grade system built on Google Cloud Platform, designed for real-time race strategy recommendations with <500ms P99 latency. Infrastructure is fully managed by Terraform and deployed to `us-central1`. Race/ML data lives in GCS. User accounts and audit records live in Firestore (Native mode).
 
 ## High-Level Architecture
 
@@ -84,7 +84,8 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │                                                                │
 │  React 19 + TypeScript (frontend/)                            │
 │  Vite 6 · Tailwind CSS · Zustand · Recharts                   │
-│  Deployed on Vercel (SPA, client-side routing)                │
+│  Deployed on Firebase Hosting (f1optimizer GCP project)       │
+│  Auto-deploy on every git push via GitHub Actions CI/CD       │
 │                                                                │
 │  Routes:  / (Race Command Center)                             │
 │           /drivers   /strategy   /ai   /circuits              │
@@ -126,12 +127,21 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │  Falls back to rule-based strategy if models not promoted.    │
 │                                                                │
 │  Key endpoints:                                               │
-│  GET  /health       — health check                            │
-│  POST /recommend    — strategy recommendations (<500ms P99)   │
-│  POST /rag/query    — natural-language F1 Q&A (RAG pipeline)  │
-│  GET  /rag/health   — RAG configuration status                │
-│  POST /llm/chat     — Gemini 2.5 Flash strategy chat         │
-│  GET  /docs         — interactive API documentation           │
+│  GET  /health            — health check                       │
+│  POST /recommend         — strategy recommendations (<500ms)  │
+│  POST /rag/query         — natural-language F1 Q&A (RAG)      │
+│  GET  /rag/health        — RAG configuration status           │
+│  POST /llm/chat          — Gemini 2.5 Flash + ML bridge +     │
+│                            two-layer semantic cache           │
+│  POST /users/register    — create account (PBKDF2-SHA256)     │
+│  POST /users/login       — authenticate, returns JWT          │
+│  GET  /users/me          — current user profile               │
+│  GET  /users/me/data     — GDPR data export                   │
+│  DELETE /users/me        — GDPR erasure                       │
+│  PUT  /users/me/password — change password                    │
+│  GET  /admin/users       — list all users (admin only)        │
+│  GET  /admin/dashboard   — system metrics (admin only)        │
+│  GET  /docs              — interactive API documentation      │
 │                                                                │
 └───────────────────────────────────────────────────────────────┘
 
@@ -189,6 +199,22 @@ telemetry    = pd.read_parquet("gs://f1optimizer-data-lake/processed/telemetry_a
 race_results = pd.read_parquet("gs://f1optimizer-data-lake/processed/race_results.parquet")
 circuits     = pd.read_parquet("gs://f1optimizer-data-lake/processed/circuits.parquet")
 ```
+
+### User Store: Firestore
+
+User accounts and audit records are stored in Firestore (Native mode, `nam5`, OPTIMISTIC concurrency). Provisioned by `infra/terraform/firestore.tf`.
+
+| Collection | Contents |
+|---|---|
+| `users/{username}` | Profile: username, email, full_name, role, disabled, created_at, consent_at |
+| `user_credentials/{username}` | Password hash only (PBKDF2-HMAC-SHA256, 260k iterations, 32-byte salt) |
+| `audit_log/{auto_id}` | GDPR append-only audit: event, username, SERVER_TIMESTAMP |
+
+Key design decisions:
+- **Atomic registration**: `@firestore.transactional` checks username uniqueness and creates profile + credentials in one transaction — safe for 100+ concurrent registrations
+- **Batch auth read**: `db.get_all([user_ref, cred_ref])` fetches profile and credentials in a single round trip
+- **GDPR erasure**: transactionally deletes both `users/` and `user_credentials/` documents, then appends an erasure record to `audit_log/`
+- **Separate collections**: credentials are never returned by user-facing read operations
 
 ### Ingest Layer: Cloud Run Jobs
 
@@ -259,6 +285,27 @@ validate_data
 
 **Service Account**: `f1-training-dev@f1optimizer.iam.gserviceaccount.com`
 **Roles**: `storage.objectAdmin`, `aiplatform.user`, `aiplatform.customCodeServiceAgent`
+
+### LLM Chat: `/llm/chat`
+
+`POST /llm/chat` provides Gemini 2.5 Flash strategy chat enriched with live ML model predictions and served through a two-layer semantic cache.
+
+**ML Model Bridge** (`src/llm/model_bridge.py`):
+- Lazily loads 6 model bundles from `gs://f1optimizer-models/<name>/model.pkl` at first call
+- Builds a minimal single-row DataFrame from `race_inputs`, filling missing features with sensible defaults
+- Runs all 6 models and returns a human-readable predictions dict injected into the Gemini prompt
+- Silently skips any model that fails to load or predict
+
+**Two-Layer Semantic Cache** (`src/llm/cache.py`):
+
+| Layer | Class | Threshold | TTL | Scope |
+|---|---|---|---|---|
+| 1 | `GenericCache` | cosine ≥ 0.85 | permanent | 20 pre-warmed generic F1 Q&A |
+| 2 | `RealtimeCache` | cosine ≥ 0.88 | 3 minutes | bucketed by driver + lap//3 + tire_age//5 + compound + position |
+
+- Layer 1 is pre-warmed at API startup in a daemon background thread
+- Layer 2 detects cache invalidation on tire compound change (pit stop) or safety car flag change
+- Embeddings use Vertex AI `text-embedding-004` (768-dim)
 
 ### Model Serving: FastAPI on Cloud Run
 
@@ -347,3 +394,5 @@ See `docs/DEV_SETUP.md` §9 for the full list.
 1. `predict()` raises `NotImplementedError` in `ml/models/strategy_predictor.py` and `ml/models/pit_stop_optimizer.py` — API falls back to rule-based logic (the 6 new `ml/models/*.py` wrappers are separate)
 2. `ml/training/distributed_trainer.py` imports `ray` but Ray is not in `docker/requirements-ml.txt`
 3. Monitoring dashboards and alerting policies not yet created
+4. Frontend (`frontend/`) still calls Gemini directly from the browser in `AIChatbot.tsx` — wiring to `/llm/chat` deferred until Firebase Hosting migration is complete
+5. Terraform for Firestore (`infra/terraform/firestore.tf`) has been written but not yet applied — run `terraform apply` to provision the Firestore database in GCP before user auth endpoints become functional

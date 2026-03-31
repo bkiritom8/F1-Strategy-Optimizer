@@ -13,8 +13,10 @@ driving mode, and overtake decisions. Driver-aware recommendations using 76 year
 - **RAG**: Natural-language Q&A over 76 years of F1 data — `rag/` (Vertex AI Vector Search + Gemini 2.5 Flash)
 - **LLM**: Standalone strategy chat endpoint — `POST /llm/chat` (Gemini 2.5 Flash, optional structured race inputs)
 - **Training**: Vertex AI Custom Jobs + KFP Pipeline (5-step DAG) + Cloud Build CI/CD
-- **Serving**: FastAPI on Cloud Run (<500ms P99) — `/recommend`, `/rag/query`, `/rag/health`, `/llm/chat`
-- **CI/CD**: GitHub Actions (lint, test, docker, terraform) + Cloud Build on `pipeline` branch (includes RAG test gate)
+- **LLM Cache**: Two-layer semantic cache for `/llm/chat` — generic pre-warmed Q&A (cosine ≥ 0.85) + real-time bucketed race-state cache (cosine ≥ 0.88, 3-min TTL)
+- **Auth**: User registration/login with PBKDF2-HMAC-SHA256 passwords, JWT bearer tokens, GDPR compliance — Firestore-backed, race-condition safe
+- **Serving**: FastAPI on Cloud Run (<500ms P99) — `/recommend`, `/rag/query`, `/rag/health`, `/llm/chat`, `/users/*`, `/admin/*`
+- **CI/CD**: GitHub Actions (lint, test, docker, terraform) + Cloud Build on `pipeline` branch (includes RAG test gate) + Firebase Hosting deploy on every push
 
 ## Quick Start
 
@@ -152,12 +154,25 @@ pipeline/                Data management utilities
   scripts/               csv_to_parquet.py, backfill_data.py, verify_upload.py
   simulator/             Race simulator
   rl/                    RL experience builder
-infra/terraform/         All GCP infrastructure (Terraform)
+infra/terraform/
+  main.tf                Core GCP resources
+  firestore.tf           Firestore Native database + indexes + IAM
+  vertex_ml.tf           Vertex AI Pipeline IAM + trigger job
 src/                     Shared code
   api/                   FastAPI application (main.py)
+    routes/
+      users.py           Auth endpoints: register, login, me, GDPR, admin
+      llm.py             /llm/chat with ML model bridge + two-layer cache
+  llm/
+    gemini_client.py     Gemini 2.5 Flash client with ML prediction injection
+    model_bridge.py      Loads 6 GCS model bundles, returns predictions dict
+    cache.py             GenericCache (pre-warmed) + RealtimeCache (bucketed)
   ingestion/             Ergast/FastF1 ingestion classes + HTTP client
   preprocessing/         Schema validation, data quality, sanitisation
-  security/              IAM simulator + HTTPS middleware
+  security/
+    iam_simulator.py     IAM / JWT token logic
+    https_middleware.py  Bearer token validation
+    user_store.py        Firestore-backed user store (PBKDF2-SHA256, GDPR)
 tests/                   Unit + integration tests
   unit/                  test_iam_simulator.py, test_rl_environment.py
 docker/                  Dockerfiles + requirements
@@ -167,7 +182,6 @@ docker/                  Dockerfiles + requirements
   Dockerfile.rag         RAG ingestion job
   requirements-ml.txt
 docs/                    Technical documentation
-team-docs/               Internal team docs (DEV_SETUP, handoffs)
 cloudbuild.yaml          CI/CD pipeline (build, train, validate, deploy)
 .github/workflows/
   ci.yml                 Main CI (lint, test, docker, terraform)
@@ -285,18 +299,28 @@ python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --dry-ru
 curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/health
 curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/docs
 
+# LLM strategy chat (Gemini 2.5 Flash + ML predictions + semantic cache)
+curl -X POST https://f1-strategy-api-dev-694267183904.us-central1.run.app/llm/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Should I pit now?", "race_inputs": {"driver": "HAM", "circuit": "monaco", "current_lap": 42, "tire_compound": "MEDIUM", "tire_age_laps": 18}}'
+
 # RAG natural-language query
 curl -X POST https://f1-strategy-api-dev-694267183904.us-central1.run.app/rag/query \
   -H "Content-Type: application/json" \
   -d '{"query": "What was Hamilton'\''s average lap time at Monaco 2019?", "filters": {"season": 2019}}'
 
-# RAG configuration status
-curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/rag/health
-
-# LLM strategy chat (Gemini 2.5 Flash)
-curl -X POST https://f1-strategy-api-dev-694267183904.us-central1.run.app/llm/chat \
+# User registration
+curl -X POST https://f1-strategy-api-dev-694267183904.us-central1.run.app/users/register \
   -H "Content-Type: application/json" \
-  -d '{"question": "Should I pit now?", "race_inputs": {"driver": "HAM", "circuit": "monaco", "current_lap": 42, "tire_compound": "MEDIUM", "tire_age_laps": 18}}'
+  -d '{"username": "alice", "email": "alice@example.com", "full_name": "Alice Smith", "password": "securepass", "gdpr_consent": true}'
+
+# Login — returns JWT
+curl -X POST https://f1-strategy-api-dev-694267183904.us-central1.run.app/users/login \
+  -F username=alice -F password=securepass
+
+# Profile (requires Bearer token)
+curl https://f1-strategy-api-dev-694267183904.us-central1.run.app/users/me \
+  -H "Authorization: Bearer <token>"
 ```
 
 See [`docs/rag.md`](docs/rag.md) for RAG setup, environment variables, and first-time ingestion steps.
@@ -337,6 +361,6 @@ Internal team docs are in [`team-docs/`](./team-docs/).
 
 ---
 
-**Status**: ML pipeline complete — 6 supervised models + RL agent trained, tested, and deployed. RAG pipeline + LLM chat endpoint live (Gemini 2.5 Flash).
+**Status**: ML pipeline complete. User auth (Firestore-backed, PBKDF2-SHA256, GDPR) live. LLM chat with ML model bridge + two-layer semantic cache live. Firebase Hosting CI/CD configured.
 **Last Updated**: 2026-03-31
 **Branch**: `main` (stable) | `pipeline` (CI/CD) | `ml-dev` (ML development)
