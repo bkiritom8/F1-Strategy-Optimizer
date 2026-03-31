@@ -11,6 +11,7 @@ requests==2.31.0
 # GCP clients
 google-cloud-pubsub==2.19.0
 google-cloud-storage==2.14.0
+google-cloud-firestore==2.14.0
 google-auth==2.28.2
 google-auth-httplib2==0.2.0
 
