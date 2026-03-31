@@ -18,7 +18,7 @@ class RagConfig(BaseSettings):
     EMBEDDING_DIMENSION: int = 768
 
     # LLM Configuration
-    LLM_MODEL: str = "gemini-1.5-flash"
+    LLM_MODEL: str = "gemini-2.5-flash"
 
     # Vector Search Configuration
     # VECTOR_SEARCH_DEPLOYED_INDEX_ID has a default because the deployed index name
