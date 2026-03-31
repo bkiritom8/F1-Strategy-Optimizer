@@ -84,7 +84,7 @@ The F1 Strategy Optimizer is a production-grade system built on Google Cloud Pla
 │                                                                │
 │  React 19 + TypeScript (frontend/)                            │
 │  Vite 6 · Tailwind CSS · Zustand · Recharts                   │
-│  Deployed on Firebase Hosting (SPA, client-side routing)      │
+│  Deployed on Vercel (SPA, client-side routing)                │
 │                                                                │
 │  Routes:  / (Race Command Center)                             │
 │           /drivers   /strategy   /ai   /circuits              │
