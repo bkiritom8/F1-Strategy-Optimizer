@@ -29,6 +29,7 @@ class RaceInputs(BaseModel):
     position: int | None = None
     gap_to_leader: float | None = None
     fuel_remaining_kg: float | None = None
+    safety_car: bool | None = None
 
 
 class ChatRequest(BaseModel):
@@ -40,6 +41,7 @@ class ChatResponse(BaseModel):
     answer: str
     latency_ms: float
     model: str
+    cache_hit: bool = False
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -49,7 +51,13 @@ async def llm_chat(
 ) -> ChatResponse:
     """
     Ask an F1 strategy question. Optionally provide structured race inputs
-    (driver, circuit, lap, tire compound, etc.) to enrich the answer.
+    (driver, circuit, lap, tire compound, etc.) to enrich the answer with
+    live ML model predictions.
+
+    Cache behaviour:
+      - Generic questions (no race_inputs): checked against pre-warmed cache first.
+      - Race-context questions (with race_inputs): checked against semantic
+        real-time cache keyed on question meaning + bucketed race state.
 
     Requires: DATA_READ permission.
     """
@@ -57,14 +65,38 @@ async def llm_chat(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     from src.llm.gemini_client import get_client
+    from src.llm.cache import get_generic_cache, get_realtime_cache
     from rag.config import RagConfig
 
+    start = time.time()
+    structured = request.race_inputs.model_dump() if request.race_inputs else None
+
+    # ── Layer 1: pre-warmed generic cache ─────────────────────────────────────
+    if not structured:
+        cached = get_generic_cache().lookup(request.question)
+        if cached:
+            return ChatResponse(
+                answer=cached,
+                latency_ms=round((time.time() - start) * 1000, 2),
+                model=RagConfig().LLM_MODEL,
+                cache_hit=True,
+            )
+
+    # ── Layer 2: semantic real-time cache ─────────────────────────────────────
+    if structured:
+        cached = get_realtime_cache().lookup(request.question, structured)
+        if cached:
+            return ChatResponse(
+                answer=cached,
+                latency_ms=round((time.time() - start) * 1000, 2),
+                model=RagConfig().LLM_MODEL,
+                cache_hit=True,
+            )
+
+    # ── Cache miss: run ML models + Gemini ────────────────────────────────────
     try:
         client = get_client()
-        start = time.time()
-        structured = request.race_inputs.model_dump() if request.race_inputs else None
 
-        # Run ML models when race inputs are provided
         model_predictions: dict | None = None
         if structured:
             from src.llm.model_bridge import get_predictions
@@ -76,10 +108,18 @@ async def llm_chat(
             model_predictions=model_predictions,
         )
         latency_ms = round((time.time() - start) * 1000, 2)
+
+        # Store in real-time cache if race context was provided
+        if structured:
+            get_realtime_cache().store(
+                request.question, structured, answer, model_predictions or {}
+            )
+
         return ChatResponse(
             answer=answer,
             latency_ms=latency_ms,
             model=RagConfig().LLM_MODEL,
+            cache_hit=False,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))

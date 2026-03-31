@@ -452,6 +452,17 @@ async def startup_event():
     except Exception as e:
         logger.warning("Model load failed, using rule-based fallback: %s", e)
 
+    # Pre-warm the generic LLM cache in background (non-blocking)
+    try:
+        from src.llm.cache import get_generic_cache
+        from src.llm.gemini_client import get_client
+        from rag.config import RagConfig
+        cfg = RagConfig()
+        get_generic_cache().warm(get_client(), cfg.PROJECT_ID, cfg.REGION)
+        logger.info("LLM generic cache pre-warming started in background")
+    except Exception as e:
+        logger.warning("LLM cache pre-warm failed to start: %s", e)
+
 
 # ── /api/v1 router ─────────────────────────────────────────────────────────
 
