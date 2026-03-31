@@ -100,6 +100,7 @@ async def llm_chat(
         model_predictions: dict | None = None
         if structured:
             from src.llm.model_bridge import get_predictions
+
             model_predictions = get_predictions(structured) or None
 
         answer = client.generate(

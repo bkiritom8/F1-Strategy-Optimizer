@@ -47,18 +47,19 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_PROJECT  = os.environ.get("PROJECT_ID", "f1optimizer")
-_USERS    = "users"
-_CREDS    = "user_credentials"
-_AUDIT    = "audit_log"
+_PROJECT = os.environ.get("PROJECT_ID", "f1optimizer")
+_USERS = "users"
+_CREDS = "user_credentials"
+_AUDIT = "audit_log"
 
 
 # ── Password hashing ──────────────────────────────────────────────────────────
 
+
 def hash_password(plain: str) -> str:
     """Return '<hex_salt>:<hex_dk>' using PBKDF2-HMAC-SHA256, 260k iterations."""
     salt = secrets.token_bytes(32)
-    dk   = hashlib.pbkdf2_hmac("sha256", plain.encode("utf-8"), salt, 260_000)
+    dk = hashlib.pbkdf2_hmac("sha256", plain.encode("utf-8"), salt, 260_000)
     return f"{salt.hex()}:{dk.hex()}"
 
 
@@ -66,7 +67,7 @@ def verify_password(plain: str, stored: str) -> bool:
     """Constant-time verification against a stored PBKDF2-SHA256 hash."""
     try:
         salt_hex, hash_hex = stored.split(":", 1)
-        salt     = bytes.fromhex(salt_hex)
+        salt = bytes.fromhex(salt_hex)
         expected = bytes.fromhex(hash_hex)
         dk = hashlib.pbkdf2_hmac("sha256", plain.encode("utf-8"), salt, 260_000)
         return secrets.compare_digest(dk, expected)
@@ -78,10 +79,12 @@ def verify_password(plain: str, stored: str) -> bool:
 
 _db = None
 
+
 def _firestore():
     global _db
     if _db is None:
         from google.cloud import firestore
+
         _db = firestore.Client(project=_PROJECT)
     return _db
 
@@ -89,17 +92,21 @@ def _firestore():
 def _audit(event: str, username: str, **extra: Any) -> None:
     try:
         from google.cloud import firestore
-        _firestore().collection(_AUDIT).add({
-            "event":     event,
-            "username":  username,
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            **extra,
-        })
+
+        _firestore().collection(_AUDIT).add(
+            {
+                "event": event,
+                "username": username,
+                "timestamp": firestore.SERVER_TIMESTAMP,
+                **extra,
+            }
+        )
     except Exception as exc:
         logger.warning("audit write failed: %s", exc)
 
 
 # ── User store ────────────────────────────────────────────────────────────────
+
 
 class UserStore:
     """Firestore-backed user store. All mutating operations are transactional."""
@@ -130,11 +137,11 @@ class UserStore:
 
         from google.cloud import firestore
 
-        db        = _firestore()
-        user_ref  = db.collection(_USERS).document(username)
-        cred_ref  = db.collection(_CREDS).document(username)
-        now       = datetime.now(timezone.utc).isoformat()
-        pw_hash   = hash_password(password)  # computed outside transaction (CPU-bound)
+        db = _firestore()
+        user_ref = db.collection(_USERS).document(username)
+        cred_ref = db.collection(_CREDS).document(username)
+        now = datetime.now(timezone.utc).isoformat()
+        pw_hash = hash_password(password)  # computed outside transaction (CPU-bound)
 
         @firestore.transactional
         def _create(transaction):
@@ -143,11 +150,11 @@ class UserStore:
                 raise ValueError(f"Username '{username}' is already taken.")
 
             profile = {
-                "username":   username,
-                "email":      email,
-                "full_name":  full_name,
-                "role":       role,
-                "disabled":   False,
+                "username": username,
+                "email": email,
+                "full_name": full_name,
+                "role": role,
+                "disabled": False,
                 "created_at": now,
                 "consent_at": now,
             }
@@ -171,9 +178,9 @@ class UserStore:
         """Replace password hash. Atomic single-document write."""
         from google.cloud import firestore
 
-        db       = _firestore()
+        db = _firestore()
         cred_ref = db.collection(_CREDS).document(username)
-        pw_hash  = hash_password(new_password)
+        pw_hash = hash_password(new_password)
 
         @firestore.transactional
         def _update(transaction):
@@ -197,7 +204,7 @@ class UserStore:
         """
         from google.cloud import firestore
 
-        db       = _firestore()
+        db = _firestore()
         user_ref = db.collection(_USERS).document(username)
         cred_ref = db.collection(_CREDS).document(username)
 
@@ -221,10 +228,12 @@ class UserStore:
         db = _firestore()
 
         # Batch-get both documents in one round trip
-        refs  = [db.collection(_USERS).document(username),
-                 db.collection(_CREDS).document(username)]
+        refs = [
+            db.collection(_USERS).document(username),
+            db.collection(_CREDS).document(username),
+        ]
         snaps = db.get_all(refs)
-        docs  = {s.reference.parent.id: s for s in snaps}
+        docs = {s.reference.parent.id: s for s in snaps}
 
         user_snap = docs.get(_USERS)
         cred_snap = docs.get(_CREDS)
@@ -271,12 +280,17 @@ class UserStore:
             logger.warning("UserStore.list_users failed: %s", exc)
             return []
 
-    def list_audit_log(self, username: str | None = None, limit: int = 100) -> list[dict]:
+    def list_audit_log(
+        self, username: str | None = None, limit: int = 100
+    ) -> list[dict]:
         """Return recent audit entries, optionally filtered by username."""
         try:
-            query = _firestore().collection(_AUDIT).order_by(
-                "timestamp", direction="DESCENDING"
-            ).limit(limit)
+            query = (
+                _firestore()
+                .collection(_AUDIT)
+                .order_by("timestamp", direction="DESCENDING")
+                .limit(limit)
+            )
             if username:
                 query = query.where("username", "==", username)
             return [s.to_dict() for s in query.stream()]

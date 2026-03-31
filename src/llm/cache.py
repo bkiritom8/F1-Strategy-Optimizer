@@ -28,9 +28,9 @@ import vertexai
 logger = logging.getLogger(__name__)
 
 # ── Tuning constants ──────────────────────────────────────────────────────────
-GENERIC_THRESHOLD = 0.85   # cosine similarity to hit pre-warmed cache
+GENERIC_THRESHOLD = 0.85  # cosine similarity to hit pre-warmed cache
 REALTIME_THRESHOLD = 0.88  # higher bar for race-context cache (state must also match)
-REALTIME_MAX_AGE_S = 180   # 3 minutes — entries expire after this regardless
+REALTIME_MAX_AGE_S = 180  # 3 minutes — entries expire after this regardless
 REALTIME_MAX_SIZE = 256
 
 # ── Common F1 strategy questions to pre-warm ──────────────────────────────────
@@ -60,6 +60,7 @@ GENERIC_QUESTIONS: list[str] = [
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _cosine(a: list[float], b: list[float]) -> float:
     dot = sum(x * y for x, y in zip(a, b))
     mag_a = math.sqrt(sum(x * x for x in a))
@@ -72,20 +73,21 @@ def _cosine(a: list[float], b: list[float]) -> float:
 def _embed_one(text: str) -> list[float]:
     """Embed a single text. Caller must have called vertexai.init() first."""
     from vertexai.language_models import TextEmbeddingModel
+
     model = TextEmbeddingModel.from_pretrained("text-embedding-004")
     return model.get_embeddings([text])[0].values
 
 
 def _bucket_state(race_inputs: dict) -> str:
     """Build a bucketed state string from race_inputs for cache key hashing."""
-    lap      = int(race_inputs.get("current_lap") or 0)
+    lap = int(race_inputs.get("current_lap") or 0)
     tire_age = int(race_inputs.get("tire_age_laps") or 0)
     compound = str(race_inputs.get("tire_compound") or "").upper()
-    driver   = str(race_inputs.get("driver") or "").upper()
+    driver = str(race_inputs.get("driver") or "").upper()
     position = int(race_inputs.get("position") or 0)
 
     # Round continuous values to reduce cache misses across similar states
-    lap_bucket      = (lap // 3) * 3       # lap 20-22 → bucket 21
+    lap_bucket = (lap // 3) * 3  # lap 20-22 → bucket 21
     tire_age_bucket = (tire_age // 5) * 5  # age 10-14 → bucket 10
 
     state_str = f"{driver}|{position}|{compound}|{lap_bucket}|{tire_age_bucket}"
@@ -93,6 +95,7 @@ def _bucket_state(race_inputs: dict) -> str:
 
 
 # ── Layer 1: Pre-warmed generic cache ─────────────────────────────────────────
+
 
 @dataclass
 class _GenericEntry:
@@ -111,16 +114,21 @@ class GenericCache:
 
     def warm(self, client: Any, project: str, region: str) -> None:
         """Embed all GENERIC_QUESTIONS and pre-generate answers. Runs in background."""
+
         def _run() -> None:
             try:
                 vertexai.init(project=project, location=region)
-                logger.info("GenericCache: warming %d questions…", len(GENERIC_QUESTIONS))
+                logger.info(
+                    "GenericCache: warming %d questions…", len(GENERIC_QUESTIONS)
+                )
                 entries: list[_GenericEntry] = []
                 for q in GENERIC_QUESTIONS:
                     try:
-                        emb    = _embed_one(q)
+                        emb = _embed_one(q)
                         answer = client.generate(q)
-                        entries.append(_GenericEntry(question=q, embedding=emb, answer=answer))
+                        entries.append(
+                            _GenericEntry(question=q, embedding=emb, answer=answer)
+                        )
                         logger.debug("GenericCache: warmed — %s", q[:60])
                         time.sleep(0.5)  # stay within embedding quota
                     except Exception as exc:
@@ -160,6 +168,7 @@ class GenericCache:
 
 # ── Layer 2: Semantic real-time cache ─────────────────────────────────────────
 
+
 @dataclass
 class _RealtimeEntry:
     embedding: list[float]
@@ -184,10 +193,7 @@ class RealtimeCache:
     def _invalidate_driver(self, driver: str) -> None:
         driver_key = driver.upper()
         with self._lock:
-            self._entries = [
-                e for e in self._entries
-                if driver_key not in e.state_hash
-            ]
+            self._entries = [e for e in self._entries if driver_key not in e.state_hash]
         logger.debug("RealtimeCache: invalidated entries for %s", driver)
 
     def _detect_invalidation(self, driver: str, race_inputs: dict) -> None:
@@ -196,10 +202,11 @@ class RealtimeCache:
         prev = self._driver_states.get(key, {})
 
         pit_occurred = (
-            prev.get("tire_compound") and
-            prev.get("tire_compound") != race_inputs.get("tire_compound")
+            prev.get("tire_compound")
+            and prev.get("tire_compound") != race_inputs.get("tire_compound")
         ) or (
-            (race_inputs.get("tire_age_laps") or 0) < (prev.get("tire_age_laps") or 0) - 2
+            (race_inputs.get("tire_age_laps") or 0)
+            < (prev.get("tire_age_laps") or 0) - 2
         )
 
         sc_occurred = race_inputs.get("safety_car") and not prev.get("safety_car")
@@ -241,10 +248,12 @@ class RealtimeCache:
             return best_entry.answer
         return None
 
-    def store(self, question: str, race_inputs: dict, answer: str, model_predictions: dict) -> None:
+    def store(
+        self, question: str, race_inputs: dict, answer: str, model_predictions: dict
+    ) -> None:
         """Store a new answer in the real-time cache."""
         try:
-            q_emb      = _embed_one(question)
+            q_emb = _embed_one(question)
             state_hash = _bucket_state(race_inputs)
         except Exception:
             return
@@ -253,14 +262,16 @@ class RealtimeCache:
             # LRU eviction
             if len(self._entries) >= REALTIME_MAX_SIZE:
                 self._entries.sort(key=lambda e: e.created_at)
-                self._entries = self._entries[REALTIME_MAX_SIZE // 4:]
+                self._entries = self._entries[REALTIME_MAX_SIZE // 4 :]
 
-            self._entries.append(_RealtimeEntry(
-                embedding=q_emb,
-                state_hash=state_hash,
-                answer=answer,
-                model_predictions=model_predictions,
-            ))
+            self._entries.append(
+                _RealtimeEntry(
+                    embedding=q_emb,
+                    state_hash=state_hash,
+                    answer=answer,
+                    model_predictions=model_predictions,
+                )
+            )
 
 
 # ── Singletons ────────────────────────────────────────────────────────────────

@@ -358,6 +358,7 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: f1optimizer
+          channelId: live
           entryPoint: frontend
 
   # Cloud Build is triggered automatically by the GCP Cloud Build trigger on

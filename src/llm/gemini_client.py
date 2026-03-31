@@ -93,16 +93,15 @@ class GeminiClient:
         # ML model predictions — injected as factual context for the LLM to reason over
         if model_predictions:
             _PRED_LABELS: dict[str, str] = {
-                "tire_degradation":         "Tire Degradation",
-                "pit_window":               "Pit Window",
-                "safety_car_probability":   "Safety Car Probability",
+                "tire_degradation": "Tire Degradation",
+                "pit_window": "Pit Window",
+                "safety_car_probability": "Safety Car Probability",
                 "recommended_driving_style": "Recommended Driving Style",
-                "overtake_probability":     "Overtake Probability",
-                "predicted_race_outcome":   "Predicted Race Outcome",
+                "overtake_probability": "Overtake Probability",
+                "predicted_race_outcome": "Predicted Race Outcome",
             }
             pred_lines = [
-                f"  {_PRED_LABELS.get(k, k)}: {v}"
-                for k, v in model_predictions.items()
+                f"  {_PRED_LABELS.get(k, k)}: {v}" for k, v in model_predictions.items()
             ]
             if pred_lines:
                 parts.append("\nML Model Predictions:\n" + "\n".join(pred_lines))

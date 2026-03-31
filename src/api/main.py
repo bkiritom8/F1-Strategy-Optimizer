@@ -458,6 +458,7 @@ async def startup_event():
         from src.llm.cache import get_generic_cache
         from src.llm.gemini_client import get_client
         from rag.config import RagConfig
+
         cfg = RagConfig()
         get_generic_cache().warm(get_client(), cfg.PROJECT_ID, cfg.REGION)
         logger.info("LLM generic cache pre-warming started in background")
