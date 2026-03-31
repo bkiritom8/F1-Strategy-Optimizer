@@ -1127,7 +1127,7 @@ timeout: 1800s  # 30 minutes
 **Orchestrator Container**:
 ```dockerfile
 # Dockerfile.dag-orchestrator
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 # Install orchestration dependencies
 RUN pip install --no-cache-dir \

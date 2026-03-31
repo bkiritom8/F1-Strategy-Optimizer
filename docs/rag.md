@@ -1,6 +1,6 @@
 # F1 RAG Pipeline
 
-## Current Status (2026-03-26)
+## Current Status (2026-03-31)
 
 The RAG pipeline is implemented and tested. Cloud Build test gate passes (≥60% coverage). Index and endpoint are **not yet provisioned** — the pipeline gracefully returns empty results / 503 until the three Vector Search env vars are set.
 
@@ -8,12 +8,12 @@ The RAG pipeline is implemented and tested. Cloud Build test gate passes (≥60%
 - [x] `rag/config.py` — `RagConfig` with all env vars and defaults
 - [x] `rag/chunker.py` — GCS Parquet + CSV rows → natural-language Documents (telemetry, race results, pit stops, lap times, driver bios, standings)
 - [x] `rag/document_fetcher.py` — FIA regulations + circuit guides → Documents (HTTP download + GCS cache)
-- [x] `rag/embedder.py` — Vertex AI `text-embedding-004`, batched (250/batch, 1s sleep)
+- [x] `rag/embedder.py` — Vertex AI `text-embedding-004`, batched (250/batch, 1s sleep), retry logic for 429 rate limits
 - [x] `rag/vector_store.py` — Vertex AI Vector Search create/upsert/query + GCS metadata JSON
 - [x] `rag/retriever.py` — `F1Retriever`: lazy init, top-k retrieval, Gemini 1.5 Flash generation
 - [x] `rag/ingestion_job.py` — one-shot ingestion entry point
-- [x] `src/api/` — `/rag/query` (POST) and `/rag/health` (GET) routes wired up
-- [x] `tests/unit/rag/` — 24 unit tests, ≥60% coverage gate in Cloud Build
+- [x] `src/api/` — `/rag/query` (POST) and `/rag/health` (GET) routes wired up, in-memory LRU cache (128 entries)
+- [x] `tests/unit/rag/` — 28 unit tests, ≥60% coverage gate in Cloud Build
 - [x] `docker/requirements-rag.txt` — `langchain_core`, `vertexai`, GCP libs
 
 ### TODO
@@ -36,8 +36,8 @@ The RAG pipeline is implemented and tested. Cloud Build test gate passes (≥60%
 - [ ] Add per-driver season summary chunks (aggregated stats, not row-per-lap)
 
 #### Production Hardening
-- [ ] Add retry logic to `embedder.py` for Vertex AI 429 rate limit responses
-- [ ] Add `/rag/query` response caching (Redis or in-memory LRU) for repeated queries
+- [x] Add retry logic to `embedder.py` for Vertex AI 429 rate limit responses
+- [x] Add `/rag/query` response caching (in-memory LRU, 128 entries) for repeated queries
 - [ ] Add `latency_ms` monitoring to Cloud Monitoring (target: <2s end-to-end)
 - [ ] Add index freshness check to `/rag/health` response
 - [ ] Periodic re-ingestion job (weekly cron via Cloud Scheduler) as new race data arrives
@@ -136,7 +136,7 @@ VECTOR_SEARCH_ENDPOINT_ID=$VECTOR_SEARCH_ENDPOINT_ID \
 | `REGION` | `us-central1` | GCP region |
 | `EMBEDDING_MODEL` | `text-embedding-004` | Vertex AI embedding model |
 | `EMBEDDING_DIMENSION` | `768` | Embedding vector dimensions |
-| `LLM_MODEL` | `gemini-1.5-flash` | Gemini model for generation |
+| `LLM_MODEL` | `gemini-2.5-flash` | Gemini model for generation |
 | `VECTOR_SEARCH_INDEX_ID` | *(empty)* | **Required** — Vertex AI index ID |
 | `VECTOR_SEARCH_ENDPOINT_ID` | *(empty)* | **Required** — Vertex AI endpoint ID |
 | `VECTOR_SEARCH_DEPLOYED_INDEX_ID` | `f1_rag_deployed` | Deployed index ID |
@@ -196,7 +196,7 @@ Response (not configured):
   "status": "not_configured",
   "index_configured": false,
   "endpoint_configured": false,
-  "model": "gemini-1.5-flash"
+  "model": "gemini-2.5-flash"
 }
 ```
 
@@ -206,7 +206,7 @@ Response (ready):
   "status": "ready",
   "index_configured": true,
   "endpoint_configured": true,
-  "model": "gemini-1.5-flash"
+  "model": "gemini-2.5-flash"
 }
 ```
 
