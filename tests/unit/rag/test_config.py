@@ -22,7 +22,7 @@ def test_defaults(monkeypatch):
     assert config.REGION == "us-central1"
     assert config.EMBEDDING_MODEL == "text-embedding-004"
     assert config.EMBEDDING_DIMENSION == 768
-    assert config.LLM_MODEL == "gemini-1.5-flash"
+    assert config.LLM_MODEL == "gemini-2.5-flash"
     assert config.VECTOR_SEARCH_INDEX_ID == ""
     assert config.VECTOR_SEARCH_ENDPOINT_ID == ""
     assert config.VECTOR_SEARCH_DEPLOYED_INDEX_ID == "f1_rag_deployed"
