@@ -63,7 +63,18 @@ async def llm_chat(
         client = get_client()
         start = time.time()
         structured = request.race_inputs.model_dump() if request.race_inputs else None
-        answer = client.generate(request.question, structured_inputs=structured)
+
+        # Run ML models when race inputs are provided
+        model_predictions: dict | None = None
+        if structured:
+            from src.llm.model_bridge import get_predictions
+            model_predictions = get_predictions(structured) or None
+
+        answer = client.generate(
+            request.question,
+            structured_inputs=structured,
+            model_predictions=model_predictions,
+        )
         latency_ms = round((time.time() - start) * 1000, 2)
         return ChatResponse(
             answer=answer,
