@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field
 from src.security.https_middleware import get_current_user
 from src.security.iam_simulator import iam_simulator, Permission
 import logging
+import hashlib
+import json
+from functools import lru_cache
 
 if TYPE_CHECKING:
     from rag.retriever import F1Retriever
@@ -18,7 +21,15 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 # Module-level singleton — initialized on first request
 _retriever: F1Retriever | None = None
 
+# LRU cache for repeated queries (max 128 entries)
+_CACHE_MAX_SIZE = 128
+_query_cache: dict = {}
+_cache_keys: list = []
 
+def _cache_key(query: str, filters: dict | None, top_k: int) -> str:
+    """Generate a cache key from query parameters."""
+    payload = {"query": query, "filters": filters or {}, "top_k": top_k}
+    return hashlib.md5(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 def get_retriever() -> F1Retriever:
     """Return singleton F1Retriever, creating it on first call."""
     global _retriever
@@ -71,9 +82,21 @@ async def query_rag(request: QueryRequest, current_user=Depends(get_current_user
             detail="RAG index not configured",
         )
 
-    result = retriever.query(
-        request.query, filters=request.filters, top_k=request.top_k
-    )
+    # Check cache first
+    key = _cache_key(request.query, request.filters, request.top_k)
+    if key in _query_cache:
+        logger.debug("Cache hit for query: %s", request.query[:50])
+        result = _query_cache[key]
+    else:
+        result = retriever.query(
+            request.query, filters=request.filters, top_k=request.top_k
+        )
+        # Store in cache, evict oldest if full
+        if len(_query_cache) >= _CACHE_MAX_SIZE:
+            oldest = _cache_keys.pop(0)
+            _query_cache.pop(oldest, None)
+        _query_cache[key] = result
+        _cache_keys.append(key)
 
     return QueryResponse(
         answer=result["answer"],
