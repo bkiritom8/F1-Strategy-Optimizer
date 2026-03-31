@@ -40,17 +40,17 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
         </div>
         <div className="text-right">
           <div className="text-4xl font-mono font-bold text-accent-red leading-none">P{telemetry.position}</div>
-          <div className="text-[10px] text-gray-500 mt-1 uppercase">Interval: +{telemetry.gap_to_ahead}s</div>
+          <div className="text-[10px] text-gray-500 mt-1 uppercase">Interval: +{telemetry.gap_to_ahead.toFixed(2)}s</div>
         </div>
       </div>
 
       {/* Grid of Stats */}
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <StatItem icon={<Wind className="w-4 h-4" />} label="Aero Loss" value={`${telemetry.aero_loss_percent}%`} color={telemetry.aero_loss_percent > 10 ? COLORS.accent.red : COLORS.accent.blue} />
-        <StatItem icon={<Fuel className="w-4 h-4" />} label="Fuel" value={`${telemetry.fuel_remaining_kg.toFixed(1)} KG`} color={fuelColor} />
+        <StatItem icon={<Wind className="w-4 h-4" />} label="Aero Loss" value={`${telemetry.aero_loss_percent.toFixed(2)}%`} color={telemetry.aero_loss_percent > 10 ? COLORS.accent.red : COLORS.accent.blue} />
+        <StatItem icon={<Fuel className="w-4 h-4" />} label="Fuel" value={`${telemetry.fuel_remaining_kg.toFixed(2)} KG`} color={fuelColor} />
         <StatItem icon={<Thermometer className="w-4 h-4" />} label="Tire Age" value={`${telemetry.tire_age_laps} LAPS`} color={COLORS.tires[telemetry.tire_compound]} />
-        <StatItem icon={<Zap className="w-4 h-4 text-purple-500" />} label="ERS Energy" value={`${telemetry.ers_deployment.toFixed(0)}%`} color={COLORS.accent.purple} />
-        <StatItem icon={<Activity className="w-4 h-4 text-orange-500" />} label="G-Force" value={`${telemetry.g_force_lateral.toFixed(1)}G`} color="#FB923C" />
+        <StatItem icon={<Zap className="w-4 h-4 text-purple-500" />} label="ERS Energy" value={`${telemetry.ers_deployment.toFixed(2)}%`} color={COLORS.accent.purple} />
+        <StatItem icon={<Activity className="w-4 h-4 text-orange-500" />} label="G-Force" value={`${telemetry.g_force_lateral.toFixed(2)}G`} color="#FB923C" />
       </div>
 
       {/* Energy & Fuel Management Bars */}
@@ -80,7 +80,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter flex items-center gap-1">
               <Fuel className="w-3 h-3" style={{ color: fuelColor }} /> Fuel Status
             </span>
-            <span className="text-[10px] font-mono" style={{ color: fuelColor }}>{fuelPercentage.toFixed(1)}%</span>
+            <span className="text-[10px] font-mono" style={{ color: fuelColor }}>{fuelPercentage.toFixed(2)}%</span>
           </div>
           <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
             <motion.div 
@@ -91,7 +91,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
             />
           </div>
           <div className="flex justify-between mt-2">
-             <span className="text-[8px] text-gray-600 font-bold uppercase">Target: {strategy.driving_style.fuel_target_kg_per_lap} kg/L</span>
+             <span className="text-[8px] text-gray-600 font-bold uppercase">Target: {strategy.driving_style.fuel_target_kg_per_lap.toFixed(2)} kg/L</span>
              <span className="text-[8px] text-gray-600 font-bold uppercase">Rem: {telemetry.fuel_remaining_kg.toFixed(1)}kg</span>
           </div>
         </div>
@@ -110,7 +110,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
           <div className="text-right">
              <div className="text-xs font-mono text-gray-400 uppercase">Target {strategy.driving_style.ers_target_mode}</div>
              <ConceptTooltip term="Brake Bias">
-               <div className="text-sm font-bold text-white">Target BB: {strategy.brake_bias.recommended_bias}%</div>
+               <div className="text-sm font-bold text-white">Target BB: {strategy.brake_bias.recommended_bias.toFixed(2)}%</div>
              </ConceptTooltip>
           </div>
         </div>

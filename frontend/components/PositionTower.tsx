@@ -80,7 +80,7 @@ const PositionTower: React.FC<PositionTowerProps> = ({
             /** Gap display: P1 shows "LEADER", all others show "+X.XXX". */
             const gapLabel = t.position === 1
               ? 'LEADER'
-              : `+${t.gap_to_leader.toFixed(3)}`;
+              : `+${t.gap_to_leader.toFixed(2)}`;
 
             return (
               <motion.div
