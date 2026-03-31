@@ -107,7 +107,6 @@ airflow/webserver.pid
 
 # Build / Cache
 
-dist/
 build/
 .cache/
 .mypy_cache/
