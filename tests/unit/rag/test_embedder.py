@@ -73,3 +73,33 @@ def test_embed_documents_preserves_order(mock_model_cls):
         assert doc.metadata["i"] == i
         # Verify the vector is paired with the correct document (not scrambled)
         assert vec[0] == pytest.approx(float(i)), f"Vector for doc {i} has wrong first element: {vec[0]}"
+
+@patch("rag.embedder.time")
+@patch("rag.embedder.TextEmbeddingModel")
+def test_get_embeddings_retries_on_rate_limit(mock_model_cls, mock_time):
+    """get_embeddings retries up to 3 times on 429 rate limit errors."""
+    from rag.embedder import get_embeddings
+    mock_model = MagicMock()
+    # Fail twice with 429, succeed on third attempt
+    mock_model.get_embeddings.side_effect = [
+        Exception("429 Too Many Requests"),
+        Exception("429 Too Many Requests"),
+        [MagicMock(values=[0.1] * 768)],
+    ]
+    mock_model_cls.from_pretrained.return_value = mock_model
+    result = get_embeddings(["text1"], batch_size=250, sleep_seconds=0.0)
+    assert len(result) == 1
+    assert mock_model.get_embeddings.call_count == 3
+
+
+@patch("rag.embedder.time")
+@patch("rag.embedder.TextEmbeddingModel")
+def test_get_embeddings_raises_after_max_retries(mock_model_cls, mock_time):
+    """get_embeddings raises after 3 failed attempts."""
+    from rag.embedder import get_embeddings
+    mock_model = MagicMock()
+    mock_model.get_embeddings.side_effect = Exception("429 Too Many Requests")
+    mock_model_cls.from_pretrained.return_value = mock_model
+    with pytest.raises(Exception, match="429"):
+        get_embeddings(["text1"], batch_size=250, sleep_seconds=0.0)
+    assert mock_model.get_embeddings.call_count == 3

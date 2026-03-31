@@ -31,8 +31,28 @@ def get_embeddings(
     for i in range(0, len(texts), batch_size):
         batch = texts[i : i + batch_size]
         logger.debug(f"Embedding batch {i // batch_size + 1} ({len(batch)} texts)...")
-        results = model.get_embeddings(batch)
-        embeddings.extend([r.values for r in results])
+        # Retry up to 3 times on rate limit errors
+        max_retries = 3
+        retry_delay = sleep_seconds
+        for attempt in range(max_retries):
+            try:
+                results = model.get_embeddings(batch)
+                embeddings.extend([r.values for r in results])
+                break
+            except Exception as e:
+                if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
+                    if attempt < max_retries - 1:
+                        wait = retry_delay * (2 ** attempt)
+                        logger.warning(
+                            f"Rate limit hit on batch {i // batch_size + 1}, "
+                            f"retrying in {wait}s (attempt {attempt + 1}/{max_retries})..."
+                        )
+                        time.sleep(wait)
+                    else:
+                        logger.error(f"Rate limit exceeded after {max_retries} attempts")
+                        raise
+                else:
+                    raise
         if i + batch_size < len(texts):
             time.sleep(sleep_seconds)
 
