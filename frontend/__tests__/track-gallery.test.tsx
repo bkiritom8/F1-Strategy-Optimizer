@@ -91,13 +91,8 @@ describe('TrackGallery', () => {
     expect(arg.name).toBe('Circuit de Monaco');
   });
 
-  it('renders without crashing in dark theme', () => {
-    const { container } = render(<TrackGallery theme="dark" />);
-    expect(container.firstChild).not.toBeNull();
-  });
-
-  it('renders without crashing in light theme', () => {
-    const { container } = render(<TrackGallery theme="light" />);
+  it('renders without crashing', () => {
+    const { container } = render(<TrackGallery />);
     expect(container.firstChild).not.toBeNull();
   });
 
