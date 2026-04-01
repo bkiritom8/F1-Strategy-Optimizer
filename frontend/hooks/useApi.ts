@@ -36,6 +36,12 @@ import {
   ValidationStats,
   BackendSystemHealth,
   PredictiveMetric,
+  GcpMetrics,
+  AdminLog,
+  AdminQuotas,
+  fetchAdminGcpMetrics,
+  fetchAdminLogs,
+  fetchAdminQuotas,
 } from '../services/endpoints';
 import { API_BASE } from '../services/client';
 import { logger } from '../services/logger';
@@ -342,6 +348,20 @@ export function useSeasons() {
  */
 export function usePipelineReports() {
   return useApiCall(() => fetchPipelineReports(), null, [], 'pipelineReports');
+}
+
+// ─── Admin Hooks ────────────────────────────────────────────────────────────
+
+export function useAdminGcpMetrics() {
+  return useApiCall<GcpMetrics>(() => fetchAdminGcpMetrics(), null, [], 'adminGcpMetrics');
+}
+
+export function useAdminLogs() {
+  return useApiCall<{ logs: AdminLog[] }>(() => fetchAdminLogs(), { logs: [] }, [], 'adminLogs');
+}
+
+export function useAdminQuotas() {
+  return useApiCall<AdminQuotas>(() => fetchAdminQuotas(), null, [], 'adminQuotas');
 }
 
 // ─── Backend connectivity hook ───────────────────────────────────────────────

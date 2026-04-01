@@ -279,3 +279,5 @@ ml/models/artifacts/
 *.parquet
 *.pkl
 .worktrees/
+.vercel
+.env*.local

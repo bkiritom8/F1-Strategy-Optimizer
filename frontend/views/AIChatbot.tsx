@@ -173,8 +173,8 @@ const AIChatbot: React.FC = () => {
           </AnimatePresence>
         </div>
 
-        {/* Input Bar */}
-        <div className="p-4 border-t" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+        {/* Input Bar — pb-safe anchors above iOS/Android keyboard on mobile */}
+        <div className="p-4 pb-[env(safe-area-inset-bottom,1rem)] border-t" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
           <div className="flex gap-4">
             <input
               type="text"
@@ -182,6 +182,8 @@ const AIChatbot: React.FC = () => {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder="Query the strategist... (e.g. 'Is an undercut viable on Lap 18?')"
+              aria-label="F1 strategy question for Apex AI"
+              maxLength={500}
               className="flex-1 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-red-600 transition-all placeholder:text-gray-500 bg-black/20"
               style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
             />
