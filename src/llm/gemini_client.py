@@ -185,6 +185,7 @@ class GeminiClient:
         question: str,
         tool_executor: Callable[[str, dict], dict],
         structured_inputs: dict | None = None,
+        context_docs: list = [],
         history: list[dict] | None = None,
     ) -> str:
         """Call Gemini with function-calling tools enabled.
@@ -222,7 +223,7 @@ class GeminiClient:
         }
 
         initial_message = self.build_prompt(
-            question, structured_inputs=structured_inputs
+            question, context_docs=context_docs, structured_inputs=structured_inputs
         )
         response = chat.send_message(initial_message, generation_config=gen_config)
 
