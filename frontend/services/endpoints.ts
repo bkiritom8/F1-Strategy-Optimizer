@@ -24,13 +24,28 @@ import type {
 } from '../types';
 
 /**
+ * Helper to generate a deterministic random number between 0 and 1
+ * based on a string seed (e.g., driver_id + round).
+ */
+const seedRandom = (seed: string) => {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
+  }
+  return () => {
+    h = Math.imul(48271, h) ^ (h >>> 16);
+    return (Math.abs(h) % 1000) / 1000;
+  };
+};
+
+/**
  * Common logging and error handling for service layer.
  */
-const handleApiError = (context: string, error: any, fallback: any) => {
+const handleApiError = (context: string, error: any) => {
   logger.error(`[Service:${context}]`, {
     message: error instanceof Error ? error.message : String(error),
   });
-  return fallback;
+  throw error;
 };
 
 // ─── Backend types ──────────────────────────────────────────────────────────
@@ -109,25 +124,6 @@ interface StaticDriver {
   number: string | null;
   nationality: string | null;
   dob: string | null;
-  career_races: number;
-  career_wins: number;
-  career_podiums: number;
-  career_poles: number;
-  first_season: number;
-  last_season: number;
-  experience_years: number;
-  rookie_status: boolean;
-  is_legend: boolean;
-  aggression_score: number;
-  consistency_score: number;
-  pressure_response: number;
-  tire_management: number;
-  wet_weather_skill: number;
-  qualifying_pace: number;
-  race_pace: number;
-  overtaking_ability: number;
-  defensive_ability: number;
-  fuel_efficiency: number;
 }
 
 interface StaticCircuit {
@@ -221,11 +217,11 @@ async function fetchStatic<T>(filename: string): Promise<T> {
  * 2. Fall back to static /data/drivers.json (860+ drivers from pipeline)
  */
 export async function fetchDrivers(): Promise<DriverProfile[]> {
-  // Try backend first
   logger.info('[endpoints] fetchDrivers: attempting live backend…');
-  try {
-    const data = await apiFetch<{ count: number; drivers: any[] }>('/api/v1/drivers');
-    return data.drivers.map((d: any) => ({
+  const data = await apiFetch<{ count: number; drivers: any[] }>('/api/v1/drivers');
+  return data.drivers.map((d: any) => {
+    const rng = seedRandom(`live_driver_${d.driver_id}`);
+    return {
       driver_id: d.driver_id,
       name: `${d.given_name} ${d.family_name}`,
       team: DRIVER_TEAM_MAP[d.driver_id] || 'Unknown',
@@ -236,49 +232,17 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
       aggression_score: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.3) * 100) / 100,
       consistency_score: Math.round(Math.min(100, 60 + (d.races || 0) * 0.05) * 100) / 100,
       pressure_response: Math.round(Math.min(100, 65 + (d.podiums || 0) * 0.4) * 100) / 100,
-      tire_management: Math.round(Math.min(100, 70 + (d.tire_management || 0)) * 100) / 100,
-      wet_weather_skill: Math.round(Math.min(100, 65 + (d.wet_weather_skill || 0)) * 100) / 100,
+      tire_management: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
+      wet_weather_skill: Math.round(Math.min(100, 65 + rng() * 25) * 100) / 100,
       qualifying_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.5) * 100) / 100,
       race_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.4) * 100) / 100,
       overtaking_ability: Math.round(Math.min(100, 65 + (d.wins || 0) * 0.35) * 100) / 100,
       defensive_ability: Math.round(Math.min(100, 65 + (d.races || 0) * 0.03) * 100) / 100,
-      fuel_efficiency: Math.round(Math.min(100, 70 + (d.fuel_efficiency || 0)) * 100) / 100,
+      fuel_efficiency: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
       experience_years: d.seasons?.length || 0,
       rookie_status: (d.races || 0) < 25,
-    }));
-  } catch (err: any) {
-    logger.warn(`[endpoints] fetchDrivers: live API unavailable — ${err?.message}. Falling back to static data.`);
-  }
-
-  // Try static pipeline data (real career stats from GCS Parquets)
-  try {
-    logger.info('[endpoints] fetchDrivers: loading from static pipeline data…');
-    const staticDrivers = await fetchStatic<StaticDriver[]>('drivers.json');
-    return staticDrivers.map((d) => ({
-      driver_id:          d.id,
-      name:               d.name,
-      team:               DRIVER_TEAM_MAP[d.id] || 'Unknown',
-      code:               d.code || d.id.slice(0, 3).toUpperCase(),
-      nationality:        d.nationality || '',
-      career_races:       d.career_races,
-      career_wins:        d.career_wins,
-      aggression_score:   d.aggression_score,
-      consistency_score:  d.consistency_score,
-      pressure_response:  d.pressure_response,
-      tire_management:    d.tire_management,
-      wet_weather_skill:  d.wet_weather_skill,
-      qualifying_pace:    d.qualifying_pace,
-      race_pace:          d.race_pace,
-      overtaking_ability: d.overtaking_ability,
-      defensive_ability:  d.defensive_ability,
-      fuel_efficiency:    d.fuel_efficiency,
-      experience_years:   d.experience_years,
-      rookie_status:      d.rookie_status,
-    }));
-  } catch (err: any) {
-    logger.error(`[endpoints] fetchDrivers: static file unavailable — ${err?.message}`);
-    throw err;
-  }
+    };
+  });
 }
 
 /**
@@ -392,6 +356,17 @@ export async function fetchStrategyRecommendation(params: {
 }
 
 /**
+ * Calls Gemini to parse natural language into a strategy array.
+ */
+export async function parseStrategy(prompt: string): Promise<{ driver_id: string; strategy: [number, string][] }> {
+  logger.info(`[endpoints] parseStrategy via LLM`);
+  return apiFetch<any>('/api/v1/llm/parse-strategy', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+/**
  * Runs a full Monte Carlo strategy simulation on the backend.
  *
  * @param params.race_id    - Race the simulation applies to.
@@ -420,22 +395,7 @@ export async function simulateStrategy(params: {
 export async function fetchModelStatus(): Promise<BackendModelStatus> {
   const endpoint = '/api/v1/models/status';
   logger.info(`[endpoints] fetchModelStatus: requesting ${endpoint}`);
-  try {
-    return await apiFetch<BackendModelStatus>(endpoint);
-  } catch (err: any) {
-    logger.warn(`[endpoints] fetchModelStatus: live API failed (${err.message}). Returning registry-aware mock.`);
-    return {
-      models: [
-        { name: 'tire_degradation', version: '2.1.4', status: 'active', accuracy: 0.94, last_updated: '2024-03-24T08:00:00Z', type: 'supervised' },
-        { name: 'driving_style', version: '1.0.8', status: 'active', accuracy: 0.88, last_updated: '2024-03-22T14:20:00Z', type: 'supervised' },
-        { name: 'safety_car', version: '1.2.0', status: 'active', accuracy: 0.91, last_updated: '2024-03-23T10:30:00Z', type: 'supervised' },
-        { name: 'pit_window', version: '3.0.1', status: 'active', accuracy: 0.95, last_updated: '2024-03-24T09:00:00Z', type: 'supervised' },
-        { name: 'overtake_prob', version: '1.1.0', status: 'active', accuracy: 0.84, last_updated: '2024-03-20T16:45:00Z', type: 'supervised' },
-        { name: 'race_outcome', version: '2.0.0', status: 'active', accuracy: 0.89, last_updated: '2024-03-24T12:00:00Z', type: 'supervised' },
-        { name: 'rl_strategy_agent', version: '1.0.0-rc', status: 'active', accuracy: 0.87, last_updated: '2024-03-24T15:30:00Z', type: 'rl' },
-      ],
-    };
-  }
+  return await apiFetch<BackendModelStatus>(endpoint);
 }
 
 /**
@@ -449,15 +409,7 @@ export async function fetchModelBiasReport(modelName: string): Promise<ModelBias
   try {
     return await apiFetch<ModelBiasReport>(`/api/v1/models/${modelName}/bias`);
   } catch (err) {
-    return handleApiError('fetchModelBiasReport', err, {
-      model_name: modelName,
-      timestamp: new Date().toISOString(),
-      slices: [
-        { name: 'Season (Shift)', disparity_score: 0.02, impact: 'low' },
-        { name: 'Circuit (Street vs Perm)', disparity_score: 0.08, impact: 'medium' },
-        { name: 'Tyre Compound (Thermals)', disparity_score: 0.12, impact: 'high' },
-      ],
-    });
+    return handleApiError('fetchModelBiasReport', err);
   }
 }
 
@@ -471,16 +423,7 @@ export async function fetchFeatureImportance(modelName: string): Promise<Feature
   try {
     return await apiFetch<FeatureImportance>(`/api/v1/models/${modelName}/features`);
   } catch (err) {
-    return handleApiError('fetchFeatureImportance', err, {
-      model_name: modelName,
-      features: [
-        { name: 'track_temp', importance: 0.35 },
-        { name: 'tire_age', importance: 0.28 },
-        { name: 'fuel_load', importance: 0.15 },
-        { name: 'air_pressure', importance: 0.12 },
-        { name: 'driver_consistency', importance: 0.10 },
-      ],
-    });
+    return handleApiError('fetchFeatureImportance', err);
   }
 }
 
@@ -496,8 +439,7 @@ export async function fetchOvertakeProb(driverId: string, opponentId: string): P
   try {
     return await apiFetch<PredictiveMetric>(`/api/v1/race/predict/overtake?driver_id=${driverId}&opponent_id=${opponentId}`);
   } catch (err) {
-    logger.error(`[endpoints] fetchOvertakeProb failed`, { message: String(err) });
-    throw err;
+    return handleApiError('fetchOvertakeProb', err);
   }
 }
 
@@ -512,8 +454,7 @@ export async function fetchSafetyCarProb(raceId: string): Promise<PredictiveMetr
   try {
     return await apiFetch<PredictiveMetric>(`/api/v1/race/predict/safety_car?race_id=${raceId}`);
   } catch (err) {
-    logger.error(`[endpoints] fetchSafetyCarProb failed`, { message: String(err) });
-    throw err;
+    return handleApiError('fetchSafetyCarProb', err);
   }
 }
 
@@ -528,8 +469,7 @@ export async function fetchValidationStats(raceId: string): Promise<ValidationSt
   try {
     return await apiFetch<ValidationStats>(`/api/v1/validation/race/${raceId}`);
   } catch (err) {
-    logger.error(`[endpoints] fetchValidationStats failed`, { message: String(err) });
-    throw err;
+    return handleApiError('fetchValidationStats', err);
   }
 }
 
@@ -563,6 +503,48 @@ export async function fetchSystemHealth(): Promise<BackendSystemHealth> {
  */
 export async function fetchHealthCheck() {
   return apiFetch<{ status: string; timestamp: string; version: string; environment: string }>('/health');
+}
+
+// ─── Admin Endpoints ────────────────────────────────────────────────────────
+export interface GcpMetrics {
+  cpu_usage_percent: number;
+  memory_usage_percent: number;
+  active_instances: number;
+  request_count: number;
+}
+
+export interface AdminLog {
+  timestamp: string | null;
+  severity: string;
+  message: string;
+}
+
+export interface AdminQuotas {
+  gemini_api: {
+    tokens_used: number;
+    quota_limit: number;
+    status: string;
+  };
+  cloud_run: {
+    cpu_seconds: number;
+    quota_limit: number;
+    status: string;
+  };
+}
+
+export async function fetchAdminGcpMetrics(): Promise<GcpMetrics> {
+  logger.info('[endpoints] fetchAdminGcpMetrics');
+  return apiFetch<GcpMetrics>('/api/v1/admin/gcp_metrics');
+}
+
+export async function fetchAdminLogs(): Promise<{ logs: AdminLog[] }> {
+  logger.info('[endpoints] fetchAdminLogs');
+  return apiFetch<{ logs: AdminLog[] }>('/api/v1/admin/logs');
+}
+
+export async function fetchAdminQuotas(): Promise<AdminQuotas> {
+  logger.info('[endpoints] fetchAdminQuotas');
+  return apiFetch<AdminQuotas>('/api/v1/admin/quotas');
 }
 
 // ─── Static data loaders (for views that need pipeline data directly) ────────

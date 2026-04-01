@@ -15,7 +15,7 @@ const LapByLapAnalysis: React.FC = () => {
   const selectedRace = races?.find((r: any) => r.round === selectedRaceId) || races?.[0];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">Race Results Archive</h1>

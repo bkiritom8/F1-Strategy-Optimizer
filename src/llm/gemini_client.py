@@ -64,7 +64,6 @@ class GeminiClient:
         question: str,
         context_docs: list = [],
         structured_inputs: dict | None = None,
-        model_predictions: dict | None = None,
     ) -> str:
         """Assemble the full prompt from system message, optional context, and question."""
         parts = [SYSTEM_PROMPT]
@@ -90,22 +89,6 @@ class GeminiClient:
                 if context_pairs:
                     parts.append("\nRace Context:\n" + " | ".join(context_pairs))
 
-        # ML model predictions — injected as factual context for the LLM to reason over
-        if model_predictions:
-            _PRED_LABELS: dict[str, str] = {
-                "tire_degradation": "Tire Degradation",
-                "pit_window": "Pit Window",
-                "safety_car_probability": "Safety Car Probability",
-                "recommended_driving_style": "Recommended Driving Style",
-                "overtake_probability": "Overtake Probability",
-                "predicted_race_outcome": "Predicted Race Outcome",
-            }
-            pred_lines = [
-                f"  {_PRED_LABELS.get(k, k)}: {v}" for k, v in model_predictions.items()
-            ]
-            if pred_lines:
-                parts.append("\nML Model Predictions:\n" + "\n".join(pred_lines))
-
         parts.append(f"\nQuestion: {question}")
         parts.append("\nAnswer:")
         return "\n".join(parts)
@@ -115,19 +98,13 @@ class GeminiClient:
         question: str,
         context_docs: list = [],
         structured_inputs: dict | None = None,
-        model_predictions: dict | None = None,
     ) -> str:
-        """Call Gemini synchronously and return the answer text.
-
-        Safe to call from threads (e.g. the GenericCache warm thread).
-        Do NOT call this directly from an async route — use async_generate().
-        """
+        """Call Gemini and return the answer text."""
         self._ensure_initialized()
         prompt = self.build_prompt(
             question,
             context_docs=context_docs,
             structured_inputs=structured_inputs,
-            model_predictions=model_predictions,
         )
         response = self._model.generate_content(  # type: ignore[union-attr]
             prompt,
@@ -138,28 +115,42 @@ class GeminiClient:
         )
         return response.text
 
-    async def async_generate(
-        self,
-        question: str,
-        context_docs: list = [],
-        structured_inputs: dict | None = None,
-        model_predictions: dict | None = None,
-    ) -> str:
-        """Async-safe wrapper around generate().
-
-        Runs the blocking Vertex AI SDK call in the thread-pool executor so
-        the uvicorn event loop stays free for other coroutines.
-        """
-        import asyncio
-        import functools
-        fn = functools.partial(
-            self.generate,
-            question,
-            context_docs=context_docs,
-            structured_inputs=structured_inputs,
-            model_predictions=model_predictions,
+    def parse_strategy_json(self, prompt: str) -> dict:
+        """Parse natural language into a structured JSON strategy."""
+        self._ensure_initialized()
+        system_instructions = (
+            "You are an F1 strategy parser. Extract the driver ID and the pit stop strategy from the user's prompt. "
+            "Return ONLY a raw JSON object with this exact schema:\n"
+            "{\n"
+            '  "driver_id": "string",\n'
+            '  "strategy": [[lap_number, "compound_name_upper_case"]]\n'
+            "}\n"
+            "Examples:\n"
+            "'Put Max on hards on lap 15' -> {\"driver_id\": \"max_verstappen\", \"strategy\": [[15, \"HARD\"]]}\n"
+            "'Charles pits lap 20 for meds, then 40 for hards' -> {\"driver_id\": \"leclerc\", \"strategy\": [[20, \"MEDIUM\"], [40, \"HARD\"]]}\n"
+            "Valid Compounds: SOFT, MEDIUM, HARD, INTERMEDIATE, WET.\n"
+            "If driver isn't mentioned, leave driver_id as an empty string. "
+            "No markdown blocks, no backticks, ONLY valid JSON object."
         )
-        return await asyncio.to_thread(fn)
+        response = self._model.generate_content(
+            f"{system_instructions}\n\nPrompt: {prompt}",
+            generation_config={
+                "temperature": 0.0,
+                "response_mime_type": "application/json"
+            }
+        )
+        import json
+        try:
+            text = response.text.replace("```json", "").replace("```", "").strip()
+            if len(text) > 2000:
+                raise ValueError("Generated JSON response exceeded safe length limits.")
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            logger.error("Failed to decode JSON from Gemini response: %s", exc, exc_info=True)
+            raise ValueError(f"LLM returned invalid JSON: {exc}")
+        except Exception as exc:
+            logger.error("Unexpected error during strategy parsing: %s", exc, exc_info=True)
+            raise
 
 
 # Module-level singleton — shared across requests

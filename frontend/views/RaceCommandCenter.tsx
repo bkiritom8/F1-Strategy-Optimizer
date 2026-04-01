@@ -11,14 +11,14 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { motion } from 'framer-motion';
-import { AlertTriangle, HelpCircle, ChevronRight, Info, Shield, Zap, Radio, Timer } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { AlertTriangle, HelpCircle, ChevronRight, Info, Shield, Zap, Radio, Timer, Menu, X } from 'lucide-react';
 import PositionTower from '../components/PositionTower';
 import DriverCard from '../components/DriverCard';
 
 import ConceptTooltip from '../components/ConceptTooltip';
-import { COLORS, F1_GLOSSARY } from '../constants';
-import { DriverTelemetry, DriverProfile, RaceState, StrategyRecommendation } from '../types';
+import { MOCK_DRIVERS, MOCK_RACE_STATE, getMockTelemetry, getMockStrategy, COLORS, F1_GLOSSARY } from '../constants';
+import { DriverTelemetry, DriverProfile } from '../types';
 import { useDrivers, useBackendStatus, useRaces2024, useOvertakeMetric, useSafetyCarProb } from '../hooks/useApi';
 import { fetchRaceState, fetchStrategyRecommendation } from '../services/endpoints';
 import { useAppStore } from '../store/useAppStore';
@@ -219,6 +219,9 @@ const RaceCommandCenter: React.FC = () => {
           const apiDriver = apiDrivers?.find(d => d.driver_id === result.driver.id);
           if (apiDriver) return apiDriver;
 
+          const mockDriver = MOCK_DRIVERS.find(d => d.driver_id === result.driver.id || d.code === result.driver.code);
+          if (mockDriver) return { ...mockDriver, driver_id: result.driver.id, team: result.constructor };
+
           return {
             driver_id: result.driver.id, name: result.driver.name, team: result.constructor,
             code: result.driver.code || result.driver.id.slice(0, 3).toUpperCase(), nationality: 'Unknown',
@@ -228,72 +231,31 @@ const RaceCommandCenter: React.FC = () => {
             experience_years: 3, rookie_status: false,
           } as DriverProfile;
         });
-      return raceDrivers.slice(0, 20);
+      return raceDrivers.length > 0 ? raceDrivers.slice(0, 20) : MOCK_DRIVERS;
     }
-    return [];
+    return MOCK_DRIVERS;
   }, [selectedRace, apiDrivers]);
 
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [showBeginnerTips, setShowBeginnerTips] = useState(false);
-  const [raceState, setRaceState] = useState<RaceState | null>(null);
+  const [mobileTowerOpen, setMobileTowerOpen] = useState(false);
+  const [raceState, setRaceState] = useState(MOCK_RACE_STATE);
   const [telemetries, setTelemetries] = useState<DriverTelemetry[]>([]);
-  const [selectedStrategy, setSelectedStrategy] = useState<StrategyRecommendation | null>(null);
 
   useEffect(() => {
     if (drivers.length > 0 && !selectedDriverId) setSelectedDriverId(drivers[0].driver_id);
   }, [drivers, selectedDriverId]);
 
   useEffect(() => {
-    setTelemetries(drivers.map((d, i): DriverTelemetry => ({
-      driver_id: d.driver_id,
-      position: i + 1,
-      gap_to_leader: i * 2.5,
-      gap_to_ahead: i === 0 ? 0 : 1.2,
-      gap_to_behind: 0.8,
-      current_lap_time: 74200,
-      last_lap_time: 74100,
-      best_lap_time: 73900,
-      speed_kph: 280 - i * 2,
-      ers_deployment: 85,
-      ers_mode: 'BALANCED',
-      fuel_remaining_kg: 80 - i * 0.5,
-      tire_compound: 'MEDIUM',
-      tire_age_laps: i * 2,
-      tire_wear_percent: i * 5,
-      tire_temp_fl: 90,
-      tire_temp_fr: 92,
-      tire_temp_rl: 88,
-      tire_temp_rr: 89,
-      aero_loss_percent: 0,
-      drs_active: false,
-      g_force_lateral: 3.2,
-      g_force_longitudinal: 4.1,
-      tire_grip_remaining: 95 - i * 3,
-    })));
+    setTelemetries(drivers.map((d, i) => getMockTelemetry(d.driver_id, i + 1)));
   }, [drivers]);
 
   useEffect(() => {
     if (!online) return;
     fetchRaceState('2024_1', 23)
-      .then(({ raceState: rs }) => setRaceState(prev => ({ ...(prev || {}), ...rs } as RaceState)))
+      .then(({ raceState: rs }) => setRaceState(prev => ({ ...prev, ...rs })))
       .catch(() => {});
   }, [online]);
-
-  useEffect(() => {
-    if (!online || !selectedDriverId) return;
-    const tel = telemetries.find(t => t.driver_id === selectedDriverId);
-    fetchStrategyRecommendation({
-      driver_id: selectedDriverId,
-      race_id: '2024_1',
-      current_lap: raceState?.current_lap ?? 1,
-      current_compound: tel?.tire_compound ?? 'MEDIUM',
-      fuel_level: tel?.fuel_remaining_kg ?? 80,
-      track_temp: raceState?.track_temp_celsius ?? 40,
-      air_temp: raceState?.air_temp_celsius ?? 25,
-    })
-      .then(rec => setSelectedStrategy(rec))
-      .catch(() => setSelectedStrategy(null));
-  }, [online, selectedDriverId, raceState?.current_lap]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -316,6 +278,7 @@ const RaceCommandCenter: React.FC = () => {
 
   const selectedDriver = drivers.find(d => d.driver_id === selectedDriverId) || drivers[0];
   const selectedTelemetry = telemetries.find(t => t.driver_id === selectedDriverId) || telemetries[0];
+  const selectedStrategy = getMockStrategy(selectedDriverId);
 
   // Deterministic sector times based on selected driver
   const sectorData = useMemo(() => {
@@ -353,21 +316,62 @@ const RaceCommandCenter: React.FC = () => {
   if (!selectedDriver || !selectedTelemetry) return null;
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <PositionTower
-        telemetry={telemetries}
-        drivers={drivers}
-        selectedDriverId={selectedDriverId}
-        onSelectDriver={setSelectedDriverId}
-      />
+    <div className="flex h-full overflow-hidden relative">
+      <div className="hidden lg:block w-72 shrink-0 h-full border-r border-black/10 dark:border-white/5 transition-colors duration-300 z-10">
+        <PositionTower
+          telemetry={telemetries}
+          drivers={drivers}
+          selectedDriverId={selectedDriverId}
+          onSelectDriver={setSelectedDriverId}
+        />
+      </div>
+
+      <AnimatePresence>
+        {mobileTowerOpen && (
+           <>
+             <motion.div 
+               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] lg:hidden"
+               onClick={() => setMobileTowerOpen(false)}
+             />
+             <motion.div 
+               initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+               className="fixed top-0 left-0 bottom-0 w-[85vw] max-w-sm bg-gray-50 dark:bg-[#0A0A0A] z-[90] lg:hidden border-r shadow-2xl"
+               style={{ borderColor: 'var(--border-color)' }}
+             >
+                <div className="h-14 flex items-center justify-between px-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                  <span className="font-display font-black uppercase text-sm tracking-widest text-gray-500">Live Grid</span>
+                  <button onClick={() => setMobileTowerOpen(false)} className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors">
+                    <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  </button>
+                </div>
+                <div className="h-[calc(100%-56px)] overflow-hidden">
+                  <PositionTower
+                    telemetry={telemetries}
+                    drivers={drivers}
+                    selectedDriverId={selectedDriverId}
+                    onSelectDriver={(id) => { setSelectedDriverId(id); setMobileTowerOpen(false); }}
+                  />
+                </div>
+             </motion.div>
+           </>
+        )}
+      </AnimatePresence>
 
       <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col gap-4 md:gap-5">
         {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="flex justify-between items-end border-b pb-4 shrink-0" style={{ borderColor: 'var(--border-color)' }}>
-          <div>
-            <div className="flex items-center gap-4">
-              <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">
-                {selectedRace ? selectedRace.name : (raceState?.circuit ?? '—')}
+          <div className="min-w-0 pr-4">
+            <div className="flex items-center gap-3 md:gap-4 flex-wrap">
+              <button
+                 onClick={() => setMobileTowerOpen(true)}
+                 className="lg:hidden p-2 rounded-xl border bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                 style={{ borderColor: 'var(--border-color)' }}
+              >
+                <Menu className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+              </button>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-black tracking-tighter uppercase italic truncate">
+                {selectedRace ? selectedRace.name : raceState.circuit}
               </h1>
               <select
                 value={selectedRaceId || ''}
@@ -380,14 +384,14 @@ const RaceCommandCenter: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div className="flex gap-6 mt-2">
-              <Badge label="LAP" value={raceState ? `${raceState.current_lap} / ${raceState.total_laps}` : '— / —'} />
-              <Badge label="TRACK" value={raceState ? `${raceState.track_temp_celsius}°C` : '—'} color={COLORS.accent.yellow} />
-              <Badge label="GRIP" value={raceState ? `${raceState.track_grip_level}%` : '—'} color={COLORS.accent.blue} />
-              <Badge label="FLAG" value={raceState?.flag ?? '—'} color={raceState?.flag === 'GREEN' ? COLORS.accent.green : COLORS.accent.yellow} pulse />
+            <div className="flex gap-4 sm:gap-6 mt-3 flex-wrap">
+              <Badge label="LAP" value={`${raceState.current_lap} / ${raceState.total_laps}`} />
+              <Badge label="TRACK" value={`${raceState.track_temp_celsius}°C`} color={COLORS.accent.yellow} />
+              <Badge label="GRIP" value={`${raceState.track_grip_level}%`} color={COLORS.accent.blue} />
+              <Badge label="FLAG" value={raceState.flag} color={raceState.flag === 'GREEN' ? COLORS.accent.green : COLORS.accent.yellow} pulse />
             </div>
           </div>
-          <div className="text-right flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-2 shrink-0">
             <button
               onClick={() => setShowBeginnerTips(!showBeginnerTips)}
               className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-blue/10 border border-accent-blue/20 text-accent-blue text-[10px] font-bold uppercase hover:bg-accent-blue/20 transition-colors"

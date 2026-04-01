@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from src.api.routes.rag import router as rag_router
 from src.api.routes.llm import router as llm_router
-from src.api.routes.users import router as users_router
+from src.api.routes.admin import router as admin_router
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -20,8 +20,12 @@ from prometheus_client import CONTENT_TYPE_LATEST
 
 # Import security components
 import sys
+import os
 
-sys.path.insert(0, "/app")
+# Dynamically resolve project root to allow imports from pipeline, ml, etc.
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from src.security.iam_simulator import iam_simulator, Token, User, Permission
 from src.security.https_middleware import (
@@ -95,20 +99,9 @@ if ENABLE_HTTPS:
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
-_CORS_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:8080",
-    "https://f1optimizer.web.app",
-    "https://f1optimizer.firebaseapp.com",
-]
-# Allow additional origins from env (space-separated) without opening a wildcard
-_extra = os.getenv("CORS_EXTRA_ORIGINS", "")
-if _extra:
-    _CORS_ORIGINS.extend(o.strip() for o in _extra.split() if o.strip())
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_CORS_ORIGINS,
+    allow_origins=["http://localhost:3000", "http://localhost:8080", "*"],
     allow_credentials=True,
 )
 
@@ -239,79 +232,50 @@ async def recommend_strategy(
 
     start_time = time.time()
 
-    # Fetch RAG context for this driver/lap
-    rag_context = ""
     try:
-        from src.api.routes.rag import get_retriever
-
-        retriever = get_retriever()
-        if retriever.config.is_configured:
-            rag_query = (
-                f"{request.driver_id} strategy lap {request.current_lap} "
-                f"compound {request.current_compound}"
+        if _strategy_model is None:
+            REQUEST_COUNT.labels(
+                method="POST", endpoint="/strategy/recommend", status="503"
+            ).inc()
+            logger.error("Strategy recommendation failed: ML model not loaded.")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ML Strategy Model failed to load. Service unavailable."
             )
-            rag_result = retriever.retrieve(rag_query, top_k=3)
-            if rag_result:
-                rag_context = " | ".join(
-                    doc.page_content[:100] for doc in rag_result[:3]
-                )
-                logger.info(f"RAG context fetched: {len(rag_result)} docs")
-    except Exception as e:
-        logger.warning(f"RAG context fetch failed (non-fatal): {e}")
+        import numpy as np
 
-    try:
-        if _strategy_model is not None:
-            import numpy as np
-
-            features = np.array(
+        features = np.array(
+            [
                 [
-                    [
-                        request.current_lap,
-                        request.fuel_level,
-                        request.track_temp,
-                        request.air_temp,
-                    ]
+                    request.current_lap,
+                    request.fuel_level,
+                    request.track_temp,
+                    request.air_temp,
                 ]
-            )
-            pred = _strategy_model.predict(features)[0]
-            recommended_action = "PIT_SOON" if pred > 0.5 else "CONTINUE"
-            recommendation = StrategyRecommendation(
-                recommended_action=recommended_action,
-                pit_window_start=(
-                    request.current_lap + 1
-                    if recommended_action == "PIT_SOON"
-                    else None
-                ),
-                pit_window_end=(
-                    request.current_lap + 5
-                    if recommended_action == "PIT_SOON"
-                    else None
-                ),
-                target_compound=(
-                    "HARD" if request.current_compound == "MEDIUM" else "SOFT"
-                ),
-                driving_mode="BALANCED",
-                brake_bias=52.5,
-                confidence=float(abs(pred - 0.5) * 2),
-                model_source="ml_model",
-            )
-        else:
-            recommendation = StrategyRecommendation(
-                recommended_action=(
-                    "CONTINUE" if request.current_lap < 30 else "PIT_SOON"
-                ),
-                pit_window_start=30 if request.current_lap < 30 else None,
-                pit_window_end=35 if request.current_lap < 30 else None,
-                target_compound=(
-                    "HARD" if request.current_compound == "MEDIUM" else "SOFT"
-                ),
-                driving_mode="BALANCED",
-                brake_bias=52.5,
-                confidence=0.87,
-                model_source=(
-                    "rule_based_fallback" if not rag_context else "rule_based_rag"
-                ),
-            )
+            ]
+        )
+        pred = _strategy_model.predict(features)[0]
+        recommended_action = "PIT_SOON" if pred > 0.5 else "CONTINUE"
+        recommendation = StrategyRecommendation(
+            recommended_action=recommended_action,
+            pit_window_start=(
+                request.current_lap + 1
+                if recommended_action == "PIT_SOON"
+                else None
+            ),
+            pit_window_end=(
+                request.current_lap + 5
+                if recommended_action == "PIT_SOON"
+                else None
+            ),
+            target_compound=(
+                "HARD" if request.current_compound == "MEDIUM" else "SOFT"
+            ),
+            driving_mode="BALANCED",
+            brake_bias=52.5,
+            confidence=float(abs(pred - 0.5) * 2),
+            model_source="ml_model",
+        )
 
         # Track metrics
         duration = time.time() - start_time
@@ -332,6 +296,9 @@ async def recommend_strategy(
 
         return recommendation
 
+    except HTTPException:
+        # Re-raise HTTP exceptions to avoid wrapping them in a 500
+        raise
     except Exception as e:
         REQUEST_COUNT.labels(
             method="POST", endpoint="/strategy/recommend", status="500"
@@ -437,26 +404,10 @@ async def general_exception_handler(request, exc):
 @app.on_event("startup")
 async def startup_event():
     """Initialize on startup — load ML models from GCS if available."""
-    import asyncio
-    import concurrent.futures
-
     global _strategy_model, _models_loaded_from_gcs
     logger.info(f"F1 Strategy Optimizer API starting in {ENV} environment")
     logger.info(f"HTTPS enabled: {ENABLE_HTTPS}")
     logger.info(f"IAM enabled: {ENABLE_IAM}")
-
-    # Increase the default thread-pool executor so asyncio.to_thread() doesn't
-    # saturate under concurrent LLM and embedding calls.
-    # Default is min(32, cpu_count+4) which on a 1-vCPU Cloud Run instance is 5.
-    # With max_concurrent_requests=40 and 20 concurrent Gemini calls we need more.
-    loop = asyncio.get_running_loop()
-    loop.set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=24))
-    logger.info("Thread pool executor set to 24 workers")
-
-    # Start the LLM micro-batcher background task
-    from src.llm.batcher import get_batcher
-    get_batcher().start()
-    logger.info("LLM micro-batcher started")
 
     try:
         from google.cloud import storage
@@ -474,23 +425,9 @@ async def startup_event():
             _models_loaded_from_gcs = True
             logger.info("ML model loaded from GCS: strategy_predictor/latest/model.pkl")
         else:
-            logger.warning(
-                "No ML model found at strategy_predictor/latest/model.pkl — using rule-based fallback"
-            )
+            logger.error("No ML model found at strategy_predictor/latest/model.pkl - Strict mode enabled (no mock fallback)")
     except Exception as e:
-        logger.warning("Model load failed, using rule-based fallback: %s", e)
-
-    # Pre-warm the generic LLM cache in background (non-blocking)
-    try:
-        from src.llm.cache import get_generic_cache
-        from src.llm.gemini_client import get_client
-        from rag.config import RagConfig
-
-        cfg = RagConfig()
-        get_generic_cache().warm(get_client(), cfg.PROJECT_ID, cfg.REGION)
-        logger.info("LLM generic cache pre-warming started in background")
-    except Exception as e:
-        logger.warning("LLM cache pre-warm failed to start: %s", e)
+        logger.error("Model load failed - Strict mode enabled (no mock fallback): %s", e)
 
 
 # ── /api/v1 router ─────────────────────────────────────────────────────────
@@ -832,19 +769,11 @@ async def system_health():
     return checks
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean shutdown — stop the LLM batcher so in-flight requests drain."""
-    from src.llm.batcher import get_batcher
-    get_batcher().stop()
-    logger.info("LLM micro-batcher stopped")
-
-
 # Register v1 router
 app.include_router(v1)
 app.include_router(rag_router)
 app.include_router(llm_router)
-app.include_router(users_router)
+app.include_router(admin_router)
 
 
 if __name__ == "__main__":

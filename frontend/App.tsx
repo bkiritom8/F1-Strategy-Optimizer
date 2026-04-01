@@ -284,7 +284,7 @@ const App: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-16 lg:pt-0 lg:pb-0 bg-white/50 dark:bg-transparent">
+      <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-24 lg:pt-0 lg:pb-0 bg-white/50 dark:bg-transparent">
         <DynamicSimulationBackground />
         <div className="relative z-10 h-full flex flex-col overflow-y-auto scrollbar-hide">
           <ViewErrorBoundary>
