@@ -9,7 +9,7 @@ import ConceptTooltip from './ConceptTooltip';
 interface DriverCardProps {
   telemetry: DriverTelemetry;
   driver: DriverProfile;
-  strategy: StrategyRecommendation;
+  strategy: StrategyRecommendation | null;
 }
 
 const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) => {
@@ -91,7 +91,7 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
             />
           </div>
           <div className="flex justify-between mt-2">
-             <span className="text-[8px] text-gray-600 font-bold uppercase">Target: {strategy.driving_style.fuel_target_kg_per_lap.toFixed(2)} kg/L</span>
+             <span className="text-[8px] text-gray-600 font-bold uppercase">Target: {strategy ? strategy.driving_style.fuel_target_kg_per_lap.toFixed(2) : '--'} kg/L</span>
              <span className="text-[8px] text-gray-600 font-bold uppercase">Rem: {telemetry.fuel_remaining_kg.toFixed(1)}kg</span>
           </div>
         </div>
@@ -104,13 +104,13 @@ const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) 
         </div>
         <div className="flex justify-between items-end">
           <div>
-            <div className="text-xl font-display font-bold text-white uppercase tracking-wider">{strategy.driving_style.mode}</div>
-            <div className="text-[10px] text-gray-500 max-w-[200px] leading-tight mt-1">{strategy.driving_style.reason}</div>
+            <div className="text-xl font-display font-bold text-white uppercase tracking-wider">{strategy ? strategy.driving_style.mode : '—'}</div>
+            <div className="text-[10px] text-gray-500 max-w-[200px] leading-tight mt-1">{strategy ? strategy.driving_style.reason : 'Strategy data unavailable'}</div>
           </div>
           <div className="text-right">
-             <div className="text-xs font-mono text-gray-400 uppercase">Target {strategy.driving_style.ers_target_mode}</div>
+             <div className="text-xs font-mono text-gray-400 uppercase">Target {strategy ? strategy.driving_style.ers_target_mode : '—'}</div>
              <ConceptTooltip term="Brake Bias">
-               <div className="text-sm font-bold text-white">Target BB: {strategy.brake_bias.recommended_bias.toFixed(2)}%</div>
+               <div className="text-sm font-bold text-white">Target BB: {strategy ? strategy.brake_bias.recommended_bias.toFixed(2) : '--'}%</div>
              </ConceptTooltip>
           </div>
         </div>
