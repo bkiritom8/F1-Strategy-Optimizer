@@ -28,11 +28,11 @@ const SystemMonitoringHealth: React.FC = () => {
   const simulatorsCached = sysHealth?.simulators_cached || 0;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-transparent">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">MLOps Infrastructure</h1>
-          <p className="text-gray-500 uppercase text-xs tracking-widest mt-2">
+          <h1 className="text-4xl font-display font-black font-bold tracking-tight uppercase italic">MLOps Infrastructure</h1>
+          <p className="text-white/40 uppercase text-[10px] tracking-[4px] mt-2">
             Operational Telemetry: GCP f1optimizer Project
           </p>
         </div>
@@ -85,19 +85,19 @@ const SystemMonitoringHealth: React.FC = () => {
 
       {/* Model Registry */}
       {modelStatus?.models && modelStatus.models.length > 0 && (
-        <div className="rounded-2xl p-8 border shadow-xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+        <div className="rounded-2xl p-8 bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-xl">
           <div className="flex items-center gap-2 mb-6">
             <Zap className="w-5 h-5 text-yellow-500" />
-            <h3 className="text-sm font-display font-bold uppercase tracking-widest text-gray-400">
+            <h3 className="text-sm font-display font-bold uppercase tracking-widest text-white/40">
               Model Registry
               {isLive && <span className="ml-2 text-green-500 text-[9px] normal-case">(from /models/status)</span>}
             </h3>
           </div>
           <div className="space-y-3">
             {modelStatus.models.map((m) => (
-              <div key={m.name} className="flex justify-between items-center p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+              <div key={m.name} className="flex justify-between items-center p-4 rounded-xl bg-white/[0.04] border border-white/[0.07]">
                 <div>
-                  <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{m.name}</div>
+                  <div className="text-sm font-bold text-white">{m.name}</div>
                   <div className="text-[10px] text-gray-500">v{m.version}</div>
                 </div>
                 <div className="flex items-center gap-6">
@@ -124,8 +124,8 @@ const SystemMonitoringHealth: React.FC = () => {
       )}
 
       {/* Uptime Visualizer */}
-      <div className="rounded-2xl p-8 border shadow-xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-        <h3 className="text-sm font-display font-bold uppercase tracking-widest text-gray-400 mb-8">System Uptime (Last 50 Days)</h3>
+      <div className="rounded-2xl p-8 bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-xl">
+        <h3 className="text-sm font-display font-bold uppercase tracking-widest text-white/40 mb-8">System Uptime (Last 50 Days)</h3>
         <div className="grid grid-cols-10 md:grid-cols-[repeat(25,minmax(0,1fr))] gap-2">
           {days.map((d, i) => (
             <div
@@ -143,10 +143,10 @@ const SystemMonitoringHealth: React.FC = () => {
       </div>
 
       {/* Pipeline Status */}
-      <div className="rounded-2xl p-8 border shadow-xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+      <div className="rounded-2xl p-8 bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-xl">
         <div className="flex items-center gap-2 mb-6">
           <Database className="w-5 h-5 text-blue-500" />
-          <h3 className="text-sm font-display font-bold uppercase tracking-widest text-gray-400">Active Data Pipelines</h3>
+          <h3 className="text-sm font-display font-bold uppercase tracking-widest text-white/40">Active Data Pipelines</h3>
         </div>
         <div className="space-y-4">
           <PipelineRow label="Airflow DAG (f1_data_pipeline)" status={online ? 'active' : 'offline'} lag={online ? '4ms' : 'N/A'} />
@@ -161,8 +161,8 @@ const SystemMonitoringHealth: React.FC = () => {
       {pipelineReports && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Anomaly Report */}
-          <div className="rounded-2xl p-8 border shadow-xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-            <h3 className="text-sm font-display font-bold uppercase tracking-widest text-gray-400 mb-6">Pipeline Anomalies</h3>
+          <div className="rounded-2xl p-8 bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-xl">
+            <h3 className="text-sm font-display font-bold uppercase tracking-widest text-white/40 mb-6">Pipeline Anomalies</h3>
             <div className="flex gap-4 mb-6">
               <div className="flex-1 p-4 rounded-xl border bg-black/20 border-white/5">
                 <div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Total</div>
@@ -179,39 +179,39 @@ const SystemMonitoringHealth: React.FC = () => {
             </div>
             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
               {pipelineReports.anomaly.items.map((item: any, idx: number) => (
-                <div key={idx} className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+                <div key={idx} className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.07]">
                   <div className="flex justify-between items-start mb-1">
                     <span className="font-bold text-xs uppercase" style={{ color: item.severity === 'critical' ? 'var(--accent-red)' : 'var(--accent-yellow)' }}>
                       {item.feature || item.type || 'Unknown'}
                     </span>
-                    <span className="text-[9px] text-gray-500 font-mono">Row {item.row_index}</span>
+                    <span className="text-[9px] text-white/40 font-mono">Row {item.row_index}</span>
                   </div>
-                  <span className="text-sm text-gray-300">{item.reason || item.description || JSON.stringify(item)}</span>
+                  <span className="text-sm text-white">{item.reason || item.description || JSON.stringify(item)}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Bias Analysis */}
-          <div className="rounded-2xl p-8 border shadow-xl flex flex-col" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+          <div className="rounded-2xl p-8 bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-xl flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-sm font-display font-bold uppercase tracking-widest text-gray-400">Bias Analysis Slices</h3>
-              <span className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">{pipelineReports.bias.totalRows} Rows</span>
+              <h3 className="text-sm font-display font-bold uppercase tracking-widest text-white/40">Bias Analysis Slices</h3>
+              <span className="text-[10px] text-white/40 font-mono uppercase tracking-widest">{pipelineReports.bias.totalRows} Rows</span>
             </div>
             <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
               {Object.entries(pipelineReports.bias.slices).map(([sliceName, data]: [string, any]) => {
                 const totalInSlice = Object.values(data).reduce((a: any, b: any) => a + b, 0) as number;
                 return (
-                  <div key={sliceName} className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-3">{sliceName}</div>
+                  <div key={sliceName} className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.07]">
+                    <div className="text-[10px] text-white/40 uppercase tracking-[4px] mb-3">{sliceName}</div>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                       {Object.entries(data).sort((a: any, b: any) => b[1] - a[1]).map(([key, count]: [string, any]) => {
                         const bgPercent = (count / totalInSlice) * 100;
                         return (
-                          <div key={key} className="relative overflow-hidden rounded p-1.5 flex justify-between items-center z-10 border border-white/5 bg-black/10">
+                          <div key={key} className="relative overflow-hidden rounded p-1.5 flex justify-between items-center z-10 border border-white/[0.07] bg-white/[0.04]">
                             <div className="absolute left-0 top-0 bottom-0 bg-blue-500/10 -z-10" style={{ width: `${bgPercent}%` }} />
-                            <span className="text-[11px] text-gray-300 w-20 truncate" title={key}>{key}</span>
-                            <span className="text-[10px] font-mono text-gray-400">{bgPercent.toFixed(2)}%</span>
+                            <span className="text-[11px] text-white w-20 truncate" title={key}>{key}</span>
+                            <span className="text-[10px] font-mono text-white/40">{bgPercent.toFixed(2)}%</span>
                           </div>
                         );
                       })}
@@ -239,7 +239,7 @@ interface HealthMetricProps {
 const HealthMetric = ({ icon, label, value, sub, status, hint }: HealthMetricProps) => {
   const statusColor = status === 'optimal' ? 'border-green-500/20' : status === 'warning' ? 'border-yellow-500/20' : 'border-red-500/20';
   return (
-    <div className={`p-6 rounded-2xl border relative overflow-hidden group shadow-lg ${statusColor}`} style={{ backgroundColor: 'var(--card-bg)' }}>
+    <div className={`p-6 rounded-2xl bg-white/[0.04] backdrop-blur-md border relative overflow-hidden group shadow-lg ${statusColor}`}>
       {hint && (
         <div className="absolute top-4 right-4 z-10 group/hint">
           <Info className="w-3 h-3 text-gray-500 cursor-help" />
@@ -251,16 +251,16 @@ const HealthMetric = ({ icon, label, value, sub, status, hint }: HealthMetricPro
       <div className="absolute top-0 right-0 w-16 h-16 opacity-10 flex items-center justify-center translate-x-4 -translate-y-4 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform">
         {React.cloneElement(icon, { className: 'w-12 h-12' })}
       </div>
-      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">{label}</div>
-      <div className="text-3xl font-display font-black" style={{ color: 'var(--text-primary)' }}>{value}</div>
-      <div className="text-[10px] text-gray-400 mt-1">{sub}</div>
+      <div className="text-[10px] uppercase tracking-[4px] text-white/40 mb-2">{label}</div>
+      <div className="text-3xl font-display font-black text-white">{value}</div>
+      <div className="text-[10px] text-white/40 mt-1">{sub}</div>
     </div>
   );
 };
 
 const PipelineRow = ({ label, status, lag }: { label: string, status: string, lag: string }) => (
-  <div className="flex justify-between items-center p-3 rounded-lg border shadow-sm" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-    <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{label}</span>
+  <div className="flex justify-between items-center p-3 rounded-lg bg-white/[0.04] border border-white/[0.07] shadow-sm">
+    <span className="text-xs font-bold text-white">{label}</span>
     <div className="flex items-center gap-4">
       <span className="text-[10px] font-mono text-gray-500">{lag}</span>
       <span className={`text-[10px] font-bold uppercase ${status === 'active' ? 'text-green-500' : status === 'idle' ? 'text-yellow-500' : 'text-red-500'}`}>
