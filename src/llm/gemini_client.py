@@ -21,7 +21,16 @@ SYSTEM_PROMPT = (
     "and specifically. For what-if scenarios, reason through the strategic "
     "trade-offs clearly. Include relevant statistics, historical precedents, "
     "and technical reasoning when appropriate. If you lack sufficient data "
-    "to answer confidently, say so clearly."
+    "to answer confidently, say so clearly.\n\n"
+    "When strategy simulation data is available from the tool, ALWAYS lead your answer "
+    "with a structured data summary using this exact format before any prose:\n\n"
+    "**Simulation Data**\n"
+    "• Grid Position: P{grid_position} → Projected Finish: P{projected_finish}\n"
+    "• Avg Lap Time: {avg_lap_time}s  |  Race Time Est: {race_time}\n"
+    "• Sector Times: S1 {s1}s · S2 {s2}s · S3 {s3}s\n"
+    "• Tire: {compound} (age {tire_age} laps) — deg {deg_rate}s/lap\n"
+    "• Pit Window: Lap {pit_start}–{pit_end} → {next_compound}\n\n"
+    "Then provide your strategic analysis."
 )
 
 _FIELD_LABELS: dict[str, str] = {
@@ -47,7 +56,8 @@ _STRATEGY_TOOL = Tool(
             description=(
                 "Get an F1 race strategy recommendation for a specific driver and race scenario. "
                 "Call this for any what-if question, driver swap scenario, pit strategy question, "
-                "or 'simulate' request. Returns pit window, tire compound, driving mode, and confidence."
+                "or 'simulate' request. Returns lap times, sector splits, grid/finish position, "
+                "pit window, tire compound, and race time estimate."
             ),
             parameters={
                 "type": "object",
@@ -82,6 +92,14 @@ _STRATEGY_TOOL = Tool(
                     "air_temp": {
                         "type": "number",
                         "description": "Air temperature in Celsius",
+                    },
+                    "grid_position": {
+                        "type": "integer",
+                        "description": "Starting grid position (1 = pole). Estimate based on driver/team if not given.",
+                    },
+                    "tire_age_laps": {
+                        "type": "integer",
+                        "description": "Number of laps on the current tire set.",
                     },
                 },
                 "required": [
