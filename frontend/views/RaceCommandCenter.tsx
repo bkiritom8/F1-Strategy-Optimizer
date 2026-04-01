@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, HelpCircle, ChevronRight, Info, Shield, Zap, Radio, Timer, Menu, X } from 'lucide-react';
 import PositionTower from '../components/PositionTower';
 import DriverCard from '../components/DriverCard';
+import { LiveBadge } from '../components/LiveBadge';
 
 import ConceptTooltip from '../components/ConceptTooltip';
 import { COLORS, F1_GLOSSARY } from '../constants';
@@ -432,6 +433,7 @@ const RaceCommandCenter: React.FC = () => {
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-tight uppercase italic truncate">
                 {selectedRace ? selectedRace.name : raceState.circuit}
               </h1>
+              <LiveBadge isLive={online} />
               <select
                 value={selectedRaceId || ''}
                 onChange={e => setSelectedRaceId(Number(e.target.value))}
