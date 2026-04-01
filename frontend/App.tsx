@@ -17,7 +17,7 @@ import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gauge, Users, Compass, BarChart3, Shield, Activity,
-  MessageSquare, Cpu, Map, Wifi, WifiOff, ChevronLeft, ChevronRight, Sun, Moon
+  Cpu, Map, Wifi, WifiOff, ChevronLeft, ChevronRight, Sun, Moon
 } from 'lucide-react';
 import { useBackendStatus } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
@@ -27,8 +27,7 @@ import { logger } from './services/logger';
 // Lazy-load views for code splitting
 const RaceCommandCenter = React.lazy(() => import('./views/RaceCommandCenter'));
 const DriverProfiles = React.lazy(() => import('./views/DriverProfiles'));
-const PitStrategySimulator = React.lazy(() => import('./views/PitStrategySimulator'));
-const AIChatbot = React.lazy(() => import('./views/AIChatbot'));
+const StrategyHub = React.lazy(() => import('./views/StrategyHub'));
 const TrackExplorer = React.lazy(() => import('./views/TrackExplorer'));
 const LapByLapAnalysis = React.lazy(() => import('./views/LapByLapAnalysis'));
 const AdminPage = React.lazy(() => import('./views/AdminPage'));
@@ -45,8 +44,7 @@ const APP_NAME = 'APEX F1';
 const navItems = [
   { path: '/',            label: 'Race Command',      icon: Gauge,          mobile: true  },
   { path: '/drivers',     label: 'Driver Roster',     icon: Users,          mobile: true  },
-  { path: '/strategy',    label: 'Strategy Sim',      icon: Compass,        mobile: true  },
-  { path: '/ai',          label: 'AI Strategist',     icon: MessageSquare,  mobile: true,  highlight: true },
+  { path: '/strategy',    label: 'Strategy Hub',      icon: Compass,        mobile: true,  highlight: true },
   { path: '/circuits',    label: 'Circuit Directory',  icon: Map,            mobile: true  },
   { path: '/analysis',    label: 'Post-Race',          icon: BarChart3,      mobile: false },
   { path: '/admin',       label: 'Admin Control',      icon: Shield,         mobile: false },
@@ -294,8 +292,7 @@ const App: React.FC = () => {
               <Routes>
                 <Route path="/"           element={<RaceCommandCenter />} />
                 <Route path="/drivers"    element={<DriverProfiles />} />
-                <Route path="/strategy"   element={<PitStrategySimulator />} />
-                <Route path="/ai"         element={<AIChatbot />} />
+                <Route path="/strategy"   element={<StrategyHub />} />
                 <Route path="/circuits"   element={<TrackExplorer theme={theme} />} />
                 <Route path="/analysis"   element={<LapByLapAnalysis />} />
                 <Route path="/admin"      element={<AdminPage />} />
