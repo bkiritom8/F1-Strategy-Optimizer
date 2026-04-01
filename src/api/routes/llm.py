@@ -35,9 +35,7 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     pit_soon = lap >= 35
     # Simple compound rotation: SOFT→MEDIUM→HARD→MEDIUM
     next_compound = (
-        "MEDIUM" if compound == "SOFT"
-        else "HARD" if compound == "MEDIUM"
-        else "MEDIUM"
+        "MEDIUM" if compound == "SOFT" else "HARD" if compound == "MEDIUM" else "MEDIUM"
     )
 
     return {

@@ -85,8 +85,13 @@ _STRATEGY_TOOL = Tool(
                     },
                 },
                 "required": [
-                    "race_id", "driver_id", "current_lap", "current_compound",
-                    "fuel_level", "track_temp", "air_temp",
+                    "race_id",
+                    "driver_id",
+                    "current_lap",
+                    "current_compound",
+                    "fuel_level",
+                    "track_temp",
+                    "air_temp",
                 ],
             },
         )
@@ -210,8 +215,7 @@ class GeminiClient:
             if not response.candidates:
                 break
             fn_parts = [
-                p for p in response.candidates[0].content.parts
-                if p.function_call
+                p for p in response.candidates[0].content.parts if p.function_call
             ]
             if not fn_parts:
                 break
@@ -234,8 +238,7 @@ class GeminiClient:
             parts = response.candidates[0].content.parts
             if parts:
                 text = "".join(
-                    getattr(p, "text", "") for p in parts
-                    if not p.function_call
+                    getattr(p, "text", "") for p in parts if not p.function_call
                 )
                 if text:
                     return text
