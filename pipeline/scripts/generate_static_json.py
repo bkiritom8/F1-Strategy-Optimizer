@@ -221,6 +221,16 @@ def build_drivers_json(
         log.warning("race_results missing required columns; skipping stats")
         stats = pd.DataFrame(columns=["driverid", "career_races", "career_wins", "career_podiums", "career_poles", "first_season", "last_season"])
     else:
+        agg_dict = {
+            "career_races":   ("is_win",    "count"),
+            "career_wins":    ("is_win",    "sum"),
+            "career_podiums": ("is_podium", "sum"),
+            "career_poles":   ("is_pole",   "sum"),
+        }
+        if season_col:
+            agg_dict["first_season"] = (season_col, "min")
+            agg_dict["last_season"]  = (season_col, "max")
+
         agg = (
             results_df[results_df[pos_col].notna()]
             .assign(
@@ -234,17 +244,13 @@ def build_drivers_json(
                 is_pole   = lambda d: (d["_grid"] == 1).astype(int) if grid_col else 0,
             )
             .groupby(driver_col)
-            .agg(
-                career_races    =("is_win",    "count"),
-                career_wins     =("is_win",    "sum"),
-                career_podiums  =("is_podium", "sum"),
-                career_poles    =("is_pole",   "sum"),
-                first_season    =(season_col,  "min") if season_col else ("is_win", "count"),
-                last_season     =(season_col,  "max") if season_col else ("is_win", "count"),
-            )
+            .agg(**agg_dict)
             .reset_index()
             .rename(columns={driver_col: "driverid"})
         )
+        if "first_season" not in agg.columns:
+            agg["first_season"] = 0
+            agg["last_season"]  = 0
         stats = agg
 
     # ── Normalise drivers_df id column ───────────────────────────────────────
@@ -381,7 +387,11 @@ def build_races_2024_json(results_df: pd.DataFrame, circuits_df: pd.DataFrame) -
 
     rounds = []
     for group_vals, grp in r2024.groupby(group_keys):
-        rnd, circ_id = (group_vals if len(group_keys) == 2 else (group_vals, ""))
+        if len(group_keys) == 2:
+            rnd, circ_id = group_vals
+        else:
+            rnd = group_vals if round_col else 0
+            circ_id = group_vals if circuit_col and not round_col else ""
         circ_info = circ_map.get(str(circ_id), {"name": str(circ_id), "country": ""})
         date_val  = str(grp[date_col].iloc[0]) if date_col else ""
         race_name = str(grp[name_col].iloc[0]) if name_col else f"Round {rnd}"
