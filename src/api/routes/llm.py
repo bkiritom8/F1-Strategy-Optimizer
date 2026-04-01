@@ -16,6 +16,48 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/llm", tags=["llm"])
 
 
+def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
+    """Execute a Gemini function-call tool request and return a result dict.
+
+    Currently supports ``get_strategy_recommendation``.  Uses the same
+    rule-based fallback as the /strategy/recommend endpoint so that the
+    LLM always gets real strategy data even when the ML model isn't loaded.
+    """
+    if tool_name != "get_strategy_recommendation":
+        return {"error": f"Unknown tool: {tool_name}"}
+
+    lap = int(args.get("current_lap", 1))
+    compound = str(args.get("current_compound", "MEDIUM")).upper()
+    fuel_level = float(args.get("fuel_level", max(0.0, 1.0 - lap / 80)))
+    track_temp = float(args.get("track_temp", 44.0))
+    air_temp = float(args.get("air_temp", 26.0))
+
+    pit_soon = lap >= 35
+    # Simple compound rotation: SOFT→MEDIUM→HARD→MEDIUM
+    next_compound = (
+        "MEDIUM" if compound == "SOFT"
+        else "HARD" if compound == "MEDIUM"
+        else "MEDIUM"
+    )
+
+    return {
+        "race_id": args.get("race_id", "unknown"),
+        "driver_id": args.get("driver_id", "unknown"),
+        "current_lap": lap,
+        "fuel_level": round(fuel_level, 2),
+        "track_temp_c": track_temp,
+        "air_temp_c": air_temp,
+        "recommended_action": "PIT_SOON" if pit_soon else "CONTINUE",
+        "pit_window_start": lap + 1 if pit_soon else None,
+        "pit_window_end": lap + 5 if pit_soon else None,
+        "target_compound": next_compound,
+        "driving_mode": "BALANCED",
+        "brake_bias": 52.5,
+        "confidence": 0.65,
+        "model_source": "rule_based",
+    }
+
+
 class RaceInputs(BaseModel):
     driver: str | None = None
     circuit: str | None = None
@@ -72,7 +114,11 @@ async def llm_chat(
         client = get_client()
         start = time.time()
         structured = request.race_inputs.model_dump() if request.race_inputs else None
-        answer = client.generate(request.question, structured_inputs=structured)
+        answer = client.generate_with_tools(
+            request.question,
+            _execute_strategy_tool,
+            structured_inputs=structured,
+        )
         latency_ms = round((time.time() - start) * 1000, 2)
         return ChatResponse(
             answer=answer,

@@ -88,11 +88,22 @@ def test_build_prompt_empty_context_docs_no_context_block():
 
 # ── generate ────────────────────────────────────────────────────────────────
 
+def _make_generate_response(text: str):
+    """Build a mock generate_content response with a single text part."""
+    part = MagicMock()
+    part.text = text
+    candidate = MagicMock()
+    candidate.content.parts = [part]
+    response = MagicMock()
+    response.candidates = [candidate]
+    return response
+
+
 def test_generate_calls_model_and_returns_text():
-    """generate() must call GenerativeModel.generate_content and return .text."""
+    """generate() must call GenerativeModel.generate_content and return text."""
     client = _make_client()
     fake_model = MagicMock()
-    fake_model.generate_content.return_value.text = "Pit on lap 30."
+    fake_model.generate_content.return_value = _make_generate_response("Pit on lap 30.")
     client._model = fake_model
     client._initialized = True
 
@@ -107,7 +118,6 @@ def test_generate_passes_structured_inputs_to_prompt():
     """generate() with structured_inputs must produce a prompt with Race Context."""
     client = _make_client()
     fake_model = MagicMock()
-    fake_model.generate_content.return_value.text = "Stay out."
     client._model = fake_model
     client._initialized = True
 
@@ -115,7 +125,7 @@ def test_generate_passes_structured_inputs_to_prompt():
 
     def capture_call(prompt, **kwargs):
         captured_prompts.append(prompt)
-        return fake_model.generate_content.return_value
+        return _make_generate_response("Stay out.")
 
     fake_model.generate_content.side_effect = capture_call
 
@@ -124,6 +134,82 @@ def test_generate_passes_structured_inputs_to_prompt():
 
     assert len(captured_prompts) == 1
     assert "Norris" in captured_prompts[0]
+
+
+# ── generate_with_tools ──────────────────────────────────────────────────────
+
+def _make_text_part(text: str):
+    part = MagicMock()
+    part.function_call = None
+    part.text = text
+    return part
+
+
+def _make_fn_call_part(name: str, args: dict):
+    fc = MagicMock()
+    fc.name = name
+    fc.args = args
+    part = MagicMock()
+    part.function_call = fc
+    return part
+
+
+def test_generate_with_tools_no_tool_call_returns_text():
+    """generate_with_tools returns model text when Gemini doesn't call any tool."""
+    client = _make_client()
+
+    text_part = _make_text_part("Hamilton would excel in Monaco's tight layout.")
+    response = MagicMock()
+    response.candidates = [MagicMock(content=MagicMock(parts=[text_part]))]
+
+    fake_chat = MagicMock()
+    fake_chat.send_message.return_value = response
+
+    fake_model = MagicMock()
+    fake_model.start_chat.return_value = fake_chat
+
+    executor = MagicMock(return_value={})
+
+    with patch("src.llm.gemini_client.GenerativeModel", return_value=fake_model), \
+         patch.object(client, "_ensure_initialized"):
+        result = client.generate_with_tools("What if Hamilton was at McLaren?", executor)
+
+    assert result == "Hamilton would excel in Monaco's tight layout."
+    executor.assert_not_called()
+
+
+def test_generate_with_tools_executes_tool_and_returns_final_text():
+    """generate_with_tools calls tool_executor and returns text from second response."""
+    client = _make_client()
+
+    fn_part = _make_fn_call_part(
+        "get_strategy_recommendation",
+        {"race_id": "2025_monaco", "driver_id": "hamilton", "current_lap": 40,
+         "current_compound": "MEDIUM", "fuel_level": 0.5, "track_temp": 44.0, "air_temp": 26.0},
+    )
+    first_response = MagicMock()
+    first_response.candidates = [MagicMock(content=MagicMock(parts=[fn_part]))]
+
+    text_part = _make_text_part("Hamilton should pit on lap 41 for HARD tyres.")
+    second_response = MagicMock()
+    second_response.candidates = [MagicMock(content=MagicMock(parts=[text_part]))]
+
+    fake_chat = MagicMock()
+    fake_chat.send_message.side_effect = [first_response, second_response]
+
+    fake_model = MagicMock()
+    fake_model.start_chat.return_value = fake_chat
+
+    tool_result = {"recommended_action": "PIT_SOON", "pit_window_start": 41, "target_compound": "HARD"}
+    executor = MagicMock(return_value=tool_result)
+
+    with patch("src.llm.gemini_client.GenerativeModel", return_value=fake_model), \
+         patch("src.llm.gemini_client.Part") as mock_part, \
+         patch.object(client, "_ensure_initialized"):
+        result = client.generate_with_tools("Simulate Monaco with Hamilton", executor)
+
+    assert result == "Hamilton should pit on lap 41 for HARD tyres."
+    executor.assert_called_once_with("get_strategy_recommendation", dict(fn_part.function_call.args))
 
 
 # ── get_client singleton ─────────────────────────────────────────────────────
@@ -158,7 +244,7 @@ def test_llm_chat_happy_path():
     from src.llm import gemini_client as mod
 
     fake_client = MagicMock()
-    fake_client.generate.return_value = "Pit on lap 30 for hard tyres."
+    fake_client.generate_with_tools.return_value = "Pit on lap 30 for hard tyres."
     original = mod._client
     mod._client = fake_client
 
@@ -180,13 +266,13 @@ def test_llm_chat_happy_path():
 
 
 def test_llm_chat_with_race_inputs():
-    """POST /llm/chat with race_inputs passes structured dict to generate()."""
+    """POST /llm/chat with race_inputs passes structured dict to generate_with_tools()."""
     from fastapi.testclient import TestClient
     from src.api.main import app
     from src.llm import gemini_client as mod
 
     fake_client = MagicMock()
-    fake_client.generate.return_value = "Stay out two more laps."
+    fake_client.generate_with_tools.return_value = "Stay out two more laps."
     original = mod._client
     mod._client = fake_client
 
@@ -207,7 +293,7 @@ def test_llm_chat_with_race_inputs():
                 headers={"Authorization": f"Bearer {token}"},
             )
         assert r.status_code == 200
-        call_kwargs = fake_client.generate.call_args[1]
+        call_kwargs = fake_client.generate_with_tools.call_args[1]
         assert call_kwargs["structured_inputs"]["driver"] == "Norris"
     finally:
         mod._client = original

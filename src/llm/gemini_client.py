@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import FunctionDeclaration, GenerativeModel, Part, Tool
 import vertexai
 
 from rag.config import RagConfig
@@ -38,6 +38,60 @@ _FIELD_LABELS: dict[str, str] = {
     "gap_to_leader": "Gap to Leader (s)",
     "fuel_remaining_kg": "Fuel Remaining (kg)",
 }
+
+
+_STRATEGY_TOOL = Tool(
+    function_declarations=[
+        FunctionDeclaration(
+            name="get_strategy_recommendation",
+            description=(
+                "Get an F1 race strategy recommendation for a specific driver and race scenario. "
+                "Call this for any what-if question, driver swap scenario, pit strategy question, "
+                "or 'simulate' request. Returns pit window, tire compound, driving mode, and confidence."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "race_id": {
+                        "type": "string",
+                        "description": "Race identifier e.g. '2025_monaco', '2025_bahrain', '2024_1'",
+                    },
+                    "driver_id": {
+                        "type": "string",
+                        "description": (
+                            "Driver slug e.g. 'hamilton', 'max_verstappen', "
+                            "'leclerc', 'norris', 'piastri', 'russell'"
+                        ),
+                    },
+                    "current_lap": {
+                        "type": "integer",
+                        "description": "Lap number to simulate from. Monaco has 78 laps.",
+                    },
+                    "current_compound": {
+                        "type": "string",
+                        "description": "Current tire compound: SOFT, MEDIUM, or HARD",
+                    },
+                    "fuel_level": {
+                        "type": "number",
+                        "description": "Fuel remaining as fraction 0.0 (empty) to 1.0 (full). Estimate from lap.",
+                    },
+                    "track_temp": {
+                        "type": "number",
+                        "description": "Track surface temperature in Celsius (Monaco typical: 42-50°C)",
+                    },
+                    "air_temp": {
+                        "type": "number",
+                        "description": "Air temperature in Celsius",
+                    },
+                },
+                "required": [
+                    "race_id", "driver_id", "current_lap", "current_compound",
+                    "fuel_level", "track_temp", "air_temp",
+                ],
+            },
+        )
+    ]
+)
 
 
 class GeminiClient:
@@ -120,6 +174,75 @@ class GeminiClient:
             if parts:
                 return "".join(p.text for p in parts if hasattr(p, "text"))
         return response.text  # type: ignore[return-value]
+
+    def generate_with_tools(
+        self,
+        question: str,
+        tool_executor: Callable[[str, dict], dict],
+        structured_inputs: dict | None = None,
+    ) -> str:
+        """Call Gemini with function-calling tools enabled.
+
+        Gemini decides whether to call ``get_strategy_recommendation``.
+        If it does, ``tool_executor`` is invoked with the function name and
+        args dict; the result is fed back so Gemini can narrate using real
+        strategy data.  The loop runs at most 3 iterations to prevent runaway
+        tool calls.
+        """
+        self._ensure_initialized()
+
+        model_with_tools = GenerativeModel(
+            self._config.LLM_MODEL,
+            tools=[_STRATEGY_TOOL],
+        )
+        chat = model_with_tools.start_chat()
+        gen_config = {
+            "temperature": self._config.LLM_TEMPERATURE,
+            "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
+        }
+
+        initial_message = self.build_prompt(
+            question, structured_inputs=structured_inputs
+        )
+        response = chat.send_message(initial_message, generation_config=gen_config)
+
+        for _ in range(3):
+            if not response.candidates:
+                break
+            fn_parts = [
+                p for p in response.candidates[0].content.parts
+                if p.function_call
+            ]
+            if not fn_parts:
+                break
+
+            tool_responses: list[Part] = []
+            for part in fn_parts:
+                fc = part.function_call
+                try:
+                    result = tool_executor(fc.name, dict(fc.args))
+                except Exception as exc:
+                    result = {"error": str(exc)}
+                tool_responses.append(
+                    Part.from_function_response(
+                        name=fc.name, response={"result": result}
+                    )
+                )
+            response = chat.send_message(tool_responses, generation_config=gen_config)
+
+        if response.candidates:
+            parts = response.candidates[0].content.parts
+            if parts:
+                text = "".join(
+                    getattr(p, "text", "") for p in parts
+                    if not p.function_call
+                )
+                if text:
+                    return text
+        try:
+            return response.text
+        except Exception:
+            return "Unable to generate a response. Please try again."
 
     def parse_strategy_json(self, prompt: str) -> dict:
         """Parse natural language into a structured JSON strategy."""
