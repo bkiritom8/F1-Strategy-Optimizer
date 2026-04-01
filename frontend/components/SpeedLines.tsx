@@ -29,7 +29,9 @@ export function SpeedLines() {
   useEffect(() => {
     const cv = canvasRef.current;
     if (!cv) return;
-    const ctx = cv.getContext('2d')!;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    const ctxNonNull: CanvasRenderingContext2D = ctx;
     let W = (cv.width = window.innerWidth);
     let H = (cv.height = window.innerHeight);
 
@@ -43,12 +45,12 @@ export function SpeedLines() {
     window.addEventListener('resize', onResize);
 
     let last = performance.now();
-    let rafId: number;
+    let rafId = 0;
 
     function tick(now: number) {
       const dt = Math.min((now - last) / 16.67, 3);
       last = now;
-      ctx.clearRect(0, 0, W, H);
+      ctxNonNull.clearRect(0, 0, W, H);
 
       for (const l of lines) {
         l.x += l.spd * dt;
@@ -69,7 +71,7 @@ export function SpeedLines() {
         const sx = l.x - l.len;
         const sy = l.y - l.len * ang;
 
-        const g = ctx.createLinearGradient(sx, sy, ex, ey);
+        const g = ctxNonNull.createLinearGradient(sx, sy, ex, ey);
         if (l.red) {
           g.addColorStop(0, 'rgba(225,6,0,0)');
           g.addColorStop(0.6, `rgba(225,6,0,${l.alpha * 0.6})`);
@@ -80,13 +82,13 @@ export function SpeedLines() {
           g.addColorStop(1, `rgba(240,248,255,${l.alpha})`);
         }
 
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(ex, ey);
-        ctx.strokeStyle = g;
-        ctx.lineWidth = l.w;
-        ctx.lineCap = 'round';
-        ctx.stroke();
+        ctxNonNull.beginPath();
+        ctxNonNull.moveTo(sx, sy);
+        ctxNonNull.lineTo(ex, ey);
+        ctxNonNull.strokeStyle = g;
+        ctxNonNull.lineWidth = l.w;
+        ctxNonNull.lineCap = 'round';
+        ctxNonNull.stroke();
       }
 
       rafId = requestAnimationFrame(tick);
