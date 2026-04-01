@@ -132,7 +132,7 @@ class GeminiClient:
             "If driver isn't mentioned, leave driver_id as an empty string. "
             "No markdown blocks, no backticks, ONLY valid JSON object."
         )
-        response = self._model.generate_content(
+        response = self._model.generate_content(  # type: ignore[union-attr]
             f"{system_instructions}\n\nPrompt: {prompt}",
             generation_config={
                 "temperature": 0.0,

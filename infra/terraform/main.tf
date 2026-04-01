@@ -97,15 +97,15 @@ module "cloud_run" {
   region      = var.region
   environment = var.environment
 
-  service_name             = "f1-strategy-api"
-  container_image          = "${var.region}-docker.pkg.dev/${var.project_id}/f1-optimizer/api:latest"
-  max_instances            = var.api_max_instances
-  min_instances            = var.api_min_instances
-  max_concurrent_requests  = var.api_max_concurrent_requests
-  cpu_target_utilization   = var.api_cpu_target_utilization
-  memory                   = "1Gi"
-  cpu                      = "2"
-  timeout_seconds          = 120
+  service_name            = "f1-strategy-api"
+  container_image         = "${var.region}-docker.pkg.dev/${var.project_id}/f1-optimizer/api:latest"
+  max_instances           = var.api_max_instances
+  min_instances           = var.api_min_instances
+  max_concurrent_requests = var.api_max_concurrent_requests
+  cpu_target_utilization  = var.api_cpu_target_utilization
+  memory                  = "1Gi"
+  cpu                     = "2"
+  timeout_seconds         = 120
 
   env_vars = {
     ENV                       = var.environment
