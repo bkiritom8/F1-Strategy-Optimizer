@@ -9,10 +9,18 @@ resource "google_cloud_run_v2_service" "api" {
   project  = var.project_id
 
   template {
+    annotations = {
+      # Scale out when average CPU across active instances exceeds this threshold.
+      # New instances are added until utilization drops back below the target.
+      "autoscaling.knative.dev/cpuTargetUtilizationPercentage" = tostring(var.cpu_target_utilization)
+    }
+
     scaling {
       min_instance_count = var.min_instances
       max_instance_count = var.max_instances
     }
+
+    max_instance_request_concurrency = var.max_concurrent_requests
 
     containers {
       image = var.container_image
