@@ -1,7 +1,7 @@
 /**
  * @file store/useAppStore.ts
  * @description Global application state via Zustand.
- * Shares selected driver, race context, and theme across all views
+ * Shares selected driver, race context across all views
  * so navigating from Command Center to Driver Profiles preserves selection.
  */
 
@@ -19,10 +19,6 @@ interface AppState {
   setActiveRace: (raceId: string, round?: number, lap?: number) => void;
   setActiveRaceRound: (round: number) => void;
   setActiveLap: (lap: number) => void;
-
-  // Theme
-  theme: 'dark' | 'light';
-  toggleTheme: () => void;
 
   // Sidebar state (mobile & desktop collapse)
   sidebarOpen: boolean;
@@ -44,10 +40,6 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveRaceRound: (round) =>
     set({ activeRaceRound: round, activeRaceId: `2024_${round}` }),
   setActiveLap: (lap) => set({ activeLap: lap }),
-
-  theme: 'dark',
-  toggleTheme: () =>
-    set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
 
   sidebarOpen: false,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
