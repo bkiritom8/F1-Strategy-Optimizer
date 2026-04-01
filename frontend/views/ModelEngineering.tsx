@@ -24,18 +24,18 @@ const FeatureImportanceCard: React.FC<{ modelName: string }> = ({ modelName }) =
   if (!data) return null;
 
   return (
-    <div className="bg-gray-900/40 border border-gray-800 p-4 rounded-xl backdrop-blur-sm">
-      <h4 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">
+    <div className="bg-white/[0.04] backdrop-blur-md border border-white/[0.07] p-4 rounded-xl">
+      <h4 className="text-white/40 text-[10px] uppercase tracking-[4px] mb-4">
         Feature Importance (SHAP)
       </h4>
       <div className="space-y-3">
         {data.features.map((f) => (
           <div key={f.name} className="group">
             <div className="flex justify-between text-xs mb-1">
-              <span className="text-gray-300 group-hover:text-blue-400 transition-colors">{f.name}</span>
-              <span className="text-gray-500">{(f.importance * 100).toFixed(2)}%</span>
+              <span className="text-white group-hover:text-blue-400 transition-colors">{f.name}</span>
+              <span className="text-white/40">{(f.importance * 100).toFixed(2)}%</span>
             </div>
-            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-white/[0.07] rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full transition-all duration-1000"
                 style={{ width: `${f.importance * 100}%` }}
@@ -58,16 +58,16 @@ const BiasReportCard: React.FC<{ modelName: string }> = ({ modelName }) => {
   if (!data) return null;
 
   return (
-    <div className="bg-gray-900/40 border border-gray-800 p-4 rounded-xl backdrop-blur-sm">
-      <h4 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">
+    <div className="bg-white/[0.04] backdrop-blur-md border border-white/[0.07] p-4 rounded-xl">
+      <h4 className="text-white/40 text-[10px] uppercase tracking-[4px] mb-4">
         Slice Disparity Audit
       </h4>
       <div className="grid grid-cols-1 gap-2">
         {data.slices.map((slice) => (
-          <div key={slice.name} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/30">
+          <div key={slice.name} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.04]">
             <div>
-              <div className="text-sm font-medium text-gray-200">{slice.name}</div>
-              <div className="text-[10px] text-gray-500">MLOps Validation Pass</div>
+              <div className="text-sm font-medium text-white">{slice.name}</div>
+              <div className="text-[10px] text-white/40">MLOps Validation Pass</div>
             </div>
             <div className="text-right">
               <div className={`text-xs font-mono ${(slice.disparity_score * 100) > 10 ? 'text-red-400' : 'text-green-400'}`}>
@@ -110,8 +110,8 @@ const ModelEngineering: React.FC = () => {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Model Registry & Engineering</h2>
-          <p className="text-gray-400 text-sm mt-1">
+          <h2 className="text-2xl font-bold tracking-tight text-white">Model Registry & Engineering</h2>
+          <p className="text-white/40 text-sm mt-1">
             Real-time telemetry from the F1-Strategy-Optimizer MLOps pipeline.
           </p>
         </div>
@@ -132,7 +132,7 @@ const ModelEngineering: React.FC = () => {
         
         {/* Left: Model List (4 cols) */}
         <div className="lg:col-span-4 space-y-3">
-          <h3 className="text-gray-500 text-[10px] font-bold uppercase tracking-widest pl-1">Supervised Registry</h3>
+          <h3 className="text-white/40 text-[10px] uppercase tracking-[4px] pl-1">Supervised Registry</h3>
           {statusLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-16 bg-gray-800/50 rounded-xl animate-pulse" />)}
@@ -144,12 +144,12 @@ const ModelEngineering: React.FC = () => {
                 onClick={() => handleModelSelect(model.name)}
                 className={`w-full text-left p-4 rounded-xl border transition-all duration-300 ${
                   selectedModel === model.name 
-                    ? 'bg-blue-600/10 border-blue-500/50 shadow-lg shadow-blue-900/20' 
-                    : 'bg-gray-900/40 border-gray-800 hover:border-gray-700'
+                    ? 'bg-blue-600/10 border-blue-500/50 shadow-lg shadow-blue-900/20'
+                    : 'bg-white/[0.04] border-white/[0.07] hover:border-white/[0.12]'
                 }`}
               >
                 <div className="flex justify-between items-start mb-1">
-                  <span className="text-sm font-bold text-gray-200 capitalize">
+                  <span className="text-sm font-bold text-white capitalize">
                     {model.name.replace(/_/g, ' ')}
                   </span>
                   <span className="text-[10px] font-mono text-gray-500">v{model.version}</span>
@@ -157,7 +157,7 @@ const ModelEngineering: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className={`w-1.5 h-1.5 rounded-full ${model.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                    <span className="text-[10px] text-gray-400 uppercase tracking-tight">{model.status}</span>
+                    <span className="text-[10px] text-white/40 uppercase tracking-tight">{model.status}</span>
                   </div>
                   <div className="text-right">
                     <span className="text-xs font-bold text-blue-400">{(model.accuracy * 100).toFixed(2)}%</span>
@@ -173,7 +173,7 @@ const ModelEngineering: React.FC = () => {
           {selectedModel ? (
             <>
               {/* Detailed Header */}
-              <div className="bg-gray-900/60 border border-gray-800 p-6 rounded-2xl relative overflow-hidden">
+              <div className="bg-white/[0.04] backdrop-blur-md border border-white/[0.07] p-6 rounded-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                   <svg className="w-24 h-24 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-7 2h2v5h-2V5m-2 2h2v3H8V7m8 8h2v2h-2v-2m-4 0h2v2h-2v-2m-4 0h2v2H8v-2m-2-8h2v3H6V7m0 8h2v2H6v-2z"/>
@@ -190,25 +190,25 @@ const ModelEngineering: React.FC = () => {
                       <h3 className="text-xl font-bold text-white tracking-tight capitalize">
                         {selectedModel.replace(/_/g, ' ')} Analysis
                       </h3>
-                      <p className="text-xs text-gray-500">MLOps Monitoring • Last retraining 4h ago</p>
+                      <p className="text-xs text-white/40">MLOps Monitoring • Last retraining 4h ago</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
-                    <div className="p-3 bg-gray-800/20 border border-gray-700/30 rounded-xl">
-                      <div className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Champion Accuracy</div>
+                    <div className="p-3 bg-white/[0.04] border border-white/[0.07] rounded-xl">
+                      <div className="text-[10px] text-white/40 uppercase tracking-[4px]">Champion Accuracy</div>
                       <div className="text-lg font-bold text-blue-400">94.2%</div>
                     </div>
-                    <div className="p-3 bg-gray-800/20 border border-gray-700/30 rounded-xl">
-                      <div className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Deployment Status</div>
+                    <div className="p-3 bg-white/[0.04] border border-white/[0.07] rounded-xl">
+                      <div className="text-[10px] text-white/40 uppercase tracking-[4px]">Deployment Status</div>
                       <div className="text-lg font-bold text-green-400 italic">PROD</div>
                     </div>
-                    <div className="p-3 bg-gray-800/20 border border-gray-700/30 rounded-xl">
-                      <div className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Inference P99</div>
+                    <div className="p-3 bg-white/[0.04] border border-white/[0.07] rounded-xl">
+                      <div className="text-[10px] text-white/40 uppercase tracking-[4px]">Inference P99</div>
                       <div className="text-lg font-bold text-white">42ms</div>
                     </div>
-                    <div className="p-3 bg-gray-800/20 border border-gray-700/30 rounded-xl">
-                      <div className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Training Run</div>
+                    <div className="p-3 bg-white/[0.04] border border-white/[0.07] rounded-xl">
+                      <div className="text-[10px] text-white/40 uppercase tracking-[4px]">Training Run</div>
                       <div className="text-lg font-bold text-purple-400">#842</div>
                     </div>
                   </div>
@@ -222,30 +222,30 @@ const ModelEngineering: React.FC = () => {
               </div>
 
               {/* Additional Log Table */}
-              <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-4 overflow-hidden">
-                <h4 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4 px-2">
+              <div className="bg-white/[0.04] backdrop-blur-md border border-white/[0.07] rounded-xl p-4 overflow-hidden">
+                <h4 className="text-white/40 text-[10px] uppercase tracking-[4px] mb-4 px-2">
                   Validation Log
                 </h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-gray-800 text-gray-500">
+                      <tr className="border-b border-white/[0.07] text-white/40">
                         <th className="pb-2 font-medium px-2">Timestamp</th>
                         <th className="pb-2 font-medium">Dataset</th>
                         <th className="pb-2 font-medium">Metric</th>
                         <th className="pb-2 font-medium text-right px-2">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-800/50">
+                    <tbody className="divide-y divide-white/[0.05]">
                       {[
                         { time: '14:20:01', data: 'FastF1 2024_01', metric: 'MSE: 0.042', status: 'PASS' },
                         { time: '10:15:22', data: 'FastF1 2023_22', metric: 'MSE: 0.039', status: 'PASS' },
                         { time: '昨天', data: 'Jolpica_Historical', metric: 'Bias < 0.05', status: 'PASS' },
                       ].map((log, i) => (
                         <tr key={i} className="group hover:bg-white/5 transition-colors">
-                          <td className="py-3 font-mono text-gray-400 px-2">{log.time}</td>
-                          <td className="py-3 text-gray-300">{log.data}</td>
-                          <td className="py-3 text-gray-500 italic">{log.metric}</td>
+                          <td className="py-3 font-mono text-white/40 px-2">{log.time}</td>
+                          <td className="py-3 text-white">{log.data}</td>
+                          <td className="py-3 text-white/40 italic">{log.metric}</td>
                           <td className="py-3 text-right px-2">
                             <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold">
                               {log.status}
@@ -259,7 +259,7 @@ const ModelEngineering: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="h-full flex items-center justify-center p-12 bg-gray-900/20 border border-dashed border-gray-800 rounded-2xl text-gray-500 italic">
+            <div className="h-full flex items-center justify-center p-12 bg-white/[0.04] border border-dashed border-white/[0.07] rounded-2xl text-white/40 italic">
               Select a model from the registry to view engineering telemetry.
             </div>
           )}
