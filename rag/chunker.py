@@ -361,3 +361,41 @@ def load_all_documents(bucket: str) -> list[Document]:
 
     logger.info(f"Total documents loaded: {len(all_docs)} from {processed} files")
     return all_docs
+
+
+def iter_gcs_uris(bucket: str):
+    """
+    Yield (gcs_uri, file_type) for every processable file in the bucket
+    without downloading content. file_type is 'parquet' or 'csv'.
+
+    Used by the batched ingestion path to avoid loading all files into memory.
+    """
+    skip_patterns = [".ff1pkl", ".sqlite", ".pyc"]
+    skip_prefixes = ["rag/", "htmlcov/"]
+
+    try:
+        client = storage.Client()
+        blobs = client.list_blobs(bucket)
+    except Exception as e:
+        logger.warning(f"Failed to list bucket {bucket}: {e}")
+        return
+
+    for blob in blobs:
+        name = blob.name
+        if any(name.endswith(pat) for pat in skip_patterns):
+            continue
+        if any(name.startswith(prefix) for prefix in skip_prefixes):
+            continue
+        if name.endswith(".parquet"):
+            yield f"gs://{bucket}/{name}", "parquet"
+        elif name.endswith(".csv"):
+            yield f"gs://{bucket}/{name}", "csv"
+
+
+def chunk_uri(gcs_uri: str, file_type: str, client=None) -> list[Document]:
+    """Chunk a single GCS file by type. Returns [] on error."""
+    if file_type == "parquet":
+        return chunk_parquet(gcs_uri, client=client)
+    if file_type == "csv":
+        return chunk_csv(gcs_uri, client=client)
+    return []
