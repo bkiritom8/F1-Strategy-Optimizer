@@ -453,7 +453,7 @@ const StrategyHub: React.FC = () => {
                     )}
                     <div className="max-w-[85%] flex flex-col gap-1">
                       <div
-                        className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                        className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap break-words ${
                           m.role === 'user'
                             ? 'bg-blue-600 text-white rounded-tr-none'
                             : 'bg-white/[0.05] rounded-tl-none border border-white/[0.07] text-white/80'
