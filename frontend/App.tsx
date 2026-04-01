@@ -143,9 +143,11 @@ const App: React.FC = () => {
   // Render landing page standalone — no sidebar, no nav wrapper
   if (location.pathname === '/') {
     return (
-      <React.Suspense fallback={null}>
-        <LandingPage />
-      </React.Suspense>
+      <ViewErrorBoundary>
+        <React.Suspense fallback={null}>
+          <LandingPage />
+        </React.Suspense>
+      </ViewErrorBoundary>
     );
   }
 
@@ -222,7 +224,6 @@ const App: React.FC = () => {
             >
               <NavLink
                 to={item.path}
-                end={item.path === '/'}
                 onClick={() => setSidebarOpen(false)}
                 title={sidebarCollapsed ? item.label : undefined}
                 className={({ isActive }) =>
@@ -319,7 +320,6 @@ const App: React.FC = () => {
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === '/'}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors ${
                 isActive
