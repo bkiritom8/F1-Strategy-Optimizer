@@ -113,7 +113,13 @@ class GeminiClient:
                 "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
             },
         )
-        return response.text
+        # Safely extract text — response.text raises on MAX_TOKENS finish_reason
+        # in newer Vertex AI SDK versions; extract from candidates directly instead.
+        if response.candidates:
+            parts = response.candidates[0].content.parts
+            if parts:
+                return "".join(p.text for p in parts if hasattr(p, "text"))
+        return response.text  # type: ignore[return-value]
 
     def parse_strategy_json(self, prompt: str) -> dict:
         """Parse natural language into a structured JSON strategy."""
