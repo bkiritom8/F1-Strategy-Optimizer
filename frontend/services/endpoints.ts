@@ -15,7 +15,6 @@
 
 import { apiFetch } from './client';
 import { logger } from './logger';
-import { MOCK_DRIVERS } from '../constants';
 import type {
   DriverProfile,
   StrategyRecommendation,
@@ -23,21 +22,6 @@ import type {
   TireCompound,
   DriveMode,
 } from '../types';
-
-/**
- * Helper to generate a deterministic random number between 0 and 1
- * based on a string seed (e.g., driver_id + round).
- */
-const seedRandom = (seed: string) => {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) {
-    h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
-  }
-  return () => {
-    h = Math.imul(48271, h) ^ (h >>> 16);
-    return (Math.abs(h) % 1000) / 1000;
-  };
-};
 
 /**
  * Common logging and error handling for service layer.
@@ -125,6 +109,25 @@ interface StaticDriver {
   number: string | null;
   nationality: string | null;
   dob: string | null;
+  career_races: number;
+  career_wins: number;
+  career_podiums: number;
+  career_poles: number;
+  first_season: number;
+  last_season: number;
+  experience_years: number;
+  rookie_status: boolean;
+  is_legend: boolean;
+  aggression_score: number;
+  consistency_score: number;
+  pressure_response: number;
+  tire_management: number;
+  wet_weather_skill: number;
+  qualifying_pace: number;
+  race_pace: number;
+  overtaking_ability: number;
+  defensive_ability: number;
+  fuel_efficiency: number;
 }
 
 interface StaticCircuit {
@@ -222,66 +225,59 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
   logger.info('[endpoints] fetchDrivers: attempting live backend…');
   try {
     const data = await apiFetch<{ count: number; drivers: any[] }>('/api/v1/drivers');
-    return data.drivers.map((d: any) => {
-      const rng = seedRandom(`live_driver_${d.driver_id}`);
-      return {
-        driver_id: d.driver_id,
-        name: `${d.given_name} ${d.family_name}`,
-        team: DRIVER_TEAM_MAP[d.driver_id] || 'Unknown',
-        code: d.code || d.driver_id.slice(0, 3).toUpperCase(),
-        nationality: d.nationality || '',
-        career_races: d.races || 0,
-        career_wins: d.wins || 0,
-        aggression_score: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.3) * 100) / 100,
-        consistency_score: Math.round(Math.min(100, 60 + (d.races || 0) * 0.05) * 100) / 100,
-        pressure_response: Math.round(Math.min(100, 65 + (d.podiums || 0) * 0.4) * 100) / 100,
-        tire_management: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
-        wet_weather_skill: Math.round(Math.min(100, 65 + rng() * 25) * 100) / 100,
-        qualifying_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.5) * 100) / 100,
-        race_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.4) * 100) / 100,
-        overtaking_ability: Math.round(Math.min(100, 65 + (d.wins || 0) * 0.35) * 100) / 100,
-        defensive_ability: Math.round(Math.min(100, 65 + (d.races || 0) * 0.03) * 100) / 100,
-        fuel_efficiency: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
-        experience_years: d.seasons?.length || 0,
-        rookie_status: (d.races || 0) < 25,
-      };
-    });
+    return data.drivers.map((d: any) => ({
+      driver_id: d.driver_id,
+      name: `${d.given_name} ${d.family_name}`,
+      team: DRIVER_TEAM_MAP[d.driver_id] || 'Unknown',
+      code: d.code || d.driver_id.slice(0, 3).toUpperCase(),
+      nationality: d.nationality || '',
+      career_races: d.races || 0,
+      career_wins: d.wins || 0,
+      aggression_score: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.3) * 100) / 100,
+      consistency_score: Math.round(Math.min(100, 60 + (d.races || 0) * 0.05) * 100) / 100,
+      pressure_response: Math.round(Math.min(100, 65 + (d.podiums || 0) * 0.4) * 100) / 100,
+      tire_management: Math.round(Math.min(100, 70 + (d.tire_management || 0)) * 100) / 100,
+      wet_weather_skill: Math.round(Math.min(100, 65 + (d.wet_weather_skill || 0)) * 100) / 100,
+      qualifying_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.5) * 100) / 100,
+      race_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.4) * 100) / 100,
+      overtaking_ability: Math.round(Math.min(100, 65 + (d.wins || 0) * 0.35) * 100) / 100,
+      defensive_ability: Math.round(Math.min(100, 65 + (d.races || 0) * 0.03) * 100) / 100,
+      fuel_efficiency: Math.round(Math.min(100, 70 + (d.fuel_efficiency || 0)) * 100) / 100,
+      experience_years: d.seasons?.length || 0,
+      rookie_status: (d.races || 0) < 25,
+    }));
   } catch (err: any) {
     logger.warn(`[endpoints] fetchDrivers: live API unavailable — ${err?.message}. Falling back to static data.`);
   }
 
-  // Try static pipeline data
+  // Try static pipeline data (real career stats from GCS Parquets)
   try {
     logger.info('[endpoints] fetchDrivers: loading from static pipeline data…');
     const staticDrivers = await fetchStatic<StaticDriver[]>('drivers.json');
-    return staticDrivers.map((d) => {
-      const rng = seedRandom(`static_driver_${d.id}`);
-      const races = Math.floor(10 + rng() * 100);
-      const wins = Math.floor(rng() * 10);
-      return {
-        driver_id: d.id,
-        name: d.name,
-        team: DRIVER_TEAM_MAP[d.id] || 'Unknown',
-        code: d.code || d.id.slice(0, 3).toUpperCase(),
-        nationality: d.nationality || '',
-        career_races: races,
-        career_wins: wins,
-        aggression_score: Math.round((55 + rng() * 40) * 100) / 100,
-        consistency_score: Math.round((55 + rng() * 40) * 100) / 100,
-        pressure_response: Math.round((55 + rng() * 40) * 100) / 100,
-        tire_management: Math.round((55 + rng() * 40) * 100) / 100,
-        wet_weather_skill: Math.round((55 + rng() * 40) * 100) / 100,
-        qualifying_pace: Math.round((55 + rng() * 40) * 100) / 100,
-        race_pace: Math.round((55 + rng() * 40) * 100) / 100,
-        overtaking_ability: Math.round((55 + rng() * 40) * 100) / 100,
-        defensive_ability: Math.round((55 + rng() * 40) * 100) / 100,
-        fuel_efficiency: Math.round((55 + rng() * 40) * 100) / 100,
-        experience_years: Math.floor(rng() * 15),
-        rookie_status: races < 25,
-      };
-    });
+    return staticDrivers.map((d) => ({
+      driver_id:          d.id,
+      name:               d.name,
+      team:               DRIVER_TEAM_MAP[d.id] || 'Unknown',
+      code:               d.code || d.id.slice(0, 3).toUpperCase(),
+      nationality:        d.nationality || '',
+      career_races:       d.career_races,
+      career_wins:        d.career_wins,
+      aggression_score:   d.aggression_score,
+      consistency_score:  d.consistency_score,
+      pressure_response:  d.pressure_response,
+      tire_management:    d.tire_management,
+      wet_weather_skill:  d.wet_weather_skill,
+      qualifying_pace:    d.qualifying_pace,
+      race_pace:          d.race_pace,
+      overtaking_ability: d.overtaking_ability,
+      defensive_ability:  d.defensive_ability,
+      fuel_efficiency:    d.fuel_efficiency,
+      experience_years:   d.experience_years,
+      rookie_status:      d.rookie_status,
+    }));
   } catch (err: any) {
-    return handleApiError('fetchDrivers (static fallback)', err, MOCK_DRIVERS.map(d => ({ ...d, team: DRIVER_TEAM_MAP[d.driver_id] || 'Unknown' })));
+    logger.error(`[endpoints] fetchDrivers: static file unavailable — ${err?.message}`);
+    throw err;
   }
 }
 
@@ -500,12 +496,8 @@ export async function fetchOvertakeProb(driverId: string, opponentId: string): P
   try {
     return await apiFetch<PredictiveMetric>(`/api/v1/race/predict/overtake?driver_id=${driverId}&opponent_id=${opponentId}`);
   } catch (err) {
-    const rng = seedRandom(`overtake_${driverId}_${opponentId}`);
-    return handleApiError('fetchOvertakeProb', err, {
-      probability: 0.12 + (rng() * 0.05),
-      timestamp: new Date().toISOString(),
-      model_version: '1.1.0'
-    });
+    logger.error(`[endpoints] fetchOvertakeProb failed`, { message: String(err) });
+    throw err;
   }
 }
 
@@ -520,12 +512,8 @@ export async function fetchSafetyCarProb(raceId: string): Promise<PredictiveMetr
   try {
     return await apiFetch<PredictiveMetric>(`/api/v1/race/predict/safety_car?race_id=${raceId}`);
   } catch (err) {
-    const rng = seedRandom(`safety_car_${raceId}`);
-    return handleApiError('fetchSafetyCarProb', err, {
-      probability: 0.08 + (rng() * 0.04),
-      timestamp: new Date().toISOString(),
-      model_version: '1.2.0'
-    });
+    logger.error(`[endpoints] fetchSafetyCarProb failed`, { message: String(err) });
+    throw err;
   }
 }
 
@@ -540,14 +528,8 @@ export async function fetchValidationStats(raceId: string): Promise<ValidationSt
   try {
     return await apiFetch<ValidationStats>(`/api/v1/validation/race/${raceId}`);
   } catch (err) {
-    return handleApiError('fetchValidationStats', err, {
-      race_id: raceId,
-      accuracy: 0.925,
-      precision: 0.912,
-      recall: 0.898,
-      f1_score: 0.905,
-      samples: 1420,
-    });
+    logger.error(`[endpoints] fetchValidationStats failed`, { message: String(err) });
+    throw err;
   }
 }
 
