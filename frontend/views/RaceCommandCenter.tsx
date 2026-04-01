@@ -17,8 +17,68 @@ import PositionTower from '../components/PositionTower';
 import DriverCard from '../components/DriverCard';
 
 import ConceptTooltip from '../components/ConceptTooltip';
-import { MOCK_DRIVERS, MOCK_RACE_STATE, getMockTelemetry, getMockStrategy, COLORS, F1_GLOSSARY } from '../constants';
-import { DriverTelemetry, DriverProfile } from '../types';
+import { COLORS, F1_GLOSSARY } from '../constants';
+import type { RaceState, DriverTelemetry, StrategyRecommendation } from '../types';
+
+// ── Local fallbacks (previously in constants, removed with mock-data cleanup) ──
+
+const DEFAULT_RACE_STATE: RaceState = {
+  race_id: '2024_1', circuit: 'bahrain', current_lap: 1, total_laps: 57,
+  weather: 'dry', track_temp_celsius: 38, air_temp_celsius: 28,
+  track_grip_level: 95, flag: 'GREEN',
+};
+
+function getMockTelemetry(driver_id: string, position: number): DriverTelemetry {
+  const seed = driver_id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  return {
+    driver_id, position,
+    gap_to_leader: position === 1 ? 0 : (position - 1) * 1.2 + ((seed * 7) % 3),
+    gap_to_ahead: position === 1 ? 0 : 1.2 + ((seed * 3) % 2),
+    gap_to_behind: 1.4 + ((seed * 5) % 2),
+    current_lap_time: 94 + ((seed * 11) % 4000) / 1000,
+    last_lap_time: 93.5 + ((seed * 13) % 3000) / 1000,
+    best_lap_time: 92.8 + ((seed * 17) % 2000) / 1000,
+    speed_kph: 280 + (seed % 40),
+    ers_deployment: 60 + (seed % 30),
+    ers_mode: 'BALANCED' as const,
+    fuel_remaining_kg: 50 - (seed % 20),
+    tire_compound: (['SOFT', 'MEDIUM', 'HARD'] as const)[seed % 3],
+    tire_age_laps: 5 + (seed % 20),
+    tire_wear_percent: 30 + (seed % 40),
+    tire_temp_fl: 88 + (seed % 12), tire_temp_fr: 87 + (seed % 12),
+    tire_temp_rl: 90 + (seed % 10), tire_temp_rr: 89 + (seed % 10),
+    aero_loss_percent: position > 3 ? 8 + (seed % 10) : 0,
+    drs_active: seed % 3 === 0,
+    g_force_lateral: 3.5 + (seed % 20) / 10,
+    g_force_longitudinal: 4.2 + (seed % 15) / 10,
+    tire_grip_remaining: 70 - (seed % 30),
+  };
+}
+
+function getMockStrategy(driver_id: string): StrategyRecommendation {
+  const seed = driver_id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  return {
+    driver_id,
+    current_lap: 20 + (seed % 10),
+    pit_recommendation: {
+      recommended_pit_lap: 28 + (seed % 8),
+      confidence: 0.75 + ((seed % 20) / 100),
+      tire_compound: (['MEDIUM', 'HARD'] as const)[seed % 2],
+      expected_position_after_pit: 1 + (seed % 5),
+      win_probability: 0.20 + ((seed % 25) / 100),
+      podium_probability: 0.45 + ((seed % 30) / 100),
+    },
+    driving_style: {
+      mode: (['PUSH', 'BALANCED', 'CONSERVE'] as const)[seed % 3],
+      ers_target_mode: 'BALANCED' as const,
+      reason: 'Maintain gap while managing tire wear',
+      fuel_target_kg_per_lap: 1.65 + ((seed % 10) / 100),
+    },
+    brake_bias: { recommended_bias: 56 + (seed % 4), reason: 'Front-limited under braking' },
+    warnings: [],
+  };
+}
+import type { DriverProfile } from '../types';
 import { useDrivers, useBackendStatus, useRaces2024, useOvertakeMetric, useSafetyCarProb } from '../hooks/useApi';
 import { fetchRaceState, fetchStrategyRecommendation } from '../services/endpoints';
 import { useAppStore } from '../store/useAppStore';
@@ -219,8 +279,7 @@ const RaceCommandCenter: React.FC = () => {
           const apiDriver = apiDrivers?.find(d => d.driver_id === result.driver.id);
           if (apiDriver) return apiDriver;
 
-          const mockDriver = MOCK_DRIVERS.find(d => d.driver_id === result.driver.id || d.code === result.driver.code);
-          if (mockDriver) return { ...mockDriver, driver_id: result.driver.id, team: result.constructor };
+          // no mock driver lookup — fall through to inline default below
 
           return {
             driver_id: result.driver.id, name: result.driver.name, team: result.constructor,
@@ -231,15 +290,15 @@ const RaceCommandCenter: React.FC = () => {
             experience_years: 3, rookie_status: false,
           } as DriverProfile;
         });
-      return raceDrivers.length > 0 ? raceDrivers.slice(0, 20) : MOCK_DRIVERS;
+      return raceDrivers.slice(0, 20);
     }
-    return MOCK_DRIVERS;
+    return [];
   }, [selectedRace, apiDrivers]);
 
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [showBeginnerTips, setShowBeginnerTips] = useState(false);
   const [mobileTowerOpen, setMobileTowerOpen] = useState(false);
-  const [raceState, setRaceState] = useState(MOCK_RACE_STATE);
+  const [raceState, setRaceState] = useState<RaceState>(DEFAULT_RACE_STATE);
   const [telemetries, setTelemetries] = useState<DriverTelemetry[]>([]);
 
   useEffect(() => {

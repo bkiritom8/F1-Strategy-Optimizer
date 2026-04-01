@@ -66,6 +66,7 @@ const StrategyHub: React.FC = () => {
     { pitLap: 20, compound: 'MEDIUM' },
     { pitLap: 42, compound: 'HARD' },
   ]);
+  const [driverName, setDriverName] = useState('Max Verstappen');
   const [simResult, setSimResult] = useState<SimResult | null>(null);
   const [simLoading, setSimLoading] = useState(false);
   const [simSource, setSimSource] = useState<'live' | 'local' | null>(null);
@@ -136,8 +137,10 @@ const StrategyHub: React.FC = () => {
     setSimLoading(true);
     setSimResult(null);
     setSimSource(null);
+    // Convert display name → snake_case id for the API
+    const driverId = driverName.trim().toLowerCase().replace(/\s+/g, '_');
     try {
-      const result = await simulateStrategy({ race_id: '2024_1', driver_id: 'verstappen', strategy: strategyArray });
+      const result = await simulateStrategy({ race_id: '2024_1', driver_id: driverId, strategy: strategyArray });
       setSimResult(result);
       setSimSource('live');
     } catch {
@@ -154,7 +157,7 @@ const StrategyHub: React.FC = () => {
     } finally {
       setSimLoading(false);
     }
-  }, [strategyArray, currentWinProb, currentPodiumProb]);
+  }, [strategyArray, currentWinProb, currentPodiumProb, driverName]);
 
   const addStint = () => {
     const lastLap = customStints.length > 0 ? customStints[customStints.length - 1].pitLap + 15 : 20;
@@ -196,12 +199,26 @@ const StrategyHub: React.FC = () => {
   return (
     <div className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-6 h-full flex flex-col">
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">Strategy Hub</h1>
-        <p className="text-gray-500 uppercase text-xs tracking-widest mt-2 font-mono flex items-center gap-2">
-          <Sparkles className="w-3 h-3 text-blue-400" />
-          Monte Carlo Simulation · AI Strategist · Backend LLM
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">Strategy Hub</h1>
+          <p className="text-gray-500 uppercase text-xs tracking-widest mt-2 font-mono flex items-center gap-2">
+            <Sparkles className="w-3 h-3 text-blue-400" />
+            Monte Carlo Simulation · AI Strategist · Backend LLM
+          </p>
+        </div>
+        {/* Driver name input — plain text, no dropdown */}
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Driver</span>
+          <input
+            type="text"
+            value={driverName}
+            onChange={e => { setDriverName(e.target.value); setSimResult(null); }}
+            placeholder="e.g. Max Verstappen"
+            className="px-3 py-2 rounded-xl border text-sm font-bold bg-transparent focus:outline-none focus:ring-1 focus:ring-red-600 w-48"
+            style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
+          />
+        </div>
       </div>
 
       {/* Two-column layout */}
@@ -217,12 +234,18 @@ const StrategyHub: React.FC = () => {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="grid grid-cols-2 md:grid-cols-4 gap-3"
+                className="space-y-2"
               >
-                <ResultCard icon={Trophy}     label="Predicted Finish" value={`P${simResult.predicted_final_position}`}            color={simResult.predicted_final_position <= 3 ? COLORS.accent.green : COLORS.accent.yellow} />
-                <ResultCard icon={Timer}      label="Race Time"         value={formatTime(simResult.predicted_total_time_s)}        color={COLORS.accent.blue} />
-                <ResultCard icon={TrendingUp} label="Win Probability"   value={`${(simResult.win_probability * 100).toFixed(2)}%`}  color={COLORS.accent.green} />
-                <ResultCard icon={TrendingUp} label="Podium Prob"        value={`${(simResult.podium_probability * 100).toFixed(2)}%`} color={COLORS.accent.purple} />
+                {/* Driver label above cards */}
+                <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
+                  Simulating: <span className="text-white font-bold">{toDriverName(driverName)}</span>
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <ResultCard icon={Trophy}     label="Predicted Finish" value={`P${simResult.predicted_final_position}`}               color={simResult.predicted_final_position <= 3 ? COLORS.accent.green : COLORS.accent.yellow} />
+                  <ResultCard icon={Timer}      label="Race Time"         value={formatTime(simResult.predicted_total_time_s)}           color={COLORS.accent.blue} />
+                  <ResultCard icon={TrendingUp} label="Win Probability"   value={`${(simResult.win_probability * 100).toFixed(2)}%`}     color={COLORS.accent.green} />
+                  <ResultCard icon={TrendingUp} label="Podium Prob"       value={`${(simResult.podium_probability * 100).toFixed(2)}%`}  color={COLORS.accent.purple} />
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -516,9 +539,18 @@ function ResultCard({ icon: Icon, label, value, color }: { icon: React.ElementTy
 }
 
 function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = (seconds % 60).toFixed(2);
-  return `${mins}:${secs.padStart(5, '0')}`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = (seconds % 60).toFixed(3);
+  const ss = s.padStart(6, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+
+/** Convert API driver_id (e.g. "max_verstappen" / "verstappen") to title case. */
+function toDriverName(id: string): string {
+  return id
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
 }
 
 export default StrategyHub;
