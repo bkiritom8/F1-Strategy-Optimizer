@@ -31,6 +31,7 @@ const StrategyHub = React.lazy(() => import('./views/StrategyHub'));
 const TrackExplorer = React.lazy(() => import('./views/TrackExplorer'));
 const LapByLapAnalysis = React.lazy(() => import('./views/LapByLapAnalysis'));
 const AdminPage = React.lazy(() => import('./views/AdminPage'));
+const LandingPage = React.lazy(() => import('./views/LandingPage'));
 
 const APP_NAME = 'APEX F1';
 
@@ -42,7 +43,7 @@ const APP_NAME = 'APEX F1';
  * accessible as tabs inside AdminPage (behind password gate).
  */
 const navItems = [
-  { path: '/',            label: 'Race Command',      icon: Gauge,          mobile: true  },
+  { path: '/race',        label: 'Race Command',      icon: Gauge,          mobile: true  },
   { path: '/drivers',     label: 'Driver Roster',     icon: Users,          mobile: true  },
   { path: '/strategy',    label: 'Strategy Hub',      icon: Compass,        mobile: true,  highlight: true },
   { path: '/circuits',    label: 'Circuit Directory',  icon: Map,            mobile: true  },
@@ -138,6 +139,15 @@ const App: React.FC = () => {
   React.useEffect(() => {
     logger.info(`[App] Route changed -> ${location.pathname}`);
   }, [location.pathname]);
+
+  // Render landing page standalone — no sidebar, no nav wrapper
+  if (location.pathname === '/') {
+    return (
+      <React.Suspense fallback={null}>
+        <LandingPage />
+      </React.Suspense>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-white dark:bg-[#0F0F0F] text-gray-900 dark:text-white overflow-hidden font-sans transition-colors duration-500">
@@ -290,13 +300,13 @@ const App: React.FC = () => {
           <ViewErrorBoundary>
             <React.Suspense fallback={<ViewLoader />}>
               <Routes>
-                <Route path="/"           element={<RaceCommandCenter />} />
+                <Route path="/race"       element={<RaceCommandCenter />} />
                 <Route path="/drivers"    element={<DriverProfiles />} />
                 <Route path="/strategy"   element={<StrategyHub />} />
                 <Route path="/circuits"   element={<TrackExplorer theme={theme} />} />
                 <Route path="/analysis"   element={<LapByLapAnalysis />} />
                 <Route path="/admin"      element={<AdminPage />} />
-                <Route path="*"           element={<Navigate to="/" replace />} />
+                <Route path="*"           element={<Navigate to="/race" replace />} />
               </Routes>
             </React.Suspense>
           </ViewErrorBoundary>
