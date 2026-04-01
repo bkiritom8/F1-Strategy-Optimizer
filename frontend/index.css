@@ -55,21 +55,11 @@ body {
 /* ── CSS variables for theming ─────────────────────────────── */
 
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --bg-tertiary: #f3f4f6;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --border-color: rgba(0, 0, 0, 0.1);
-  --card-bg: #ffffff;
-}
-
-:root.dark {
-  --bg-primary: #0f0f0f;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #333333;
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #111111;
   --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --border-color: rgba(255, 255, 255, 0.05);
-  --card-bg: #1a1a1a;
+  --text-secondary: rgba(255, 255, 255, 0.5);
+  --border-color: rgba(255, 255, 255, 0.07);
+  --card-bg: rgba(255, 255, 255, 0.04);
 }
