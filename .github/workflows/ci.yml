@@ -346,11 +346,30 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install data pipeline dependencies
+        run: pip install pandas pyarrow google-cloud-storage
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Generate static data from GCS
+        run: python pipeline/scripts/generate_static_json.py --bucket f1optimizer-data-lake --out frontend/public/data
+
       - name: Build
         run: npm run build
         working-directory: frontend
         env:
-          VITE_API_URL: https://f1-strategy-api-dev-694267183904.us-central1.run.app
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_CLOUD_RUN_URL: ${{ secrets.VITE_CLOUD_RUN_URL }}
+          VITE_API_USER: ${{ secrets.VITE_API_USER }}
+          VITE_API_PASS: ${{ secrets.VITE_API_PASS }}
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
