@@ -78,7 +78,9 @@ class MicroBatcher:
 
         logger.info(
             "MicroBatcher created (batch=%d, wait=%.0fms, concurrent=%d)",
-            max_batch_size, max_wait_ms, max_concurrent,
+            max_batch_size,
+            max_wait_ms,
+            max_concurrent,
         )
 
     def start(self) -> None:
@@ -165,12 +167,15 @@ class MicroBatcher:
             except asyncio.TimeoutError:
                 break
 
-        logger.debug("Collected batch of %d (queue depth: %d)", len(batch), self._queue.qsize())
+        logger.debug(
+            "Collected batch of %d (queue depth: %d)", len(batch), self._queue.qsize()
+        )
         return batch
 
     async def _fire_batch(self, batch: list[BatchItem]) -> None:
         """Fire all items in the batch concurrently."""
         from src.llm.provider import get_provider_chain
+
         chain = get_provider_chain()
 
         async def _one(item: BatchItem) -> None:

@@ -41,8 +41,8 @@ RECOVERY_TIMEOUT_S = float(os.environ.get("LLM_CB_RECOVERY_TIMEOUT_S", "30"))
 
 
 class _CBState(Enum):
-    CLOSED = "closed"        # healthy, pass requests through
-    OPEN = "open"            # failing, reject fast
+    CLOSED = "closed"  # healthy, pass requests through
+    OPEN = "open"  # failing, reject fast
     HALF_OPEN = "half_open"  # recovery probe — one request gets through
 
 
@@ -62,7 +62,9 @@ class CircuitBreaker:
             if time.monotonic() - self._opened_at >= self.recovery_timeout_s:
                 # Transition to half-open; let one probe through
                 self._state = _CBState.HALF_OPEN
-                logger.info("CircuitBreaker[%s] → HALF_OPEN (probing recovery)", self.name)
+                logger.info(
+                    "CircuitBreaker[%s] → HALF_OPEN (probing recovery)", self.name
+                )
         return self._state
 
     def is_available(self) -> bool:
@@ -83,7 +85,8 @@ class CircuitBreaker:
                 if self._state != _CBState.OPEN:
                     logger.warning(
                         "CircuitBreaker[%s] → OPEN after %d failures",
-                        self.name, self._failures,
+                        self.name,
+                        self._failures,
                     )
                 self._state = _CBState.OPEN
                 self._opened_at = time.monotonic()
@@ -123,10 +126,14 @@ class LLMProvider(ABC):
         Returns None if the circuit is open or the call fails.
         """
         if not self.circuit.is_available():
-            logger.debug("Provider %s circuit=%s — skipping", self.name, self.circuit.state.value)
+            logger.debug(
+                "Provider %s circuit=%s — skipping", self.name, self.circuit.state.value
+            )
             return None
         try:
-            result = await self.generate(question, context_docs, structured_inputs, model_predictions)
+            result = await self.generate(
+                question, context_docs, structured_inputs, model_predictions
+            )
             await self.circuit.on_success()
             return result
         except Exception as exc:
@@ -150,6 +157,7 @@ class GeminiProvider(LLMProvider):
         if self._client is None:
             from rag.config import RagConfig
             from src.llm.gemini_client import GeminiClient
+
             cfg = RagConfig()
             # Override the model name so this provider uses its own model
             cfg_copy = cfg.model_copy(update={"LLM_MODEL": self.name})
@@ -194,9 +202,13 @@ class RuleBasedProvider(LLMProvider):
     ) -> str:
         return _rule_based_response(question, structured_inputs, model_predictions)
 
-    async def try_generate(self, question, context_docs, structured_inputs, model_predictions) -> str | None:
+    async def try_generate(
+        self, question, context_docs, structured_inputs, model_predictions
+    ) -> str | None:
         # Rule-based never trips the circuit breaker — always return a result
-        return await self.generate(question, context_docs, structured_inputs, model_predictions)
+        return await self.generate(
+            question, context_docs, structured_inputs, model_predictions
+        )
 
 
 def _rule_based_response(
@@ -218,29 +230,45 @@ def _rule_based_response(
         sc = structured_inputs.get("safety_car") or False
         pct = lap / max(total, 1)
 
-        lines.append(f"Race situation: Lap {lap}/{total}, P{position}, {compound} tyres ({tire_age} laps old)")
+        lines.append(
+            f"Race situation: Lap {lap}/{total}, P{position}, {compound} tyres ({tire_age} laps old)"
+        )
 
         # Safety car window
         if sc:
-            lines.append("🟡 Safety car deployed — strong pit opportunity. Box this lap if tyres are older than 10 laps.")
+            lines.append(
+                "🟡 Safety car deployed — strong pit opportunity. Box this lap if tyres are older than 10 laps."
+            )
 
         # Tyre age guidance
         if tire_age >= 30:
-            lines.append("🔴 Tyres critically worn. Pit at the earliest safe opportunity.")
+            lines.append(
+                "🔴 Tyres critically worn. Pit at the earliest safe opportunity."
+            )
         elif tire_age >= 20:
             lines.append("🟠 Tyres approaching end of life. Begin planning pit entry.")
         elif tire_age >= 10 and pct > 0.4:
-            lines.append("🟡 Tyre performance degrading. Monitor lap time delta closely.")
+            lines.append(
+                "🟡 Tyre performance degrading. Monitor lap time delta closely."
+            )
         else:
-            lines.append("🟢 Tyres performing within normal range. Continue current strategy.")
+            lines.append(
+                "🟢 Tyres performing within normal range. Continue current strategy."
+            )
 
         # Race phase guidance
         if pct < 0.3:
-            lines.append("Early race: prioritise track position. Avoid pitting unless safety car or tyre failure.")
+            lines.append(
+                "Early race: prioritise track position. Avoid pitting unless safety car or tyre failure."
+            )
         elif pct < 0.6:
-            lines.append("Mid race: standard pit window. Undercut viable if within 2s of car ahead.")
+            lines.append(
+                "Mid race: standard pit window. Undercut viable if within 2s of car ahead."
+            )
         else:
-            lines.append("Late race: assess whether remaining laps justify a pit stop time loss.")
+            lines.append(
+                "Late race: assess whether remaining laps justify a pit stop time loss."
+            )
 
     else:
         lines.append(
@@ -286,7 +314,9 @@ class ProviderChain:
             if result is not None:
                 return result, provider.name
         # Should never reach here because RuleBasedProvider always returns
-        raise RuntimeError("All LLM providers exhausted — including rule-based fallback")
+        raise RuntimeError(
+            "All LLM providers exhausted — including rule-based fallback"
+        )
 
     def status(self) -> dict[str, str]:
         """Return circuit state for each provider — used by /llm/health."""
@@ -302,13 +332,16 @@ def get_provider_chain() -> ProviderChain:
     """Return the shared ProviderChain singleton, creating it on first call."""
     global _chain
     if _chain is None:
-        _chain = ProviderChain(providers=[
-            GeminiProvider(_PRIMARY_MODEL),
-            GeminiProvider(_FALLBACK_MODEL),
-            RuleBasedProvider(),
-        ])
+        _chain = ProviderChain(
+            providers=[
+                GeminiProvider(_PRIMARY_MODEL),
+                GeminiProvider(_FALLBACK_MODEL),
+                RuleBasedProvider(),
+            ]
+        )
         logger.info(
             "ProviderChain initialised: %s → %s → rule_based",
-            _PRIMARY_MODEL, _FALLBACK_MODEL,
+            _PRIMARY_MODEL,
+            _FALLBACK_MODEL,
         )
     return _chain
