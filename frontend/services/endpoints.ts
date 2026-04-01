@@ -218,7 +218,7 @@ async function fetchStatic<T>(filename: string): Promise<T> {
  */
 export async function fetchDrivers(): Promise<DriverProfile[]> {
   logger.info('[endpoints] fetchDrivers: attempting live backend…');
-  const data = await apiFetch<{ count: number; drivers: any[] }>('/api/v1/drivers');
+  const data = await apiFetch<{ count: number; drivers: any[] }>('/data/drivers');
   return data.drivers.map((d: any) => {
     const rng = seedRandom(`live_driver_${d.driver_id}`);
     return {
@@ -379,6 +379,7 @@ export async function simulateStrategy(params: {
   driver_id: string;
   strategy:  [number, string][];
 }) {
+  console.warn('[endpoints] simulateStrategy: /api/v1/strategy/simulate returns 500 on backend — mock fallback expected');
   logger.info(`[endpoints] simulateStrategy: driver=${params.driver_id} race=${params.race_id}`);
   return apiFetch<any>('/api/v1/strategy/simulate', {
     method: 'POST',
@@ -393,7 +394,7 @@ export async function simulateStrategy(params: {
  * @returns List of models with versioning, accuracy, and lifecycle status.
  */
 export async function fetchModelStatus(): Promise<BackendModelStatus> {
-  const endpoint = '/api/v1/models/status';
+  const endpoint = '/models/status';
   logger.info(`[endpoints] fetchModelStatus: requesting ${endpoint}`);
   return await apiFetch<BackendModelStatus>(endpoint);
 }
@@ -450,6 +451,7 @@ export async function fetchOvertakeProb(driverId: string, opponentId: string): P
  * @param raceId - The race identifier (e.g. '2024_1').
  */
 export async function fetchSafetyCarProb(raceId: string): Promise<PredictiveMetric> {
+  console.warn('[endpoints] fetchSafetyCarProb: /api/v1/race/predict/safety_car returns 404 on backend — mock fallback expected');
   logger.debug(`[endpoints] fetchSafetyCarProb: ${raceId}`);
   try {
     return await apiFetch<PredictiveMetric>(`/api/v1/race/predict/safety_car?race_id=${raceId}`);
@@ -465,6 +467,7 @@ export async function fetchSafetyCarProb(raceId: string): Promise<PredictiveMetr
  * @param raceId - Race identifier.
  */
 export async function fetchValidationStats(raceId: string): Promise<ValidationStats> {
+  console.warn('[endpoints] fetchValidationStats: /api/v1/validation/race/{id} returns 404 on backend — mock fallback expected');
   logger.info(`[endpoints] fetchValidationStats: ${raceId}`);
   try {
     return await apiFetch<ValidationStats>(`/api/v1/validation/race/${raceId}`);
@@ -533,16 +536,19 @@ export interface AdminQuotas {
 }
 
 export async function fetchAdminGcpMetrics(): Promise<GcpMetrics> {
+  console.warn('[endpoints] fetchAdminGcpMetrics: /api/v1/admin/gcp_metrics returns 404 on backend — mock fallback expected');
   logger.info('[endpoints] fetchAdminGcpMetrics');
   return apiFetch<GcpMetrics>('/api/v1/admin/gcp_metrics');
 }
 
 export async function fetchAdminLogs(): Promise<{ logs: AdminLog[] }> {
+  console.warn('[endpoints] fetchAdminLogs: /api/v1/admin/logs returns 404 on backend — mock fallback expected');
   logger.info('[endpoints] fetchAdminLogs');
   return apiFetch<{ logs: AdminLog[] }>('/api/v1/admin/logs');
 }
 
 export async function fetchAdminQuotas(): Promise<AdminQuotas> {
+  console.warn('[endpoints] fetchAdminQuotas: /api/v1/admin/quotas returns 404 on backend — mock fallback expected');
   logger.info('[endpoints] fetchAdminQuotas');
   return apiFetch<AdminQuotas>('/api/v1/admin/quotas');
 }
