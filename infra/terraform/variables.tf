@@ -36,9 +36,21 @@ variable "api_min_instances" {
   default     = 1
 }
 
-variable "alert_email" {
-  description = "Email for monitoring alerts"
-  type        = string
+variable "api_max_concurrent_requests" {
+  description = "Max concurrent requests per Cloud Run instance. 40 is tuned for LLM-heavy workloads (2-5s Gemini latency). Increase for lighter I/O-bound routes."
+  type        = number
+  default     = 40
+}
+
+variable "api_cpu_target_utilization" {
+  description = "CPU utilization percentage that triggers autoscaling. New instances spin up when average CPU exceeds this; instances are removed when it drops back below."
+  type        = number
+  default     = 85
+}
+
+variable "alert_emails" {
+  description = "List of email addresses to receive monitoring alerts. Add all GCP project members here — one notification channel is created per address."
+  type        = list(string)
 }
 
 variable "enable_apis" {

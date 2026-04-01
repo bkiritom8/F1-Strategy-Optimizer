@@ -95,9 +95,20 @@ if ENABLE_HTTPS:
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
+_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "https://f1optimizer.web.app",
+    "https://f1optimizer.firebaseapp.com",
+]
+# Allow additional origins from env (space-separated) without opening a wildcard
+_extra = os.getenv("CORS_EXTRA_ORIGINS", "")
+if _extra:
+    _CORS_ORIGINS.extend(o.strip() for o in _extra.split() if o.strip())
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8080", "*"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
 )
 
@@ -426,10 +437,26 @@ async def general_exception_handler(request, exc):
 @app.on_event("startup")
 async def startup_event():
     """Initialize on startup — load ML models from GCS if available."""
+    import asyncio
+    import concurrent.futures
+
     global _strategy_model, _models_loaded_from_gcs
     logger.info(f"F1 Strategy Optimizer API starting in {ENV} environment")
     logger.info(f"HTTPS enabled: {ENABLE_HTTPS}")
     logger.info(f"IAM enabled: {ENABLE_IAM}")
+
+    # Increase the default thread-pool executor so asyncio.to_thread() doesn't
+    # saturate under concurrent LLM and embedding calls.
+    # Default is min(32, cpu_count+4) which on a 1-vCPU Cloud Run instance is 5.
+    # With max_concurrent_requests=40 and 20 concurrent Gemini calls we need more.
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=24))
+    logger.info("Thread pool executor set to 24 workers")
+
+    # Start the LLM micro-batcher background task
+    from src.llm.batcher import get_batcher
+    get_batcher().start()
+    logger.info("LLM micro-batcher started")
 
     try:
         from google.cloud import storage
@@ -803,6 +830,14 @@ async def system_health():
         except Exception:
             pass
     return checks
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean shutdown — stop the LLM batcher so in-flight requests drain."""
+    from src.llm.batcher import get_batcher
+    get_batcher().stop()
+    logger.info("LLM micro-batcher stopped")
 
 
 # Register v1 router

@@ -21,9 +21,9 @@ import { logger } from './logger';
 
 const TOKEN_KEY        = 'f1_api_token';
 const TOKEN_EXPIRY_KEY = 'f1_api_token_expiry';
-const DEFAULT_USER     = 'admin';
-const DEFAULT_PASS     = 'admin';
-const CLOUD_RUN_URL    = 'https://f1-strategy-api-dev-694267183904.us-central1.run.app';
+const DEFAULT_USER     = import.meta.env.VITE_API_USER ?? '';
+const DEFAULT_PASS     = import.meta.env.VITE_API_PASS ?? '';
+const CLOUD_RUN_URL    = import.meta.env.VITE_CLOUD_RUN_URL ?? '';
 
 // ─── Circuit breaker state ───────────────────────────────────────────────────
 

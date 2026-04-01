@@ -117,7 +117,11 @@ class GeminiClient:
         structured_inputs: dict | None = None,
         model_predictions: dict | None = None,
     ) -> str:
-        """Call Gemini and return the answer text."""
+        """Call Gemini synchronously and return the answer text.
+
+        Safe to call from threads (e.g. the GenericCache warm thread).
+        Do NOT call this directly from an async route — use async_generate().
+        """
         self._ensure_initialized()
         prompt = self.build_prompt(
             question,
@@ -133,6 +137,29 @@ class GeminiClient:
             },
         )
         return response.text
+
+    async def async_generate(
+        self,
+        question: str,
+        context_docs: list = [],
+        structured_inputs: dict | None = None,
+        model_predictions: dict | None = None,
+    ) -> str:
+        """Async-safe wrapper around generate().
+
+        Runs the blocking Vertex AI SDK call in the thread-pool executor so
+        the uvicorn event loop stays free for other coroutines.
+        """
+        import asyncio
+        import functools
+        fn = functools.partial(
+            self.generate,
+            question,
+            context_docs=context_docs,
+            structured_inputs=structured_inputs,
+            model_predictions=model_predictions,
+        )
+        return await asyncio.to_thread(fn)
 
 
 # Module-level singleton — shared across requests
