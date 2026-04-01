@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 import time
@@ -9,9 +10,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Number of GCS files processed per embed+upsert batch.
-# Keeps peak memory well under 8 GiB for the 6 GB data lake.
-_FILE_BATCH_SIZE = 20
+# Files per embed+upsert cycle. Override via FILE_BATCH_SIZE env var.
+# Start low (5) for the large FastF1 Parquet telemetry files.
+_FILE_BATCH_SIZE = int(os.environ.get("FILE_BATCH_SIZE", "5"))
 
 
 def _process_in_batches(config, index_id):
