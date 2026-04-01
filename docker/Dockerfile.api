@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements-api.txt
 # Copy application code
 COPY src/ /app/src/
 COPY rag/ /app/rag/
-COPY pipeline/scripts/ /app/scripts/
+COPY pipeline/ /app/pipeline/
 
 # Set Python path
 ENV PYTHONPATH="/app:${PYTHONPATH}"
