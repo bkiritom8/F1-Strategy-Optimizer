@@ -40,10 +40,10 @@ const ValidationPerformance: React.FC = () => {
   [validationData]);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-transparent">
       <div>
-        <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">Model Validation</h1>
-        <p className="text-gray-500 uppercase text-xs tracking-widest mt-2">Ground-truth comparison against 2024 season outcomes</p>
+        <h1 className="text-4xl font-display font-black font-bold tracking-tight uppercase italic">Model Validation</h1>
+        <p className="text-white/40 uppercase text-[10px] tracking-[4px] mt-2">Ground-truth comparison against 2024 season outcomes</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -74,11 +74,11 @@ const ValidationPerformance: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 rounded-2xl border shadow-xl overflow-hidden" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+        <div className="lg:col-span-8 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-xl overflow-hidden">
           <div className="max-h-[600px] overflow-y-auto overflow-x-hidden relative">
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 z-10 shadow-sm" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <tr className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <thead className="sticky top-0 z-10 shadow-sm bg-white/[0.06]">
+              <tr className="text-[10px] uppercase tracking-[4px] text-white/40 border-b border-white/[0.07]">
                 <th className="p-4">Race</th>
                 <th className="p-4">Predicted Winner</th>
                 <th className="p-4">Actual Winner</th>
@@ -86,7 +86,7 @@ const ValidationPerformance: React.FC = () => {
                 <th className="p-4 text-right">Podium Acc</th>
               </tr>
             </thead>
-            <tbody className="text-sm font-mono overflow-y-auto" style={{ backgroundColor: 'var(--card-bg)' }}>
+            <tbody className="text-sm font-mono overflow-y-auto">
               {validationData.length === 0 && (
                 <tr><td colSpan={5} className="p-4 text-center text-gray-500">Loading race validation data...</td></tr>
               )}
@@ -94,12 +94,12 @@ const ValidationPerformance: React.FC = () => {
                 <tr 
                   key={i} 
                   className={`border-b cursor-pointer transition-colors ${selectedRaceId === v.id ? 'bg-red-600/5' : 'hover:bg-black/5'}`} 
-                  style={{ borderColor: selectedRaceId === v.id ? 'rgba(225,6,0,0.3)' : 'var(--border-color)' }}
+                  style={{ borderColor: selectedRaceId === v.id ? 'rgba(225,6,0,0.3)' : 'rgba(255,255,255,0.07)' }}
                   onClick={() => setSelectedRaceId(v.id)}
                 >
-                  <td className="p-4 font-bold" style={{ color: 'var(--text-primary)' }}>{v.race}</td>
-                  <td className="p-4 text-gray-400">{v.predicted_winner}</td>
-                  <td className="p-4 font-bold" style={{ color: 'var(--text-primary)' }}>{v.actual_winner}</td>
+                  <td className="p-4 font-bold text-white">{v.race}</td>
+                  <td className="p-4 text-white/40">{v.predicted_winner}</td>
+                  <td className="p-4 font-bold text-white">{v.actual_winner}</td>
                   <td className="p-4 flex justify-center">
                     {v.isCorrect ? <CheckCircle2 className="text-green-500 w-5 h-5 shadow-[0_0_10px_rgba(34,197,94,0.3)]" /> : <XCircle className="text-red-500 w-5 h-5" />}
                   </td>
@@ -112,8 +112,8 @@ const ValidationPerformance: React.FC = () => {
         </div>
 
         <div className="lg:col-span-4 space-y-6">
-           <div className="rounded-2xl p-6 border h-[300px] shadow-xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-             <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6">Accuracy Trend (moving avg)</h3>
+           <div className="rounded-2xl p-6 bg-white/[0.04] backdrop-blur-md border border-white/[0.07] h-[300px] shadow-xl">
+             <h3 className="text-[10px] uppercase tracking-[4px] text-white/40 mb-6">Accuracy Trend (moving avg)</h3>
              <ResponsiveContainer width="100%" height="100%">
                <AreaChart data={trendData}>
                  <defs>
@@ -132,7 +132,7 @@ const ValidationPerformance: React.FC = () => {
                </AreaChart>
              </ResponsiveContainer>
            </div>
-           <div className="rounded-2xl p-6 border italic text-[11px] text-gray-500 shadow-sm" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+           <div className="rounded-2xl p-6 bg-white/[0.04] backdrop-blur-md border border-white/[0.07] italic text-[11px] text-white/40 shadow-sm">
              Note: Outliers in Australian GP attributed to unexpected DNF of Max Verstappen (Lap 3). System successfully predicted podium positions for remaining field.
            </div>
         </div>
@@ -142,10 +142,10 @@ const ValidationPerformance: React.FC = () => {
 };
 
 const KPI = ({ label, value, trend, positive }: any) => (
-  <div className="p-6 rounded-2xl border shadow-lg" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">{label}</div>
+  <div className="p-6 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-lg">
+    <div className="text-[10px] uppercase tracking-[4px] text-white/40 mb-2">{label}</div>
     <div className="flex items-baseline gap-2">
-      <span className="text-3xl font-display font-black" style={{ color: 'var(--text-primary)' }}>{value}</span>
+      <span className="text-3xl font-display font-black text-white">{value}</span>
       <span className={`text-xs font-bold ${positive ? 'text-green-500' : 'text-red-500'}`}>{trend}</span>
     </div>
   </div>
