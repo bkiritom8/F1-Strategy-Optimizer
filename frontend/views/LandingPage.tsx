@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { SpeedLines } from '../components/SpeedLines';
 
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-
   @keyframes lp-fadeIn {
     to { opacity: 1; }
   }
@@ -68,7 +66,7 @@ export default function LandingPage() {
           <div className="lp-dot" style={{ width: 7, height: 7, borderRadius: '50%', background: '#e10600', boxShadow: '0 0 8px rgba(225,6,0,0.9)' }} />
           Apex Intelligence
         </div>
-        <ul style={{ display: 'flex', gap: 32, listStyle: 'none' }}>
+        <ul style={{ display: 'flex', gap: 32, listStyle: 'none', margin: 0, padding: 0 }}>
           {['Race Center','Strategy','Circuits','Drivers','Analysis'].map(label => (
             <li key={label}>
               <button className="lp-nav-link" onClick={() => navigate('/race')}
