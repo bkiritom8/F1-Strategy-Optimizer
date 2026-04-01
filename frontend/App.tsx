@@ -5,7 +5,6 @@
  * Responsibilities:
  * - Declares all application routes via React Router `<Routes>`.
  * - Renders the collapsible left sidebar (desktop) and mobile bottom-nav bar.
- * - Manages theme toggling (dark / light) via Zustand + Tailwind `dark:` class.
  * - Shows the racing simulation background on every view.
  * - Lazy-loads every view for optimal code-splitting performance.
  * - Logs route transitions via the structured logger (dev only).
@@ -17,7 +16,7 @@ import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gauge, Users, Compass, BarChart3, Shield, Activity,
-  Cpu, Map, Wifi, WifiOff, ChevronLeft, ChevronRight, Sun, Moon
+  Cpu, Map, Wifi, WifiOff, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useBackendStatus } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
@@ -122,18 +121,8 @@ class ViewErrorBoundary extends React.Component<
  */
 const App: React.FC = () => {
   const { online, latency } = useBackendStatus();
-  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapsed, theme, toggleTheme } = useAppStore();
+  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapsed } = useAppStore();
   const location = useLocation();
-
-  /** Sync Tailwind dark class with Zustand theme state. */
-  React.useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-  }, [theme]);
 
   /** Log route transitions (dev only). */
   React.useEffect(() => {
@@ -152,32 +141,26 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-white dark:bg-[#0F0F0F] text-gray-900 dark:text-white overflow-hidden font-sans transition-colors duration-500">
+    <div className="flex h-screen bg-black text-white overflow-hidden font-sans">
       {/* Mobile Top Header (hidden on lg+) */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white/90 dark:bg-[#1A1A1A]/90 backdrop-blur-lg border-b border-gray-200 dark:border-white/5 z-50 flex items-center justify-between px-4 transition-colors duration-500">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 backdrop-blur-xl border-b border-white/[0.07] z-50 flex items-center px-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center">
             <Cpu className="w-4 h-4 text-white" />
           </div>
           <span className="font-display font-black tracking-tighter text-lg italic">{APP_NAME}</span>
         </div>
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10"
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {theme === 'dark' ? <Sun className="w-4 h-4 text-gray-400" /> : <Moon className="w-4 h-4 text-gray-600" />}
-        </button>
       </div>
 
       {/* Sidebar */}
-      <motion.aside 
+      <motion.aside
         initial={false}
         animate={{ width: sidebarCollapsed ? 88 : 256 }}
         transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+        style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(20px) saturate(180%)' }}
         className={`
         fixed lg:static inset-y-0 left-0 z-[60]
-        bg-gray-50 dark:bg-[#141414] border-r border-gray-200 dark:border-white/5 flex flex-col transition-transform transition-colors duration-300 ease-in-out
+        border-r border-white/[0.07] flex flex-col transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div className="p-6 pb-4 relative flex items-center justify-between">
@@ -187,26 +170,23 @@ const App: React.FC = () => {
             </div>
             <AnimatePresence>
               {!sidebarCollapsed && (
-                <motion.div 
-                  initial={{ opacity: 0, width: 0 }} 
-                  animate={{ opacity: 1, width: 'auto' }} 
-                  exit={{ opacity: 0, width: 0 }} 
-                  className="whitespace-nowrap flex-1 flex items-center justify-between overflow-hidden"
+                <motion.div
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  className="whitespace-nowrap flex-1 overflow-hidden"
                 >
                   <div className="pr-2">
-                    <h1 className="font-display font-black tracking-tighter text-xl italic leading-none text-gray-900 dark:text-white">{APP_NAME}</h1>
-                    <p className="text-[10px] font-mono text-red-600 dark:text-red-500 font-bold uppercase tracking-widest mt-1">Race Intelligence</p>
+                    <h1 className="font-display font-black tracking-tighter text-xl italic leading-none text-white">{APP_NAME}</h1>
+                    <p className="text-[10px] font-mono text-red-500 font-bold uppercase tracking-widest mt-1">Race Intelligence</p>
                   </div>
-                  <button onClick={toggleTheme} className="p-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1A1A1A] hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shadow-sm dark:shadow-none">
-                    {theme === 'dark' ? <Sun className="w-4 h-4 text-gray-400" /> : <Moon className="w-4 h-4 text-gray-600" />}
-                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
-          
-          <button 
-            onClick={toggleSidebarCollapsed} 
+
+          <button
+            onClick={toggleSidebarCollapsed}
             className="hidden lg:flex absolute -right-3 top-8 w-6 h-6 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-[#141414] hover:bg-gray-100 dark:hover:bg-white/10 items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors z-[70] shadow-xl"
             title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
@@ -232,7 +212,7 @@ const App: React.FC = () => {
                   } ${
                     isActive
                       ? 'bg-red-600 text-white shadow-lg shadow-red-900/20'
-                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
+                      : 'text-white/40 hover:bg-white/[0.05] hover:text-white'
                   }`
                 }
               >
@@ -253,7 +233,7 @@ const App: React.FC = () => {
         </nav>
 
         {/* Backend Status */}
-        <div className="p-4 mt-auto border-t border-gray-200 dark:border-white/5 bg-gray-100/50 dark:bg-black/20 transition-colors duration-500">
+        <div className="p-4 mt-auto border-t border-white/[0.07]" style={{ background: 'rgba(0,0,0,0.4)' }}>
           {!sidebarCollapsed ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="flex items-center justify-between mb-4 px-2">
@@ -265,7 +245,7 @@ const App: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 shadow-sm dark:shadow-none transition-colors">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.05] border border-white/[0.07]">
                 <div className="flex items-center gap-3 overflow-hidden">
                   {online ? <Wifi className="shrink-0 w-4 h-4 text-green-500" /> : <WifiOff className="shrink-0 w-4 h-4 text-yellow-500" />}
                   <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap truncate">
@@ -295,7 +275,7 @@ const App: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-24 lg:pt-0 lg:pb-0 bg-white/50 dark:bg-transparent">
+      <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-24 lg:pt-0 lg:pb-0">
         <DynamicSimulationBackground />
         <div className="relative z-10 h-full flex flex-col overflow-y-auto scrollbar-hide">
           <ViewErrorBoundary>
@@ -304,7 +284,7 @@ const App: React.FC = () => {
                 <Route path="/race"       element={<RaceCommandCenter />} />
                 <Route path="/drivers"    element={<DriverProfiles />} />
                 <Route path="/strategy"   element={<StrategyHub />} />
-                <Route path="/circuits"   element={<TrackExplorer theme={theme} />} />
+                <Route path="/circuits"   element={<TrackExplorer />} />
                 <Route path="/analysis"   element={<LapByLapAnalysis />} />
                 <Route path="/admin"      element={<AdminPage />} />
                 <Route path="*"           element={<Navigate to="/race" replace />} />
@@ -315,7 +295,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#141414]/95 backdrop-blur-xl border-t border-gray-200 dark:border-white/5 flex items-stretch h-16 safe-area-inset-bottom">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t border-white/[0.07] flex items-stretch h-16 safe-area-inset-bottom" style={{ background: 'rgba(0,0,0,0.55)' }}>
         {mobileNavItems.map((item) => (
           <NavLink
             key={item.path}
@@ -324,7 +304,7 @@ const App: React.FC = () => {
               `flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors ${
                 isActive
                   ? 'text-red-600'
-                  : 'text-gray-400 dark:text-gray-500'
+                  : 'text-white/40'
               }`
             }
           >
