@@ -18,6 +18,7 @@ import { TEAM_COLORS } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDrivers, useRaces2024 } from '../hooks/useApi';
 import ConnectionBadge from '../components/ConnectionBadge';
+import { LiveBadge } from '../components/LiveBadge';
 import { Search, Users, Trophy, Flag, MapPin, Calendar, ChevronRight } from 'lucide-react';
 import type { DriverProfile } from '../types';
 
@@ -141,7 +142,10 @@ const DriverProfiles: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Driver Roster</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Driver Roster</h1>
+            <LiveBadge isLive={isLive} />
+          </div>
           <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2">
             2024 Season, {totalDrivers} active drivers across {teams.length} constructors
           </p>
