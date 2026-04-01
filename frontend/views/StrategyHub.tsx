@@ -180,9 +180,10 @@ const StrategyHub: React.FC = () => {
     setChatMessages(prev => [...prev, { role: 'user', content: question }]);
     setChatLoading(true);
     try {
+      const history = chatMessages.slice(1).map(m => ({ role: m.role, content: m.content }));
       const res = await apiFetch<{ answer: string; latency_ms: number; model: string; cache_hit: boolean }>(
         '/llm/chat',
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }) },
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, history }) },
       );
       setChatMessages(prev => [
         ...prev,

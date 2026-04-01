@@ -178,6 +178,36 @@ def test_generate_with_tools_no_tool_call_returns_text():
     executor.assert_not_called()
 
 
+def test_generate_with_tools_passes_history_to_start_chat():
+    """generate_with_tools converts history dicts to Content objects and passes them to start_chat."""
+    client = _make_client()
+
+    text_part = _make_text_part("He would be on hard tyres.")
+    response = MagicMock()
+    response.candidates = [MagicMock(content=MagicMock(parts=[text_part]))]
+
+    fake_chat = MagicMock()
+    fake_chat.send_message.return_value = response
+
+    fake_model = MagicMock()
+    fake_model.start_chat.return_value = fake_chat
+
+    executor = MagicMock(return_value={})
+    history = [
+        {"role": "user", "content": "Put Hamilton in Piastri's car at Monaco 2025"},
+        {"role": "assistant", "content": "Hamilton would start on mediums."},
+    ]
+
+    with patch("src.llm.gemini_client.GenerativeModel", return_value=fake_model), \
+         patch.object(client, "_ensure_initialized"):
+        result = client.generate_with_tools("So what would happen on lap 30?", executor, history=history)
+
+    assert result == "He would be on hard tyres."
+    # start_chat must have been called with a non-empty history list
+    call_kwargs = fake_model.start_chat.call_args[1]
+    assert len(call_kwargs["history"]) == 2
+
+
 def test_generate_with_tools_executes_tool_and_returns_final_text():
     """generate_with_tools calls tool_executor and returns text from second response."""
     client = _make_client()
