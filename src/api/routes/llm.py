@@ -71,9 +71,15 @@ class RaceInputs(BaseModel):
     fuel_remaining_kg: float | None = None
 
 
+class ChatHistory(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
+
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=1000)
     race_inputs: RaceInputs | None = None
+    history: list[ChatHistory] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
@@ -116,6 +122,7 @@ async def llm_chat(
             request.question,
             _execute_strategy_tool,
             structured_inputs=structured,
+            history=[{"role": h.role, "content": h.content} for h in request.history],
         )
         latency_ms = round((time.time() - start) * 1000, 2)
         return ChatResponse(

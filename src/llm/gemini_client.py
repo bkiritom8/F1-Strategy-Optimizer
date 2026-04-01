@@ -185,6 +185,7 @@ class GeminiClient:
         question: str,
         tool_executor: Callable[[str, dict], dict],
         structured_inputs: dict | None = None,
+        history: list[dict] | None = None,
     ) -> str:
         """Call Gemini with function-calling tools enabled.
 
@@ -193,14 +194,28 @@ class GeminiClient:
         args dict; the result is fed back so Gemini can narrate using real
         strategy data.  The loop runs at most 3 iterations to prevent runaway
         tool calls.
+
+        ``history`` is a list of dicts with ``role`` ("user" or "assistant")
+        and ``content`` keys representing prior conversation turns.
         """
+        from vertexai.generative_models import Content
+
         self._ensure_initialized()
+
+        # Convert history dicts to Vertex AI Content objects
+        formatted_history: list[Content] = []
+        if history:
+            for turn in history:
+                role = "model" if turn.get("role") == "assistant" else "user"
+                formatted_history.append(
+                    Content(role=role, parts=[Part.from_text(turn.get("content", ""))])
+                )
 
         model_with_tools = GenerativeModel(
             self._config.LLM_MODEL,
             tools=[_STRATEGY_TOOL],
         )
-        chat = model_with_tools.start_chat()
+        chat = model_with_tools.start_chat(history=formatted_history)
         gen_config = {
             "temperature": self._config.LLM_TEMPERATURE,
             "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
