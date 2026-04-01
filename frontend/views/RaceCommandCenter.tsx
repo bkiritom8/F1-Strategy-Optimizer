@@ -376,7 +376,7 @@ const RaceCommandCenter: React.FC = () => {
 
   return (
     <div className="flex h-full overflow-hidden relative">
-      <div className="hidden lg:block w-72 shrink-0 h-full border-r border-black/10 dark:border-white/5 transition-colors duration-300 z-10">
+      <div className="hidden lg:block w-72 shrink-0 h-full border-r border-white/5 transition-colors duration-300 z-10">
         <PositionTower
           telemetry={telemetries}
           drivers={drivers}
@@ -395,13 +395,13 @@ const RaceCommandCenter: React.FC = () => {
              />
              <motion.div 
                initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-               className="fixed top-0 left-0 bottom-0 w-[85vw] max-w-sm bg-gray-50 dark:bg-[#0A0A0A] z-[90] lg:hidden border-r shadow-2xl"
+               className="fixed top-0 left-0 bottom-0 w-[85vw] max-w-sm bg-[#0A0A0A] z-[90] lg:hidden border-r shadow-2xl"
                style={{ borderColor: 'var(--border-color)' }}
              >
                 <div className="h-14 flex items-center justify-between px-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
-                  <span className="font-display font-black uppercase text-sm tracking-widest text-gray-500">Live Grid</span>
-                  <button onClick={() => setMobileTowerOpen(false)} className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors">
-                    <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-display font-black uppercase text-sm tracking-widest text-white/40">Live Grid</span>
+                  <button onClick={() => setMobileTowerOpen(false)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                    <X className="w-5 h-5 text-white/40" />
                   </button>
                 </div>
                 <div className="h-[calc(100%-56px)] overflow-hidden">
@@ -424,12 +424,12 @@ const RaceCommandCenter: React.FC = () => {
             <div className="flex items-center gap-3 md:gap-4 flex-wrap">
               <button
                  onClick={() => setMobileTowerOpen(true)}
-                 className="lg:hidden p-2 rounded-xl border bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                 className="lg:hidden p-2 rounded-xl border bg-white/5 hover:bg-white/10 transition-colors"
                  style={{ borderColor: 'var(--border-color)' }}
               >
-                <Menu className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+                <Menu className="w-4 h-4 text-white/60" />
               </button>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-black tracking-tighter uppercase italic truncate">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-tight uppercase italic truncate">
                 {selectedRace ? selectedRace.name : raceState.circuit}
               </h1>
               <select
@@ -528,7 +528,7 @@ const RaceCommandCenter: React.FC = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-[11px] font-mono">
                   <thead>
-                    <tr className="text-gray-500 border-b border-black/10 dark:border-white/10 uppercase">
+                    <tr className="text-white/40 border-b border-white/10 uppercase">
                       <th className="py-2">Path Variant</th>
                       <th className="py-2">Pit Matrix</th>
                       <th className="py-2 text-right">Win Probability</th>
@@ -536,8 +536,8 @@ const RaceCommandCenter: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody style={{ color: 'var(--text-secondary)' }}>
-                    <tr className="border-b border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors group">
-                      <td className="py-3 font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <tr className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+                      <td className="py-3 font-bold text-white flex items-center gap-2">
                         Variant-Alpha
                         <ConceptTooltip term="Undercut">
                           <span className="text-accent-blue/60 group-hover:text-accent-blue transition-colors cursor-help">(Undercut)</span>
@@ -547,8 +547,8 @@ const RaceCommandCenter: React.FC = () => {
                       <td className="py-3 text-right text-accent-green">18.4%</td>
                       <td className="py-3 text-right text-red-500">AGGRESSIVE</td>
                     </tr>
-                    <tr className="border-b border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-                      <td className="py-3 font-bold text-gray-900 dark:text-white">Variant-Gamma (Optimal)</td>
+                    <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="py-3 font-bold text-white">Variant-Gamma (Optimal)</td>
                       <td className="py-3">L32, L58</td>
                       <td className="py-3 text-right text-accent-green">22.1%</td>
                       <td className="py-3 text-right text-yellow-500">BALANCED</td>
@@ -565,7 +565,7 @@ const RaceCommandCenter: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="fixed right-6 top-24 w-80 z-40 p-5 rounded-2xl bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-xl border border-accent-blue/20 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+            className="fixed right-6 top-24 w-80 z-40 p-5 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
           >
             <div className="flex items-center gap-2 mb-4">
               <div className="p-2 rounded-lg bg-accent-blue/20 text-accent-blue"><Info className="w-4 h-4" /></div>
@@ -576,7 +576,7 @@ const RaceCommandCenter: React.FC = () => {
               <Tip complexity="Intermediate" title="Sector Colors" description="Purple = personal best. Green = session best. Yellow = slower than session best. Watch sector bars above!" />
               <Tip complexity="Expert" title="SC Probability Gauge" description="The Safety Car gauge uses ML to predict incidents. Above 30% means high risk; strategy windows open up." />
             </div>
-            <div className="mt-6 pt-4 border-t border-black/10 dark:border-white/10">
+            <div className="mt-6 pt-4 border-t border-white/10">
               <p className="text-[10px] text-gray-500 italic">Hover over dashed terms anywhere in the dashboard for instant definitions.</p>
             </div>
           </motion.div>
@@ -592,7 +592,7 @@ function Tip({ title, description, complexity }: { title: string; description: s
     <div className="space-y-1">
       <div className="flex items-center gap-2">
         <span className="text-[8px] font-black uppercase px-1 rounded text-white" style={{ backgroundColor: color }}>{complexity}</span>
-        <span className="text-xs font-bold text-gray-900 dark:text-white">{title}</span>
+        <span className="text-xs font-bold text-white">{title}</span>
       </div>
       <p className="text-[10px] text-gray-400 leading-snug">{description}</p>
     </div>
