@@ -67,6 +67,7 @@ class HealthResponse(BaseModel):
     index_configured: bool
     endpoint_configured: bool
     model: str
+    last_updated: str | None = None  # ISO timestamp of last ingestion
 
 
 @router.post("/query", response_model=QueryResponse)
@@ -134,9 +135,26 @@ async def rag_health():
         rag_status = "not_configured"
         model = "unknown"
 
+    # Check when metadata was last updated
+    last_updated = None
+    try:
+        from google.cloud import storage as gcs
+        from rag.config import RagConfig
+
+        cfg = RagConfig()
+        client = gcs.Client()
+        bucket = client.bucket(cfg.GCS_MODELS_BUCKET)
+        blob = bucket.blob(cfg.METADATA_GCS_PATH)
+        if blob.exists():
+            blob.reload()
+            last_updated = blob.updated.isoformat() if blob.updated else None
+    except Exception:
+        pass
+
     return HealthResponse(
         status=rag_status,
         index_configured=index_configured,
         endpoint_configured=endpoint_configured,
         model=model,
+        last_updated=last_updated,
     )
