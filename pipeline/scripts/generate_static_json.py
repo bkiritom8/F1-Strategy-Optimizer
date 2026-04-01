@@ -47,6 +47,35 @@ LEGEND_IDS = {
     "raikkonen", "scheckter", "hawthorn",
 }
 
+# Real career stats for legends — used when not present in GCS drivers.parquet
+LEGEND_STUBS: dict = {
+    "fangio":             {"name": "Juan Manuel Fangio",  "nationality": "Argentine",  "dob": "1911-06-24", "career_races": 51,  "career_wins": 24, "career_podiums": 35,  "career_poles": 29, "first_season": 1950, "last_season": 1958},
+    "senna":              {"name": "Ayrton Senna",         "nationality": "Brazilian",  "dob": "1960-03-21", "career_races": 161, "career_wins": 41, "career_podiums": 80,  "career_poles": 65, "first_season": 1984, "last_season": 1994},
+    "michael_schumacher": {"name": "Michael Schumacher",  "nationality": "German",     "dob": "1969-01-03", "career_races": 307, "career_wins": 91, "career_podiums": 155, "career_poles": 68, "first_season": 1991, "last_season": 2012},
+    "prost":              {"name": "Alain Prost",          "nationality": "French",     "dob": "1955-02-24", "career_races": 202, "career_wins": 51, "career_podiums": 106, "career_poles": 33, "first_season": 1980, "last_season": 1993},
+    "clark":              {"name": "Jim Clark",            "nationality": "British",    "dob": "1936-03-04", "career_races": 72,  "career_wins": 25, "career_podiums": 32,  "career_poles": 33, "first_season": 1960, "last_season": 1968},
+    "lauda":              {"name": "Niki Lauda",           "nationality": "Austrian",   "dob": "1949-02-22", "career_races": 171, "career_wins": 25, "career_podiums": 54,  "career_poles": 24, "first_season": 1971, "last_season": 1985},
+    "stewart":            {"name": "Jackie Stewart",       "nationality": "British",    "dob": "1939-06-11", "career_races": 99,  "career_wins": 27, "career_podiums": 43,  "career_poles": 17, "first_season": 1965, "last_season": 1973},
+    "ascari":             {"name": "Alberto Ascari",       "nationality": "Italian",    "dob": "1918-07-13", "career_races": 32,  "career_wins": 13, "career_podiums": 17,  "career_poles": 14, "first_season": 1950, "last_season": 1955},
+    "moss":               {"name": "Stirling Moss",        "nationality": "British",    "dob": "1929-09-17", "career_races": 66,  "career_wins": 16, "career_podiums": 24,  "career_poles": 16, "first_season": 1951, "last_season": 1962},
+    "hill":               {"name": "Graham Hill",          "nationality": "British",    "dob": "1929-02-15", "career_races": 176, "career_wins": 14, "career_podiums": 51,  "career_poles": 13, "first_season": 1958, "last_season": 1975},
+    "mansell":            {"name": "Nigel Mansell",        "nationality": "British",    "dob": "1953-08-08", "career_races": 187, "career_wins": 31, "career_podiums": 59,  "career_poles": 32, "first_season": 1980, "last_season": 1995},
+    "villeneuve":         {"name": "Gilles Villeneuve",    "nationality": "Canadian",   "dob": "1950-01-18", "career_races": 67,  "career_wins": 6,  "career_podiums": 13,  "career_poles": 2,  "first_season": 1977, "last_season": 1982},
+    "brabham":            {"name": "Jack Brabham",         "nationality": "Australian", "dob": "1926-04-02", "career_races": 126, "career_wins": 14, "career_podiums": 31,  "career_poles": 13, "first_season": 1955, "last_season": 1970},
+    "piquet":             {"name": "Nelson Piquet",        "nationality": "Brazilian",  "dob": "1952-08-17", "career_races": 204, "career_wins": 23, "career_podiums": 60,  "career_poles": 24, "first_season": 1978, "last_season": 1991},
+    "surtees":            {"name": "John Surtees",         "nationality": "British",    "dob": "1934-02-11", "career_races": 111, "career_wins": 6,  "career_podiums": 24,  "career_poles": 8,  "first_season": 1960, "last_season": 1972},
+    "hakkinen":           {"name": "Mika Häkkinen",        "nationality": "Finnish",    "dob": "1968-09-28", "career_races": 161, "career_wins": 20, "career_podiums": 51,  "career_poles": 26, "first_season": 1991, "last_season": 2001},
+    "andretti":           {"name": "Mario Andretti",       "nationality": "American",   "dob": "1940-02-28", "career_races": 128, "career_wins": 12, "career_podiums": 19,  "career_poles": 18, "first_season": 1968, "last_season": 1982},
+    "rindt":              {"name": "Jochen Rindt",         "nationality": "Austrian",   "dob": "1942-04-18", "career_races": 60,  "career_wins": 6,  "career_podiums": 13,  "career_poles": 10, "first_season": 1964, "last_season": 1970},
+    "fittipaldi":         {"name": "Emerson Fittipaldi",   "nationality": "Brazilian",  "dob": "1946-12-12", "career_races": 144, "career_wins": 14, "career_podiums": 35,  "career_poles": 6,  "first_season": 1970, "last_season": 1980},
+    "farina":             {"name": "Nino Farina",          "nationality": "Italian",    "dob": "1906-10-30", "career_races": 33,  "career_wins": 5,  "career_podiums": 20,  "career_poles": 5,  "first_season": 1950, "last_season": 1955},
+    "hulme":              {"name": "Denny Hulme",          "nationality": "New Zealander", "dob": "1936-06-18", "career_races": 112, "career_wins": 8, "career_podiums": 33, "career_poles": 1,  "first_season": 1965, "last_season": 1974},
+    "hunt":               {"name": "James Hunt",           "nationality": "British",    "dob": "1947-08-29", "career_races": 92,  "career_wins": 10, "career_podiums": 23,  "career_poles": 14, "first_season": 1973, "last_season": 1979},
+    "raikkonen":          {"name": "Kimi Räikkönen",       "nationality": "Finnish",    "dob": "1979-10-17", "career_races": 353, "career_wins": 21, "career_podiums": 103, "career_poles": 18, "first_season": 2001, "last_season": 2021},
+    "scheckter":          {"name": "Jody Scheckter",       "nationality": "South African", "dob": "1950-01-29", "career_races": 112, "career_wins": 10, "career_podiums": 33, "career_poles": 3, "first_season": 1972, "last_season": 1980},
+    "hawthorn":           {"name": "Mike Hawthorn",        "nationality": "British",    "dob": "1929-04-10", "career_races": 45,  "career_wins": 3,  "career_podiums": 18,  "career_poles": 4,  "first_season": 1952, "last_season": 1958},
+}
+
 MODERN_CUTOFF_SEASON = 2018
 
 
@@ -264,6 +293,33 @@ def build_drivers_json(
             "is_legend":      str(row["driverid"]) in LEGEND_IDS,
             **scores,
         })
+
+    # ── Inject legend stubs for any legends absent from GCS parquet ──────────
+    present_ids = {r["id"] for r in records}
+    for lid, stub in LEGEND_STUBS.items():
+        if lid not in present_ids:
+            w, p, po, r_count = stub["career_wins"], stub["career_podiums"], stub.get("career_poles", 0), stub["career_races"]
+            scores = compute_driver_scores(w, p, po, r_count)
+            fs, ls = stub["first_season"], stub["last_season"]
+            records.append({
+                "id":             lid,
+                "name":           stub["name"],
+                "code":           None,
+                "number":         None,
+                "nationality":    stub.get("nationality"),
+                "dob":            stub.get("dob"),
+                "career_races":   r_count,
+                "career_wins":    w,
+                "career_podiums": p,
+                "career_poles":   po,
+                "first_season":   fs,
+                "last_season":    ls,
+                "experience_years": max(1, ls - fs + 1),
+                "rookie_status":  False,
+                "is_legend":      True,
+                **scores,
+            })
+            log.info(f"Injected legend stub: {lid} ({stub['name']})")
 
     return sorted(records, key=lambda d: (-d["career_races"], d["name"]))
 
