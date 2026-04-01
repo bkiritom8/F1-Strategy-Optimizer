@@ -18,8 +18,8 @@ const LapByLapAnalysis: React.FC = () => {
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">Race Results Archive</h1>
-          <p className="text-gray-500 uppercase text-xs tracking-widest mt-2">Historical telemetry archives: 2024 Season</p>
+          <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Race Results Archive</h1>
+          <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2">Historical telemetry archives: 2024 Season</p>
         </div>
 
         {/* Race Selector */}
@@ -39,8 +39,8 @@ const LapByLapAnalysis: React.FC = () => {
         {selectedRace && (
           <div className="rounded-2xl border overflow-x-auto shadow-xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
             <table className="w-full text-left whitespace-nowrap">
-              <thead style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <tr className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <thead className="bg-white/[0.06]">
+                <tr className="text-[10px] font-bold text-white/40 uppercase tracking-widest border-b" style={{ borderColor: 'var(--border-color)' }}>
                   <th className="p-4">Pos</th>
                   <th className="p-4">Driver</th>
                   <th className="p-4">Constructor</th>
@@ -53,17 +53,17 @@ const LapByLapAnalysis: React.FC = () => {
               </thead>
               <tbody className="text-sm font-mono">
                 {selectedRace?.results?.map((r: any) => (
-                  <tr key={r.driver.id} className="border-b hover:bg-black/5 transition-colors" style={{ borderColor: 'var(--border-color)' }}>
+                  <tr key={r.driver.id} className="border-b hover:bg-white/[0.03] transition-colors" style={{ borderColor: 'var(--border-color)' }}>
                     <td className="p-4 font-bold" style={{ color: 'var(--text-primary)' }}>{r.position}</td>
                     <td className="p-4">
                       <span className="font-bold mr-2 lg:hidden">{r.driver.code}</span>
                       <span className="hidden lg:inline font-bold">{r.driver.name}</span>
                     </td>
-                    <td className="p-4 text-gray-500">{r.constructor}</td>
+                    <td className="p-4 text-white/40">{r.constructor}</td>
                     <td className="p-4 text-center">{r.laps}</td>
-                    <td className="p-4 text-center text-gray-500">{r.grid}</td>
+                    <td className="p-4 text-center text-white/40">{r.grid}</td>
                     <td className="p-4 text-right font-bold text-green-500">{r.points > 0 ? `+${r.points}` : '0'}</td>
-                    <td className="p-4 text-right text-gray-400 text-xs">{r.status}</td>
+                    <td className="p-4 text-right text-white/40 text-xs">{r.status}</td>
                     <td className="p-4 text-right text-purple-400">{r.fastestLap?.time || '-'}</td>
                   </tr>
                 ))}
