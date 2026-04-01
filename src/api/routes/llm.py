@@ -15,6 +15,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/llm", tags=["llm"])
 
+# ── RAG retriever singleton ────────────────────────────────────────────────────
+_retriever = None
+
+
+def _get_retriever():
+    """Return the F1Retriever singleton if Vector Search is configured, else None."""
+    global _retriever
+    if _retriever is None:
+        from rag.config import RagConfig
+
+        if RagConfig().is_configured:
+            from rag.retriever import F1Retriever
+
+            _retriever = F1Retriever()
+    return _retriever
+
 
 def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     """Execute a Gemini function-call tool request and return a result dict.
@@ -118,10 +134,22 @@ async def llm_chat(
         client = get_client()
         start = time.time()
         structured = request.race_inputs.model_dump() if request.race_inputs else None
+
+        # Retrieve RAG context if Vector Search is configured
+        retriever = _get_retriever()
+        try:
+            context_docs = retriever.retrieve(request.question) if retriever else []
+        except Exception as rag_exc:
+            logger.warning(
+                "RAG retrieval failed, proceeding without context: %s", rag_exc
+            )
+            context_docs = []
+
         answer = client.generate_with_tools(
             request.question,
             _execute_strategy_tool,
             structured_inputs=structured,
+            context_docs=context_docs,
             history=[{"role": h.role, "content": h.content} for h in request.history],
         )
         latency_ms = round((time.time() - start) * 1000, 2)
