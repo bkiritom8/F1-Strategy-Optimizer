@@ -111,10 +111,6 @@ class GeminiClient:
             generation_config={
                 "temperature": self._config.LLM_TEMPERATURE,
                 "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
-                # Gemini 2.5 Flash thinking tokens count against max_output_tokens.
-                # Setting thinking_budget=0 disables the thinking phase so all
-                # tokens go to the visible answer.
-                "thinking_config": {"thinking_budget": 0},
             },
         )
         # Safely extract text — response.text raises on MAX_TOKENS finish_reason
