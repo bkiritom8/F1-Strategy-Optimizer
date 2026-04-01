@@ -126,8 +126,8 @@ class GeminiClient:
             '  "strategy": [[lap_number, "compound_name_upper_case"]]\n'
             "}\n"
             "Examples:\n"
-            "'Put Max on hards on lap 15' -> {\"driver_id\": \"max_verstappen\", \"strategy\": [[15, \"HARD\"]]}\n"
-            "'Charles pits lap 20 for meds, then 40 for hards' -> {\"driver_id\": \"leclerc\", \"strategy\": [[20, \"MEDIUM\"], [40, \"HARD\"]]}\n"
+            '\'Put Max on hards on lap 15\' -> {"driver_id": "max_verstappen", "strategy": [[15, "HARD"]]}\n'
+            '\'Charles pits lap 20 for meds, then 40 for hards\' -> {"driver_id": "leclerc", "strategy": [[20, "MEDIUM"], [40, "HARD"]]}\n'
             "Valid Compounds: SOFT, MEDIUM, HARD, INTERMEDIATE, WET.\n"
             "If driver isn't mentioned, leave driver_id as an empty string. "
             "No markdown blocks, no backticks, ONLY valid JSON object."
@@ -136,20 +136,25 @@ class GeminiClient:
             f"{system_instructions}\n\nPrompt: {prompt}",
             generation_config={
                 "temperature": 0.0,
-                "response_mime_type": "application/json"
-            }
+                "response_mime_type": "application/json",
+            },
         )
         import json
+
         try:
             text = response.text.replace("```json", "").replace("```", "").strip()
             if len(text) > 2000:
                 raise ValueError("Generated JSON response exceeded safe length limits.")
             return json.loads(text)
         except json.JSONDecodeError as exc:
-            logger.error("Failed to decode JSON from Gemini response: %s", exc, exc_info=True)
+            logger.error(
+                "Failed to decode JSON from Gemini response: %s", exc, exc_info=True
+            )
             raise ValueError(f"LLM returned invalid JSON: {exc}")
         except Exception as exc:
-            logger.error("Unexpected error during strategy parsing: %s", exc, exc_info=True)
+            logger.error(
+                "Unexpected error during strategy parsing: %s", exc, exc_info=True
+            )
             raise
 
 

@@ -106,21 +106,31 @@ def _expand_race_results(df: pd.DataFrame) -> pd.DataFrame:
     """
     Flatten the nested Driver and Constructor columns in race_results.
     Input columns: Driver (dict), Constructor (dict), ...
-    Output adds: driverid, givenname, familyname, constructorid
+    Output adds: driverid, givenname, familyname, code, permanentnumber,
+                 nationality, dateofbirth, constructorid
     """
     df = df.copy()
-    driver_ids, given_names, family_names, constructor_ids = [], [], [], []
+    driver_ids, given_names, family_names, codes = [], [], [], []
+    perm_numbers, nationalities, dobs, constructor_ids = [], [], [], []
     for _, row in df.iterrows():
         d = _parse_dict_col(row.get("Driver") or row.get("driver"))
         c = _parse_dict_col(row.get("Constructor") or row.get("constructor"))
         driver_ids.append(d.get("driverId", d.get("driverid", "")))
         given_names.append(d.get("givenName", d.get("givenname", "")))
         family_names.append(d.get("familyName", d.get("familyname", "")))
+        codes.append(d.get("code", ""))
+        perm_numbers.append(d.get("permanentNumber", d.get("permanentnumber", "")))
+        nationalities.append(d.get("nationality", ""))
+        dobs.append(d.get("dateOfBirth", d.get("dateofbirth", "")))
         constructor_ids.append(c.get("constructorId", c.get("constructorid", "")))
-    df["driverid"]      = driver_ids
-    df["givenname"]     = given_names
-    df["familyname"]    = family_names
-    df["constructorid"] = constructor_ids
+    df["driverid"]       = driver_ids
+    df["givenname"]      = given_names
+    df["familyname"]     = family_names
+    df["code"]           = codes
+    df["permanentnumber"] = perm_numbers
+    df["nationality"]    = nationalities
+    df["dateofbirth"]    = dobs
+    df["constructorid"]  = constructor_ids
     return df
 
 
@@ -259,6 +269,23 @@ def build_drivers_json(
         drivers_df.columns[0]
     )
     drivers_df = drivers_df.rename(columns={id_col: "driverid"})
+
+    # Supplement drivers_df with any drivers present in race_results but absent
+    # from the parquet (common when the parquet is a partial alphabetical pull).
+    meta_cols = ["driverid", "givenname", "familyname", "code", "permanentnumber", "nationality", "dateofbirth"]
+    available_meta_cols = [c for c in meta_cols if c in results_df.columns]
+    if len(available_meta_cols) > 1:
+        from_results = (
+            results_df[available_meta_cols]
+            .drop_duplicates("driverid")
+            .query("driverid != ''")
+        )
+        missing_mask = ~from_results["driverid"].isin(drivers_df["driverid"])
+        if missing_mask.any():
+            extra = from_results[missing_mask].copy()
+            drivers_df = pd.concat([drivers_df, extra], ignore_index=True, sort=False)
+            log.info(f"Supplemented drivers_df with {missing_mask.sum()} drivers from race_results")
+
     merged = drivers_df.merge(stats, on="driverid", how="left")
 
     for col in ["career_races", "career_wins", "career_podiums", "career_poles", "first_season", "last_season"]:

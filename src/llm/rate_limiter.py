@@ -73,8 +73,11 @@ class UserRateLimiter:
 
     def _evict_stale(self) -> None:
         now = time.monotonic()
-        stale = [uid for uid, b in self._buckets.items()
-                 if now - b.last_used > _EVICT_AFTER_S]
+        stale = [
+            uid
+            for uid, b in self._buckets.items()
+            if now - b.last_used > _EVICT_AFTER_S
+        ]
         for uid in stale:
             del self._buckets[uid]
 

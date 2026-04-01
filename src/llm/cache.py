@@ -171,6 +171,7 @@ class GenericCache:
     async def async_lookup(self, question: str) -> str | None:
         """Async-safe lookup — runs the blocking embed call in a thread."""
         import asyncio
+
         if not self._ready:
             return None
         try:
@@ -278,6 +279,7 @@ class RealtimeCache:
     async def async_lookup(self, question: str, race_inputs: dict) -> str | None:
         """Async-safe lookup — runs the blocking embed call in a thread."""
         import asyncio
+
         driver = str(race_inputs.get("driver") or "")
         if driver:
             self._detect_invalidation(driver, race_inputs)
@@ -335,6 +337,7 @@ class RealtimeCache:
     ) -> None:
         """Async-safe store — runs the blocking embed call in a thread."""
         import asyncio
+
         try:
             q_emb = await asyncio.to_thread(_embed_one, question)
             state_hash = _bucket_state(race_inputs)

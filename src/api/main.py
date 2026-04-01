@@ -240,7 +240,7 @@ async def recommend_strategy(
             logger.error("Strategy recommendation failed: ML model not loaded.")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="ML Strategy Model failed to load. Service unavailable."
+                detail="ML Strategy Model failed to load. Service unavailable.",
             )
         import numpy as np
 
@@ -259,14 +259,10 @@ async def recommend_strategy(
         recommendation = StrategyRecommendation(
             recommended_action=recommended_action,
             pit_window_start=(
-                request.current_lap + 1
-                if recommended_action == "PIT_SOON"
-                else None
+                request.current_lap + 1 if recommended_action == "PIT_SOON" else None
             ),
             pit_window_end=(
-                request.current_lap + 5
-                if recommended_action == "PIT_SOON"
-                else None
+                request.current_lap + 5 if recommended_action == "PIT_SOON" else None
             ),
             target_compound=(
                 "HARD" if request.current_compound == "MEDIUM" else "SOFT"
@@ -425,9 +421,13 @@ async def startup_event():
             _models_loaded_from_gcs = True
             logger.info("ML model loaded from GCS: strategy_predictor/latest/model.pkl")
         else:
-            logger.error("No ML model found at strategy_predictor/latest/model.pkl - Strict mode enabled (no mock fallback)")
+            logger.error(
+                "No ML model found at strategy_predictor/latest/model.pkl - Strict mode enabled (no mock fallback)"
+            )
     except Exception as e:
-        logger.error("Model load failed - Strict mode enabled (no mock fallback): %s", e)
+        logger.error(
+            "Model load failed - Strict mode enabled (no mock fallback): %s", e
+        )
 
 
 # ── /api/v1 router ─────────────────────────────────────────────────────────
