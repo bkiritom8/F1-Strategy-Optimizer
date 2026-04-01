@@ -25,10 +25,10 @@ const AdminPage: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex h-full items-center justify-center p-6 bg-[#0F0F0F]">
+      <div className="flex h-full items-center justify-center p-6 bg-transparent">
         <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
         
-        <form onSubmit={handleLogin} className="relative z-10 w-full max-w-md p-6 sm:p-10 mx-4 sm:mx-0 rounded-3xl border shadow-[0_0_50px_rgba(0,0,0,0.5)] space-y-8 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20,20,20,0.85)', borderColor: 'var(--border-color)' }}>
+        <form onSubmit={handleLogin} className="relative z-10 w-full max-w-md p-6 sm:p-10 mx-4 sm:mx-0 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] space-y-8 bg-white/[0.04] backdrop-blur-md border border-white/[0.07]">
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-red-600/10 border border-red-500/20 shadow-[0_0_20px_rgba(225,6,0,0.15)] relative overflow-hidden">
                <div className="absolute inset-0 bg-gradient-to-br from-red-600/20 to-transparent" />
@@ -63,8 +63,8 @@ const AdminPage: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#0A0A0A]">
-      <div className="px-4 sm:px-8 pt-8 pb-4 shrink-0 flex items-center gap-4 border-b relative z-10 bg-[#0F0F0F] overflow-x-auto hide-scrollbar" style={{ borderColor: 'var(--border-color)' }}>
+    <div className="flex flex-col h-full overflow-hidden bg-transparent">
+      <div className="px-4 sm:px-8 pt-8 pb-4 shrink-0 flex items-center gap-4 border-b relative z-10 bg-transparent overflow-x-auto hide-scrollbar" style={{ borderColor: 'var(--border-color)' }}>
         <TabButton id="validation" active={activeTab === 'validation'} onClick={() => setActiveTab('validation')} icon={Shield} color="red" label="Validation" />
         <TabButton id="health" active={activeTab === 'health'} onClick={() => setActiveTab('health')} icon={Activity} color="blue" label="Health" />
         <TabButton id="engineering" active={activeTab === 'engineering'} onClick={() => setActiveTab('engineering')} icon={Cpu} color="purple" label="Engineering" />
@@ -80,10 +80,10 @@ const AdminPage: React.FC = () => {
         {activeTab === 'engineering' && <ModelEngineering />}
         {activeTab === 'backend' && <GcpAdminPanel />}
         {(['database', 'security'].includes(activeTab)) && (
-          <div className="flex flex-col items-center justify-center p-20 border border-dashed border-gray-800 rounded-3xl bg-gray-900/10 text-gray-500">
+          <div className="flex flex-col items-center justify-center p-20 border border-dashed border-white/[0.07] rounded-3xl bg-white/[0.04] text-white/40">
             <Lock className="w-12 h-12 mb-4 opacity-20" />
-            <h3 className="text-xl font-bold uppercase tracking-widest italic text-gray-400">Terminal Restricted</h3>
-            <p className="text-xs mt-2 text-gray-600">This module requires direct Cloud Shell credentials (IAM: f1-ingest-sa)</p>
+            <h3 className="text-xl font-bold font-bold tracking-tight uppercase tracking-widest italic">Terminal Restricted</h3>
+            <p className="text-xs mt-2 text-white/40">This module requires direct Cloud Shell credentials (IAM: f1-ingest-sa)</p>
           </div>
         )}
       </div>
@@ -105,7 +105,7 @@ function TabButton({ active, onClick, icon: Icon, color, label }: TabButtonProps
     <button
       onClick={onClick}
       className={`shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] whitespace-nowrap font-black uppercase tracking-widest transition-all ${
-        active ? `${colorMap[color]} text-white shadow-lg scale-105` : 'hover:bg-white/5 text-gray-500 border border-transparent hover:border-white/10'
+        active ? `${colorMap[color]} text-white shadow-lg scale-105` : 'hover:bg-white/5 text-white/40 border border-transparent hover:border-white/10'
       }`}
     >
       <Icon className="w-4 h-4" />
