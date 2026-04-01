@@ -201,15 +201,15 @@ const StrategyHub: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">Strategy Hub</h1>
-          <p className="text-gray-500 uppercase text-xs tracking-widest mt-2 font-mono flex items-center gap-2">
+          <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Strategy Hub</h1>
+          <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2 font-mono flex items-center gap-2">
             <Sparkles className="w-3 h-3 text-blue-400" />
             Monte Carlo Simulation · AI Strategist · Backend LLM
           </p>
         </div>
         {/* Driver name input — plain text, no dropdown */}
         <div className="flex flex-col gap-1">
-          <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Driver</span>
+          <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Driver</span>
           <input
             type="text"
             value={driverName}
@@ -237,7 +237,7 @@ const StrategyHub: React.FC = () => {
                 className="space-y-2"
               >
                 {/* Driver label above cards */}
-                <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
+                <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
                   Simulating: <span className="text-white font-bold">{toDriverName(driverName)}</span>
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -256,13 +256,13 @@ const StrategyHub: React.FC = () => {
             {/* Header row */}
             <div className="flex items-center justify-between flex-wrap gap-3">
               <ConceptTooltip term="Stint">
-                <h3 className="text-sm font-display font-bold uppercase tracking-widest text-gray-400">Strategy Stints</h3>
+                <h3 className="text-sm font-display font-bold uppercase tracking-widest text-white/40">Strategy Stints</h3>
               </ConceptTooltip>
               <div className="flex items-center gap-3">
                 {/* Mode toggle */}
                 <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-color)' }}>
-                  <button onClick={() => setMode('preset')} className={`px-4 py-2 text-xs font-bold uppercase transition-colors ${mode === 'preset' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'}`}>Presets</button>
-                  <button onClick={() => setMode('custom')} className={`px-4 py-2 text-xs font-bold uppercase transition-colors ${mode === 'custom' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'}`}>Custom</button>
+                  <button onClick={() => setMode('preset')} className={`px-4 py-2 text-xs font-bold uppercase transition-colors ${mode === 'preset' ? 'bg-red-600 text-white' : 'text-white/40 hover:text-white'}`}>Presets</button>
+                  <button onClick={() => setMode('custom')} className={`px-4 py-2 text-xs font-bold uppercase transition-colors ${mode === 'custom' ? 'bg-red-600 text-white' : 'text-white/40 hover:text-white'}`}>Custom</button>
                 </div>
                 {/* Run button */}
                 <button
@@ -319,9 +319,9 @@ const StrategyHub: React.FC = () => {
                 {customStints.map((stint, idx) => (
                   <div key={idx} className="flex items-center gap-3 p-3 rounded-xl border flex-wrap" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
                     <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: (COLORS.tires as any)[stint.compound] }} />
-                    <span className="text-xs font-bold text-gray-400 uppercase w-12 flex-shrink-0">Stop {idx + 1}</span>
+                    <span className="text-xs font-bold text-white/40 uppercase w-12 flex-shrink-0">Stop {idx + 1}</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-gray-500">Lap</span>
+                      <span className="text-[10px] text-white/40">Lap</span>
                       <input
                         type="number" min={1} max={TOTAL_LAPS}
                         value={stint.pitLap}
@@ -336,7 +336,7 @@ const StrategyHub: React.FC = () => {
                         <button
                           key={c}
                           onClick={() => updateStint(idx, 'compound', c)}
-                          className={`px-2 py-0.5 rounded text-[9px] font-black uppercase transition-colors ${stint.compound === c ? 'text-black shadow' : 'text-gray-500 hover:text-white'}`}
+                          className={`px-2 py-0.5 rounded text-[9px] font-black uppercase transition-colors ${stint.compound === c ? 'text-black shadow' : 'text-white/40 hover:text-white'}`}
                           style={{ backgroundColor: stint.compound === c ? (COLORS.tires as any)[c] : 'transparent', border: `1px solid ${(COLORS.tires as any)[c]}` }}
                         >
                           {c.slice(0, 3)}
@@ -350,7 +350,7 @@ const StrategyHub: React.FC = () => {
                 ))}
                 <button
                   onClick={addStint}
-                  className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-bold text-gray-500 hover:text-white hover:border-red-600/50 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-bold text-white/40 hover:text-white hover:border-red-600/50 transition-colors flex items-center justify-center gap-2"
                   style={{ borderColor: 'var(--border-color)' }}
                 >
                   <Plus className="w-4 h-4" /> Add Pit Stop
@@ -361,7 +361,7 @@ const StrategyHub: React.FC = () => {
             {/* Lap time trace */}
             {simResult && simResult.lap_times_s.length > 0 && (
               <div className="pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                <h4 className="text-xs font-display font-bold uppercase tracking-widest text-gray-400 mb-3">Lap Time Trace</h4>
+                <h4 className="text-xs font-display font-bold uppercase tracking-widest text-white/40 mb-3">Lap Time Trace</h4>
                 <div className="h-32">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={simResult.lap_times_s.map((t, i) => ({ lap: i + 1, time: t }))}>
@@ -378,7 +378,7 @@ const StrategyHub: React.FC = () => {
 
           {/* Finishing distribution */}
           <div className="rounded-2xl p-5 border shadow-xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-            <h3 className="text-xs font-display font-bold uppercase tracking-widest text-gray-400 mb-4">Finishing Probability</h3>
+            <h3 className="text-xs font-display font-bold uppercase tracking-widest text-white/40 mb-4">Finishing Probability</h3>
             <div className="h-40">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monteCarloData}>
@@ -393,11 +393,11 @@ const StrategyHub: React.FC = () => {
             </div>
             <div className="mt-3 pt-3 border-t border-white/5 flex gap-6">
               <div>
-                <span className="text-[9px] text-gray-500 font-bold uppercase block">Win Prob</span>
+                <span className="text-[9px] text-white/40 font-bold uppercase block">Win Prob</span>
                 <span className="text-base font-mono font-bold text-green-400">{(currentWinProb * 100).toFixed(2)}%</span>
               </div>
               <div>
-                <span className="text-[9px] text-gray-500 font-bold uppercase block">Podium Prob</span>
+                <span className="text-[9px] text-white/40 font-bold uppercase block">Podium Prob</span>
                 <span className="text-base font-mono font-bold text-purple-400">{(currentPodiumProb * 100).toFixed(2)}%</span>
               </div>
               {simSource && (
@@ -423,7 +423,7 @@ const StrategyHub: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-display font-bold uppercase tracking-tight">AI Strategist</h3>
-                <p className="text-[10px] font-mono text-gray-500 flex items-center gap-1">
+                <p className="text-[10px] font-mono text-white/40 flex items-center gap-1">
                   <Zap className="w-2.5 h-2.5 text-blue-400" /> FastAPI LLM Backend
                 </p>
               </div>
@@ -449,12 +449,8 @@ const StrategyHub: React.FC = () => {
                         className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
                           m.role === 'user'
                             ? 'bg-blue-600 text-white rounded-tr-none'
-                            : 'rounded-tl-none border text-gray-200'
+                            : 'bg-white/[0.05] rounded-tl-none border border-white/[0.07] text-white/80'
                         }`}
-                        style={{
-                          backgroundColor: m.role === 'assistant' ? 'rgba(30,41,59,0.5)' : undefined,
-                          borderColor: m.role === 'assistant' ? 'var(--border-color)' : undefined,
-                        }}
                       >
                         {m.content || (chatLoading && i === chatMessages.length - 1
                           ? <Loader2 className="w-4 h-4 animate-spin text-red-600" />
@@ -463,15 +459,15 @@ const StrategyHub: React.FC = () => {
                       </div>
                       {m.role === 'assistant' && m.model && (
                         <div className="flex items-center gap-2 px-1">
-                          <span className="text-[9px] font-mono text-gray-600">{m.model}</span>
-                          {m.cache_hit && <span className="text-[9px] font-mono text-blue-500 uppercase">cache hit</span>}
-                          {m.latency_ms != null && <span className="text-[9px] font-mono text-gray-600">{m.latency_ms.toFixed(0)}ms</span>}
+                          <span className="text-[9px] font-mono text-white/30">{m.model}</span>
+                          {m.cache_hit && <span className="text-[9px] font-mono text-blue-400 uppercase">cache hit</span>}
+                          {m.latency_ms != null && <span className="text-[9px] font-mono text-white/30">{m.latency_ms.toFixed(0)}ms</span>}
                         </div>
                       )}
                     </div>
                     {m.role === 'user' && (
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 border mt-1" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-                        <User className="w-4 h-4 text-gray-400" />
+                        <User className="w-4 h-4 text-white/40" />
                       </div>
                     )}
                   </motion.div>
@@ -483,7 +479,7 @@ const StrategyHub: React.FC = () => {
                   <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
                     <Bot className="w-4 h-4 text-white" />
                   </div>
-                  <div className="p-3.5 rounded-2xl rounded-tl-none border" style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderColor: 'var(--border-color)' }}>
+                  <div className="p-3.5 rounded-2xl rounded-tl-none border bg-white/[0.05] border-white/[0.07]">
                     <Loader2 className="w-4 h-4 animate-spin text-red-600" />
                   </div>
                 </motion.div>
@@ -531,7 +527,7 @@ function ResultCard({ icon: Icon, label, value, color }: { icon: React.ElementTy
     >
       <div className="flex items-center gap-2 mb-1">
         <Icon className="w-4 h-4" style={{ color }} />
-        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter">{label}</span>
+        <span className="text-[10px] font-bold text-white/40 uppercase tracking-tighter">{label}</span>
       </div>
       <span className="text-2xl font-display font-black" style={{ color }}>{value}</span>
     </motion.div>
