@@ -234,13 +234,20 @@ async def recommend_strategy(
 
     try:
         if _strategy_model is None:
-            REQUEST_COUNT.labels(
-                method="POST", endpoint="/strategy/recommend", status="503"
-            ).inc()
-            logger.error("Strategy recommendation failed: ML model not loaded.")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="ML Strategy Model failed to load. Service unavailable.",
+            logger.warning("ML model not loaded; using rule-based fallback.")
+            pit_soon = request.current_lap >= 35
+            recommended_action = "PIT_SOON" if pit_soon else "CONTINUE"
+            return StrategyRecommendation(
+                recommended_action=recommended_action,
+                pit_window_start=request.current_lap + 1 if pit_soon else None,
+                pit_window_end=request.current_lap + 5 if pit_soon else None,
+                target_compound=(
+                    "HARD" if request.current_compound == "MEDIUM" else "SOFT"
+                ),
+                driving_mode="BALANCED",
+                brake_bias=52.5,
+                confidence=0.6,
+                model_source="rule_based_fallback",
             )
         import numpy as np
 
