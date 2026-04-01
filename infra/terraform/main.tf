@@ -108,19 +108,19 @@ module "cloud_run" {
   timeout_seconds          = 120
 
   env_vars = {
-    ENV                      = var.environment
-    PUBSUB_PROJECT_ID        = var.project_id
-    MODELS_BUCKET            = "gs://${google_storage_bucket.models.name}"
-    ENABLE_HTTPS             = "true"
-    ENABLE_IAM               = "true"
-    LOG_LEVEL                = "INFO"
-    LLM_PRIMARY_MODEL        = "gemini-2.5-flash"
-    LLM_FALLBACK_MODEL       = "gemini-1.5-flash"
-    LLM_BATCH_MAX_SIZE       = "50"
-    LLM_BATCH_MAX_WAIT_MS    = "100"
-    LLM_BATCH_MAX_CONCURRENT = "20"
-    LLM_RATE_LIMIT_RPM       = "10"
-    LLM_CB_FAILURE_THRESHOLD = "5"
+    ENV                       = var.environment
+    PUBSUB_PROJECT_ID         = var.project_id
+    MODELS_BUCKET             = "gs://${google_storage_bucket.models.name}"
+    ENABLE_HTTPS              = "true"
+    ENABLE_IAM                = "true"
+    LOG_LEVEL                 = "INFO"
+    LLM_PRIMARY_MODEL         = "gemini-2.5-flash"
+    LLM_FALLBACK_MODEL        = "gemini-1.5-flash"
+    LLM_BATCH_MAX_SIZE        = "50"
+    LLM_BATCH_MAX_WAIT_MS     = "100"
+    LLM_BATCH_MAX_CONCURRENT  = "20"
+    LLM_RATE_LIMIT_RPM        = "10"
+    LLM_CB_FAILURE_THRESHOLD  = "5"
     LLM_CB_RECOVERY_TIMEOUT_S = "30"
   }
 
