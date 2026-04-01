@@ -9,6 +9,7 @@ import { COLORS } from '../constants';
 import { Activity, Shield, Cpu, Database, Info, Server, Zap } from 'lucide-react';
 import { useSystemHealth, useModelStatus, useBackendStatus, usePipelineReports } from '../hooks/useApi';
 import ConnectionBadge from '../components/ConnectionBadge';
+import { LiveBadge } from '../components/LiveBadge';
 
 const SystemMonitoringHealth: React.FC = () => {
   const { data: sysHealth, isLive: sysLive } = useSystemHealth();
@@ -31,7 +32,10 @@ const SystemMonitoringHealth: React.FC = () => {
     <div className="p-8 max-w-7xl mx-auto space-y-8 bg-transparent">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-display font-black font-bold tracking-tight uppercase italic">MLOps Infrastructure</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-display font-black font-bold tracking-tight uppercase italic">MLOps Infrastructure</h1>
+            <LiveBadge isLive={isLive} />
+          </div>
           <p className="text-white/40 uppercase text-[10px] tracking-[4px] mt-2">
             Operational Telemetry: GCP f1optimizer Project
           </p>

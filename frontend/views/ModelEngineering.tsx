@@ -5,11 +5,13 @@
  */
 
 import React, { useState } from 'react';
-import { 
-  useModelStatus, 
-  useModelBiasReport, 
-  useFeatureImportance 
+import {
+  useModelStatus,
+  useModelBiasReport,
+  useFeatureImportance,
+  useBackendStatus,
 } from '../hooks/useApi';
+import { LiveBadge } from '../components/LiveBadge';
 import { logger } from '../services/logger';
 
 // ─── Sub-Components ─────────────────────────────────────────────────────────
@@ -90,6 +92,7 @@ const BiasReportCard: React.FC<{ modelName: string }> = ({ modelName }) => {
 // ─── Main View ──────────────────────────────────────────────────────────────
 
 const ModelEngineering: React.FC = () => {
+  const { online: isLive } = useBackendStatus();
   const { data: statusData, loading: statusLoading } = useModelStatus();
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
@@ -110,7 +113,10 @@ const ModelEngineering: React.FC = () => {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">Model Registry & Engineering</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold tracking-tight text-white">Model Registry & Engineering</h2>
+            <LiveBadge isLive={isLive} />
+          </div>
           <p className="text-white/40 text-sm mt-1">
             Real-time telemetry from the F1-Strategy-Optimizer MLOps pipeline.
           </p>
