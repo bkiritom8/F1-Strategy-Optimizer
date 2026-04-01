@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { simulateStrategy } from '../services/endpoints';
 import { apiFetch } from '../services/client';
+import { useBackendStatus } from '../hooks/useApi';
+import { LiveBadge } from '../components/LiveBadge';
 import type { TireCompound } from '../types';
 
 // ── Strategy constants ────────────────────────────────────────────────────────
@@ -59,6 +61,8 @@ interface ChatMessage {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 const StrategyHub: React.FC = () => {
+  const { online: isLive } = useBackendStatus();
+
   // ── Strategy state ──────────────────────────────────────────────────────────
   const [selectedPreset, setSelectedPreset] = useState(STRATEGY_PRESETS[0]);
   const [mode, setMode] = useState<'preset' | 'custom'>('preset');
@@ -201,7 +205,10 @@ const StrategyHub: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Strategy Hub</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Strategy Hub</h1>
+            <LiveBadge isLive={isLive} />
+          </div>
           <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2 font-mono flex items-center gap-2">
             <Sparkles className="w-3 h-3 text-blue-400" />
             Monte Carlo Simulation · AI Strategist · Backend LLM
