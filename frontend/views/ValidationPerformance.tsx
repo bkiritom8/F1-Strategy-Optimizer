@@ -1,11 +1,13 @@
 
 import React, { useMemo } from 'react';
 import { COLORS } from '../constants';
-import { useRaces2024, useValidationStats, useSystemHealth } from '../hooks/useApi';
+import { useRaces2024, useValidationStats, useSystemHealth, useBackendStatus } from '../hooks/useApi';
+import { LiveBadge } from '../components/LiveBadge';
 import { CheckCircle2, XCircle, TrendingUp, Search, Info } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 const ValidationPerformance: React.FC = () => {
+  const { online: isLive } = useBackendStatus();
   const { data: races } = useRaces2024();
   const { data: health } = useSystemHealth();
   const [selectedRaceId, setSelectedRaceId] = React.useState<string>('2024_1');
@@ -42,7 +44,10 @@ const ValidationPerformance: React.FC = () => {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 bg-transparent">
       <div>
-        <h1 className="text-4xl font-display font-black font-bold tracking-tight uppercase italic">Model Validation</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-4xl font-display font-black font-bold tracking-tight uppercase italic">Model Validation</h1>
+          <LiveBadge isLive={isLive} />
+        </div>
         <p className="text-white/40 uppercase text-[10px] tracking-[4px] mt-2">Ground-truth comparison against 2024 season outcomes</p>
       </div>
 

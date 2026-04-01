@@ -1,9 +1,11 @@
 import React from 'react';
 import { Activity, Server, Disc, AlertTriangle, AlertCircle, TrendingUp } from 'lucide-react';
 import { COLORS } from '../constants';
-import { useAdminGcpMetrics, useAdminLogs, useAdminQuotas } from '../hooks/useApi';
+import { useAdminGcpMetrics, useAdminLogs, useAdminQuotas, useBackendStatus } from '../hooks/useApi';
+import { LiveBadge } from '../components/LiveBadge';
 
 const GcpAdminPanel: React.FC = () => {
+  const { online: isLive } = useBackendStatus();
   const { data: metrics, loading: metricsLoading } = useAdminGcpMetrics();
   const { data: logsData, loading: logsLoading } = useAdminLogs();
   const { data: quotas, loading: quotasLoading } = useAdminQuotas();
@@ -40,10 +42,13 @@ const GcpAdminPanel: React.FC = () => {
       {/* Header section */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight uppercase italic text-white flex items-center gap-3">
-            <Server className="w-6 h-6 text-blue-500" />
-            Live Cloud Infrastructure
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold tracking-tight uppercase italic text-white flex items-center gap-3">
+              <Server className="w-6 h-6 text-blue-500" />
+              Live Cloud Infrastructure
+            </h2>
+            <LiveBadge isLive={isLive} />
+          </div>
           <p className="text-sm text-white/40 mt-1 font-mono">GCP Cloud Run & Monitoring Metrics</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-full">
