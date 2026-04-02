@@ -433,3 +433,23 @@ For infrastructure (Terraform, Cloud Run, IAM):
 For pipeline/model questions:
 → This document + `ml/README.md`
 → Raise a GitHub issue tagged `ml`
+
+---
+
+## Simulation Endpoint Contracts
+
+The chat pipeline calls two external endpoints for live race simulation:
+
+### POST /internal/simulate
+Accepts a race scenario with 20 drivers, streams SSE lap frames.
+Full contract: `docs/superpowers/specs/2026-04-01-monte-carlo-simulation-design.md` → Endpoint Contracts section.
+
+Env var: `SIMULATION_ENDPOINT` (default: `http://simulation-worker/internal/simulate`)
+
+### POST /rl/decide
+Accepts 29-element observation vector (matching `F1RaceEnv` obs space), returns action + compound.
+Env var: `RL_ENDPOINT` (not yet wired — simulation team owns this integration)
+
+### Rule-based fallback
+If `SIMULATION_ENDPOINT` is unreachable, `src/api/routes/simulate.py::_run_rule_based_fallback`
+generates plausible lap positions using static grid-position logic. No ML models are called in fallback mode.
