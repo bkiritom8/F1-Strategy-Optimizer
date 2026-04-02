@@ -6,6 +6,7 @@ from langchain_core.documents import Document
 import uuid
 import json
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -143,11 +144,29 @@ def upsert_vectors(
             for doc_id, embedding in zip(batch_ids, batch_embeddings)
         ]
 
-        index.upsert_datapoints(datapoints=datapoints)
+        for attempt in range(5):
+            try:
+                index.upsert_datapoints(datapoints=datapoints)
+                break
+            except Exception as e:
+                if "429" in str(e) or "quota" in str(e).lower() or "ResourceExhausted" in str(e):
+                    wait = 60 * (attempt + 1)
+                    logger.warning(
+                        f"Vector Search quota hit on batch {i // batch_size + 1}, "
+                        f"waiting {wait}s (attempt {attempt + 1}/5)..."
+                    )
+                    time.sleep(wait)
+                else:
+                    raise
+        else:
+            raise RuntimeError(f"Vector Search upsert failed after 5 retries at batch {i // batch_size + 1}")
+
         logger.info(
             f"Upserted batch {i // batch_size + 1} "
             f"({len(batch_ids)} vectors, total so far: {i + len(batch_ids)})"
         )
+        # Pace upserts to stay within stream update throughput quota (~100 QPS default)
+        time.sleep(0.7)
 
     logger.info(f"Upserted {len(documents)} vectors to index {index_id}")
 
