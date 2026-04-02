@@ -28,6 +28,11 @@ def get_embeddings(
     model = TextEmbeddingModel.from_pretrained(model_name)
     embeddings: list[list[float]] = []
 
+    # text-embedding-004: max 20 000 tokens per batch, 2 048 tokens per input.
+    # Truncate each text to 1 500 chars (~375 tokens) to stay well within limits.
+    _MAX_CHARS = 1500
+    texts = [t[:_MAX_CHARS] if len(t) > _MAX_CHARS else t for t in texts]
+
     for i in range(0, len(texts), batch_size):
         batch = texts[i : i + batch_size]
         logger.debug(f"Embedding batch {i // batch_size + 1} ({len(batch)} texts)...")

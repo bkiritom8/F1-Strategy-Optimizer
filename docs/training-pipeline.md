@@ -1,6 +1,6 @@
 # Distributed Training Pipeline
 
-**Last Updated**: 2026-03-25
+**Last Updated**: 2026-04-02
 
 ## Overview
 
@@ -215,6 +215,38 @@ runs = aiplatform.ExperimentRun.list(experiment="f1-strategy-training")
 for r in runs:
     print(r.run_name, r.get_metrics())
 ```
+
+---
+
+## Bias Detection and CI Gate
+
+Every training script logs `bias_*` metrics to Vertex AI Experiments alongside standard evaluation metrics. The Cloud Build step `check-bias` (`cloudbuild/check_bias.py`) runs after `validate-models` and before `push-models-registry`, reading these metrics and emitting `WARN` / `OK` per model per slice.
+
+### Supervised model slices
+
+| Model | Slices | Tolerance |
+|---|---|---|
+| Tire Degradation | Season, compound (S/M/H), circuit type (street/permanent), tyre life (fresh/worn) | 0.05s street/permanent MAE gap |
+| Pit Window | Season, compound (S/M/H), circuit type, stint (1/2/3+) | 1.5 laps soft/hard MAE gap |
+| Safety Car | Season, circuit type, race phase (early/mid/late), pit-stop count | 0.08 F1 street/permanent gap |
+| Race Outcome | Season, constructor tier (top/mid/back), grid position tier (P1–5/P6–15/P16+) | 0.15 F1 constructor gap |
+| Driving Style | Season, compound, circuit type, position tier (P1–5/P6–15/P16+) | 0.10 F1 position gap |
+| Overtake Probability | Season, compound, circuit type | 0.10 F1 (flag only) |
+
+When a tolerance is breached the script applies automatic mitigation — inverse-frequency sample weights (Tire Degradation), compound-stratified sample weights (Pit Window), circuit-specific decision threshold (Safety Car), or back-constructor oversampling (Race Outcome) — and logs `bias_mitigation_applied = 1`.
+
+### RL agent bias
+
+`ml/training/train_rl.py` evaluates across circuit type (street/power/mixed), starting position tier (P1/P10/P18), and season after training. Flags `bias_circuit_flag = 1` if any circuit type deviates > 3 finishing positions from the mean. Visualisation saved to `ml/plots/rl_bias_detection.png`.
+
+### Re-run check manually
+
+```bash
+pip install google-cloud-aiplatform
+python cloudbuild/check_bias.py
+```
+
+See [`docs/bias.md`](bias.md) for the full data representation analysis, per-model metric names, trade-offs, and future data collection recommendations.
 
 ---
 
