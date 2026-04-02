@@ -42,7 +42,9 @@ def _embed_batch_with_split(
                     f"splitting into {mid} + {len(batch) - mid} and retrying"
                 )
                 left = _embed_batch_with_split(model, batch[:mid], sleep_seconds, depth)
-                right = _embed_batch_with_split(model, batch[mid:], sleep_seconds, depth)
+                right = _embed_batch_with_split(
+                    model, batch[mid:], sleep_seconds, depth
+                )
                 return left + right
             else:
                 # Single text still too long — truncate harder and retry once
