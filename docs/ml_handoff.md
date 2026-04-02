@@ -1,6 +1,6 @@
 # F1 Strategy Optimizer — ML Team Handoff
 
-**Date:** 2026-03-25
+**Date:** 2026-04-02
 **Status:** Full ML pipeline complete — 6 supervised models + PPO RL agent trained, tested, and deployed.
 **GCP Project:** `f1optimizer` | **Region:** `us-central1`
 
@@ -330,6 +330,30 @@ runs = aiplatform.ExperimentRun.list(experiment="f1-strategy-training")
 for r in runs:
     print(r.run_name, r.get_metrics())
 ```
+
+### Bias metrics
+
+Every training run also logs `bias_*` prefixed metrics alongside the standard evaluation metrics. These capture per-slice performance across seasons, circuit types, tyre compounds, constructor tiers, and position tiers.
+
+```python
+for r in runs:
+    metrics = r.get_metrics()
+    bias_metrics = {k: v for k, v in metrics.items() if k.startswith("bias_")}
+    print(r.run_name, bias_metrics)
+```
+
+Key bias metrics to watch per model:
+
+| Model | Key Bias Metrics |
+|---|---|
+| Tire Degradation | `bias_circuit_street_mae`, `bias_circuit_permanent_mae`, `bias_street_permanent_gap`, `bias_mitigation_weight_applied` |
+| Pit Window | `bias_compound_SOFT_mae`, `bias_compound_HARD_mae`, `bias_soft_hard_mae_gap`, `bias_mitigation_applied` |
+| Safety Car | `bias_circuit_street_f1`, `bias_circuit_permanent_f1`, `bias_street_permanent_f1_gap`, `bias_street_threshold` |
+| Race Outcome | `bias_constructor_top_f1`, `bias_constructor_back_f1`, `bias_constructor_f1_gap`, `bias_oversample_factor` |
+| Driving Style | `bias_front_p1_5_f1`, `bias_back_p16plus_f1`, `bias_position_f1_gap` |
+| RL Agent | `bias_circuit_flag`, `bias_circuit_max_deviation`, `bias_startpos_front_p1_position_gain` |
+
+The Cloud Build `check-bias` step (`cloudbuild/check_bias.py`) reads these metrics and emits `WARN` / `OK` per model after each training run. See [`docs/bias.md`](bias.md) for tolerance thresholds and full slice definitions.
 
 ---
 
