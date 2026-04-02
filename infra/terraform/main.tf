@@ -427,10 +427,10 @@ resource "google_project_iam_member" "training_sa_storage_admin" {
 #     google_cloudbuild_trigger.pipeline_branch \
 #     projects/f1optimizer/locations/us-central1/triggers/6f463d4b-8f1b-49f2-9e96-28364d5bab1e
 resource "google_cloudbuild_trigger" "pipeline_branch" {
-  project     = var.project_id
-  name        = "f1-api-docker-build"
-  location    = "us-central1"
-  filename    = "cloudbuild.yaml"
+  project  = var.project_id
+  name     = "f1-api-docker-build"
+  location = "us-central1"
+  filename = "cloudbuild.yaml"
 
   service_account = "projects/${var.project_id}/serviceAccounts/694267183904-compute@developer.gserviceaccount.com"
 
