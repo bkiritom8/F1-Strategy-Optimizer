@@ -215,10 +215,26 @@ class GeminiClient:
         """Return True if the question is asking for a simulation/what-if/strategy."""
         q = question.lower()
         triggers = [
-            "what if", "simulate", "put ", "swap", "replace", "in the car",
-            "pit stop", "pit window", "strategy for", "lap time", "sector",
-            "undercut", "overcut", "stint", "tyre", "tire", "compound",
-            "qualify", "race pace", "what would happen",
+            "what if",
+            "simulate",
+            "put ",
+            "swap",
+            "replace",
+            "in the car",
+            "pit stop",
+            "pit window",
+            "strategy for",
+            "lap time",
+            "sector",
+            "undercut",
+            "overcut",
+            "stint",
+            "tyre",
+            "tire",
+            "compound",
+            "qualify",
+            "race pace",
+            "what would happen",
         ]
         return any(t in q for t in triggers)
 
@@ -279,6 +295,7 @@ class GeminiClient:
 
             # Parse grid/lap from question text as a fallback
             import re as _re
+
             lap_match = _re.search(r"\blap\s+(\d+)\b", question, _re.IGNORECASE)
             if lap_match:
                 current_lap = int(lap_match.group(1))
@@ -306,11 +323,14 @@ class GeminiClient:
             except Exception as exc:
                 logger.warning("Eager simulation tool failed: %s", exc)
 
-        initial_message = self.build_prompt(
-            question,
-            context_docs=context_docs,
-            structured_inputs=structured_inputs,
-        ) + eager_sim_context
+        initial_message = (
+            self.build_prompt(
+                question,
+                context_docs=context_docs,
+                structured_inputs=structured_inputs,
+            )
+            + eager_sim_context
+        )
         response = chat.send_message(initial_message, generation_config=gen_config)
 
         tool_called = bool(eager_sim_context)

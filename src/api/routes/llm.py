@@ -217,8 +217,8 @@ class ChatResponse(BaseModel):
     answer: str
     latency_ms: float
     model: str
-    job_id: str | None = None               # present when a simulation was triggered
-    simulation_race_id: str | None = None   # circuit for the frontend to load
+    job_id: str | None = None  # present when a simulation was triggered
+    simulation_race_id: str | None = None  # circuit for the frontend to load
 
 
 class StrategyParseRequest(BaseModel):
@@ -237,6 +237,7 @@ async def _fire_simulation(
 ) -> None:
     """Fire-and-forget simulation background task."""
     from src.api.routes.simulate import _run_simulation
+
     payload = {
         "race_id": race_id,
         "scenario": {},
@@ -294,10 +295,15 @@ async def llm_chat(
         job_id = None
         simulation_race_id = None
         from src.llm.gemini_client import GeminiClient
+
         if GeminiClient._is_simulation_question(request.question):
             try:
                 from src.api.routes.simulate import ScenarioInput
-                from src.simulation.coordinator import SimulationCoordinator, scenario_hash
+                from src.simulation.coordinator import (
+                    SimulationCoordinator,
+                    scenario_hash,
+                )
+
                 circuit = (
                     request.race_inputs.circuit
                     if request.race_inputs and request.race_inputs.circuit
