@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
 /* ── Global styles ─────────────────────────────────────────── */
 
 body {
@@ -60,6 +62,13 @@ body {
   --bg-tertiary: #111111;
   --text-primary: #f9fafb;
   --text-secondary: rgba(255, 255, 255, 0.5);
-  --border-color: rgba(255, 255, 255, 0.07);
+  --border-color: rgba(255, 255, 255, 0.08);
   --card-bg: rgba(255, 255, 255, 0.04);
+  
+  /* Modern Glassmorphism System */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 24px;
+  --accent-f1: #e10600;
+  --accent-f1-glow: rgba(225, 6, 0, 0.4);
 }

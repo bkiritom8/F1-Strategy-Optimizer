@@ -1,17 +1,37 @@
-# Apex Intelligence Frontend
+# Apex Intelligence | F1 Strategy Frontend
 
-This directory contains the Vite + React frontend for the F1 Strategy Optimizer. It visualizes predictions, telemetry, and offers interactive strategy tools.
+Modernized, high-performance Vite + React frontend for the F1 Strategy Optimizer. Visualizes real-time telemetry, historical trends, and ML-powered strategy recommendations.
 
-## Architecture
+## 2024 UI Modernization (Glass-Dark)
 
-- **React + Vite**: Fast UI rendering and module bundling.
-- **Tailwind CSS**: Utility-first styling for quick iterations and responsive design.
-- **Vercel**: Target environment for CI/CD deployments connected via the `pipeline` branch.
+The 2.0 release introduces a premium **Pro-Racing** aesthetic:
+- **Design System**: Glassmorphism core (`--glass-bg`, `--glass-border`, `--glass-blur`) with high-contrast racing accents.
+- **Typography**: Google Fonts integration:
+  - **Outfit**: Bold, kinetic headings for racing urgency.
+  - **Inter**: Clean, functional body text for telemetric data readability.
+- **Animations**: Accelerated, circuit-accurate SVG background simulations with smooth entrance transitions.
 
-## Quick Start
+## Key Components
+
+- **`LandingPage.tsx`**: High-impact entry point with glassmorphic stats and animations.
+- **`RaceCommandCenter.tsx`**: Real-time strategy dashboard.
+- **`DynamicSimulationBackground.tsx`**: Circuit-aware SVG animation engine.
+
+## Development
+
+### Prerequisites
+- Node.js 18+
+- NPM
+
+### Commands
 ```bash
-npm install
-npm run dev
+npm install     # Install dependencies
+npm run dev     # Start development server at http://localhost:3000
+npm run build   # Production bundle to dist/
 ```
 
-Navigate to `http://localhost:3000` (or `3001` if port taken) to explore the interface.
+## Deployment
+Automated via **Vercel** on the `frontend` branch. Ensure `VITE_API_URL` is set in the environment for production backend connectivity.
+
+---
+**Status**: Visual Modernization Complete | **Build**: Vite + Tailwind + Glassmorphism
