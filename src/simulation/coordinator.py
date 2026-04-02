@@ -2,6 +2,7 @@
 SimulationCoordinator: hashes scenarios, checks Redis cache,
 dispatches background simulation tasks.
 """
+
 import hashlib
 import json
 import logging
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
-CACHE_TTL = 3600          # 1 hour for standard scenarios
+CACHE_TTL = 3600  # 1 hour for standard scenarios
 STRATEGY_CACHE_TTL = 900  # 15 min for custom strategy overrides
 SIMULATION_ENDPOINT = os.environ.get(
     "SIMULATION_ENDPOINT", "http://simulation-worker/internal/simulate"
@@ -53,7 +54,9 @@ class SimulationCoordinator:
         except (json.JSONDecodeError, TypeError):
             return None
 
-    def cache_result(self, job_id: str, result: dict, has_strategy_overrides: bool = False) -> None:
+    def cache_result(
+        self, job_id: str, result: dict, has_strategy_overrides: bool = False
+    ) -> None:
         ttl = STRATEGY_CACHE_TTL if has_strategy_overrides else CACHE_TTL
         self._redis.setex(f"sim:result:{job_id}", ttl, json.dumps(result))
 

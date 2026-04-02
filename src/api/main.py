@@ -609,9 +609,12 @@ async def driver_history(driver_id: str, current_user=Depends(get_current_user))
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-def _rule_based_simulate(race_id: str, driver_id: str, strategy: List) -> SimulateResponse:
+def _rule_based_simulate(
+    race_id: str, driver_id: str, strategy: List
+) -> SimulateResponse:
     """Rule-based fallback when RaceSimulator is unavailable."""
     import math
+
     seed = sum(ord(c) for c in driver_id + race_id)
     total_laps = 58
     n_stops = max(1, len(strategy))
@@ -670,8 +673,13 @@ async def simulate_strategy(
             podium_probability=round(podium_prob, 4),
         )
     except Exception as exc:
-        logger.warning("simulate_strategy RaceSimulator failed (%s) — using rule-based fallback", exc)
-        return _rule_based_simulate(request.race_id, request.driver_id, request.strategy)
+        logger.warning(
+            "simulate_strategy RaceSimulator failed (%s) — using rule-based fallback",
+            exc,
+        )
+        return _rule_based_simulate(
+            request.race_id, request.driver_id, request.strategy
+        )
 
 
 # ── Full race simulation via StrategySimulator ──────────────────────────────
@@ -814,18 +822,63 @@ async def system_health():
 
 
 _STREET_CIRCUITS = {
-    "monaco", "azerbaijan", "singapore", "saudi_arabia", "miami", "las_vegas",
-    "monaco grand prix", "azerbaijan grand prix", "singapore grand prix",
-    "saudi arabian grand prix", "miami grand prix", "las vegas grand prix",
+    "monaco",
+    "azerbaijan",
+    "singapore",
+    "saudi_arabia",
+    "miami",
+    "las_vegas",
+    "monaco grand prix",
+    "azerbaijan grand prix",
+    "singapore grand prix",
+    "saudi arabian grand prix",
+    "miami grand prix",
+    "las vegas grand prix",
 }
 
 _MODEL_TEST_METRICS = {
-    "tire_degradation":  {"accuracy": 0.850, "precision": 0.872, "recall": 0.841, "f1_score": 0.856, "samples": 17408},
-    "driving_style":     {"accuracy": 0.800, "precision": 0.813, "recall": 0.792, "f1_score": 0.800, "samples": 8704},
-    "safety_car":        {"accuracy": 0.920, "precision": 0.911, "recall": 0.934, "f1_score": 0.922, "samples": 8704},
-    "pit_window":        {"accuracy": 0.968, "precision": 0.961, "recall": 0.974, "f1_score": 0.967, "samples": 8704},
-    "overtake_prob":     {"accuracy": 0.326, "precision": 0.341, "recall": 0.318, "f1_score": 0.326, "samples": 8704},
-    "race_outcome":      {"accuracy": 0.790, "precision": 0.782, "recall": 0.774, "f1_score": 0.778, "samples": 6745},
+    "tire_degradation": {
+        "accuracy": 0.850,
+        "precision": 0.872,
+        "recall": 0.841,
+        "f1_score": 0.856,
+        "samples": 17408,
+    },
+    "driving_style": {
+        "accuracy": 0.800,
+        "precision": 0.813,
+        "recall": 0.792,
+        "f1_score": 0.800,
+        "samples": 8704,
+    },
+    "safety_car": {
+        "accuracy": 0.920,
+        "precision": 0.911,
+        "recall": 0.934,
+        "f1_score": 0.922,
+        "samples": 8704,
+    },
+    "pit_window": {
+        "accuracy": 0.968,
+        "precision": 0.961,
+        "recall": 0.974,
+        "f1_score": 0.967,
+        "samples": 8704,
+    },
+    "overtake_prob": {
+        "accuracy": 0.326,
+        "precision": 0.341,
+        "recall": 0.318,
+        "f1_score": 0.326,
+        "samples": 8704,
+    },
+    "race_outcome": {
+        "accuracy": 0.790,
+        "precision": 0.782,
+        "recall": 0.774,
+        "f1_score": 0.778,
+        "samples": 6745,
+    },
 }
 
 

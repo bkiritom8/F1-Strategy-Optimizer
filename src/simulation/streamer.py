@@ -4,6 +4,7 @@ SSE frame builder and async generator for simulation streaming.
 Reads lap frames from Redis list and yields SSE-formatted strings.
 Polls until status == 'complete' and all frames are consumed.
 """
+
 import asyncio
 import json
 import logging
@@ -52,7 +53,9 @@ async def frames_to_sse(
             return
 
         if status == "error":
-            yield build_sse_line("error", {"event": "error", "message": "Simulation failed"})
+            yield build_sse_line(
+                "error", {"event": "error", "message": "Simulation failed"}
+            )
             return
 
         await asyncio.sleep(POLL_INTERVAL_S)

@@ -4,6 +4,7 @@ Simulation API routes.
 POST /api/v1/simulate/race   — submit a scenario, returns job_id
 GET  /api/v1/simulate/race/stream — SSE stream of lap frames for job_id
 """
+
 import logging
 import os
 from typing import Any
@@ -37,6 +38,7 @@ def _get_coordinator() -> SimulationCoordinator:
 
 # ---------- Request / Response models ----------
 
+
 class DriverInput(BaseModel):
     driver_id: str
     car_offset_ms: float = 0.0
@@ -64,6 +66,7 @@ class SimulateResponse(BaseModel):
 
 # ---------- Background worker ----------
 
+
 async def _run_simulation(
     job_id: str,
     payload: dict,
@@ -87,6 +90,7 @@ async def _run_simulation(
                     if not line.startswith("data: "):
                         continue
                     import json as _json
+
                     try:
                         frame = _json.loads(line[6:])
                         coordinator.push_frame(job_id, frame)
@@ -94,14 +98,20 @@ async def _run_simulation(
                             coordinator.cache_result(
                                 job_id,
                                 frame,
-                                has_strategy_overrides=bool(payload.get("scenario", {}).get("strategy_overrides")),
+                                has_strategy_overrides=bool(
+                                    payload.get("scenario", {}).get(
+                                        "strategy_overrides"
+                                    )
+                                ),
                             )
                     except _json.JSONDecodeError:
                         pass
         coordinator.set_status(job_id, "complete")
 
     except Exception as exc:
-        logger.warning("Simulation endpoint unavailable, using rule-based fallback: %s", exc)
+        logger.warning(
+            "Simulation endpoint unavailable, using rule-based fallback: %s", exc
+        )
         _run_rule_based_fallback(job_id, payload, coordinator)
 
 
@@ -115,6 +125,7 @@ def _run_rule_based_fallback(
     Produces plausible but non-ML lap frames so the frontend always has data.
     """
     import math
+
     drivers = payload.get("drivers", [])
     total_laps = payload.get("total_laps", 57)
 
@@ -127,35 +138,49 @@ def _run_rule_based_fallback(
             lap_fraction = lap / total_laps
             # Smooth progression around the track
             track_pct = (lap_fraction + idx * 0.03) % 1.0
-            cars.append({
-                "id": driver.get("driver_id", f"car_{idx}"),
-                "track_pct": round(track_pct, 4),
-                "position": idx + 1,
-                "compound": driver.get("start_compound", "MEDIUM"),
-                "gap_ms": idx * 1200,
-                "lap_time_ms": 90000 + idx * 200,
-                "tire_age": lap,
-            })
+            cars.append(
+                {
+                    "id": driver.get("driver_id", f"car_{idx}"),
+                    "track_pct": round(track_pct, 4),
+                    "position": idx + 1,
+                    "compound": driver.get("start_compound", "MEDIUM"),
+                    "gap_ms": idx * 1200,
+                    "lap_time_ms": 90000 + idx * 200,
+                    "tire_age": lap,
+                }
+            )
         coordinator.push_frame(job_id, {"type": "lap", "lap": lap, "cars": cars})
 
     # Final frame
-    coordinator.push_frame(job_id, {
-        "type": "complete",
-        "p10_finish": 1,
-        "p50_finish": 1,
-        "p90_finish": 3,
-        "llm_context": {
-            "winner": sorted_drivers[0].get("driver_id", "unknown") if sorted_drivers else "unknown",
-            "fastest_lap": sorted_drivers[0].get("driver_id", "unknown") if sorted_drivers else "unknown",
-            "safety_cars": 0,
-            "total_pit_stops": len(sorted_drivers) * 1,
+    coordinator.push_frame(
+        job_id,
+        {
+            "type": "complete",
+            "p10_finish": 1,
+            "p50_finish": 1,
+            "p90_finish": 3,
+            "llm_context": {
+                "winner": (
+                    sorted_drivers[0].get("driver_id", "unknown")
+                    if sorted_drivers
+                    else "unknown"
+                ),
+                "fastest_lap": (
+                    sorted_drivers[0].get("driver_id", "unknown")
+                    if sorted_drivers
+                    else "unknown"
+                ),
+                "safety_cars": 0,
+                "total_pit_stops": len(sorted_drivers) * 1,
+            },
         },
-    })
+    )
     coordinator.cache_result(job_id, {"fallback": True})
     coordinator.set_status(job_id, "complete")
 
 
 # ---------- Endpoints ----------
+
 
 @router.post("/race", response_model=SimulateResponse)
 async def start_simulation(
