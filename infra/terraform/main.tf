@@ -352,9 +352,15 @@ resource "google_monitoring_alert_policy" "api_error_rate" {
     auto_close = "1800s"
   }
 
-  # Explicit dependency ensures the alert policy is updated/destroyed before
-  # notification channels are deleted, avoiding the "still referenced" 400 error.
-  depends_on = [google_monitoring_notification_channel.email]
+  # When alert_emails changes (channels added/removed), replace the alert policy
+  # rather than update it in-place. create_before_destroy ensures the new policy
+  # (with the updated channel list) is created BEFORE the old one is destroyed
+  # and BEFORE any deleted channels are removed — preventing the GCP 400 "still
+  # referenced" error that occurs when channel deletes race the policy update.
+  lifecycle {
+    create_before_destroy = true
+    replace_triggered_by  = [google_monitoring_notification_channel.email]
+  }
 }
 
 
