@@ -30,13 +30,22 @@ const css = `
   .lp-w5 { opacity: 0; animation: lp-riseIn 1.0s cubic-bezier(0.22,1,0.36,1) 1.16s forwards; }
   .lp-w6 { opacity: 0; animation: lp-riseIn 1.0s cubic-bezier(0.22,1,0.36,1) 1.29s forwards; }
 
-  .lp-dot { animation: lp-pulse 2.5s ease-in-out 1.5s infinite; }
+  .lp-logo-dot { animation: lp-pulse 2.5s ease-in-out 1.5s infinite; }
 
   .lp-btn-p:hover { background: #c50500 !important; transform: scale(1.03); box-shadow: 0 8px 28px rgba(225,6,0,0.45); }
   .lp-btn-s:hover { background: rgba(255,255,255,0.13) !important; transform: scale(1.03); }
   .lp-nav-btn:hover { background: rgba(225,6,0,0.3) !important; }
   .lp-nav-link:hover { color: #fff !important; }
 `;
+
+/** Maps each visible nav label to its in-app route path. */
+const NAV_LINKS: { label: string; path: string }[] = [
+  { label: 'Race Center', path: '/race'     },
+  { label: 'Strategy',    path: '/strategy' },
+  { label: 'Circuits',    path: '/circuits' },
+  { label: 'Drivers',     path: '/drivers'  },
+  { label: 'Analysis',    path: '/analysis' },
+];
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -62,15 +71,43 @@ export default function LandingPage() {
         backdropFilter: 'blur(20px) saturate(180%)',
         borderBottom: '1px solid rgba(255,255,255,0.07)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#fff' }}>
-          <div className="lp-dot" style={{ width: 7, height: 7, borderRadius: '50%', background: '#e10600', boxShadow: '0 0 8px rgba(225,6,0,0.9)' }} />
-          Apex Intelligence
+        {/* Logo — matches sidebar branding */}
+        <div
+          onClick={() => navigate('/')}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}
+        >
+          <div style={{
+            width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+            background: 'linear-gradient(135deg, #e10600, #9b0400)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 14px rgba(225,6,0,0.35)',
+          }}>
+            {/* Inline CPU icon matching the Lucide Cpu used in the sidebar */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="6" height="6" />
+              <rect x="2" y="2" width="20" height="20" rx="2" />
+              <path d="M9 2V9M15 2V9M9 15v7M15 15v7M2 9h7M2 15h7M15 9h7M15 15h7" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.5px', fontStyle: 'italic', color: '#fff', lineHeight: 1 }}>
+              APEX F1
+            </div>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#e10600', lineHeight: 1, marginTop: 2 }}>
+              Race Intelligence
+            </div>
+          </div>
         </div>
+
+        {/* Nav links — each routed to its correct path */}
         <ul style={{ display: 'flex', gap: 32, listStyle: 'none', margin: 0, padding: 0 }}>
-          {['Race Center','Strategy','Circuits','Drivers','Analysis'].map(label => (
+          {NAV_LINKS.map(({ label, path }) => (
             <li key={label}>
-              <button className="lp-nav-link" onClick={() => navigate('/race')}
-                style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}>
+              <button
+                className="lp-nav-link"
+                onClick={() => navigate(path)}
+                style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+              >
                 {label}
               </button>
             </li>
@@ -131,7 +168,7 @@ export default function LandingPage() {
           maxWidth: 480, margin: '20px auto 42px',
         }}>
           Real-time F1 strategy intelligence powered by machine learning.<br />
-          Pit windows, tire degradation, race outcomes — all in one platform.
+          Pit windows, tire degradation, race outcomes - all in one platform.
         </p>
 
         {/* CTAs */}

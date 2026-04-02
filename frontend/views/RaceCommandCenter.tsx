@@ -108,44 +108,57 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-/** Circular progress gauge for probabilities. */
+/** Circular progress gauge for probabilities. Compact layout for 2-col mobile grid. */
 function ProbGauge({ value, label, icon: Icon, color, subtitle }: {
   value: number; label: string; icon: React.ElementType; color: string; subtitle?: string;
 }) {
   const pct = Math.min(value * 100, 100);
-  const r = 36;
+  // Smaller radius so the gauge fits comfortably in half-width columns on mobile
+  const r = 28;
   const circ = 2 * Math.PI * r;
   const offset = circ - (pct / 100) * circ;
-  const riskLevel = pct > 40 ? 'HIGH' : pct > 20 ? 'ELEVATED' : 'LOW';
+  const riskLevel = pct > 40 ? 'HIGH' : pct > 20 ? 'ELEV' : 'LOW';
   const riskColor = pct > 40 ? COLORS.accent.red : pct > 20 ? COLORS.accent.yellow : COLORS.accent.green;
 
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl border backdrop-blur-sm" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-      <div className="relative w-20 h-20 shrink-0">
-        <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
-          <circle cx="40" cy="40" r={r} fill="none" stroke="var(--border-color)" strokeWidth="5" />
-          <motion.circle
-            cx="40" cy="40" r={r} fill="none" stroke={color} strokeWidth="5"
-            strokeLinecap="round" strokeDasharray={circ}
-            initial={{ strokeDashoffset: circ }}
-            animate={{ strokeDashoffset: offset }}
-            transition={{ duration: 1.2, ease: 'easeOut' }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-lg font-mono font-black" style={{ color }}>{pct.toFixed(2)}%</span>
-        </div>
+    <div
+      className="flex flex-col gap-2 p-3 rounded-xl border backdrop-blur-sm"
+      style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
+    >
+      {/* Label row */}
+      <div className="flex items-center gap-1.5">
+        <Icon className="w-3.5 h-3.5 shrink-0" style={{ color }} />
+        <span className="text-[10px] font-bold uppercase tracking-wide text-gray-300 leading-tight">{label}</span>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <Icon className="w-4 h-4 shrink-0" style={{ color }} />
-          <span className="text-xs font-display font-bold uppercase tracking-wider text-gray-300 truncate">{label}</span>
+
+      {/* Gauge + risk side by side */}
+      <div className="flex items-center gap-3">
+        <div className="relative shrink-0" style={{ width: 64, height: 64 }}>
+          <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
+            <circle cx="32" cy="32" r={r} fill="none" stroke="var(--border-color)" strokeWidth="4" />
+            <motion.circle
+              cx="32" cy="32" r={r} fill="none" stroke={color} strokeWidth="4"
+              strokeLinecap="round" strokeDasharray={circ}
+              initial={{ strokeDashoffset: circ }}
+              animate={{ strokeDashoffset: offset }}
+              transition={{ duration: 1.2, ease: 'easeOut' }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-[11px] font-mono font-black leading-none" style={{ color }}>
+              {pct.toFixed(1)}%
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: riskColor }} />
-          <span className="text-[10px] font-bold uppercase" style={{ color: riskColor }}>{riskLevel} RISK</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1 mb-1">
+            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: riskColor }} />
+            <span className="text-[10px] font-bold uppercase" style={{ color: riskColor }}>{riskLevel} RISK</span>
+          </div>
+          {subtitle && (
+            <p className="text-[9px] text-gray-500 leading-snug">{subtitle}</p>
+          )}
         </div>
-        {subtitle && <p className="text-[10px] text-gray-500 leading-snug">{subtitle}</p>}
       </div>
     </div>
   );
@@ -466,44 +479,62 @@ const RaceCommandCenter: React.FC = () => {
         </div>
 
         {/* ── Predictive Intelligence + DRS + Sectors ────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+        {/* 2-col on mobile/tablet: gauges side by side; 4-col on desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
           <ProbGauge
             value={safetyCarData?.probability || 0.08}
             label="Safety Car Risk"
             icon={Shield}
             color={safetyCarData && safetyCarData.probability > 0.3 ? COLORS.accent.red : COLORS.accent.yellow}
-            subtitle={`Model v${safetyCarData?.model_version || '1.2.0'} | Updates every 30s`}
+            subtitle={`Model v${safetyCarData?.model_version || '1.2.0'} · updates every 30s`}
           />
           <ProbGauge
             value={overtakeData?.probability || 0.12}
-            label="Overtake Probability"
+            label="Overtake Prob."
             icon={Radio}
             color={COLORS.accent.green}
-            subtitle={`${selectedDriver.code} vs NOR | Corner-by-corner analysis`}
+            subtitle={`${selectedDriver.code ?? selectedDriver.name.split(' ')[0]} vs NOR`}
           />
           <DRSCard active={selectedTelemetry.drs_active} zonesTotal={drsZones} />
-          <SectorTimingCard driverCode={selectedDriver.code} sectors={sectorData} />
+          <SectorTimingCard driverCode={selectedDriver.code ?? selectedDriver.name.split(' ')[0]} sectors={sectorData} />
         </div>
 
-        {/* ── Main Grid: Driver Card + Charts ────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <div className="lg:col-span-1">
+        {/* ── Main Grid: Driver Card (left) + Charts (right) ──────────── */}
+        {/*
+          Desktop (lg+): 3-col grid — driver card takes 1 col, charts take 2 cols.
+          Tablet (md):   2-col — driver card left, chart right stacked.
+          Mobile:        single column stack.
+        */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Driver Card — always full width on mobile, 1 col on tablet+ */}
+          <div className="md:col-span-1">
             <DriverCard telemetry={selectedTelemetry} driver={selectedDriver} strategy={selectedStrategy} />
           </div>
 
-          <div className="lg:col-span-3 flex flex-col gap-4 md:gap-5">
-            {/* Sector Consistency Chart */}
-            <div className="rounded-xl p-4 md:p-6 border flex flex-col shadow-xl min-h-[350px]" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-              <div className="flex justify-between items-center mb-4 shrink-0">
-                <h3 className="text-xs font-display font-bold uppercase tracking-widest text-gray-400">Lap Time Trace</h3>
-                <div className="flex gap-4">
-                  <LegendItem color={COLORS.accent.red} label={selectedDriver.code} />
-                  <LegendItem color="#333" label="Session Benchmark" />
+          {/* Charts — 2 cols on tablet+, stacked on mobile */}
+          <div className="md:col-span-2 flex flex-col gap-4">
+
+            {/* Lap Time Trace — fixed height to avoid needing scroll */}
+            <div
+              className="rounded-xl p-4 border shadow-xl flex flex-col"
+              style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
+            >
+              <div className="flex justify-between items-center mb-3 shrink-0">
+                <h3 className="text-xs font-display font-bold uppercase tracking-widest text-gray-400">
+                  Lap Time Trace
+                </h3>
+                <div className="flex gap-3">
+                  <LegendItem
+                    color={COLORS.accent.red}
+                    label={selectedDriver.code ?? selectedDriver.name.split(' ')[0]}
+                  />
+                  <LegendItem color="#555" label="Benchmark" />
                 </div>
               </div>
-              <div className="w-full flex-1 min-h-[150px]">
+              {/* Chart at fixed 200px height — no min-h that forces scroll */}
+              <div className="w-full" style={{ height: 200 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={lapTimeData}>
+                  <AreaChart data={lapTimeData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorTime" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={COLORS.accent.red} stopOpacity={0.2} />
@@ -511,52 +542,89 @@ const RaceCommandCenter: React.FC = () => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                    <XAxis dataKey="lap" stroke="var(--text-secondary)" fontSize={10} tick={{ fill: 'var(--text-secondary)' }} />
-                    <YAxis domain={['auto', 'auto']} stroke="var(--text-secondary)" fontSize={10} tick={{ fill: 'var(--text-secondary)' }} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '12px', color: 'var(--text-primary)' }}
-                      itemStyle={{ color: 'var(--text-primary)' }}
+                    <XAxis
+                      dataKey="lap"
+                      stroke="var(--text-secondary)"
+                      fontSize={9}
+                      tick={{ fill: 'var(--text-secondary)' }}
+                      tickLine={false}
                     />
-                    <Area type="monotone" dataKey="benchmark" stroke="#333" fill="none" strokeWidth={1} strokeDasharray="4 4" />
-                    <Area type="monotone" dataKey="time" stroke={COLORS.accent.red} fillOpacity={1} fill="url(#colorTime)" strokeWidth={2} />
+                    <YAxis
+                      domain={['auto', 'auto']}
+                      stroke="var(--text-secondary)"
+                      fontSize={9}
+                      tick={{ fill: 'var(--text-secondary)' }}
+                      tickLine={false}
+                      width={36}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '11px',
+                        color: 'var(--text-primary)',
+                        borderRadius: 8,
+                      }}
+                      itemStyle={{ color: 'var(--text-primary)' }}
+                      formatter={(v: number) => [`${v.toFixed(3)}s`, '']}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="benchmark"
+                      stroke="#444"
+                      fill="none"
+                      strokeWidth={1}
+                      strokeDasharray="4 4"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="time"
+                      stroke={COLORS.accent.red}
+                      fillOpacity={1}
+                      fill="url(#colorTime)"
+                      strokeWidth={2}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* Monte Carlo Table */}
-            <div className="rounded-xl p-4 md:p-6 border shadow-xl shrink-0" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-              <h3 className="text-xs font-display font-bold uppercase tracking-widest text-gray-400 mb-4">Monte Carlo Simulation Outputs</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-[11px] font-mono">
-                  <thead>
-                    <tr className="text-white/40 border-b border-white/10 uppercase">
-                      <th className="py-2">Path Variant</th>
-                      <th className="py-2">Pit Matrix</th>
-                      <th className="py-2 text-right">Win Probability</th>
-                      <th className="py-2 text-right">Risk Factor</th>
-                    </tr>
-                  </thead>
-                  <tbody style={{ color: 'var(--text-secondary)' }}>
-                    <tr className="border-b border-white/5 hover:bg-white/5 transition-colors group">
-                      <td className="py-3 font-bold text-white flex items-center gap-2">
-                        Variant-Alpha
-                        <ConceptTooltip term="Undercut">
-                          <span className="text-accent-blue/60 group-hover:text-accent-blue transition-colors cursor-help">(Undercut)</span>
-                        </ConceptTooltip>
-                      </td>
-                      <td className="py-3">L28, L55</td>
-                      <td className="py-3 text-right text-accent-green">18.4%</td>
-                      <td className="py-3 text-right text-red-500">AGGRESSIVE</td>
-                    </tr>
-                    <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                      <td className="py-3 font-bold text-white">Variant-Gamma (Optimal)</td>
-                      <td className="py-3">L32, L58</td>
-                      <td className="py-3 text-right text-accent-green">22.1%</td>
-                      <td className="py-3 text-right text-yellow-500">BALANCED</td>
-                    </tr>
-                  </tbody>
-                </table>
+            {/* Monte Carlo Table — compact, no overflow */}
+            <div
+              className="rounded-xl p-4 border shadow-xl"
+              style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
+            >
+              <h3 className="text-xs font-display font-bold uppercase tracking-widest text-gray-400 mb-3">
+                Monte Carlo Strategy Variants
+              </h3>
+              <div className="space-y-2">
+                {[
+                  { name: 'Variant-Alpha', term: 'Undercut' as const, pits: 'L28, L55', win: '18.4%', risk: 'AGGRESSIVE', riskColor: COLORS.accent.red },
+                  { name: 'Variant-Gamma', term: null, pits: 'L32, L58', win: '22.1%', risk: 'BALANCED', riskColor: COLORS.accent.yellow, optimal: true },
+                ].map(row => (
+                  <div
+                    key={row.name}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg border"
+                    style={{ borderColor: row.optimal ? `${COLORS.accent.green}40` : 'var(--border-color)', backgroundColor: row.optimal ? `${COLORS.accent.green}08` : 'var(--bg-secondary)' }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-white">{row.name}</span>
+                        {row.optimal && <span className="text-[8px] font-black px-1 rounded bg-green-500/20 text-green-400 uppercase">Optimal</span>}
+                        {row.term && (
+                          <ConceptTooltip term={row.term}>
+                            <span className="text-[9px] text-blue-400/60 cursor-help">(Undercut)</span>
+                          </ConceptTooltip>
+                        )}
+                      </div>
+                      <div className="text-[10px] font-mono text-gray-500 mt-0.5">Pit: {row.pits}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-mono font-bold text-green-400">{row.win}</div>
+                      <div className="text-[9px] font-bold uppercase" style={{ color: row.riskColor }}>{row.risk}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

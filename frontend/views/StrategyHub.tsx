@@ -266,8 +266,8 @@ const StrategyHub: React.FC = () => {
               <p className="text-sm font-display font-bold uppercase tracking-wide text-white/60">RL Race Simulation</p>
               <p className="text-[10px] font-mono text-white/30 leading-relaxed">
                 Configure your driver and circuit, then race against 19 AI competitors.
-                The PPO RL agent pauses at key strategic moments — Safety Cars, tire cliff,
-                undercut windows — and asks whether to follow its recommendation or override.
+                The PPO RL agent pauses at key strategic moments - Safety Cars, tire cliff,
+                undercut windows - and asks whether to follow its recommendation or override.
                 Use the AI chat for real-time strategy advice during the race.
               </p>
               <div className="grid grid-cols-2 gap-2 text-left pt-2">
@@ -513,16 +513,19 @@ const StrategyHub: React.FC = () => {
                     )}
                     <div className="max-w-[85%] flex flex-col gap-1">
                       <div
-                        className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap break-words ${
+                        className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm break-words ${
                           m.role === 'user'
                             ? 'bg-blue-600 text-white rounded-tr-none'
                             : 'bg-white/[0.05] rounded-tl-none border border-white/[0.07] text-white/80'
                         }`}
                       >
-                        {m.content || (chatLoading && i === chatMessages.length - 1
-                          ? <Loader2 className="w-4 h-4 animate-spin text-red-600" />
-                          : null
-                        )}
+                        {m.content
+                          ? (m.role === 'assistant' ? <ChatMarkdown text={m.content} /> : m.content)
+                          : (chatLoading && i === chatMessages.length - 1
+                              ? <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                              : null
+                            )
+                        }
                       </div>
                       {m.role === 'assistant' && m.model && (
                         <div className="flex items-center gap-2 px-1">
@@ -615,6 +618,125 @@ function toDriverName(id: string): string {
   return id
     .replace(/_/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Lightweight markdown renderer for AI chat responses.
+ * Handles: ## headings, **bold**, numbered lists, bullet lists,
+ * horizontal rules (---), and inline bold without adding dependencies.
+ */
+function ChatMarkdown({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let listItems: string[] = [];
+  let listType: 'ol' | 'ul' | null = null;
+
+  const flushList = (key: string) => {
+    if (listItems.length === 0) return;
+    if (listType === 'ol') {
+      elements.push(
+        <ol key={key} className="list-decimal list-inside space-y-0.5 my-1 pl-1">
+          {listItems.map((item, j) => (
+            <li key={j} className="text-white/80 text-sm leading-relaxed">
+              <InlineMd text={item} />
+            </li>
+          ))}
+        </ol>
+      );
+    } else {
+      elements.push(
+        <ul key={key} className="space-y-0.5 my-1 pl-1">
+          {listItems.map((item, j) => (
+            <li key={j} className="flex gap-2 text-sm leading-relaxed text-white/80">
+              <span className="text-red-500 mt-0.5 flex-shrink-0">•</span>
+              <InlineMd text={item} />
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    listItems = [];
+    listType = null;
+  };
+
+  lines.forEach((line, i) => {
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      flushList(`hr-flush-${i}`);
+      elements.push(<hr key={`hr-${i}`} className="border-white/10 my-2" />);
+      return;
+    }
+    // H2 / H3
+    if (line.startsWith('## ')) {
+      flushList(`h2-flush-${i}`);
+      elements.push(
+        <p key={i} className="text-xs font-bold uppercase tracking-widest text-white/50 mt-3 mb-1">
+          {line.slice(3)}
+        </p>
+      );
+      return;
+    }
+    if (line.startsWith('### ')) {
+      flushList(`h3-flush-${i}`);
+      elements.push(
+        <p key={i} className="text-[11px] font-bold uppercase tracking-wider text-white/40 mt-2 mb-0.5">
+          {line.slice(4)}
+        </p>
+      );
+      return;
+    }
+    // Numbered list item
+    const olMatch = line.match(/^\d+\.\s+(.*)/);
+    if (olMatch) {
+      if (listType !== 'ol') { flushList(`ol-flush-${i}`); listType = 'ol'; }
+      listItems.push(olMatch[1]);
+      return;
+    }
+    // Bullet list item (*, -, •)
+    const ulMatch = line.match(/^[\*\-•]\s+(.*)/);
+    if (ulMatch) {
+      if (listType !== 'ul') { flushList(`ul-flush-${i}`); listType = 'ul'; }
+      listItems.push(ulMatch[1]);
+      return;
+    }
+    // Flush any open list before a normal line
+    flushList(`flush-${i}`);
+    // Blank line → small gap
+    if (line.trim() === '') {
+      elements.push(<div key={i} className="h-1" />);
+      return;
+    }
+    // Normal paragraph
+    elements.push(
+      <p key={i} className="text-sm leading-relaxed text-white/80">
+        <InlineMd text={line} />
+      </p>
+    );
+  });
+
+  flushList('final');
+  return <div className="space-y-0.5">{elements}</div>;
+}
+
+/**
+ * Renders inline markdown: **bold** and *italic* within a line of text.
+ */
+function InlineMd({ text }: { text: string }) {
+  // Split on **bold** or *italic* tokens
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <strong key={i} className="font-bold text-white">{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith('*') && part.endsWith('*')) {
+          return <em key={i} className="italic text-white/90">{part.slice(1, -1)}</em>;
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
 }
 
 export default StrategyHub;
