@@ -129,10 +129,13 @@ class F1RaceEnv(gym.Env):
         if self._fixed_lineup is not None:
             lineup = self._fixed_lineup
         else:
+            # Curriculum: randomise starting position each episode so the agent
+            # trains from varied grid slots and builds a richer gradient signal.
+            start_pos = random.randint(5, 18)
             lineup = build_race_lineup(
                 user_driver_id=self._driver_id,
                 user_profile=self._driver_profile,
-                user_start_position=self._start_position,
+                user_start_position=start_pos,
                 user_start_compound=self._start_compound,
                 rivals=self._rivals,
             )
@@ -143,6 +146,7 @@ class F1RaceEnv(gym.Env):
             adapters=self._adapters,
             project=self._project,
             seed=seed or self._rng_seed,
+            ml_user_only=True,  # ML for user driver only; physics for rivals (~15x faster)
         )
         self._reward_fn.reset()
 
@@ -163,6 +167,13 @@ class F1RaceEnv(gym.Env):
         )
         new_position = info.get("position", self._prev_position)
 
+        field_laps = [
+            rec.lap_time_ms
+            for did, rec in lap_records.items()
+            if did != self._driver_id and rec.lap_time_ms > 0
+        ]
+        field_median = float(sorted(field_laps)[len(field_laps) // 2]) if field_laps else 0.0
+
         r = self._reward_fn.step(
             prev_position=self._prev_position,
             new_position=new_position,
@@ -171,6 +182,7 @@ class F1RaceEnv(gym.Env):
             tire_age_laps=info.get("tire_age_laps", 0),
             pitted=pitted,
             safety_car_active=info.get("safety_car", False),
+            field_median_lap_ms=field_median,
         )
         self._prev_position = new_position
         reward = float(r.total)
