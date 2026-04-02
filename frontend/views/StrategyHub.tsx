@@ -15,13 +15,16 @@ import { COLORS } from '../constants';
 import ConceptTooltip from '../components/ConceptTooltip';
 import {
   Plus, X, Play, Loader2, Trophy, Timer, TrendingUp,
-  Send, User, Bot, Sparkles, Zap,
+  Send, User, Bot, Sparkles, Zap, Flag,
 } from 'lucide-react';
 import { simulateStrategy } from '../services/endpoints';
 import { apiFetch } from '../services/client';
 import { useBackendStatus } from '../hooks/useApi';
 import { LiveBadge } from '../components/LiveBadge';
 import type { TireCompound } from '../types';
+import RaceSimulation from '../components/RaceSimulation';
+
+type HubTab = 'strategy' | 'simulation';
 
 // ── Strategy constants ────────────────────────────────────────────────────────
 
@@ -62,6 +65,9 @@ interface ChatMessage {
 
 const StrategyHub: React.FC = () => {
   const { online: isLive } = useBackendStatus();
+
+  // ── Tab state ───────────────────────────────────────────────────────────────
+  const [hubTab, setHubTab] = useState<HubTab>('strategy');
 
   // ── Strategy state ──────────────────────────────────────────────────────────
   const [selectedPreset, setSelectedPreset] = useState(STRATEGY_PRESETS[0]);
@@ -215,22 +221,75 @@ const StrategyHub: React.FC = () => {
             Monte Carlo Simulation · AI Strategist · Backend LLM
           </p>
         </div>
-        {/* Driver name input — plain text, no dropdown */}
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Driver</span>
-          <input
-            type="text"
-            value={driverName}
-            onChange={e => { setDriverName(e.target.value); setSimResult(null); }}
-            placeholder="e.g. Max Verstappen"
-            className="px-3 py-2 rounded-xl border text-sm font-bold bg-transparent focus:outline-none focus:ring-1 focus:ring-red-600 w-48"
-            style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
-          />
+        <div className="flex items-center gap-3">
+          {/* Tab switcher */}
+          <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-color)' }}>
+            <button
+              onClick={() => setHubTab('strategy')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase transition-colors ${hubTab === 'strategy' ? 'bg-red-600 text-white' : 'text-white/40 hover:text-white'}`}
+            >
+              <Zap className="w-3 h-3" /> Strategy
+            </button>
+            <button
+              onClick={() => setHubTab('simulation')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase transition-colors ${hubTab === 'simulation' ? 'bg-red-600 text-white' : 'text-white/40 hover:text-white'}`}
+            >
+              <Flag className="w-3 h-3" /> Race Sim
+            </button>
+          </div>
+          {/* Driver name input — only shown in strategy tab */}
+          {hubTab === 'strategy' && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Driver</span>
+              <input
+                type="text"
+                value={driverName}
+                onChange={e => { setDriverName(e.target.value); setSimResult(null); }}
+                placeholder="e.g. Max Verstappen"
+                className="px-3 py-2 rounded-xl border text-sm font-bold bg-transparent focus:outline-none focus:ring-1 focus:ring-red-600 w-48"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 min-h-0">
+      {/* Race Simulation tab */}
+      {hubTab === 'simulation' && (
+        <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 min-h-0">
+          <div className="xl:col-span-7 flex flex-col gap-6 min-h-0 overflow-y-auto scrollbar-hide">
+            <RaceSimulation />
+          </div>
+          <div className="xl:col-span-5 flex flex-col gap-6 min-h-0">
+            <div className="rounded-2xl border p-5 text-center space-y-3" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+              <Flag className="w-8 h-8 mx-auto text-red-600" />
+              <p className="text-sm font-display font-bold uppercase tracking-wide text-white/60">RL Race Simulation</p>
+              <p className="text-[10px] font-mono text-white/30 leading-relaxed">
+                Configure your driver and circuit, then race against 19 AI competitors.
+                The PPO RL agent pauses at key strategic moments — Safety Cars, tire cliff,
+                undercut windows — and asks whether to follow its recommendation or override.
+                Use the AI chat for real-time strategy advice during the race.
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-left pt-2">
+                {[
+                  { label: 'RL Engine', value: 'PPO Agent' },
+                  { label: 'Rivals', value: '19 AI drivers' },
+                  { label: 'Decisions', value: 'Up to 7 prompts' },
+                  { label: 'Fallback', value: 'Heuristic rules' },
+                ].map(({ label, value }) => (
+                  <div key={label} className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <p className="text-[8px] font-mono text-white/30 uppercase">{label}</p>
+                    <p className="text-xs font-bold text-white/70">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Two-column layout — Strategy tab */}
+      {hubTab === 'strategy' && <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 min-h-0">
 
         {/* ── Left: Strategy Simulator ─────────────────────────────────────── */}
         <div className="xl:col-span-7 flex flex-col gap-6 min-h-0">
@@ -518,7 +577,8 @@ const StrategyHub: React.FC = () => {
           </div>
         </div>
 
-      </div>
+      </div>}
+
     </div>
   );
 };

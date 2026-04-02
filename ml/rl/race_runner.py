@@ -719,6 +719,14 @@ class RaceResult:
     strategy_summary: list[dict]
 
 
+# Physics-only adapter singletons — unloaded adapters use pure physics formulas.
+# Shared across all RaceRunner instances so there's no per-lap object creation.
+def _get_physics_adapters():
+    from ml.rl.model_adapters import TireDegradationAdapter, FuelConsumptionAdapter
+    return TireDegradationAdapter(None), FuelConsumptionAdapter(None)
+
+_PHYSICS_TIRE, _PHYSICS_FUEL = _get_physics_adapters()
+
 # ── Race Runner ───────────────────────────────────────────────────────────────
 
 
@@ -749,11 +757,13 @@ class RaceRunner:
         race_name: str = "",
         project: str = "f1optimizer",
         seed: Optional[int] = None,
+        ml_user_only: bool = True,
     ) -> None:
         self._race_id = race_id
         self._drivers = drivers
         self._adapters = adapters or {}
         self._project = project
+        self._ml_user_only = ml_user_only
         self._rng = np.random.default_rng(seed)
 
         # Resolve circuit metadata: explicit args → registry → GCS → defaults
@@ -857,30 +867,55 @@ class RaceRunner:
             pit_flags[d.driver_id] = pitted
             new_compounds[d.driver_id] = new_compound
 
-        # ── Phase 2: batch ML predictions (one call for all 20 drivers) ───────
-        model_states = {
-            d.driver_id: self._model_state_dict(self._states[d.driver_id])
-            for d in active
-        }
-        ms_list = [model_states[d.driver_id] for d in active]
-        id_list = [d.driver_id for d in active]
-
+        # ── Phase 2: ML predictions for lap times ─────────────────────────────
+        # ml_user_only=True (default for RL training): run ML only for the
+        # user's driver; rivals use physics. This gives ~15x speedup since
+        # model inference dominates step time with 20 drivers.
         td_adapter = self._tire_deg_adapter()
         fuel_adapter = self._fuel_adapter()
 
-        if hasattr(td_adapter, "predict_batch") and td_adapter.loaded:
-            tire_deltas = dict(zip(id_list, td_adapter.predict_batch(ms_list)))
+        if self._ml_user_only and self._user_id:
+            # Only build the full state dict for the user driver — rivals use
+            # physics directly via a 3-key minimal dict, avoiding 19 wasted
+            # _model_state_dict() calls (each does list copies + np.mean) per step.
+            tire_deltas = {}
+            fuel_burns = {}
+            for d in active:
+                state = self._states[d.driver_id]
+                if d.driver_id == self._user_id:
+                    ms = self._model_state_dict(state)
+                    tire_deltas[d.driver_id] = (
+                        td_adapter.predict(ms) if td_adapter.loaded
+                        else _PHYSICS_TIRE.predict(ms)
+                    )
+                    fuel_burns[d.driver_id] = (
+                        fuel_adapter.predict(ms) if fuel_adapter.loaded
+                        else _PHYSICS_FUEL.predict(ms)
+                    )
+                else:
+                    phys = {
+                        "tire_compound": state.tire_compound,
+                        "tire_age_laps": state.tire_age_laps,
+                        "driving_mode": state.driving_mode,
+                    }
+                    tire_deltas[d.driver_id] = _PHYSICS_TIRE.predict(phys)
+                    fuel_burns[d.driver_id] = _PHYSICS_FUEL.predict(phys)
         else:
-            tire_deltas = {
-                did: td_adapter.predict(ms) for did, ms in zip(id_list, ms_list)
-            }
-
-        if hasattr(fuel_adapter, "predict_batch") and fuel_adapter.loaded:
-            fuel_burns = dict(zip(id_list, fuel_adapter.predict_batch(ms_list)))
-        else:
-            fuel_burns = {
-                did: fuel_adapter.predict(ms) for did, ms in zip(id_list, ms_list)
-            }
+            # Full ML for all drivers (eval / non-training use)
+            id_list = [d.driver_id for d in active]
+            ms_list = [self._model_state_dict(self._states[d.driver_id]) for d in active]
+            if hasattr(td_adapter, "predict_batch") and td_adapter.loaded:
+                tire_deltas = dict(zip(id_list, td_adapter.predict_batch(ms_list)))
+            else:
+                tire_deltas = {
+                    did: td_adapter.predict(ms) for did, ms in zip(id_list, ms_list)
+                }
+            if hasattr(fuel_adapter, "predict_batch") and fuel_adapter.loaded:
+                fuel_burns = dict(zip(id_list, fuel_adapter.predict_batch(ms_list)))
+            else:
+                fuel_burns = {
+                    did: fuel_adapter.predict(ms) for did, ms in zip(id_list, ms_list)
+                }
 
         # ── Phase 3: compute lap times and update state ───────────────────────
         for d in active:
