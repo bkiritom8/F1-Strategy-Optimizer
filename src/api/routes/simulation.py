@@ -226,13 +226,21 @@ def _is_key_moment(
     pit_prob = float(probs[3:].sum())
     if pit_prob > 0.60 and lap > 4 and remaining > 8:
         best_pit = int(3 + int(probs[3:].argmax()))
-        compound_name = {3: "SOFT", 4: "MEDIUM", 5: "HARD", 6: "INTER"}.get(best_pit, "MEDIUM")
-        return True, f"RL recommends pit for {compound_name} ({pit_prob:.0%} confidence)"
+        compound_name = {3: "SOFT", 4: "MEDIUM", 5: "HARD", 6: "INTER"}.get(
+            best_pit, "MEDIUM"
+        )
+        return (
+            True,
+            f"RL recommends pit for {compound_name} ({pit_prob:.0%} confidence)",
+        )
 
     # 3. Tires past optimal stint — degradation critical
     if tire_age >= int(optimal * 1.05) and remaining > 5:
         pct = int(tire_age / optimal * 100)
-        return True, f"{compound} tires at {tire_age} laps ({pct}% of optimal) — degradation critical"
+        return (
+            True,
+            f"{compound} tires at {tire_age} laps ({pct}% of optimal) — degradation critical",
+        )
 
     # 4. Undercut opportunity: car just ahead pitted
     gap_ahead = float(info.get("gap_to_ahead", 99.0))
@@ -242,7 +250,10 @@ def _is_key_moment(
                 rec_pos = getattr(rec, "position", 99)
                 user_pos = int(info.get("position", 20))
                 if abs(rec_pos - user_pos) <= 2:
-                    return True, f"Undercut opportunity! Car ahead pitted. Gap = {gap_ahead:.1f}s"
+                    return (
+                        True,
+                        f"Undercut opportunity! Car ahead pitted. Gap = {gap_ahead:.1f}s",
+                    )
 
     # 5. Late-race final strategy review
     if remaining == 13 and prompt_count < 4:
@@ -272,7 +283,9 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
         raw = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
         msg: dict = json.loads(raw)
         if msg.get("type") != "start":
-            await websocket.send_json({"type": "error", "message": 'First message must be type="start"'})
+            await websocket.send_json(
+                {"type": "error", "message": 'First message must be type="start"'}
+            )
             return
 
         race_id: str = msg.get("race_id", "2025_4")
@@ -285,12 +298,15 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
         circuit_info = CIRCUIT_REGISTRY.get(race_id) or {}
         if not circuit_info:
             # Fallback to Bahrain
-            circuit_info = CIRCUIT_REGISTRY.get("2025_4", {
-                "total_laps": 57,
-                "base_lap_time_ms": 95_800,
-                "race_name": "Grand Prix",
-                "circuit_id": "bahrain",
-            })
+            circuit_info = CIRCUIT_REGISTRY.get(
+                "2025_4",
+                {
+                    "total_laps": 57,
+                    "base_lap_time_ms": 95_800,
+                    "race_name": "Grand Prix",
+                    "circuit_id": "bahrain",
+                },
+            )
 
         circuit_id: str = circuit_info.get("circuit_id", "bahrain")
         race_name: str = circuit_info.get("race_name", "Grand Prix")
@@ -307,28 +323,30 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
         )
 
         # ── Send setup acknowledgement ─────────────────────────────────────────
-        await websocket.send_json({
-            "type": "setup_ack",
-            "race_id": race_id,
-            "circuit_name": race_name,
-            "circuit_id": circuit_id,
-            "total_laps": total_laps,
-            "base_lap_time_ms": base_lap_ms,
-            "user_driver_id": driver_id,
-            "user_display_name": get_display_name(driver_id),
-            "drivers": [
-                {
-                    "driver_id": d.driver_id,
-                    "display_name": d.display_name,
-                    "code": DRIVER_CODE.get(d.driver_id, d.driver_id[:3].upper()),
-                    "start_position": d.start_position,
-                    "start_compound": d.start_compound,
-                    "is_user": d.is_user,
-                    "team": TEAM_BY_DRIVER.get(d.driver_id, "Unknown"),
-                }
-                for d in lineup
-            ],
-        })
+        await websocket.send_json(
+            {
+                "type": "setup_ack",
+                "race_id": race_id,
+                "circuit_name": race_name,
+                "circuit_id": circuit_id,
+                "total_laps": total_laps,
+                "base_lap_time_ms": base_lap_ms,
+                "user_driver_id": driver_id,
+                "user_display_name": get_display_name(driver_id),
+                "drivers": [
+                    {
+                        "driver_id": d.driver_id,
+                        "display_name": d.display_name,
+                        "code": DRIVER_CODE.get(d.driver_id, d.driver_id[:3].upper()),
+                        "start_position": d.start_position,
+                        "start_compound": d.start_compound,
+                        "is_user": d.is_user,
+                        "team": TEAM_BY_DRIVER.get(d.driver_id, "Unknown"),
+                    }
+                    for d in lineup
+                ],
+            }
+        )
 
         # ── Initialise RaceRunner ──────────────────────────────────────────────
         runner = RaceRunner(
@@ -364,7 +382,11 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                 # Sort alternatives by probability
                 alternatives = sorted(
                     [
-                        {"action": i, "name": ACTION_NAMES[i], "prob": round(float(probs[i]), 4)}
+                        {
+                            "action": i,
+                            "name": ACTION_NAMES[i],
+                            "prob": round(float(probs[i]), 4),
+                        }
                         for i in range(7)
                         if i != rl_action
                     ],
@@ -374,26 +396,34 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                 pit_prob = float(probs[3:].sum())
                 confidence = float(probs[rl_action]) if rl_action < 3 else pit_prob
 
-                await websocket.send_json({
-                    "type": "prompt",
-                    "lap": int(info.get("lap_number", 1)),
-                    "reason": reason,
-                    "rl_action": rl_action,
-                    "rl_action_name": ACTION_NAMES[rl_action],
-                    "action_probs": [round(float(p), 4) for p in probs],
-                    "confidence": round(confidence, 4),
-                    "alternatives": alternatives,
-                    "current_state": {
-                        "position": info.get("position"),
-                        "compound": info.get("tire_compound"),
-                        "tire_age": info.get("tire_age_laps"),
-                        "fuel_kg": round(float(info.get("fuel_remaining_kg", 0)), 1),
-                        "gap_to_leader": round(float(info.get("gap_to_leader", 0)), 2),
-                        "gap_to_ahead": round(float(info.get("gap_to_ahead", 99)), 2),
-                        "safety_car": bool(info.get("safety_car", False)),
-                        "total_laps": total_laps,
-                    },
-                })
+                await websocket.send_json(
+                    {
+                        "type": "prompt",
+                        "lap": int(info.get("lap_number", 1)),
+                        "reason": reason,
+                        "rl_action": rl_action,
+                        "rl_action_name": ACTION_NAMES[rl_action],
+                        "action_probs": [round(float(p), 4) for p in probs],
+                        "confidence": round(confidence, 4),
+                        "alternatives": alternatives,
+                        "current_state": {
+                            "position": info.get("position"),
+                            "compound": info.get("tire_compound"),
+                            "tire_age": info.get("tire_age_laps"),
+                            "fuel_kg": round(
+                                float(info.get("fuel_remaining_kg", 0)), 1
+                            ),
+                            "gap_to_leader": round(
+                                float(info.get("gap_to_leader", 0)), 2
+                            ),
+                            "gap_to_ahead": round(
+                                float(info.get("gap_to_ahead", 99)), 2
+                            ),
+                            "safety_car": bool(info.get("safety_car", False)),
+                            "total_laps": total_laps,
+                        },
+                    }
+                )
 
                 # Wait for user decision (90s timeout → auto-accept)
                 try:
@@ -412,15 +442,17 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                     action = rl_action
                     accepted = True
 
-                decision_history.append({
-                    "lap": int(info.get("lap_number", 1)),
-                    "reason": reason,
-                    "rl_action": rl_action,
-                    "rl_action_name": ACTION_NAMES[rl_action],
-                    "user_action": action,
-                    "user_action_name": ACTION_NAMES[action],
-                    "accepted": accepted,
-                })
+                decision_history.append(
+                    {
+                        "lap": int(info.get("lap_number", 1)),
+                        "reason": reason,
+                        "rl_action": rl_action,
+                        "rl_action_name": ACTION_NAMES[rl_action],
+                        "user_action": action,
+                        "user_action_name": ACTION_NAMES[action],
+                        "accepted": accepted,
+                    }
+                )
                 prompt_count += 1
             else:
                 action = rl_action
@@ -434,7 +466,9 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                     {
                         "driver_id": rec.driver_id,
                         "display_name": rec.display_name,
-                        "code": DRIVER_CODE.get(rec.driver_id, rec.driver_id[:3].upper()),
+                        "code": DRIVER_CODE.get(
+                            rec.driver_id, rec.driver_id[:3].upper()
+                        ),
                         "position": rec.position,
                         "compound": rec.tire_compound,
                         "tire_age": rec.tire_age_laps,
@@ -486,22 +520,26 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
 
         # ── Build and send race result ─────────────────────────────────────────
         result = runner.result()
-        await websocket.send_json({
-            "type": "finished",
-            "final_standings": result.final_standings,
-            "strategy_summary": result.strategy_summary,
-            "user_final_position": result.user_final_position,
-            "total_laps": result.total_laps,
-            "circuit_name": race_name,
-            "decision_history": decision_history,
-        })
+        await websocket.send_json(
+            {
+                "type": "finished",
+                "final_standings": result.final_standings,
+                "strategy_summary": result.strategy_summary,
+                "user_final_position": result.user_final_position,
+                "total_laps": result.total_laps,
+                "circuit_name": race_name,
+                "decision_history": decision_history,
+            }
+        )
 
     except WebSocketDisconnect:
         logger.info("Race simulation WebSocket disconnected by client")
     except asyncio.TimeoutError:
         logger.warning("Race simulation WebSocket timed out")
         try:
-            await websocket.send_json({"type": "error", "message": "Connection timed out"})
+            await websocket.send_json(
+                {"type": "error", "message": "Connection timed out"}
+            )
         except Exception:
             pass
     except Exception as exc:
@@ -521,13 +559,15 @@ async def list_available_races() -> list[dict]:
     races = []
     for race_id, info in CIRCUIT_REGISTRY.items():
         if race_id.startswith("2025_"):
-            races.append({
-                "race_id": race_id,
-                "circuit_id": info.get("circuit_id", ""),
-                "race_name": info.get("race_name", ""),
-                "total_laps": info.get("total_laps", 57),
-                "base_lap_time_ms": info.get("base_lap_time_ms", 90_000),
-            })
+            races.append(
+                {
+                    "race_id": race_id,
+                    "circuit_id": info.get("circuit_id", ""),
+                    "race_name": info.get("race_name", ""),
+                    "total_laps": info.get("total_laps", 57),
+                    "base_lap_time_ms": info.get("base_lap_time_ms", 90_000),
+                }
+            )
     return sorted(races, key=lambda r: r["race_id"])
 
 
@@ -535,12 +575,15 @@ async def list_available_races() -> list[dict]:
 async def list_drivers() -> list[dict]:
     """Return available driver IDs with team and display info."""
     from ml.rl.driver_profiles import DEFAULT_GRID
+
     result = []
     for driver_id in DEFAULT_GRID:
-        result.append({
-            "driver_id": driver_id,
-            "display_name": get_display_name(driver_id),
-            "code": DRIVER_CODE.get(driver_id, driver_id[:3].upper()),
-            "team": TEAM_BY_DRIVER.get(driver_id, "Unknown"),
-        })
+        result.append(
+            {
+                "driver_id": driver_id,
+                "display_name": get_display_name(driver_id),
+                "code": DRIVER_CODE.get(driver_id, driver_id[:3].upper()),
+                "team": TEAM_BY_DRIVER.get(driver_id, "Unknown"),
+            }
+        )
     return result

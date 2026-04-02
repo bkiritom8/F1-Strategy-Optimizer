@@ -172,7 +172,9 @@ class F1RaceEnv(gym.Env):
             for did, rec in lap_records.items()
             if did != self._driver_id and rec.lap_time_ms > 0
         ]
-        field_median = float(sorted(field_laps)[len(field_laps) // 2]) if field_laps else 0.0
+        field_median = (
+            float(sorted(field_laps)[len(field_laps) // 2]) if field_laps else 0.0
+        )
 
         r = self._reward_fn.step(
             prev_position=self._prev_position,

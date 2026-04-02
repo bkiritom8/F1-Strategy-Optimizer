@@ -916,6 +916,7 @@ def main() -> None:
         logger.info("Local models/ not found — loading adapters from GCS…")
         try:
             from ml.rl.model_adapters import load_gcs_adapters
+
             adapters = load_gcs_adapters(bucket=GCS_MODELS_BUCKET)
             loaded = [k for k, v in adapters.items() if v.loaded]
             logger.info("GCS adapters loaded: %s", loaded)
@@ -957,8 +958,12 @@ def main() -> None:
         driver_id=args.driver_id,
         # Workers stream from GCS when no local models exist (preferred — avoids
         # committing large pkl files to the repo). Falls back to local disk if present.
-        gcs_models_bucket=None if (args.no_models or local_has_models) else GCS_MODELS_BUCKET,
-        models_dir=None if args.no_models else (models_dir if local_has_models else None),
+        gcs_models_bucket=(
+            None if (args.no_models or local_has_models) else GCS_MODELS_BUCKET
+        ),
+        models_dir=(
+            None if args.no_models else (models_dir if local_has_models else None)
+        ),
     )
 
     elapsed = time.time() - t0

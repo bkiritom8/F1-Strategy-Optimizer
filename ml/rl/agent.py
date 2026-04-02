@@ -113,6 +113,7 @@ class _EnvFactory:
 PROJECT_ID = os.environ.get("PROJECT_ID", "f1optimizer")
 MODELS_BUCKET = os.environ.get("MODELS_BUCKET", "gs://f1optimizer-models")
 
+
 # PPO hyperparameters — tuned for F1 discrete strategy (58-lap episodes)
 # Note: CPU is faster than GPU here — MLP with 29-dim obs is too small for
 # CUDA launch overhead to be worthwhile; env stepping is the bottleneck.
@@ -135,7 +136,9 @@ _PPO_KWARGS: dict[str, Any] = {
     "max_grad_norm": 0.5,
     "verbose": 1,
     "device": "cpu",  # MLP policy trains faster on CPU than GPU
-    "policy_kwargs": {"net_arch": [512, 512]},  # wider than [256,256] for richer features
+    "policy_kwargs": {
+        "net_arch": [512, 512]
+    },  # wider than [256,256] for richer features
 }
 
 
@@ -237,9 +240,11 @@ class F1StrategyAgent:
             if self._ppo.n_envs != n_envs:
                 logger.info(
                     "n_envs changed (%d→%d): reloading policy with new env",
-                    self._ppo.n_envs, n_envs,
+                    self._ppo.n_envs,
+                    n_envs,
                 )
                 import tempfile
+
                 with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
                     tmp_path = f.name
                 self._ppo.save(tmp_path)

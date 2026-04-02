@@ -723,7 +723,9 @@ class RaceResult:
 # Shared across all RaceRunner instances so there's no per-lap object creation.
 def _get_physics_adapters():
     from ml.rl.model_adapters import TireDegradationAdapter, FuelConsumptionAdapter
+
     return TireDegradationAdapter(None), FuelConsumptionAdapter(None)
+
 
 _PHYSICS_TIRE, _PHYSICS_FUEL = _get_physics_adapters()
 
@@ -885,11 +887,13 @@ class RaceRunner:
                 if d.driver_id == self._user_id:
                     ms = self._model_state_dict(state)
                     tire_deltas[d.driver_id] = (
-                        td_adapter.predict(ms) if td_adapter.loaded
+                        td_adapter.predict(ms)
+                        if td_adapter.loaded
                         else _PHYSICS_TIRE.predict(ms)
                     )
                     fuel_burns[d.driver_id] = (
-                        fuel_adapter.predict(ms) if fuel_adapter.loaded
+                        fuel_adapter.predict(ms)
+                        if fuel_adapter.loaded
                         else _PHYSICS_FUEL.predict(ms)
                     )
                 else:
@@ -903,7 +907,9 @@ class RaceRunner:
         else:
             # Full ML for all drivers (eval / non-training use)
             id_list = [d.driver_id for d in active]
-            ms_list = [self._model_state_dict(self._states[d.driver_id]) for d in active]
+            ms_list = [
+                self._model_state_dict(self._states[d.driver_id]) for d in active
+            ]
             if hasattr(td_adapter, "predict_batch") and td_adapter.loaded:
                 tire_deltas = dict(zip(id_list, td_adapter.predict_batch(ms_list)))
             else:
