@@ -1037,13 +1037,24 @@ def main() -> None:
 
     # ── Rollback check ────────────────────────────────────────────────────────
     baseline_policy = str(_REPO_ROOT / "models" / "rl" / "final_policy.zip")
-    deploy_model = compare_with_baseline(
-        new_avg_position=avg_pos,
-        baseline_path=baseline_policy,
-        adapters=adapters,
-        driver_id=args.driver_id,
-        start_pos=args.start_pos,
-    )
+    if args.resume:
+        # Fine-tuning run: the resumed policy was trained in a different
+        # environment (e.g. physics-only Phase 1 vs ML Phase 2). Comparing
+        # positions across environments is invalid — the baseline's VecNormalize
+        # was fitted on a different obs distribution, so its eval performance is
+        # meaningless. Always deploy the fine-tuned model.
+        logger.info(
+            "Resume mode: skipping baseline comparison — fine-tuned model auto-deployed"
+        )
+        deploy_model = True
+    else:
+        deploy_model = compare_with_baseline(
+            new_avg_position=avg_pos,
+            baseline_path=baseline_policy,
+            adapters=adapters,
+            driver_id=args.driver_id,
+            start_pos=args.start_pos,
+        )
 
     if deploy_model:
         # Copy to permanent models/rl/ directory
