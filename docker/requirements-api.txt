@@ -33,6 +33,7 @@ email-validator==2.1.0
 
 # Database
 pg8000==1.31.2
+redis>=5.0.0
 
 # ML model serving
 xgboost==2.0.3
