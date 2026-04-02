@@ -314,6 +314,7 @@ const RaceCommandCenter: React.FC = () => {
   const [mobileTowerOpen, setMobileTowerOpen] = useState(false);
   const [raceState, setRaceState] = useState<RaceState>(DEFAULT_RACE_STATE);
   const [telemetries, setTelemetries] = useState<DriverTelemetry[]>([]);
+  const [liveStrategy, setLiveStrategy] = useState<StrategyRecommendation | null>(null);
 
   useEffect(() => {
     if (drivers.length > 0 && !selectedDriverId) setSelectedDriverId(drivers[0].driver_id);
@@ -326,7 +327,27 @@ const RaceCommandCenter: React.FC = () => {
   useEffect(() => {
     if (!online) return;
     fetchRaceState('2024_1', 23)
-      .then(({ raceState: rs }) => setRaceState(prev => ({ ...prev, ...rs })))
+      .then(({ raceState: rs, driverStates }) => {
+        setRaceState(prev => ({ ...prev, ...rs }));
+        if (driverStates?.length) {
+          setTelemetries(prev =>
+            prev.map(t => {
+              const live = driverStates.find((d: any) => d.driver_id === t.driver_id);
+              if (!live) return t;
+              return {
+                ...t,
+                position: live.position ?? t.position,
+                gap_to_leader: live.gap_to_leader ?? t.gap_to_leader,
+                gap_to_ahead: live.gap_to_ahead ?? t.gap_to_ahead,
+                current_lap_time: live.lap_time_ms ? live.lap_time_ms / 1000 : t.current_lap_time,
+                tire_compound: live.tire_compound ?? t.tire_compound,
+                tire_age_laps: live.tire_age_laps ?? t.tire_age_laps,
+                fuel_remaining_kg: live.fuel_remaining_kg ?? t.fuel_remaining_kg,
+              };
+            })
+          );
+        }
+      })
       .catch(() => {});
   }, [online]);
 
@@ -351,7 +372,23 @@ const RaceCommandCenter: React.FC = () => {
 
   const selectedDriver = drivers.find(d => d.driver_id === selectedDriverId) || drivers[0];
   const selectedTelemetry = telemetries.find(t => t.driver_id === selectedDriverId) || telemetries[0];
-  const selectedStrategy = getMockStrategy(selectedDriverId);
+
+  useEffect(() => {
+    if (!online || !selectedDriverId) return;
+    fetchStrategyRecommendation({
+      race_id: raceState.race_id,
+      driver_id: selectedDriverId,
+      current_lap: raceState.current_lap,
+      current_compound: selectedTelemetry?.tire_compound ?? 'MEDIUM',
+      fuel_level: selectedTelemetry ? Math.min(1, selectedTelemetry.fuel_remaining_kg / 110) : 0.5,
+      track_temp: raceState.track_temp_celsius,
+      air_temp: raceState.air_temp_celsius,
+    })
+      .then(setLiveStrategy)
+      .catch(() => setLiveStrategy(null));
+  }, [online, selectedDriverId, raceState.current_lap]);
+
+  const selectedStrategy = liveStrategy ?? getMockStrategy(selectedDriverId);
 
   // Deterministic sector times based on selected driver
   const sectorData = useMemo(() => {

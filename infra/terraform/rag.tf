@@ -89,7 +89,7 @@ resource "google_cloud_run_v2_job" "rag_ingestion" {
     template {
       service_account = google_service_account.ingest.email
       max_retries     = 1
-      timeout         = "3600s"
+      timeout         = "86400s"
 
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/f1-optimizer/rag:latest"
