@@ -321,7 +321,16 @@ def load_all_documents(bucket: str) -> list[Document]:
     Logs progress every 100 files. Returns flat list of all Documents.
     """
     skip_patterns = [".ff1pkl", ".sqlite", ".pyc"]
-    skip_prefixes = ["rag/", "htmlcov/"]
+    skip_prefixes = ["rag/", "htmlcov/", "telemetry/", "ml_features/", "raw/telemetry/"]
+    skip_exact = {
+        "processed/fastf1_telemetry.parquet",
+        "processed/fastf1_laps.parquet",
+        "processed/telemetry_all.parquet",
+        "processed/telemetry_laps_all.parquet",
+        "processed/laps_all.parquet",
+        "raw/fastf1_telemetry.csv",
+        "raw/fastf1_laps.csv",
+    }
 
     try:
         client = storage.Client()
@@ -340,6 +349,8 @@ def load_all_documents(bucket: str) -> list[Document]:
         if any(name.endswith(pat) for pat in skip_patterns):
             continue
         if any(name.startswith(prefix) for prefix in skip_prefixes):
+            continue
+        if name in skip_exact:
             continue
 
         gcs_uri = f"gs://{bucket}/{name}"
@@ -371,7 +382,18 @@ def iter_gcs_uris(bucket: str):
     Used by the batched ingestion path to avoid loading all files into memory.
     """
     skip_patterns = [".ff1pkl", ".sqlite", ".pyc"]
-    skip_prefixes = ["rag/", "htmlcov/"]
+    # Skip RAG internals, coverage artifacts, raw telemetry (10Hz sensor data —
+    # not useful as retrieval context), and ML feature tables (numerical, not factual).
+    skip_prefixes = ["rag/", "htmlcov/", "telemetry/", "ml_features/", "raw/telemetry/"]
+    skip_exact = {
+        "processed/fastf1_telemetry.parquet",
+        "processed/fastf1_laps.parquet",
+        "processed/telemetry_all.parquet",
+        "processed/telemetry_laps_all.parquet",
+        "processed/laps_all.parquet",
+        "raw/fastf1_telemetry.csv",
+        "raw/fastf1_laps.csv",
+    }
 
     try:
         client = storage.Client()
@@ -385,6 +407,8 @@ def iter_gcs_uris(bucket: str):
         if any(name.endswith(pat) for pat in skip_patterns):
             continue
         if any(name.startswith(prefix) for prefix in skip_prefixes):
+            continue
+        if name in skip_exact:
             continue
         if name.endswith(".parquet"):
             yield f"gs://{bucket}/{name}", "parquet"
