@@ -14,7 +14,7 @@ from src.security.iam_simulator import iam_simulator, User, Permission
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 
 @router.get("/gcp_metrics")
