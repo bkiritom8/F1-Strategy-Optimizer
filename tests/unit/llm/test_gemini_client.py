@@ -155,10 +155,10 @@ def _make_fn_call_part(name: str, args: dict):
 
 
 def test_generate_with_tools_no_tool_call_returns_text():
-    """generate_with_tools returns model text when Gemini doesn't call any tool."""
+    """generate_with_tools returns model text for a non-simulation question (no eager tool call)."""
     client = _make_client()
 
-    text_part = _make_text_part("Hamilton would excel in Monaco's tight layout.")
+    text_part = _make_text_part("The safety car plays a huge role in Monaco strategy.")
     response = MagicMock()
     response.candidates = [MagicMock(content=MagicMock(parts=[text_part]))]
 
@@ -172,10 +172,35 @@ def test_generate_with_tools_no_tool_call_returns_text():
 
     with patch("src.llm.gemini_client.GenerativeModel", return_value=fake_model), \
          patch.object(client, "_ensure_initialized"):
+        # Pure knowledge question — no simulation keywords
+        result = client.generate_with_tools("Who won Monaco in 1984?", executor)
+
+    assert result == "The safety car plays a huge role in Monaco strategy."
+    executor.assert_not_called()
+
+
+def test_generate_with_tools_simulation_question_calls_executor_eagerly():
+    """generate_with_tools eagerly calls tool_executor for what-if/simulation questions."""
+    client = _make_client()
+
+    text_part = _make_text_part("Hamilton would excel in Monaco's tight layout.")
+    response = MagicMock()
+    response.candidates = [MagicMock(content=MagicMock(parts=[text_part]))]
+
+    fake_chat = MagicMock()
+    fake_chat.send_message.return_value = response
+
+    fake_model = MagicMock()
+    fake_model.start_chat.return_value = fake_chat
+
+    executor = MagicMock(return_value={"avg_lap_time_s": 73.2})
+
+    with patch("src.llm.gemini_client.GenerativeModel", return_value=fake_model), \
+         patch.object(client, "_ensure_initialized"):
         result = client.generate_with_tools("What if Hamilton was at McLaren?", executor)
 
     assert result == "Hamilton would excel in Monaco's tight layout."
-    executor.assert_not_called()
+    executor.assert_called_once()
 
 
 def test_generate_with_tools_passes_history_to_start_chat():
@@ -239,7 +264,9 @@ def test_generate_with_tools_executes_tool_and_returns_final_text():
         result = client.generate_with_tools("Simulate Monaco with Hamilton", executor)
 
     assert result == "Hamilton should pit on lap 41 for HARD tyres."
-    executor.assert_called_once_with("get_strategy_recommendation", dict(fn_part.function_call.args))
+    # executor is called at least once (eager pre-call + optional Gemini fn call)
+    assert executor.call_count >= 1
+    assert executor.call_args_list[-1][0][0] == "get_strategy_recommendation"
 
 
 # ── get_client singleton ─────────────────────────────────────────────────────
