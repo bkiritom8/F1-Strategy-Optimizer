@@ -60,7 +60,6 @@ class RagConfig(BaseSettings):
         Returns:
             bool: True if both required IDs are configured, False otherwise.
         """
-        return (
-            bool(self.VECTOR_SEARCH_INDEX_ID)
-            and bool(self.VECTOR_SEARCH_ENDPOINT_ID)
+        return bool(self.VECTOR_SEARCH_INDEX_ID) and bool(
+            self.VECTOR_SEARCH_ENDPOINT_ID
         )

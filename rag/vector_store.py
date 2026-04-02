@@ -82,7 +82,9 @@ def save_metadata(
         json.dumps(existing),
         content_type="application/json",
     )
-    logger.info(f"Saved metadata for {len(documents)} new documents (total: {len(existing)}) to gs://{bucket}/{gcs_path}")
+    logger.info(
+        f"Saved metadata for {len(documents)} new documents (total: {len(existing)}) to gs://{bucket}/{gcs_path}"
+    )
 
 
 def load_metadata(bucket: str, gcs_path: str) -> dict:
@@ -149,7 +151,11 @@ def upsert_vectors(
                 index.upsert_datapoints(datapoints=datapoints)
                 break
             except Exception as e:
-                if "429" in str(e) or "quota" in str(e).lower() or "ResourceExhausted" in str(e):
+                if (
+                    "429" in str(e)
+                    or "quota" in str(e).lower()
+                    or "ResourceExhausted" in str(e)
+                ):
                     wait = 60 * (attempt + 1)
                     logger.warning(
                         f"Vector Search quota hit on batch {i // batch_size + 1}, "
@@ -159,7 +165,9 @@ def upsert_vectors(
                 else:
                     raise
         else:
-            raise RuntimeError(f"Vector Search upsert failed after 5 retries at batch {i // batch_size + 1}")
+            raise RuntimeError(
+                f"Vector Search upsert failed after 5 retries at batch {i // batch_size + 1}"
+            )
 
         logger.info(
             f"Upserted batch {i // batch_size + 1} "

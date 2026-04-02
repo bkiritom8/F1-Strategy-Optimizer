@@ -45,16 +45,22 @@ def get_embeddings(
                 embeddings.extend([r.values for r in results])
                 break
             except Exception as e:
-                if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
+                if (
+                    "429" in str(e)
+                    or "quota" in str(e).lower()
+                    or "rate" in str(e).lower()
+                ):
                     if attempt < max_retries - 1:
-                        wait = retry_delay * (2 ** attempt)
+                        wait = retry_delay * (2**attempt)
                         logger.warning(
                             f"Rate limit hit on batch {i // batch_size + 1}, "
                             f"retrying in {wait}s (attempt {attempt + 1}/{max_retries})..."
                         )
                         time.sleep(wait)
                     else:
-                        logger.error(f"Rate limit exceeded after {max_retries} attempts")
+                        logger.error(
+                            f"Rate limit exceeded after {max_retries} attempts"
+                        )
                         raise
                 else:
                     raise
@@ -80,5 +86,7 @@ def embed_documents(
         return []
 
     texts = [doc.page_content for doc in documents]
-    vectors = get_embeddings(texts, batch_size=batch_size, sleep_seconds=sleep_seconds, model_name=model_name)
+    vectors = get_embeddings(
+        texts, batch_size=batch_size, sleep_seconds=sleep_seconds, model_name=model_name
+    )
     return list(zip(documents, vectors))
