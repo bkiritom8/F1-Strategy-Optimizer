@@ -141,6 +141,7 @@ class GeminiClient:
         question: str,
         context_docs: list = [],
         structured_inputs: dict | None = None,
+        sim_context: dict | None = None,
     ) -> str:
         """Assemble the full prompt from system message, optional context, and question."""
         parts = [SYSTEM_PROMPT]
@@ -165,6 +166,17 @@ class GeminiClient:
                 ]
                 if context_pairs:
                     parts.append("\nRace Context:\n" + " | ".join(context_pairs))
+
+        if sim_context:
+            parts.append(
+                "\n\n**Monte Carlo Simulation Result (50 trials):**\n"
+                f"- P10 finish: P{sim_context.get('p10_finish', '?')}\n"
+                f"- P50 finish: P{sim_context.get('p50_finish', '?')}\n"
+                f"- P90 finish: P{sim_context.get('p90_finish', '?')}\n"
+                f"- Winner: {sim_context.get('winner', '?')}\n"
+                f"- Fastest lap: {sim_context.get('fastest_lap', '?')}\n"
+                f"- Safety cars: {sim_context.get('safety_cars', 0)}"
+            )
 
         parts.append(f"\nQuestion: {question}")
         parts.append("\nAnswer:")
