@@ -55,31 +55,49 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     # ── Circuit-specific base lap times (seconds) ──────────────────────────────
     circuit_key = race_id.split("_")[-1].lower() if "_" in race_id else "default"
     _BASE_TIMES: dict[str, float] = {
-        "monaco": 72.9, "monza": 81.5, "spa": 105.8, "silverstone": 88.2,
-        "bahrain": 93.4, "suzuka": 91.6, "singapore": 99.4, "default": 90.0,
+        "monaco": 72.9,
+        "monza": 81.5,
+        "spa": 105.8,
+        "silverstone": 88.2,
+        "bahrain": 93.4,
+        "suzuka": 91.6,
+        "singapore": 99.4,
+        "default": 90.0,
     }
     base_lap_time = _BASE_TIMES.get(circuit_key, _BASE_TIMES["default"])
 
     # ── Sector split ratios (S1, S2, S3 as fraction of lap) ───────────────────
     _SECTOR_SPLITS: dict[str, tuple[float, float, float]] = {
-        "monaco":      (0.265, 0.500, 0.235),
-        "monza":       (0.330, 0.345, 0.325),
-        "spa":         (0.310, 0.415, 0.275),
+        "monaco": (0.265, 0.500, 0.235),
+        "monza": (0.330, 0.345, 0.325),
+        "spa": (0.310, 0.415, 0.275),
         "silverstone": (0.295, 0.390, 0.315),
-        "bahrain":     (0.305, 0.380, 0.315),
-        "default":     (0.300, 0.400, 0.300),
+        "bahrain": (0.305, 0.380, 0.315),
+        "default": (0.300, 0.400, 0.300),
     }
-    s1_frac, s2_frac, s3_frac = _SECTOR_SPLITS.get(circuit_key, _SECTOR_SPLITS["default"])
+    s1_frac, s2_frac, s3_frac = _SECTOR_SPLITS.get(
+        circuit_key, _SECTOR_SPLITS["default"]
+    )
 
     # ── Compound performance delta (seconds per lap vs MEDIUM baseline) ────────
-    _COMPOUND_DELTA = {"SOFT": -0.6, "MEDIUM": 0.0, "HARD": +0.55,
-                       "INTERMEDIATE": +2.5, "WET": +5.0}
+    _COMPOUND_DELTA = {
+        "SOFT": -0.6,
+        "MEDIUM": 0.0,
+        "HARD": +0.55,
+        "INTERMEDIATE": +2.5,
+        "WET": +5.0,
+    }
     compound_delta = _COMPOUND_DELTA.get(compound, 0.0)
 
     # ── Tire degradation: seconds lost per lap on current compound ─────────────
     tire_age = int(args.get("tire_age_laps", lap))
-    _DEG_RATE = {"SOFT": 0.065, "MEDIUM": 0.042, "HARD": 0.028,
-                 "INTERMEDIATE": 0.050, "WET": 0.045}
+    _DEG_RATE = {
+        "SOFT": 0.065,
+        "MEDIUM": 0.042,
+        "HARD": 0.028,
+        "INTERMEDIATE": 0.050,
+        "WET": 0.045,
+    }
     deg_rate = _DEG_RATE.get(compound, 0.042)
     deg_penalty = deg_rate * tire_age
 
@@ -89,7 +107,9 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     # ── Fuel load correction (fuel burn ~0.12s/kg, ~2.3 kg/lap at start) ──────
     fuel_penalty = fuel_level * 0.45  # heavier car = slower
 
-    avg_lap_time = base_lap_time + compound_delta + deg_penalty + temp_correction + fuel_penalty
+    avg_lap_time = (
+        base_lap_time + compound_delta + deg_penalty + temp_correction + fuel_penalty
+    )
 
     # ── Sector times ───────────────────────────────────────────────────────────
     sector_1 = round(avg_lap_time * s1_frac, 3)
@@ -97,16 +117,27 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     sector_3 = round(avg_lap_time - sector_1 - sector_2, 3)
 
     # ── Pit strategy decision ──────────────────────────────────────────────────
-    total_laps = {"monaco": 78, "monza": 53, "spa": 44, "silverstone": 52,
-                  "bahrain": 57, "default": 57}.get(circuit_key, 57)
+    total_laps = {
+        "monaco": 78,
+        "monza": 53,
+        "spa": 44,
+        "silverstone": 52,
+        "bahrain": 57,
+        "default": 57,
+    }.get(circuit_key, 57)
     remaining = total_laps - lap
     # Pit when tires older than compound-specific cliff (laps)
     _CLIFF = {"SOFT": 18, "MEDIUM": 28, "HARD": 38}
     cliff = _CLIFF.get(compound, 28)
     pit_soon = tire_age >= cliff or (remaining > 15 and deg_rate * (remaining) > 1.5)
 
-    _NEXT_COMPOUND = {"SOFT": "MEDIUM", "MEDIUM": "HARD", "HARD": "MEDIUM",
-                      "INTERMEDIATE": "SOFT", "WET": "INTERMEDIATE"}
+    _NEXT_COMPOUND = {
+        "SOFT": "MEDIUM",
+        "MEDIUM": "HARD",
+        "HARD": "MEDIUM",
+        "INTERMEDIATE": "SOFT",
+        "WET": "INTERMEDIATE",
+    }
     next_compound = _NEXT_COMPOUND.get(compound, "HARD")
 
     # ── Projected finish position ──────────────────────────────────────────────
@@ -120,7 +151,9 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     remaining_lap_time = base_lap_time + next_compound_delta + temp_correction
     pit_stop_time = 22.5  # Monaco pit lane loss ~22.5s
     pit_count = 1 if pit_soon or lap > cliff else 0
-    total_race_time = laps_done_time + remaining * remaining_lap_time + pit_count * pit_stop_time
+    total_race_time = (
+        laps_done_time + remaining * remaining_lap_time + pit_count * pit_stop_time
+    )
 
     return {
         "race_id": race_id,
