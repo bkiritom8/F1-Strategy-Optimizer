@@ -6,6 +6,59 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# text-embedding-004: max 2 048 tokens per input, 20 000 tokens per batch.
+# 1 500 chars ≈ 375 tokens — first-pass per-text guard before sending to the API.
+_MAX_CHARS = 1500
+
+
+def _is_token_limit_error(e: Exception) -> bool:
+    err = str(e).lower()
+    return "token count" in err or "input token" in err
+
+
+def _embed_batch_with_split(
+    model: "TextEmbeddingModel",
+    batch: list[str],
+    sleep_seconds: float,
+    depth: int = 0,
+) -> list[list[float]]:
+    """
+    Embed a batch of texts. If the batch exceeds the model's token limit
+    (400 InvalidArgument), split it in half and retry each half recursively.
+    Single-text batches that still exceed the limit are hard-truncated to
+    _MAX_CHARS // (2 ** depth) characters before re-embedding.
+    """
+    if not batch:
+        return []
+    try:
+        results = model.get_embeddings(batch)
+        return [r.values for r in results]
+    except Exception as e:
+        if _is_token_limit_error(e):
+            if len(batch) > 1:
+                mid = len(batch) // 2
+                logger.warning(
+                    f"Token limit exceeded for batch of {len(batch)} texts — "
+                    f"splitting into {mid} + {len(batch) - mid} and retrying"
+                )
+                left = _embed_batch_with_split(model, batch[:mid], sleep_seconds, depth)
+                right = _embed_batch_with_split(model, batch[mid:], sleep_seconds, depth)
+                return left + right
+            else:
+                # Single text still too long — truncate harder and retry once
+                truncated = batch[0][: _MAX_CHARS // max(1, 2**depth)]
+                if not truncated:
+                    logger.error("Text reduced to empty after truncation, skipping")
+                    raise
+                logger.warning(
+                    f"Single text too long at depth {depth} — truncating to "
+                    f"{len(truncated)} chars and retrying"
+                )
+                return _embed_batch_with_split(
+                    model, [truncated], sleep_seconds, depth + 1
+                )
+        raise
+
 
 def get_embeddings(
     texts: list[str],
@@ -28,9 +81,8 @@ def get_embeddings(
     model = TextEmbeddingModel.from_pretrained(model_name)
     embeddings: list[list[float]] = []
 
-    # text-embedding-004: max 20 000 tokens per batch, 2 048 tokens per input.
-    # Truncate each text to 1 500 chars (~375 tokens) to stay well within limits.
-    _MAX_CHARS = 1500
+    # First-pass per-text truncation. _embed_batch_with_split handles any
+    # batches that still exceed the 20K token limit by splitting recursively.
     texts = [t[:_MAX_CHARS] if len(t) > _MAX_CHARS else t for t in texts]
 
     for i in range(0, len(texts), batch_size):
@@ -41,8 +93,7 @@ def get_embeddings(
         retry_delay = sleep_seconds
         for attempt in range(max_retries):
             try:
-                results = model.get_embeddings(batch)
-                embeddings.extend([r.values for r in results])
+                embeddings.extend(_embed_batch_with_split(model, batch, sleep_seconds))
                 break
             except Exception as e:
                 if (
