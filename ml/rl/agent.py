@@ -299,7 +299,7 @@ class F1StrategyAgent:
         self._ppo.learn(
             total_timesteps=total_timesteps,
             callback=CallbackList(callbacks),
-            progress_bar=True,
+            progress_bar=False,
         )
         logger.info("Training complete")
 

@@ -390,7 +390,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                         for i in range(7)
                         if i != rl_action
                     ],
-                    key=lambda x: -x["prob"],
+                    key=lambda x: -float(x["prob"]),
                 )[:3]
 
                 pit_prob = float(probs[3:].sum())
