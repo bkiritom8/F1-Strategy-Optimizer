@@ -81,3 +81,9 @@ variable "labels" {
   type        = map(string)
   default     = {}
 }
+
+variable "secret_env_vars" {
+  description = "Secret Manager secrets injected as env vars: map of env var name to secret resource ID"
+  type        = map(string)
+  default     = {}
+}

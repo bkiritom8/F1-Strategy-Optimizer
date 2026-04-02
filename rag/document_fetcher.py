@@ -619,6 +619,7 @@ _REGULATION_DOCS: list[dict] = [
 
 # ── Public API ──────────────────────────────────────────────────────────────────
 
+
 def fetch_all_text_documents(
     bucket: str = "",
     force_refresh: bool = False,

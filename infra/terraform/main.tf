@@ -11,6 +11,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 
   backend "gcs" {
@@ -47,7 +51,8 @@ resource "google_project_service" "required_apis" {
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     "artifactregistry.googleapis.com",
-    "cloudbuild.googleapis.com"
+    "cloudbuild.googleapis.com",
+    "secretmanager.googleapis.com",
   ])
 
   service            = each.value
@@ -90,6 +95,37 @@ module "dataflow" {
 }
 
 # Cloud Run Services
+# ── JWT secret ────────────────────────────────────────────────────────────────
+resource "random_password" "jwt_secret" {
+  length  = 64
+  special = false
+}
+
+resource "google_secret_manager_secret" "jwt_secret_key" {
+  secret_id = "jwt-secret-key"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "jwt_secret_key" {
+  secret      = google_secret_manager_secret.jwt_secret_key.id
+  secret_data = random_password.jwt_secret.result
+}
+
+# Grant the default Cloud Run compute SA access to read the secret
+resource "google_secret_manager_secret_iam_member" "cloud_run_jwt_access" {
+  secret_id = google_secret_manager_secret.jwt_secret_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+
+  depends_on = [google_secret_manager_secret.jwt_secret_key]
+}
+
 module "cloud_run" {
   source = "./modules/compute"
 
@@ -125,6 +161,10 @@ module "cloud_run" {
     VECTOR_SEARCH_INDEX_ID          = google_vertex_ai_index.rag.id
     VECTOR_SEARCH_ENDPOINT_ID       = google_vertex_ai_index_endpoint.rag.id
     VECTOR_SEARCH_DEPLOYED_INDEX_ID = google_vertex_ai_index_endpoint_deployed_index.rag.deployed_index_id
+  }
+
+  secret_env_vars = {
+    JWT_SECRET_KEY = google_secret_manager_secret.jwt_secret_key.secret_id
   }
 
   labels = local.common_labels
@@ -311,6 +351,10 @@ resource "google_monitoring_alert_policy" "api_error_rate" {
   alert_strategy {
     auto_close = "1800s"
   }
+
+  # Explicit dependency ensures the alert policy is updated/destroyed before
+  # notification channels are deleted, avoiding the "still referenced" 400 error.
+  depends_on = [google_monitoring_notification_channel.email]
 }
 
 
@@ -376,43 +420,46 @@ resource "google_project_iam_member" "training_sa_storage_admin" {
   member  = "serviceAccount:${google_service_account.training_sa.email}"
 }
 
-# ── Cloud Build trigger — pipeline branch ──────────────────────────────────
-# Requires the Cloud Build GitHub App to be connected first (OAuth step in
-# the GCP Console — one-time). Until then this resource stays commented out.
-#
-# SETUP STEPS:
-#   1. Cloud Build → Triggers → Connect Repository
-#   2. Select "GitHub (Cloud Build GitHub App)" → authenticate
-#   3. Select bkiritom8/F1-Strategy-Optimizer → Done
-#   4. Then uncomment the resource block below and run:
-#        terraform -chdir=infra/terraform apply -var-file=dev.tfvars
-#
-# resource "google_cloudbuild_trigger" "pipeline_branch" {
-#   project     = var.project_id
-#   name        = "pipeline-branch-trigger"
-#   description = "Build, train, validate, deploy — backend changes on pipeline branch only"
-#   location    = "global"
-#
-#   github {
-#     owner = "bkiritom8"
-#     name  = "F1-Strategy-Optimizer"
-#     push {
-#       branch = "^pipeline$"
-#     }
-#   }
-#
-#   included_files = [
-#     "src/**", "ml/**", "docker/**",
-#     "cloudbuild/**", "cloudbuild.yaml", "requirements*.txt",
-#   ]
-#
-#   ignored_files = [
-#     "frontend/**", "docs/**", "**/*.md", ".github/**", "infra/**",
-#   ]
-#
-#   filename   = "cloudbuild.yaml"
-#   depends_on = [google_project_service.required_apis]
-# }
+# ── Cloud Build trigger — pipeline branch only, backend files only ──────────
+# Uses the 2nd-gen GitHub connection already wired in GCP.
+# Import before first apply:
+#   terraform -chdir=infra/terraform import \
+#     google_cloudbuild_trigger.pipeline_branch \
+#     projects/f1optimizer/locations/us-central1/triggers/6f463d4b-8f1b-49f2-9e96-28364d5bab1e
+resource "google_cloudbuild_trigger" "pipeline_branch" {
+  project     = var.project_id
+  name        = "f1-api-docker-build"
+  location    = "us-central1"
+  filename    = "cloudbuild.yaml"
+
+  service_account = "projects/${var.project_id}/serviceAccounts/694267183904-compute@developer.gserviceaccount.com"
+
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/us-central1/connections/Github/repositories/bkiritom8-F1-Strategy-Optimizer"
+    push {
+      branch = "^pipeline$"
+    }
+  }
+
+  included_files = [
+    "src/**",
+    "ml/**",
+    "docker/**",
+    "cloudbuild/**",
+    "cloudbuild.yaml",
+    "requirements*.txt",
+  ]
+
+  ignored_files = [
+    "frontend/**",
+    "docs/**",
+    "**/*.md",
+    ".github/**",
+    "infra/**",
+  ]
+
+  depends_on = [google_project_service.required_apis]
+}
 
 # Outputs
 output "api_service_url" {
