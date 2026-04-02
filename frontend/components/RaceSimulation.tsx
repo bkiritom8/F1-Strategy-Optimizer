@@ -703,7 +703,7 @@ const RaceResults: React.FC<{
             <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold"
               style={{ backgroundColor: `${COMPOUND_COLORS[stint.compound.toUpperCase()] ?? '#888'}20`, color: COMPOUND_COLORS[stint.compound.toUpperCase()] ?? '#888' }}>
               {compoundDot(stint.compound, 8)}
-              {stint.compound.slice(0, 1)} — {stint.laps}L
+              {stint.compound.slice(0, 1)} - {stint.laps}L
             </div>
           ))}
         </div>
@@ -833,7 +833,7 @@ const RaceSimulation: React.FC = () => {
   const simContext = useMemo(() => {
     if (laps.length === 0) return '';
     const last = laps[laps.length - 1];
-    return `[Simulation context — Lap ${last.lap}/${totalLaps}, ${raceName}] `
+    return `[Simulation context - Lap ${last.lap}/${totalLaps}, ${raceName}] `
       + `Driver: ${selectedDriver.name}, P${last.user.position}, `
       + `${last.user.compound} tires age ${last.user.tire_age}L, `
       + `fuel ${last.user.fuel_kg.toFixed(0)}kg, `
@@ -918,7 +918,7 @@ const RaceSimulation: React.FC = () => {
       else if (msg.type === 'prompt') {
         setPhase('prompt');
         setActivePrompt(msg as PromptState);
-        setStatusMsg(`Strategy decision required — Lap ${msg.lap}`);
+        setStatusMsg(`Strategy decision required - Lap ${msg.lap}`);
       }
 
       else if (msg.type === 'finished') {
@@ -936,7 +936,7 @@ const RaceSimulation: React.FC = () => {
     };
 
     ws.onerror = () => {
-      setStatusMsg('WebSocket error — check the backend is running');
+      setStatusMsg('WebSocket error - check the backend is running');
       setPhase('setup');
     };
 
@@ -995,7 +995,7 @@ const RaceSimulation: React.FC = () => {
         {/* Section header */}
         <div>
           <h3 className="text-sm font-display font-bold uppercase tracking-widest text-white/40">Race Simulation Setup</h3>
-          <p className="text-[10px] font-mono text-white/20 mt-1">Configure your driver, circuit, and starting strategy — then race against AI with RL strategy suggestions</p>
+          <p className="text-[10px] font-mono text-white/20 mt-1">Configure your driver, circuit, and starting strategy - then race against AI with RL strategy suggestions</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

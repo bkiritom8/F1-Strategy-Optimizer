@@ -41,7 +41,7 @@ const RacingBackground: React.FC<RacingBackgroundProps> = ({ view, theme }) => {
     const isSim = view === 'sim';
     const isCommand = view === 'command';
     
-    const baseSpeed = isChat ? 0.3 : isSim ? 0.8 : isProfile ? 1.2 : isCommand ? 2.5 : 1.5;
+    const baseSpeed = isChat ? 0.6 : isSim ? 1.6 : isProfile ? 2.4 : isCommand ? 4.5 : 3.0;
     const particleOpacity = isChat ? 0.03 : 0.06;
     
     // Light mode car colors need to be slightly darker/more vibrant for contrast

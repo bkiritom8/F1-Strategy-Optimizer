@@ -1,9 +1,21 @@
+/**
+ * @file DriverCard.tsx
+ * @description Compact telemetry card for the selected driver in RaceCommandCenter.
+ *
+ * Redesign goals (2026-04):
+ *  - Full driver name + code visible without truncation (using driver.code as
+ *    the headline, team name and full name as subtitle)
+ *  - All stat labels fully readable — no truncation
+ *  - Horizontal stat rows instead of small grid chips
+ *  - ERS, Fuel, and AI Tactical Overlay consolidated in a tighter layout
+ *  - Responsive: works well at any column width from 280px upward
+ */
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { DriverTelemetry, DriverProfile, StrategyRecommendation } from '../types';
+import type { DriverTelemetry, DriverProfile, StrategyRecommendation } from '../types';
 import { COLORS, TEAM_COLORS } from '../constants';
-import { Zap, Thermometer, Fuel, Wind, ChevronRight, Activity } from 'lucide-react';
+import { Zap, Thermometer, Fuel, Wind, Activity } from 'lucide-react';
 import ConceptTooltip from './ConceptTooltip';
 
 interface DriverCardProps {
@@ -12,121 +24,177 @@ interface DriverCardProps {
   strategy: StrategyRecommendation | null;
 }
 
-const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) => {
-  // F1 cars start with ~110kg max. We'll use 110 as the baseline for the gauge.
-  const maxFuel = 110;
-  const fuelPercentage = (telemetry.fuel_remaining_kg / maxFuel) * 100;
-  
-  const getFuelColor = (pct: number) => {
-    if (pct > 30) return COLORS.accent.green;
-    if (pct > 10) return COLORS.accent.yellow;
-    return COLORS.accent.red;
-  };
+/** Inline bar stat row — full label, no truncation. */
+const StatRow: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  color: string;
+  pct?: number; // 0-100, renders bar if provided
+}> = ({ icon, label, value, color, pct }) => (
+  <div className="flex items-center gap-3 py-2 border-b border-white/[0.04] last:border-0">
+    <div className="shrink-0" style={{ color }}>{icon}</div>
+    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex-1">{label}</span>
+    <div className="flex items-center gap-2">
+      {pct !== undefined && (
+        <div className="w-16 h-1.5 rounded-full overflow-hidden bg-white/5">
+          <motion.div
+            className="h-full rounded-full"
+            style={{ backgroundColor: color }}
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(pct, 100)}%` }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+          />
+        </div>
+      )}
+      <span className="text-[12px] font-mono font-bold tabular-nums" style={{ color }}>{value}</span>
+    </div>
+  </div>
+);
 
-  const fuelColor = getFuelColor(fuelPercentage);
+const DriverCard: React.FC<DriverCardProps> = ({ telemetry, driver, strategy }) => {
+  const maxFuel = 110;
+  const fuelPct = Math.min((telemetry.fuel_remaining_kg / maxFuel) * 100, 100);
+
+  const fuelColor =
+    fuelPct > 30 ? COLORS.accent.green : fuelPct > 10 ? COLORS.accent.yellow : COLORS.accent.red;
+
+  // Prefer driver.code (3-letter) as headline, fall back to first word of name
+  const headline = driver.code ?? driver.name.split(' ')[0];
+  const teamColor = TEAM_COLORS[driver.team] ?? '#888';
 
   return (
-    <div className="rounded-xl p-5 border shadow-2xl relative overflow-hidden min-h-[420px]" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-      <div 
-        className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none" 
-        style={{ background: `radial-gradient(circle at top right, ${TEAM_COLORS[driver.team]}, transparent)` }} 
+    <div
+      className="rounded-xl border shadow-2xl relative overflow-hidden"
+      style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
+    >
+      {/* Team colour accent top bar */}
+      <div className="h-1 w-full" style={{ backgroundColor: teamColor }} />
+
+      {/* Team glow in corner */}
+      <div
+        className="absolute top-0 right-0 w-40 h-40 opacity-10 pointer-events-none"
+        style={{ background: `radial-gradient(circle at top right, ${teamColor}, transparent)` }}
       />
-      
-      {/* Header Info */}
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h2 className="text-3xl font-display font-bold leading-none">{driver.name}</h2>
-          <p className="text-gray-500 font-medium uppercase tracking-widest text-xs mt-1">{driver.team}</p>
-        </div>
-        <div className="text-right">
-          <div className="text-4xl font-mono font-bold text-accent-red leading-none">P{telemetry.position}</div>
-          <div className="text-[10px] text-gray-500 mt-1 uppercase">Interval: +{telemetry.gap_to_ahead.toFixed(2)}s</div>
-        </div>
-      </div>
 
-      {/* Grid of Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <StatItem icon={<Wind className="w-4 h-4" />} label="Aero Loss" value={`${telemetry.aero_loss_percent.toFixed(2)}%`} color={telemetry.aero_loss_percent > 10 ? COLORS.accent.red : COLORS.accent.blue} />
-        <StatItem icon={<Fuel className="w-4 h-4" />} label="Fuel" value={`${telemetry.fuel_remaining_kg.toFixed(2)} KG`} color={fuelColor} />
-        <StatItem icon={<Thermometer className="w-4 h-4" />} label="Tire Age" value={`${telemetry.tire_age_laps} LAPS`} color={COLORS.tires[telemetry.tire_compound]} />
-        <StatItem icon={<Zap className="w-4 h-4 text-purple-500" />} label="ERS Energy" value={`${telemetry.ers_deployment.toFixed(2)}%`} color={COLORS.accent.purple} />
-        <StatItem icon={<Activity className="w-4 h-4 text-orange-500" />} label="G-Force" value={`${telemetry.g_force_lateral.toFixed(2)}G`} color="#FB923C" />
-      </div>
-
-      {/* Energy & Fuel Management Bars */}
-      <div className="space-y-4 mb-6">
-        {/* ERS Bar */}
-        <div className="rounded-lg p-3 border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-          <div className="flex justify-between items-center mb-2">
-            <ConceptTooltip term="ERS">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter flex items-center gap-1">
-                <Zap className="w-3 h-3 text-purple-500" /> ERS Mode: {telemetry.ers_mode}
-              </span>
-            </ConceptTooltip>
-            <span className="text-[10px] text-purple-400 font-mono">{telemetry.ers_deployment.toFixed(0)}%</span>
+      <div className="p-4">
+        {/* ── Header: Code + Position ──────────────────────────── */}
+        <div className="flex justify-between items-start mb-3">
+          <div className="min-w-0">
+            {/* Code as big headline */}
+            <div className="text-2xl font-display font-black uppercase tracking-tight text-white leading-none">
+              {headline}
+            </div>
+            {/* Full name beneath */}
+            <div className="text-xs text-gray-400 font-medium mt-0.5 truncate max-w-[160px]">
+              {driver.name}
+            </div>
+            <div
+              className="text-[10px] font-bold uppercase tracking-widest mt-0.5"
+              style={{ color: teamColor }}
+            >
+              {driver.team}
+            </div>
           </div>
-          <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${telemetry.ers_deployment}%` }}
-              className="h-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" 
-            />
+          <div className="text-right shrink-0">
+            <div
+              className="text-4xl font-mono font-black leading-none"
+              style={{ color: COLORS.accent.red }}
+            >
+              P{telemetry.position}
+            </div>
+            <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">
+              +{telemetry.gap_to_ahead.toFixed(2)}s gap
+            </div>
           </div>
         </div>
 
-        {/* Fuel Gauge Bar */}
-        <div className="rounded-lg p-3 border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter flex items-center gap-1">
-              <Fuel className="w-3 h-3" style={{ color: fuelColor }} /> Fuel Status
+        {/* ── Telemetry Stats (rows, no truncation) ───────────── */}
+        <div
+          className="rounded-lg px-3 py-1 mb-3 border"
+          style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}
+        >
+          <StatRow
+            icon={<Wind className="w-3.5 h-3.5" />}
+            label="Aero Loss"
+            value={`${telemetry.aero_loss_percent.toFixed(1)}%`}
+            color={telemetry.aero_loss_percent > 10 ? COLORS.accent.red : COLORS.accent.blue}
+            pct={telemetry.aero_loss_percent * 4}
+          />
+          <StatRow
+            icon={<Fuel className="w-3.5 h-3.5" />}
+            label="Fuel Remaining"
+            value={`${telemetry.fuel_remaining_kg.toFixed(1)} kg`}
+            color={fuelColor}
+            pct={fuelPct}
+          />
+          <StatRow
+            icon={<Thermometer className="w-3.5 h-3.5" />}
+            label="Tire Age"
+            value={`${telemetry.tire_age_laps} laps`}
+            color={COLORS.tires?.[telemetry.tire_compound] ?? '#aaa'}
+            pct={Math.min(telemetry.tire_age_laps * 3, 100)}
+          />
+          <StatRow
+            icon={<Zap className="w-3.5 h-3.5" />}
+            label="ERS Energy"
+            value={`${telemetry.ers_deployment.toFixed(0)}%`}
+            color={COLORS.accent.purple}
+            pct={telemetry.ers_deployment}
+          />
+          <StatRow
+            icon={<Activity className="w-3.5 h-3.5" />}
+            label="Lateral G-Force"
+            value={`${telemetry.g_force_lateral.toFixed(2)} G`}
+            color="#FB923C"
+          />
+        </div>
+
+        {/* ── ERS Mode pill ────────────────────────────────────── */}
+        <div
+          className="rounded-lg px-3 py-2 border flex items-center justify-between mb-3"
+          style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}
+        >
+          <ConceptTooltip term="ERS">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+              <Zap className="w-3 h-3 text-purple-400" /> ERS Mode
             </span>
-            <span className="text-[10px] font-mono" style={{ color: fuelColor }}>{fuelPercentage.toFixed(2)}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${fuelPercentage}%` }}
-              style={{ backgroundColor: fuelColor }}
-              className="h-full shadow-[0_0_10px_rgba(255,255,255,0.1)]" 
-            />
-          </div>
-          <div className="flex justify-between mt-2">
-             <span className="text-[8px] text-gray-600 font-bold uppercase">Target: {strategy ? strategy.driving_style.fuel_target_kg_per_lap.toFixed(2) : '--'} kg/L</span>
-             <span className="text-[8px] text-gray-600 font-bold uppercase">Rem: {telemetry.fuel_remaining_kg.toFixed(1)}kg</span>
-          </div>
+          </ConceptTooltip>
+          <span className="text-xs font-mono font-bold text-purple-400">{telemetry.ers_mode}</span>
         </div>
-      </div>
 
-      {/* Recommended Strategy Badge */}
-      <div className="border rounded-lg p-3" style={{ backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)' }}>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-bold text-accent-green uppercase tracking-tighter">AI Tactical Overlay</span>
-        </div>
-        <div className="flex justify-between items-end">
-          <div>
-            <div className="text-xl font-display font-bold text-white uppercase tracking-wider">{strategy ? strategy.driving_style.mode : '—'}</div>
-            <div className="text-[10px] text-gray-500 max-w-[200px] leading-tight mt-1">{strategy ? strategy.driving_style.reason : 'Strategy data unavailable'}</div>
+        {/* ── AI Tactical Overlay ──────────────────────────────── */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{ backgroundColor: 'var(--bg-secondary)', borderColor: `${COLORS.accent.green}33` }}
+        >
+          <div className="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-2">
+            AI Tactical Overlay
           </div>
-          <div className="text-right">
-             <div className="text-xs font-mono text-gray-400 uppercase">Target {strategy ? strategy.driving_style.ers_target_mode : '—'}</div>
-             <ConceptTooltip term="Brake Bias">
-               <div className="text-sm font-bold text-white">Target BB: {strategy ? strategy.brake_bias.recommended_bias.toFixed(2) : '--'}%</div>
-             </ConceptTooltip>
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-base font-display font-black text-white uppercase">
+                {strategy?.driving_style.mode ?? '-'}
+              </div>
+              <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
+                {strategy?.driving_style.reason ?? 'No strategy data'}
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-[9px] font-mono text-gray-500 uppercase">
+                Target {strategy?.driving_style.ers_target_mode ?? '-'}
+              </div>
+              <ConceptTooltip term="Brake Bias">
+                <div className="text-xs font-bold text-white">
+                  BB: {strategy?.brake_bias.recommended_bias.toFixed(0) ?? '--'}%
+                </div>
+              </ConceptTooltip>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-const StatItem = ({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) => (
-  <div className="rounded-lg p-2 border hover:bg-black/5 transition-colors" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-    <div className="flex items-center gap-1.5 mb-1" style={{ color }}>
-      <div className="shrink-0">{icon}</div>
-      <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500 truncate">{label}</span>
-    </div>
-    <div className="text-lg font-mono font-bold truncate">{value}</div>
-  </div>
-);
 
 export default DriverCard;
