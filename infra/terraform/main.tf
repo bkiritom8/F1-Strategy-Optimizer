@@ -377,52 +377,42 @@ resource "google_project_iam_member" "training_sa_storage_admin" {
 }
 
 # ── Cloud Build trigger — pipeline branch ──────────────────────────────────
-# Fires only when backend-relevant files change on the pipeline branch.
-# This prevents frontend/doc-only pushes from triggering a full model retrain
-# and Cloud Run redeploy.
+# Requires the Cloud Build GitHub App to be connected first (OAuth step in
+# the GCP Console — one-time). Until then this resource stays commented out.
 #
-# FIRST-TIME SETUP — the trigger likely already exists (created manually).
-# Import it before applying to avoid a duplicate:
-#   gcloud builds triggers list --project=f1optimizer --format="value(id,name)"
-#   terraform import google_cloudbuild_trigger.pipeline_branch \
-#     f1optimizer/global/<TRIGGER_ID>
-resource "google_cloudbuild_trigger" "pipeline_branch" {
-  project     = var.project_id
-  name        = "pipeline-branch-trigger"
-  description = "Build, train, validate, deploy — backend changes on pipeline branch only"
-  location    = "global"
-
-  github {
-    owner = "bkiritom8"
-    name  = "F1-Strategy-Optimizer"
-    push {
-      branch = "^pipeline$"
-    }
-  }
-
-  # Only fire when these paths change
-  included_files = [
-    "src/**",
-    "ml/**",
-    "docker/**",
-    "cloudbuild/**",
-    "cloudbuild.yaml",
-    "requirements*.txt",
-  ]
-
-  # Never fire for these paths, even if included_files would match
-  ignored_files = [
-    "frontend/**",
-    "docs/**",
-    "**/*.md",
-    ".github/**",
-    "infra/**",
-  ]
-
-  filename = "cloudbuild.yaml"
-
-  depends_on = [google_project_service.required_apis]
-}
+# SETUP STEPS:
+#   1. Cloud Build → Triggers → Connect Repository
+#   2. Select "GitHub (Cloud Build GitHub App)" → authenticate
+#   3. Select bkiritom8/F1-Strategy-Optimizer → Done
+#   4. Then uncomment the resource block below and run:
+#        terraform -chdir=infra/terraform apply -var-file=dev.tfvars
+#
+# resource "google_cloudbuild_trigger" "pipeline_branch" {
+#   project     = var.project_id
+#   name        = "pipeline-branch-trigger"
+#   description = "Build, train, validate, deploy — backend changes on pipeline branch only"
+#   location    = "global"
+#
+#   github {
+#     owner = "bkiritom8"
+#     name  = "F1-Strategy-Optimizer"
+#     push {
+#       branch = "^pipeline$"
+#     }
+#   }
+#
+#   included_files = [
+#     "src/**", "ml/**", "docker/**",
+#     "cloudbuild/**", "cloudbuild.yaml", "requirements*.txt",
+#   ]
+#
+#   ignored_files = [
+#     "frontend/**", "docs/**", "**/*.md", ".github/**", "infra/**",
+#   ]
+#
+#   filename   = "cloudbuild.yaml"
+#   depends_on = [google_project_service.required_apis]
+# }
 
 # Outputs
 output "api_service_url" {
