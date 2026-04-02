@@ -376,6 +376,54 @@ resource "google_project_iam_member" "training_sa_storage_admin" {
   member  = "serviceAccount:${google_service_account.training_sa.email}"
 }
 
+# ── Cloud Build trigger — pipeline branch ──────────────────────────────────
+# Fires only when backend-relevant files change on the pipeline branch.
+# This prevents frontend/doc-only pushes from triggering a full model retrain
+# and Cloud Run redeploy.
+#
+# FIRST-TIME SETUP — the trigger likely already exists (created manually).
+# Import it before applying to avoid a duplicate:
+#   gcloud builds triggers list --project=f1optimizer --format="value(id,name)"
+#   terraform import google_cloudbuild_trigger.pipeline_branch \
+#     f1optimizer/global/<TRIGGER_ID>
+resource "google_cloudbuild_trigger" "pipeline_branch" {
+  project     = var.project_id
+  name        = "pipeline-branch-trigger"
+  description = "Build, train, validate, deploy — backend changes on pipeline branch only"
+  location    = "global"
+
+  github {
+    owner = "bkiritom8"
+    name  = "F1-Strategy-Optimizer"
+    push {
+      branch = "^pipeline$"
+    }
+  }
+
+  # Only fire when these paths change
+  included_files = [
+    "src/**",
+    "ml/**",
+    "docker/**",
+    "cloudbuild/**",
+    "cloudbuild.yaml",
+    "requirements*.txt",
+  ]
+
+  # Never fire for these paths, even if included_files would match
+  ignored_files = [
+    "frontend/**",
+    "docs/**",
+    "**/*.md",
+    ".github/**",
+    "infra/**",
+  ]
+
+  filename = "cloudbuild.yaml"
+
+  depends_on = [google_project_service.required_apis]
+}
+
 # Outputs
 output "api_service_url" {
   description = "Cloud Run API service URL"
