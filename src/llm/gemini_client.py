@@ -198,6 +198,18 @@ class GeminiClient:
                 return "".join(p.text for p in parts if hasattr(p, "text"))
         return response.text  # type: ignore[return-value]
 
+    @staticmethod
+    def _is_simulation_question(question: str) -> bool:
+        """Return True if the question is asking for a simulation/what-if/strategy."""
+        q = question.lower()
+        triggers = [
+            "what if", "simulate", "put ", "swap", "replace", "in the car",
+            "pit stop", "pit window", "strategy for", "lap time", "sector",
+            "undercut", "overcut", "stint", "tyre", "tire", "compound",
+            "qualify", "race pace", "what would happen",
+        ]
+        return any(t in q for t in triggers)
+
     def generate_with_tools(
         self,
         question: str,
@@ -208,11 +220,9 @@ class GeminiClient:
     ) -> str:
         """Call Gemini with function-calling tools enabled.
 
-        Gemini decides whether to call ``get_strategy_recommendation``.
-        If it does, ``tool_executor`` is invoked with the function name and
-        args dict; the result is fed back so Gemini can narrate using real
-        strategy data.  The loop runs at most 3 iterations to prevent runaway
-        tool calls.
+        For simulation/what-if questions the tool is called eagerly before
+        the first Gemini turn so the model always receives real data.
+        For other questions Gemini decides whether to call the tool.
 
         ``history`` is a list of dicts with ``role`` ("user" or "assistant")
         and ``content`` keys representing prior conversation turns.
@@ -240,11 +250,58 @@ class GeminiClient:
             "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
         }
 
+        # ── Eager tool call for simulation questions ───────────────────────────
+        # If the question looks like a what-if/simulation, call the tool directly
+        # and inject the result into the prompt so Gemini always has real data.
+        eager_sim_context = ""
+        if self._is_simulation_question(question):
+            # Derive args from structured_inputs if available, else use sensible defaults
+            si = structured_inputs or {}
+            race_id = f"2025_{si.get('circuit', 'monaco').lower().replace(' ', '_')}"
+            driver_id = si.get("driver", "unknown").lower().replace(" ", "_")
+            current_lap = int(si.get("current_lap") or 25)
+            compound = str(si.get("tire_compound") or "MEDIUM").upper()
+            fuel_level = max(0.0, 1.0 - current_lap / 80)
+            track_temp = float(si.get("track_temp") or 44.0)
+            air_temp = float(si.get("air_temp") or 26.0)
+
+            # Parse grid/lap from question text as a fallback
+            import re as _re
+            lap_match = _re.search(r"\blap\s+(\d+)\b", question, _re.IGNORECASE)
+            if lap_match:
+                current_lap = int(lap_match.group(1))
+
+            try:
+                sim_result = tool_executor(
+                    "get_strategy_recommendation",
+                    {
+                        "race_id": race_id,
+                        "driver_id": driver_id,
+                        "current_lap": current_lap,
+                        "current_compound": compound,
+                        "fuel_level": round(fuel_level, 2),
+                        "track_temp": track_temp,
+                        "air_temp": air_temp,
+                        "grid_position": int(si.get("position") or 5),
+                        "tire_age_laps": int(si.get("tire_age_laps") or current_lap),
+                    },
+                )
+                logger.info("Eager simulation tool called: %s", sim_result)
+                eager_sim_context = (
+                    "\n\nSimulation results (use these exact numbers in your response):\n"
+                    + "\n".join(f"  {k}: {v}" for k, v in sim_result.items())
+                )
+            except Exception as exc:
+                logger.warning("Eager simulation tool failed: %s", exc)
+
         initial_message = self.build_prompt(
-            question, context_docs=context_docs, structured_inputs=structured_inputs
-        )
+            question,
+            context_docs=context_docs,
+            structured_inputs=structured_inputs,
+        ) + eager_sim_context
         response = chat.send_message(initial_message, generation_config=gen_config)
 
+        tool_called = bool(eager_sim_context)
         for _ in range(3):
             if not response.candidates:
                 break
@@ -254,11 +311,14 @@ class GeminiClient:
             if not fn_parts:
                 break
 
+            tool_called = True
             tool_responses: list[Part] = []
             for part in fn_parts:
                 fc = part.function_call
+                logger.info("Gemini tool call: %s(%s)", fc.name, dict(fc.args))
                 try:
                     result = tool_executor(fc.name, dict(fc.args))
+                    logger.info("Tool result: %s", result)
                 except Exception as exc:
                     result = {"error": str(exc)}
                 tool_responses.append(
@@ -268,6 +328,7 @@ class GeminiClient:
                 )
             response = chat.send_message(tool_responses, generation_config=gen_config)
 
+        logger.info("Tool called: %s", tool_called)
         if response.candidates:
             parts = response.candidates[0].content.parts
             if parts:
