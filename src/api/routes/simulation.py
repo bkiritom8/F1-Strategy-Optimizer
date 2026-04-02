@@ -26,7 +26,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -390,7 +390,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                         for i in range(7)
                         if i != rl_action
                     ],
-                    key=lambda x: -float(x["prob"]),
+                    key=lambda x: -cast(float, x["prob"]),
                 )[:3]
 
                 pit_prob = float(probs[3:].sum())
