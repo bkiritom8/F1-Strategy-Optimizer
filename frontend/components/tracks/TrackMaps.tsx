@@ -29,6 +29,7 @@ interface TrackProps {
   showDRS?: boolean;
   className?: string;
   animated?: boolean;
+  pathRef?: React.RefObject<SVGPathElement | null>;
 }
 
 const defaultProps: TrackProps = {
@@ -57,9 +58,11 @@ const AnimatedPath: React.FC<{
   strokeWidth?: number;
   fillColor?: string;
   animated?: boolean;
-}> = ({ d, strokeColor, strokeWidth, fillColor, animated }) => (
+  pathRef?: React.RefObject<SVGPathElement | null>;
+}> = ({ d, strokeColor, strokeWidth, fillColor, animated, pathRef }) => (
   <>
     <path
+      ref={pathRef}
       d={d}
       stroke={strokeColor}
       strokeWidth={strokeWidth}
@@ -110,7 +113,7 @@ const AnimatedPath: React.FC<{
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const BahrainTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -119,6 +122,7 @@ export const BahrainTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="85" y="113" width="12" height="3" fill="#E10600" />
@@ -132,7 +136,7 @@ export const BahrainTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const JeddahTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -141,6 +145,7 @@ export const JeddahTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="149" y="147" width="12" height="3" fill="#E10600" />
@@ -154,7 +159,7 @@ export const JeddahTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MelbourneTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -163,6 +168,7 @@ export const MelbourneTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="125" y="142" width="12" height="3" fill="#E10600" />
@@ -176,7 +182,7 @@ export const MelbourneTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SuzukaTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -185,6 +191,7 @@ export const SuzukaTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="216" y="81" width="12" height="3" fill="#E10600" />
@@ -198,7 +205,7 @@ export const SuzukaTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const ShanghaiTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -207,6 +214,7 @@ export const ShanghaiTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="152" y="151" width="12" height="3" fill="#E10600" />
@@ -220,7 +228,7 @@ export const ShanghaiTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MiamiTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -229,6 +237,7 @@ export const MiamiTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="117" y="64" width="12" height="3" fill="#E10600" />
@@ -242,7 +251,7 @@ export const MiamiTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const ImolaTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -251,6 +260,7 @@ export const ImolaTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="202" y="43" width="12" height="3" fill="#E10600" />
@@ -264,7 +274,7 @@ export const ImolaTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MonacoTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -273,6 +283,7 @@ export const MonacoTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="74" y="128" width="12" height="3" fill="#E10600" />
@@ -286,7 +297,7 @@ export const MonacoTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MontrealTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -295,6 +306,7 @@ export const MontrealTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="163" y="157" width="12" height="3" fill="#E10600" />
@@ -308,7 +320,7 @@ export const MontrealTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const BarcelonaTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -317,6 +329,7 @@ export const BarcelonaTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="188" y="79" width="12" height="3" fill="#E10600" />
@@ -330,7 +343,7 @@ export const BarcelonaTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SpielbergTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -339,6 +352,7 @@ export const SpielbergTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="203" y="163" width="12" height="3" fill="#E10600" />
@@ -352,7 +366,7 @@ export const SpielbergTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SilverstoneTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -361,6 +375,7 @@ export const SilverstoneTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="96" y="131" width="12" height="3" fill="#E10600" />
@@ -374,7 +389,7 @@ export const SilverstoneTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const BudapestTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -383,6 +398,7 @@ export const BudapestTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="127" y="163" width="12" height="3" fill="#E10600" />
@@ -396,7 +412,7 @@ export const BudapestTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SpaTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -405,6 +421,7 @@ export const SpaTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="119" y="41" width="12" height="3" fill="#E10600" />
@@ -418,7 +435,7 @@ export const SpaTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const ZandvoortTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -427,6 +444,7 @@ export const ZandvoortTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="71" y="74" width="12" height="3" fill="#E10600" />
@@ -440,7 +458,7 @@ export const ZandvoortTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MonzaTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -449,6 +467,7 @@ export const MonzaTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="91" y="144" width="12" height="3" fill="#E10600" />
@@ -462,7 +481,7 @@ export const MonzaTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SingaporeTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -471,6 +490,7 @@ export const SingaporeTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="272" y="99" width="12" height="3" fill="#E10600" />
@@ -484,7 +504,7 @@ export const SingaporeTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const COTATrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -493,6 +513,7 @@ export const COTATrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="23" y="123" width="12" height="3" fill="#E10600" />
@@ -506,7 +527,7 @@ export const COTATrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MexicoTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -515,6 +536,7 @@ export const MexicoTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="60" y="16" width="12" height="3" fill="#E10600" />
@@ -528,7 +550,7 @@ export const MexicoTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const InterlagosTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -537,6 +559,7 @@ export const InterlagosTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="94" y="134" width="12" height="3" fill="#E10600" />
@@ -550,7 +573,7 @@ export const InterlagosTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const VegasTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -559,6 +582,7 @@ export const VegasTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="172" y="178" width="12" height="3" fill="#E10600" />
@@ -572,7 +596,7 @@ export const VegasTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const LusailTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -581,6 +605,7 @@ export const LusailTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="106" y="143" width="12" height="3" fill="#E10600" />
@@ -594,7 +619,7 @@ export const LusailTrack: React.FC<TrackProps> = (props) => {
 // FastF1 2024 Race telemetry — 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const YasMarinaTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -603,6 +628,7 @@ export const YasMarinaTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="135" y="110" width="12" height="3" fill="#E10600" />
@@ -640,7 +666,7 @@ export interface TrackInfo {
 // hasLiveData: false — no FastF1 telemetry available yet.
 // ══════════════════════════════════════════════════════════════════
 export const MadridTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -649,6 +675,7 @@ export const MadridTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="32" y="155" width="12" height="3" fill="#E10600" />
@@ -663,7 +690,7 @@ export const MadridTrack: React.FC<TrackProps> = (props) => {
 // hasLiveData: false — no FastF1 telemetry available yet.
 // ══════════════════════════════════════════════════════════════════
 export const BhujTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -672,6 +699,7 @@ export const BhujTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="42" y="135" width="12" height="3" fill="#E10600" />
@@ -686,7 +714,7 @@ export const BhujTrack: React.FC<TrackProps> = (props) => {
 // hasLiveData: false — no FastF1 telemetry available yet.
 // ══════════════════════════════════════════════════════════════════
 export const ArgentinaTrack: React.FC<TrackProps> = (props) => {
-  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated } = { ...defaultProps, ...props };
+  const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
   return (
     <svg width={width} height={height} viewBox="0 0 300 200" className={className}>
       <AnimatedPath
@@ -695,6 +723,7 @@ export const ArgentinaTrack: React.FC<TrackProps> = (props) => {
         strokeWidth={strokeWidth}
         fillColor={fillColor}
         animated={animated}
+        pathRef={pathRef}
       />
       {showStartFinish && (
         <rect x="42" y="115" width="12" height="3" fill="#E10600" />
