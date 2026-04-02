@@ -5,41 +5,65 @@ import { SpeedLines } from '../components/SpeedLines';
 
 const css = `
   @keyframes lp-fadeIn {
+    from { opacity: 0; }
     to { opacity: 1; }
   }
   @keyframes lp-riseIn {
-    from { opacity: 0; transform: translateY(28px); }
+    from { opacity: 0; transform: translateY(32px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  @keyframes lp-pulse {
-    0%, 100% { box-shadow: 0 0 6px rgba(225,6,0,0.8); }
-    50%       { box-shadow: 0 0 18px rgba(225,6,0,1); }
+  @keyframes lp-glare {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+  @keyframes lp-pulse-glow {
+    0%, 100% { box-shadow: 0 0 10px var(--accent-f1-glow); }
+    50%       { box-shadow: 0 0 25px var(--accent-f1); }
   }
 
-  .lp-nav      { opacity: 0; animation: lp-fadeIn  0.8s ease 0.1s  forwards; }
-  .lp-line     { opacity: 0; animation: lp-fadeIn  1.5s ease 0.9s  forwards; }
-  .lp-eyebrow  { opacity: 0; animation: lp-riseIn  0.9s cubic-bezier(0.22,1,0.36,1) 0.35s forwards; }
-  .lp-sub      { opacity: 0; animation: lp-riseIn  1.0s cubic-bezier(0.22,1,0.36,1) 1.6s  forwards; }
-  .lp-ctas     { opacity: 0; animation: lp-riseIn  1.0s cubic-bezier(0.22,1,0.36,1) 1.85s forwards; }
-  .lp-stats    { opacity: 0; animation: lp-riseIn  1.0s cubic-bezier(0.22,1,0.36,1) 2.3s  forwards; }
+  .lp-nav      { opacity: 0; animation: lp-fadeIn  1.2s ease 0.1s  forwards; }
+  .lp-eyebrow  { opacity: 0; animation: lp-riseIn  1.0s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; }
+  .lp-headline { opacity: 0; animation: lp-riseIn  1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards; }
+  .lp-sub      { opacity: 0; animation: lp-riseIn  1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.7s  forwards; }
+  .lp-ctas     { opacity: 0; animation: lp-riseIn  1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.9s forwards; }
+  .lp-stats    { opacity: 0; animation: lp-fadeIn  1.5s ease 1.2s  forwards; }
 
-  .lp-w1 { opacity: 0; animation: lp-riseIn 1.0s cubic-bezier(0.22,1,0.36,1) 0.55s forwards; }
-  .lp-w2 { opacity: 0; animation: lp-riseIn 1.0s cubic-bezier(0.22,1,0.36,1) 0.72s forwards; }
-  .lp-w3 { opacity: 0; animation: lp-riseIn 1.0s cubic-bezier(0.22,1,0.36,1) 0.88s forwards; }
-  .lp-w4 { opacity: 0; animation: lp-riseIn 1.0s cubic-bezier(0.22,1,0.36,1) 1.03s forwards; }
-  .lp-w5 { opacity: 0; animation: lp-riseIn 1.0s cubic-bezier(0.22,1,0.36,1) 1.16s forwards; }
-  .lp-w6 { opacity: 0; animation: lp-riseIn 1.0s cubic-bezier(0.22,1,0.36,1) 1.29s forwards; }
+  .lp-btn-p {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .lp-btn-p:hover { 
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px var(--accent-f1-glow);
+  }
+  .lp-btn-p::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 50%; height: 100%;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent);
+    transform: skewX(-25deg);
+    animation: lp-glare 3s infinite;
+  }
 
-  .lp-logo-dot { animation: lp-pulse 2.5s ease-in-out 1.5s infinite; }
+  .lp-btn-s:hover { 
+    background: rgba(255,255,255,0.1) !important;
+    border-color: rgba(255,255,255,0.3) !important;
+    transform: translateY(-2px);
+  }
 
-  .lp-btn-p:hover { background: #c50500 !important; transform: scale(1.03); box-shadow: 0 8px 28px rgba(225,6,0,0.45); }
-  .lp-btn-s:hover { background: rgba(255,255,255,0.13) !important; transform: scale(1.03); }
-  .lp-nav-btn:hover { background: rgba(225,6,0,0.3) !important; }
-  .lp-nav-link:hover { color: #fff !important; }
+  .lp-glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .font-outfit { font-family: 'Outfit', sans-serif; }
+  .font-inter { font-family: 'Inter', sans-serif; }
 `;
 
-/** Maps each visible nav label to its in-app route path. */
-const NAV_LINKS: { label: string; path: string }[] = [
+const NAV_LINKS = [
   { label: 'Race Center', path: '/race'     },
   { label: 'Strategy',    path: '/strategy' },
   { label: 'Circuits',    path: '/circuits' },
@@ -51,176 +75,186 @@ export default function LandingPage() {
   const navigate = useNavigate();
 
   return (
-    <>
+    <div className="font-inter" style={{ minHeight: '100vh', backgroundColor: '#000', color: '#fff', overflow: 'hidden' }}>
       <style>{css}</style>
 
-      {/* Background */}
+      {/* Background Gradient */}
       <div style={{
         position: 'fixed', inset: 0, zIndex: 0,
-        background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(225,6,0,0.12) 0%, transparent 55%), #000',
+        background: 'radial-gradient(circle at 50% -20%, rgba(225,6,0,0.15) 0%, transparent 70%), #000',
       }} />
 
       <SpeedLines />
 
-      {/* Nav */}
-      <nav className="lp-nav" style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20, height: 54,
+      {/* Navigation */}
+      <nav className="lp-nav lp-glass-card" style={{
+        position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 50, width: '90%', maxWidth: 1200, height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 52px',
-        background: 'rgba(0,0,0,0.55)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        padding: '0 32px', borderRadius: 20,
       }}>
-        {/* Logo — matches sidebar branding */}
+        {/* Brand */}
         <div
           onClick={() => navigate('/')}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
         >
           <div style={{
-            width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-            background: 'linear-gradient(135deg, #e10600, #9b0400)',
+            width: 38, height: 38, borderRadius: 12,
+            background: 'linear-gradient(135deg, var(--accent-f1), #9b0400)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 14px rgba(225,6,0,0.35)',
+            boxShadow: '0 4px 15px var(--accent-f1-glow)',
           }}>
-            {/* Inline CPU icon matching the Lucide Cpu used in the sidebar */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="9" y="9" width="6" height="6" />
               <rect x="2" y="2" width="20" height="20" rx="2" />
               <path d="M9 2V9M15 2V9M9 15v7M15 15v7M2 9h7M2 15h7M15 9h7M15 15h7" />
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.5px', fontStyle: 'italic', color: '#fff', lineHeight: 1 }}>
+            <div className="font-outfit" style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.5px', fontStyle: 'italic', lineHeight: 1 }}>
               APEX F1
             </div>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#e10600', lineHeight: 1, marginTop: 2 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--accent-f1)', marginTop: 2 }}>
               Race Intelligence
             </div>
           </div>
         </div>
 
-        {/* Nav links — each routed to its correct path */}
+        {/* Links */}
         <ul style={{ display: 'flex', gap: 32, listStyle: 'none', margin: 0, padding: 0 }}>
           {NAV_LINKS.map(({ label, path }) => (
             <li key={label}>
               <button
-                className="lp-nav-link"
                 onClick={() => navigate(path)}
-                style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                style={{
+                  fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.6)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  transition: 'color 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.6)')}
               >
                 {label}
               </button>
             </li>
           ))}
         </ul>
-        <button className="lp-nav-btn" onClick={() => navigate('/race')} style={{
-          fontSize: 13, fontWeight: 500, color: '#fff',
-          background: 'rgba(225,6,0,0.15)', border: '1px solid rgba(225,6,0,0.3)',
-          padding: '7px 18px', borderRadius: 980, cursor: 'pointer', transition: 'background 0.2s',
-        }}>
-          Sign In
+
+        {/* Action */}
+        <button 
+          onClick={() => navigate('/race')}
+          className="lp-nav-btn" 
+          style={{
+            fontSize: 14, fontWeight: 600, color: '#fff',
+            background: 'rgba(225,6,0,0.1)', border: '1px solid rgba(225,6,0,0.3)',
+            padding: '8px 24px', borderRadius: 12, cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--accent-f1)';
+            e.currentTarget.style.borderColor = 'var(--accent-f1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(225,6,0,0.1)';
+            e.currentTarget.style.borderColor = 'rgba(225,6,0,0.3)';
+          }}
+        >
+          Get Started
         </button>
       </nav>
 
-      {/* Ambient line below nav */}
-      <div className="lp-line" style={{
-        position: 'fixed', top: 54, left: '50%', transform: 'translateX(-50%)',
-        width: '55vw', height: 1, zIndex: 19,
-        background: 'linear-gradient(to right, transparent, rgba(225,6,0,0.4), transparent)',
-      }} />
-
-      {/* Hero */}
+      {/* Main Hero Section */}
       <main style={{
         position: 'relative', zIndex: 10, height: '100vh',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         textAlign: 'center', padding: '0 24px',
-        fontFamily: "'Inter', -apple-system, 'SF Pro Display', sans-serif",
-        color: '#fff',
       }}>
         {/* Eyebrow */}
-        <div className="lp-eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 26 }}>
-          <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#e10600' }} />
-          <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: 4, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>
-            F1 Strategy Intelligence Platform
+        <div className="lp-eyebrow" style={{ 
+          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24,
+          background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: 100,
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-f1)', boxShadow: '0 0 8px var(--accent-f1)' }} />
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>
+            Next-Gen Strategy Platform
           </span>
         </div>
 
         {/* Headline */}
-        <h1 style={{ fontSize: 'clamp(48px, 9vw, 118px)', fontWeight: 800, lineHeight: 1.0, letterSpacing: '-2.5px', margin: 0 }}>
-          <span className="lp-w1" style={{ display: 'inline-block' }}>Race</span>
-          {' '}
-          <span className="lp-w2" style={{ display: 'inline-block' }}>at</span>
-          {' '}
-          <span className="lp-w3" style={{ display: 'inline-block' }}>the</span>
-          <span style={{ display: 'block', color: '#e10600' }}>
-            <span className="lp-w4" style={{ display: 'inline-block' }}>speed</span>
-            {' '}
-            <span className="lp-w5" style={{ display: 'inline-block' }}>of</span>
-            {' '}
-            <span className="lp-w6" style={{ display: 'inline-block' }}>data.</span>
-          </span>
-        </h1>
+        <div className="lp-headline">
+          <h1 className="font-outfit" style={{ 
+            fontSize: 'clamp(48px, 8vw, 110px)', fontWeight: 800, 
+            lineHeight: 0.95, letterSpacing: '-0.04em', margin: 0,
+            textShadow: '0 20px 50px rgba(0,0,0,0.5)',
+          }}>
+            Master the <br />
+            <span style={{ color: 'var(--accent-f1)', position: 'relative' }}>
+              Apex Point
+              <span style={{ 
+                position: 'absolute', bottom: '15%', left: 0, width: '100%', height: '8%',
+                background: 'var(--accent-f1-glow)', zIndex: -1, filter: 'blur(10px)'
+              }} />
+            </span>
+          </h1>
+        </div>
 
-        {/* Sub */}
+        {/* Subcopy */}
         <p className="lp-sub" style={{
-          fontSize: 'clamp(14px, 1.7vw, 19px)', fontWeight: 400,
-          color: 'rgba(255,255,255,0.38)', lineHeight: 1.6,
-          maxWidth: 480, margin: '20px auto 42px',
+          fontSize: 'clamp(16px, 1.2vw, 20px)', fontWeight: 400,
+          color: 'rgba(255,255,255,0.6)', lineHeight: 1.6,
+          maxWidth: 600, margin: '32px auto 48px',
         }}>
-          Real-time F1 strategy intelligence powered by machine learning.<br />
-          Pit windows, tire degradation, race outcomes - all in one platform.
+          Enterprise-grade race intelligence. Predict tire life, optimize pit stops, 
+          and simulate thousands of scenarios in milliseconds.
         </p>
 
         {/* CTAs */}
-        <div className="lp-ctas" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div className="lp-ctas" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           <button className="lp-btn-p" onClick={() => navigate('/race')} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: '#e10600', color: '#fff', border: 'none',
-            padding: '14px 32px', fontSize: 15, fontWeight: 600,
-            borderRadius: 980, cursor: 'pointer', transition: 'background 0.2s, transform 0.15s, box-shadow 0.2s',
+            background: 'var(--accent-f1)', color: '#fff', border: 'none',
+            padding: '16px 40px', fontSize: 16, fontWeight: 700,
+            borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
           }}>
-            Enter App
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M3 8h10M9 4l4 4-4 4" />
+            Launch Strategy Hub
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </button>
           <button className="lp-btn-s" onClick={() => navigate('/race')} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.82)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            padding: '14px 32px', fontSize: 15, fontWeight: 500,
-            borderRadius: 980, cursor: 'pointer',
-            backdropFilter: 'blur(12px)', transition: 'background 0.2s, transform 0.15s',
+            background: 'rgba(255,255,255,0.05)', color: '#fff',
+            border: '1px solid rgba(255,255,255,0.1)',
+            padding: '16px 40px', fontSize: 16, fontWeight: 600,
+            borderRadius: 14, cursor: 'pointer', backdropFilter: 'blur(10px)',
+            transition: 'all 0.2s',
           }}>
-            Watch Demo
+            Technical Specs
           </button>
         </div>
       </main>
 
-      {/* Stats */}
-      <div className="lp-stats" style={{
+      {/* Stats Section */}
+      <div className="lp-stats lp-glass-card" style={{
         position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)',
-        display: 'flex', gap: 44, alignItems: 'center', zIndex: 10,
+        display: 'flex', gap: 60, alignItems: 'center', zIndex: 10,
+        padding: '20px 60px', borderRadius: 24,
       }}>
         {[
           { n: '76', unit: 'yrs', label: 'Race Data' },
-          { n: '6',  unit: '+',   label: 'ML Models' },
-          { n: '<500', unit: 'ms', label: 'P99 Latency' },
-          { n: '860', unit: '+',  label: 'Drivers' },
+          { n: '6',  unit: '+',   label: 'AI Models' },
+          { n: '<500', unit: 'ms', label: 'Inference' },
+          { n: '20', unit: 'idx',  label: 'Circuits' },
         ].map((s, i) => (
-          <React.Fragment key={s.label}>
-            {i > 0 && <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.1)' }} />}
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: '#fff' }}>
-                {s.n}<span style={{ color: '#e10600' }}>{s.unit}</span>
-              </div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.32)', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 2 }}>
-                {s.label}
-              </div>
+          <div key={s.label} style={{ textAlign: 'center' }}>
+            <div className="font-outfit" style={{ fontSize: 24, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+              {s.n}<span style={{ color: 'var(--accent-f1)' }}>{s.unit}</span>
             </div>
-          </React.Fragment>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 6, fontWeight: 700 }}>
+              {s.label}
+            </div>
+          </div>
         ))}
       </div>
-    </>
+    </div>
   );
 }

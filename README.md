@@ -8,56 +8,41 @@ driving mode, and overtake decisions. Driver-aware recommendations using 76 year
 This root directory serves as the nexus for our specialized modules. For detailed architecture specifics, refer to the individual module directories:
 
 - [**`/frontend`**](./frontend/README.md) - Apex Intelligence UI (React + Vite, Tailwind, Vercel)
-- [**`/ingest`**](./ingest/README.md) - Cloud Run ingest workers for Jolpica & FastF1 data
-- [**`/ml`**](./ml/README.md) - ML codebase encompassing preprocessing, RL training, predictions, and distributed configurations
-- [**`/pipeline`**](./pipeline/README.md) - Data pipelines, transformation utilities, simulators, and bucket validators
-- [**`/rag`**](./rag/README.md) - Q&A pipelines over F1 historical logic with Gemini & Vertex AI Vector Search
-- [**`/docs`**](./docs/README.md) - Dedicated technical documentation, setup steps, and integrations
+- [**`/src`**](./src/README.md) - Core backend Python libs (FastAPI, LLM connectors, Security)
+- [**`/ml`**](./ml/README.md) - ML codebase (preprocessing, RL training, predictions)
+- [**`/pipeline`**](./pipeline/README.md) - Data pipelines, transformation utilities, simulators
+- [**`/ingest`**](./ingest/README.md) - Ingest workers for Jolpica & FastF1 data
+- [**`/rag`**](./rag/README.md) - Q&A pipelines over F1 history with Gemini & Vertex AI
+- [**`/infra`**](./infra/README.md) - Terraform Infrastructure-as-code (GCP)
+- [**`/tests`**](./tests/README.md) - Integration and Unit test suites
+- [**`/scripts`**](./scripts/README.md) - Operational and maintenance scripts
+- [**`/docs`**](./docs/README.md) - Technical documentation and integration guides
 - **`/Data-Pipeline`** - Legacy / Protected pipeline artifacts (DO NOT DELETE)
-- **`/infra`** - Terraform Infrastructure-as-code
-- **`/src`** - Shared backend Python libraries (FastAPI setup, LLM connectors, Security checks)
-- **`/tests`** - Integration and Unit test suites
-- **`/docker`** - Containerization scripts for ingestion, ML, backend and RAG operations.
+
+## 2024 UI Modernization
+
+The platform has undergone a major visual overhaul focusing on:
+- **Premium Landing Page**: Glassmorphism aesthetic with `Outfit` headers and `Inter` body text.
+- **Dynamic Background**: Circuit-accurate SVG track paths with kinetic F1 car animations.
+- **Race Command Center**: Real-time telemetry visualization and ML-powered risk analysis.
 
 ## Features
 
 - **Data**: Jolpica API (1950–2026) + FastF1 telemetry (2018–2026, 10Hz)
-- **Storage**: GCS — 51 raw files (6.0 GB CSV) + processed Parquet files (1.0 GB)
-- **LLM**: Standalone strategy chat endpoint — API POST (`/llm/chat`)
 - **Serving**: FastAPI on Cloud Run (<500ms P99 latency)
-- **Auth**: User registration/login with PBKDF2-HMAC-SHA256, JWT bearer tokens, GDPR compliance (Firestore-backed)
-- **CI/CD**: GitHub Actions (lint, test, dockers, terraform) + Cloud Build (`pipeline` branch). Frontend through Vercel.
+- **AI**: Standalone strategy chat and parse-strategy endpoints (`/llm/chat`)
+- **Status**: UI Modernization complete. ML pipeline complete. User auth live.
 
 ## Quick Start
 
-### Prerequisites
-- `gcloud` CLI (latest)
-- Python 3.10
-- Terraform 1.5+
-- Node.js 18+ (for frontend)
-- Docker Desktop (for local development)
-
-### Setup
-
 ```bash
-git clone https://github.com/bkiritom8/F1-Strategy-Optimizer.git
-cd F1-Strategy-Optimizer
-
-# Authenticate with GCP
-gcloud auth login
+# Setup GCP context
 gcloud auth application-default login
 gcloud config set project f1optimizer
-```
 
-For Backend Initialization, please see [`docs/DEV_SETUP.md`](./docs/DEV_SETUP.md).
-
-For Frontend Initialization:
-```bash
-cd frontend
-npm install
-npm run dev
+# Run Frontend
+cd frontend && npm install && npm run dev
 ```
 
 ---
-**Status**: ML pipeline complete. User auth live. Semantic caching live. CI/CD verified. UI Modernization ongoing.
-**Branch Targets**: `main` (stable) | `pipeline` (backend CI) | `frontend` (UI deployments) 
+**Status**: Stable Production | **UI Architecture**: Modern Glass-Dark

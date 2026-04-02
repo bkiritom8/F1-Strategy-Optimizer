@@ -59,6 +59,7 @@ const TY = (VH - TRACK_NATURAL_H * SCALE) / 2;
 const SVG_TRANSFORM = `translate(${TX}, ${TY}) scale(${SCALE})`;
 
 /** Team colour identities for the five animated cars. */
+/** Team colour identities for the five animated cars. Speed increased (shorter duration). */
 const CARS: {
   color: string;
   glow: string;
@@ -66,11 +67,11 @@ const CARS: {
   duration: number;
   startPct: number; // initial offsetDistance %
 }[] = [
-  { color: '#E10600', glow: '#FF4433', delay: 0,   duration: 9.5,  startPct: 0  },
-  { color: '#00D2BE', glow: '#00FFEE', delay: 2,   duration: 10,   startPct: 20 },
-  { color: '#0067FF', glow: '#4499FF', delay: 4,   duration: 10.5, startPct: 40 },
-  { color: '#FFF200', glow: '#FFEE00', delay: 1.5, duration: 11,   startPct: 60 },
-  { color: '#FF8700', glow: '#FFAA33', delay: 5.5, duration: 9.8,  startPct: 80 },
+  { color: '#E10600', glow: '#FF4433', delay: 0,   duration: 6.5,  startPct: 0  },
+  { color: '#00D2BE', glow: '#00FFEE', delay: 2,   duration: 7.0,   startPct: 20 },
+  { color: '#0067FF', glow: '#4499FF', delay: 4,   duration: 7.5,  startPct: 40 },
+  { color: '#FFF200', glow: '#FFEE00', delay: 1.5, duration: 8.0,   startPct: 60 },
+  { color: '#FF8700', glow: '#FFAA33', delay: 5.5, duration: 6.8,  startPct: 80 },
 ];
 
 // Pre-computed stable tire-mark positions.
@@ -334,81 +335,65 @@ export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundPr
               filter="url(#track-glow)"
             />
           ))}
-        </g>
-      </svg>
 
-      {/* ── Layer 3: Animated F1 Cars ────────────────────────────── */}
-      {/*
-        The cars use CSS offset-path with the raw (un-scaled) path, but their
-        <svg> container is visually scaled+positioned by a CSS transform that
-        mirrors the SVG_TRANSFORM. This decouples the path coordinate system
-        from the screen coordinate system.
-      */}
-      {CARS.map((car, i) => (
-        <div
-          key={i}
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            transformOrigin: '0 0',
-            transform: `translate(${TX}px, ${TY}px) scale(${SCALE})`,
-          }}
-        >
-          <svg
-            className="absolute pointer-events-none"
-            style={{
-              // The raw path lives in TRACK_NATURAL_W × TRACK_NATURAL_H space.
-              // We expand the SVG to cover the full scaled area.
-              width: VW / SCALE,
-              height: VH / SCALE,
-              top: 0,
-              left: 0,
-              overflow: 'visible',
-            }}
-            viewBox={`0 0 ${VW / SCALE} ${VH / SCALE}`}
-          >
-            <defs>
-              <filter id={`car-glow-${car.color.replace('#', '')}`} x="-80%" y="-80%" width="250%" height="250%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
+          {/* ── Layer 3: Animated F1 Cars (Inside Scaled Group) ────── */}
+          {CARS.map((car, i) => (
+            <React.Fragment key={i}>
+              <defs>
+                <filter id={`car-glow-${car.color.replace('#', '')}`} x="-80%" y="-80%" width="250%" height="250%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
 
-            {/* Exhaust trail dots */}
-            {[-6, -12, -20].map((pctOffset, j) => (
-              <motion.circle
-                key={j}
-                r={3 - j * 0.7}
-                fill={car.color}
-                opacity={0.30 - j * 0.07}
+              {/* Exhaust trail dots */}
+              {[-6, -12, -20].map((pctOffset, j) => (
+                <motion.circle
+                  key={j}
+                  r={3 - j * 0.7}
+                  fill={car.color}
+                  opacity={0.25 - j * 0.06}
+                  style={{
+                    filter: 'blur(2px)',
+                    offsetPath: `path('${rawPath}')`,
+                    offsetRotate: 'auto',
+                  } as React.CSSProperties}
+                  initial={{ offsetDistance: `${(car.startPct + pctOffset + 100) % 100}%` }}
+                  animate={{ offsetDistance: `${(car.startPct + pctOffset + 200) % 100}%` }}
+                  transition={{
+                    duration: car.duration,
+                    ease: 'linear',
+                    repeat: Infinity,
+                    delay: car.delay,
+                  }}
+                />
+              ))}
+
+              {/* Car body */}
+              <motion.g
                 style={{
-                  filter: 'blur(2px)',
                   offsetPath: `path('${rawPath}')`,
                   offsetRotate: 'auto',
                 } as React.CSSProperties}
-                initial={{ offsetDistance: `${(car.startPct + pctOffset + 100) % 100}%` }}
-                animate={{ offsetDistance: `${(car.startPct + pctOffset + 200) % 100}%` }}
-                transition={{ duration: car.duration, ease: 'linear', repeat: Infinity, delay: car.delay }}
-              />
-            ))}
+                initial={{ offsetDistance: `${car.startPct}%` }}
+                animate={{ offsetDistance: `${car.startPct + 100}%` }}
+                transition={{
+                  duration: car.duration,
+                  ease: 'linear',
+                  repeat: Infinity,
+                  delay: car.delay,
+                }}
+              >
+                <F1CarSvg color={car.color} glow={car.glow} />
+              </motion.g>
+            </React.Fragment>
+          ))}
+        </g>
+      </svg>
 
-            {/* Car body */}
-            <motion.g
-              style={{
-                offsetPath: `path('${rawPath}')`,
-                offsetRotate: 'auto',
-              } as React.CSSProperties}
-              initial={{ offsetDistance: `${car.startPct}%` }}
-              animate={{ offsetDistance: `${car.startPct + 100}%` }}
-              transition={{ duration: car.duration, ease: 'linear', repeat: Infinity, delay: car.delay }}
-            >
-              <F1CarSvg color={car.color} glow={car.glow} />
-            </motion.g>
-          </svg>
-        </div>
-      ))}
 
       {/* ── Layer 4: Speed lines (perspective streaks) ───────────── */}
       {[...Array(8)].map((_, i) => (
