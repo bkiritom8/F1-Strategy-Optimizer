@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from src.security.https_middleware import get_current_user
@@ -217,6 +217,8 @@ class ChatResponse(BaseModel):
     answer: str
     latency_ms: float
     model: str
+    job_id: str | None = None               # present when a simulation was triggered
+    simulation_race_id: str | None = None   # circuit for the frontend to load
 
 
 class StrategyParseRequest(BaseModel):
@@ -228,9 +230,28 @@ class StrategyParseResponse(BaseModel):
     strategy: list[list]  # e.g. [[15, "HARD"], [40, "MEDIUM"]]
 
 
+async def _fire_simulation(
+    job_id: str,
+    race_id: str,
+    coordinator,
+) -> None:
+    """Fire-and-forget simulation background task."""
+    from src.api.routes.simulate import _run_simulation
+    payload = {
+        "race_id": race_id,
+        "scenario": {},
+        "drivers": [],
+        "total_laps": 57,
+        "n_trials": coordinator.n_trials(coordinator.get_queue_depth()),
+    }
+    coordinator.set_status(job_id, "pending")
+    await _run_simulation(job_id, payload, coordinator)
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def llm_chat(
     request: ChatRequest,
+    background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
 ) -> ChatResponse:
     """
@@ -268,10 +289,36 @@ async def llm_chat(
             history=[{"role": h.role, "content": h.content} for h in request.history],
         )
         latency_ms = round((time.time() - start) * 1000, 2)
+
+        # If this was a simulation question, kick off the simulation job
+        job_id = None
+        simulation_race_id = None
+        from src.llm.gemini_client import GeminiClient
+        if GeminiClient._is_simulation_question(request.question):
+            try:
+                from src.api.routes.simulate import ScenarioInput
+                from src.simulation.coordinator import SimulationCoordinator, scenario_hash
+                circuit = (
+                    request.race_inputs.circuit
+                    if request.race_inputs and request.race_inputs.circuit
+                    else "monaco"
+                )
+                race_id = f"2025_{circuit.lower().replace(' ', '_')}"
+                scenario = ScenarioInput()
+                job_id = scenario_hash(race_id, scenario.model_dump())
+                simulation_race_id = race_id
+                coord = SimulationCoordinator()
+                if not coord.replay_from_cache(job_id):
+                    background_tasks.add_task(_fire_simulation, job_id, race_id, coord)
+            except Exception as sim_exc:
+                logger.warning("Failed to trigger simulation: %s", sim_exc)
+
         return ChatResponse(
             answer=answer,
             latency_ms=latency_ms,
             model=RagConfig().LLM_MODEL,
+            job_id=job_id,
+            simulation_race_id=simulation_race_id,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
