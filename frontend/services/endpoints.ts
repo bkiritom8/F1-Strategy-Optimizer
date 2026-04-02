@@ -50,6 +50,14 @@ const handleApiError = (context: string, error: any) => {
 
 // ─── Backend types ──────────────────────────────────────────────────────────
 
+export interface ChatResponse {
+  answer: string;
+  latency_ms: number;
+  model: string;
+  job_id?: string;
+  simulation_race_id?: string;
+}
+
 export interface BackendModelStatus {
   models: Array<{
     name: string;
