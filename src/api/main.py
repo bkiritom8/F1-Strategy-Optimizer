@@ -324,34 +324,34 @@ async def recommend_strategy(
 
 @app.get("/data/drivers", response_model=List[Dict])
 async def get_drivers(
-    current_user: User = Depends(get_current_user), year: Optional[int] = 2024
+    current_user: User = Depends(get_current_user), year: Optional[int] = None
 ):
     """
-    Get driver list
-
+    Get driver list. Delegates to FeaturePipeline.
     Requires: DATA_READ permission
     """
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
+    try:
+        pipeline = _get_pipeline()
+        drv_df = pipeline._drivers()
+        drivers = []
+        for _, row in drv_df.iterrows():
+            entry = {
+                "driver_id": str(row.get("driverId", "")),
+                "name": f"{row.get('givenName', '')} {row.get('familyName', '')}".strip(),
+                "nationality": str(row.get("nationality", "")),
+                "code": str(row.get("code", "")),
+            }
+            drivers.append(entry)
 
-    drivers = [
-        {
-            "driver_id": "max_verstappen",
-            "name": "Max Verstappen",
-            "nationality": "Dutch",
-        },
-        {
-            "driver_id": "lewis_hamilton",
-            "name": "Lewis Hamilton",
-            "nationality": "British",
-        },
-    ]
-
-    REQUEST_COUNT.labels(method="GET", endpoint="/data/drivers", status="200").inc()
-
-    return drivers
+        REQUEST_COUNT.labels(method="GET", endpoint="/data/drivers", status="200").inc()
+        return drivers
+    except Exception as exc:
+        logger.error("get_drivers error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to load driver list")
 
 
 @app.get("/models/status")
