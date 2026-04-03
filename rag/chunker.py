@@ -130,24 +130,30 @@ def chunk_parquet(gcs_uri: str, client: storage.Client | None = None) -> list[Do
             key_vals = [row.get("positionOrder"), row.get("driverRef")]
             if all(_is_null(v) for v in key_vals):
                 continue
+            year_val = get(row, "year") or str(base_meta.get("season") or "")
+            race_val = get(row, "raceName") or str(base_meta.get("race") or "")
+            driver_val = get(row, "driverRef") or get(row, "driver") or ""
             text = (
-                f"In the {get(row, 'year')} {get(row, 'raceName')}, "
-                f"{get(row, 'driverRef')} finished P{get(row, 'positionOrder')} "
+                f"In the {year_val} {race_val}, "
+                f"{driver_val} finished P{get(row, 'positionOrder')} "
                 f"for {get(row, 'constructorRef')}, starting P{get(row, 'grid')}. "
                 f"Points: {get(row, 'points')}."
             )
-            driver = get(row, "driverRef") or None
+            driver = driver_val or None
         elif {"stop", "duration"}.intersection(cols) and "lap" in cols:
             # Pit stop template
             key_vals = [row.get("driverRef"), row.get("lap")]
             if all(_is_null(v) for v in key_vals):
                 continue
+            year_val = get(row, "year") or str(base_meta.get("season") or "")
+            race_val = get(row, "raceName") or str(base_meta.get("race") or "")
+            driver_val = get(row, "driverRef") or get(row, "driver") or ""
             text = (
-                f"{get(row, 'driverRef')} pitted on lap {get(row, 'lap')} "
-                f"of the {get(row, 'year')} {get(row, 'raceName')}, "
+                f"{driver_val} pitted on lap {get(row, 'lap')} "
+                f"of the {year_val} {race_val}, "
                 f"taking {get(row, 'duration')}s. Stop number {get(row, 'stop')}."
             )
-            driver = get(row, "driverRef") or None
+            driver = driver_val or None
         else:
             # Generic fallback: join non-null values
             non_null = {k: v for k, v in row.items() if not _is_null(v)}
@@ -205,18 +211,24 @@ def chunk_csv(gcs_uri: str, client: storage.Client | None = None) -> list[Docume
         driver = None
 
         if filename.startswith("race_results"):
+            year_val = get(row, "year") or str(base_meta.get("season") or "")
+            race_val = get(row, "raceName") or str(base_meta.get("race") or "")
+            driver_val = get(row, "driverRef") or get(row, "driver") or ""
             text = (
-                f"{get(row, 'driverRef')} finished P{get(row, 'positionOrder')} for "
-                f"{get(row, 'constructorRef')} in the {get(row, 'year')} {get(row, 'raceName')}, "
+                f"{driver_val} finished P{get(row, 'positionOrder')} for "
+                f"{get(row, 'constructorRef')} in the {year_val} {race_val}, "
                 f"starting P{get(row, 'grid')}. Points: {get(row, 'points')}."
             )
-            driver = get(row, "driverRef") or None
+            driver = driver_val or None
         elif filename.startswith("pit_stops"):
+            year_val = get(row, "year") or str(base_meta.get("season") or "")
+            race_val = get(row, "raceName") or str(base_meta.get("race") or "")
+            driver_val = get(row, "driverRef") or get(row, "driver") or ""
             text = (
-                f"{get(row, 'driverRef')} pitted on lap {get(row, 'lap')} of the "
-                f"{get(row, 'year')} {get(row, 'raceName')}, taking {get(row, 'duration')}s."
+                f"{driver_val} pitted on lap {get(row, 'lap')} of the "
+                f"{year_val} {race_val}, taking {get(row, 'duration')}s."
             )
-            driver = get(row, "driverRef") or None
+            driver = driver_val or None
         elif filename.startswith("lap_times"):
             text = (
                 f"{get(row, 'driverRef')} set a lap time of {get(row, 'milliseconds')}ms "
@@ -321,7 +333,16 @@ def load_all_documents(bucket: str) -> list[Document]:
     Logs progress every 100 files. Returns flat list of all Documents.
     """
     skip_patterns = [".ff1pkl", ".sqlite", ".pyc"]
-    skip_prefixes = ["rag/", "htmlcov/"]
+    skip_prefixes = ["rag/", "htmlcov/", "telemetry/", "ml_features/", "raw/telemetry/"]
+    skip_exact = {
+        "processed/fastf1_telemetry.parquet",
+        "processed/fastf1_laps.parquet",
+        "processed/telemetry_all.parquet",
+        "processed/telemetry_laps_all.parquet",
+        "processed/laps_all.parquet",
+        "raw/fastf1_telemetry.csv",
+        "raw/fastf1_laps.csv",
+    }
 
     try:
         client = storage.Client()
@@ -340,6 +361,8 @@ def load_all_documents(bucket: str) -> list[Document]:
         if any(name.endswith(pat) for pat in skip_patterns):
             continue
         if any(name.startswith(prefix) for prefix in skip_prefixes):
+            continue
+        if name in skip_exact:
             continue
 
         gcs_uri = f"gs://{bucket}/{name}"
@@ -361,3 +384,54 @@ def load_all_documents(bucket: str) -> list[Document]:
 
     logger.info(f"Total documents loaded: {len(all_docs)} from {processed} files")
     return all_docs
+
+
+def iter_gcs_uris(bucket: str):
+    """
+    Yield (gcs_uri, file_type) for every processable file in the bucket
+    without downloading content. file_type is 'parquet' or 'csv'.
+
+    Used by the batched ingestion path to avoid loading all files into memory.
+    """
+    skip_patterns = [".ff1pkl", ".sqlite", ".pyc"]
+    # Skip RAG internals, coverage artifacts, raw telemetry (10Hz sensor data —
+    # not useful as retrieval context), and ML feature tables (numerical, not factual).
+    skip_prefixes = ["rag/", "htmlcov/", "telemetry/", "ml_features/", "raw/telemetry/"]
+    skip_exact = {
+        "processed/fastf1_telemetry.parquet",
+        "processed/fastf1_laps.parquet",
+        "processed/telemetry_all.parquet",
+        "processed/telemetry_laps_all.parquet",
+        "processed/laps_all.parquet",
+        "raw/fastf1_telemetry.csv",
+        "raw/fastf1_laps.csv",
+    }
+
+    try:
+        client = storage.Client()
+        blobs = client.list_blobs(bucket)
+    except Exception as e:
+        logger.warning(f"Failed to list bucket {bucket}: {e}")
+        return
+
+    for blob in blobs:
+        name = blob.name
+        if any(name.endswith(pat) for pat in skip_patterns):
+            continue
+        if any(name.startswith(prefix) for prefix in skip_prefixes):
+            continue
+        if name in skip_exact:
+            continue
+        if name.endswith(".parquet"):
+            yield f"gs://{bucket}/{name}", "parquet"
+        elif name.endswith(".csv"):
+            yield f"gs://{bucket}/{name}", "csv"
+
+
+def chunk_uri(gcs_uri: str, file_type: str, client=None) -> list[Document]:
+    """Chunk a single GCS file by type. Returns [] on error."""
+    if file_type == "parquet":
+        return chunk_parquet(gcs_uri, client=client)
+    if file_type == "csv":
+        return chunk_csv(gcs_uri, client=client)
+    return []

@@ -4,6 +4,7 @@ Simulates Google Cloud IAM roles and permissions.
 """
 
 import logging
+import os
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, List, Optional, Set
@@ -16,8 +17,14 @@ from jose import JWTError, jwt
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# JWT configuration
-SECRET_KEY = "f1-strategy-optimizer-secret-key-change-in-production"
+# JWT configuration — secret must be set via JWT_SECRET_KEY env var in production
+_JWT_SECRET_DEFAULT = "f1-strategy-optimizer-secret-key-change-in-production"
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", _JWT_SECRET_DEFAULT)
+if SECRET_KEY == _JWT_SECRET_DEFAULT and os.environ.get("ENV", "local") != "local":
+    raise RuntimeError(
+        "JWT_SECRET_KEY environment variable must be set in non-local environments. "
+        "Store the secret in GCP Secret Manager and inject it at runtime."
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

@@ -41,7 +41,7 @@ class RagConfig(BaseSettings):
     TOP_K: int = 5
 
     # Generation Configuration
-    MAX_OUTPUT_TOKENS: int = 1024
+    MAX_OUTPUT_TOKENS: int = 4096
     LLM_TEMPERATURE: float = 0.2
 
     # Embedding Batch Configuration
@@ -60,7 +60,6 @@ class RagConfig(BaseSettings):
         Returns:
             bool: True if both required IDs are configured, False otherwise.
         """
-        return (
-            bool(self.VECTOR_SEARCH_INDEX_ID)
-            and bool(self.VECTOR_SEARCH_ENDPOINT_ID)
+        return bool(self.VECTOR_SEARCH_INDEX_ID) and bool(
+            self.VECTOR_SEARCH_ENDPOINT_ID
         )

@@ -18,6 +18,7 @@ import { TEAM_COLORS } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDrivers, useRaces2024 } from '../hooks/useApi';
 import ConnectionBadge from '../components/ConnectionBadge';
+import { LiveBadge } from '../components/LiveBadge';
 import { Search, Users, Trophy, Flag, MapPin, Calendar, ChevronRight } from 'lucide-react';
 import type { DriverProfile } from '../types';
 
@@ -129,7 +130,7 @@ const DriverProfiles: React.FC = () => {
   if (loading && !drivers) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500 font-display uppercase tracking-widest text-sm animate-pulse">
+        <div className="text-white/40 font-display uppercase tracking-widest text-sm animate-pulse">
           Loading driver profiles...
         </div>
       </div>
@@ -141,8 +142,11 @@ const DriverProfiles: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-4xl font-display font-black tracking-tighter uppercase italic">Driver Roster</h1>
-          <p className="text-gray-500 uppercase text-[10px] tracking-[0.2em] mt-2">
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Driver Roster</h1>
+            <LiveBadge isLive={isLive} />
+          </div>
+          <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2">
             2024 Season, {totalDrivers} active drivers across {teams.length} constructors
           </p>
         </div>
@@ -154,21 +158,21 @@ const DriverProfiles: React.FC = () => {
         <div className="flex items-center gap-3 p-4 rounded-xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
           <Users className="w-5 h-5 text-blue-500" />
           <div>
-            <div className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">Active Drivers</div>
+            <div className="text-[9px] text-white/40 uppercase font-bold tracking-widest">Active Drivers</div>
             <div className="text-2xl font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{totalDrivers}</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-4 rounded-xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
           <Trophy className="w-5 h-5 text-yellow-500" />
           <div>
-            <div className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">Total Race Wins</div>
+            <div className="text-[9px] text-white/40 uppercase font-bold tracking-widest">Total Race Wins</div>
             <div className="text-2xl font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{totalWins}</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-4 rounded-xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
           <Flag className="w-5 h-5 text-green-500" />
           <div>
-            <div className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">Nationalities</div>
+            <div className="text-[9px] text-white/40 uppercase font-bold tracking-widest">Nationalities</div>
             <div className="text-2xl font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{nationalities}</div>
           </div>
         </div>
@@ -195,12 +199,12 @@ const DriverProfiles: React.FC = () => {
                 return (
                   <div
                     key={d.driver_id}
-                    className="px-4 py-2 hover:bg-black/10 dark:hover:bg-white/5 cursor-pointer text-sm flex items-center gap-3 transition-colors"
+                    className="px-4 py-2 hover:bg-white/5 cursor-pointer text-sm flex items-center gap-3 transition-colors"
                     onClick={() => { setSelectedId(d.driver_id); setSearchQuery(''); setDropdownOpen(false); }}
                   >
-                    <span className="font-bold w-10 text-gray-500">{d.code}</span>
+                    <span className="font-bold w-10 text-white/40">{d.code}</span>
                     <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{d.name}</span>
-                    <span className="text-xs text-gray-500 ml-auto">{st?.team || d.team}</span>
+                    <span className="text-xs text-white/40 ml-auto">{st?.team || d.team}</span>
                     <span className="text-xs font-mono text-yellow-500">{st?.points || 0} pts</span>
                   </div>
                 );
@@ -217,14 +221,14 @@ const DriverProfiles: React.FC = () => {
           <option value="all">All Teams</option>
           {teams.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <div className="text-[10px] text-gray-500 font-mono">{filteredDrivers.length} shown</div>
+        <div className="text-[10px] text-white/40 font-mono">{filteredDrivers.length} shown</div>
       </div>
 
       {/* Main Grid: Driver List + Detail Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Driver List */}
         <div className="lg:col-span-7 space-y-3">
-          <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest px-1 mb-2">2024 Grid</div>
+          <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1 mb-2">2024 Grid</div>
           {filteredDrivers
             .sort((a, b) => (seasonStats.get(b.driver_id)?.points || 0) - (seasonStats.get(a.driver_id)?.points || 0))
             .map((d, i) => {
@@ -239,7 +243,7 @@ const DriverProfiles: React.FC = () => {
                   transition={{ delay: i * 0.03 }}
                   onClick={() => setSelectedId(d.driver_id)}
                   className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
-                    isSelected ? 'border-red-600 shadow-lg shadow-red-900/10' : 'hover:bg-black/5 dark:hover:bg-white/5'
+                    isSelected ? 'border-red-600 shadow-lg shadow-red-900/10' : 'hover:bg-white/5'
                   }`}
                   style={{
                     backgroundColor: isSelected ? 'rgba(225, 6, 0, 0.03)' : 'var(--card-bg)',
@@ -248,7 +252,7 @@ const DriverProfiles: React.FC = () => {
                 >
                   {/* Position + Team Color */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-lg font-mono font-bold w-6 text-center text-gray-500">{i + 1}</span>
+                    <span className="text-lg font-mono font-bold w-6 text-center text-white/40">{i + 1}</span>
                     <div className="w-1 h-10 rounded-full" style={{ backgroundColor: teamColor }} />
                   </div>
                   {/* Driver Info */}
@@ -257,23 +261,23 @@ const DriverProfiles: React.FC = () => {
                       <span className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{d.name}</span>
                       <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: teamColor + '20', color: teamColor }}>{d.code}</span>
                     </div>
-                    <div className="text-[10px] text-gray-500">{st?.team || d.team} · {d.nationality}</div>
+                    <div className="text-[10px] text-white/40">{st?.team || d.team} · {d.nationality}</div>
                   </div>
                   {/* Season Stats */}
                   <div className="flex items-center gap-4 shrink-0">
                     <div className="text-right">
-                      <div className="text-[9px] text-gray-500 uppercase font-bold">Points</div>
+                      <div className="text-[9px] text-white/40 uppercase font-bold">Points</div>
                       <div className="text-sm font-mono font-bold text-yellow-500">{st?.points || 0}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[9px] text-gray-500 uppercase font-bold">Wins</div>
+                      <div className="text-[9px] text-white/40 uppercase font-bold">Wins</div>
                       <div className="text-sm font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{st?.wins || 0}</div>
                     </div>
                     <div className="text-right hidden md:block">
-                      <div className="text-[9px] text-gray-500 uppercase font-bold">Podiums</div>
+                      <div className="text-[9px] text-white/40 uppercase font-bold">Podiums</div>
                       <div className="text-sm font-mono font-bold text-blue-400">{st?.podiums || 0}</div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-white/40 shrink-0" />
                   </div>
                 </motion.div>
               );
@@ -308,16 +312,16 @@ const DriverProfiles: React.FC = () => {
                     </div>
                     <div>
                       <h2 className="text-3xl font-display font-bold tracking-tight">{selectedDriver.name}</h2>
-                      <p className="text-xs text-gray-500 uppercase font-black tracking-[0.2em]">{selectedStats.team}</p>
+                      <p className="text-xs text-white/40 uppercase font-black tracking-[0.2em]">{selectedStats.team}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <MapPin className="w-3 h-3 text-gray-500" />
-                        <span className="text-[10px] text-gray-500">{selectedDriver.nationality}</span>
+                        <MapPin className="w-3 h-3 text-white/40" />
+                        <span className="text-[10px] text-white/40">{selectedDriver.nationality}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Season Performance Grid */}
-                  <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">2024 Season Performance</div>
+                  <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-3">2024 Season Performance</div>
                   <div className="grid grid-cols-3 gap-3 mb-6">
                     <StatCard label="Points" value={selectedStats.points.toString()} highlight />
                     <StatCard label="Wins" value={selectedStats.wins.toString()} />
@@ -336,12 +340,12 @@ const DriverProfiles: React.FC = () => {
                     const isGainer = posGained > 0;
                     return (
                       <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-                        <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Avg Positions Gained Per Race</div>
+                        <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-2">Avg Positions Gained Per Race</div>
                         <div className="flex items-center gap-3">
                           <span className={`text-2xl font-mono font-black ${isGainer ? 'text-green-500' : 'text-red-500'}`}>
                             {isGainer ? '+' : ''}{posGained.toFixed(2)}
                           </span>
-                          <span className="text-[10px] text-gray-500">
+                          <span className="text-[10px] text-white/40">
                             {isGainer ? 'Gains positions on race day (strong racer)' : 'Loses positions on race day (strong qualifier)'}
                           </span>
                         </div>
@@ -366,7 +370,7 @@ const DriverProfiles: React.FC = () => {
 
       {/* Nationality Breakdown */}
       <div className="rounded-2xl p-6 border shadow-2xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-        <h3 className="text-xs font-display font-bold uppercase tracking-widest text-gray-400 mb-6 px-2">
+        <h3 className="text-xs font-display font-bold uppercase tracking-widest text-white/40 mb-6 px-2">
           Driver Nationalities (2024 Season)
         </h3>
         <div className="h-[280px]">
@@ -402,7 +406,7 @@ const DriverProfiles: React.FC = () => {
 function StatCard({ label, value, highlight, color }: { label: string; value: string; highlight?: boolean; color?: string }) {
   return (
     <div className="p-3 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-      <div className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1">{label}</div>
+      <div className="text-[9px] text-white/40 uppercase font-bold tracking-widest mb-1">{label}</div>
       <div
         className={`text-lg font-mono font-bold ${highlight ? 'text-yellow-500' : ''}`}
         style={{ color: color || (highlight ? undefined : 'var(--text-primary)') }}

@@ -3,7 +3,7 @@
  * @description Monte Carlo strategy simulator with live backend integration.
  *
  * Wired to: POST /api/v1/strategy/simulate
- * Fallback: MOCK_STRATEGIES presets + local Monte Carlo approximation
+ * Fallback: STRATEGY_PRESETS presets + local Monte Carlo approximation
  *
  * Features:
  * - Driver + race selection from live data
@@ -16,13 +16,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineChart, Line } from 'recharts';
-import { COLORS, MOCK_STRATEGIES } from '../constants';
+import { COLORS } from '../constants';
 import ConceptTooltip from '../components/ConceptTooltip';
 import { Info, Plus, X, Play, Loader2, Trophy, Timer, TrendingUp } from 'lucide-react';
 import { useRaces2024, useDrivers } from '../hooks/useApi';
 import { simulateStrategy } from '../services/endpoints';
 import type { TireCompound } from '../types';
 import { useAppStore } from '../store/useAppStore';
+
+const STRATEGY_PRESETS = [
+  { name: 'Optimal 2-Stop', win_prob: 0.22, podium_prob: 0.45, risk: 'Low', stints: [{ comp: 'MEDIUM', laps: 32 }, { comp: 'HARD', laps: 28 }, { comp: 'SOFT', laps: 18 }] },
+  { name: 'Aggressive Undercut', win_prob: 0.18, podium_prob: 0.38, risk: 'High', stints: [{ comp: 'MEDIUM', laps: 28 }, { comp: 'HARD', laps: 30 }, { comp: 'SOFT', laps: 20 }] },
+  { name: 'Conserve 1-Stop', win_prob: 0.04, podium_prob: 0.12, risk: 'Low', stints: [{ comp: 'MEDIUM', laps: 45 }, { comp: 'HARD', laps: 33 }] },
+];
 
 const COMPOUNDS: TireCompound[] = ['SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET'];
 
@@ -47,7 +53,7 @@ const PitStrategySimulator: React.FC = () => {
   const { activeRaceRound, setActiveRaceRound, selectedDriverId: storeDriverId, setSelectedDriverId: setStoreDriverId } = useAppStore();
   const [selectedRaceId, setSelectedRaceId] = useState<number | null>(activeRaceRound || null);
   const [selectedDriverId, setSelectedDriverId] = useState(storeDriverId || '');
-  const [selectedPreset, setSelectedPreset] = useState(MOCK_STRATEGIES[0]);
+  const [selectedPreset, setSelectedPreset] = useState(STRATEGY_PRESETS[0]);
   const [mode, setMode] = useState<'preset' | 'custom'>('preset');
 
   // Custom stint builder
@@ -296,7 +302,7 @@ const PitStrategySimulator: React.FC = () => {
           {/* Preset or Custom Content */}
           {mode === 'preset' ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {MOCK_STRATEGIES.map((s) => (
+              {STRATEGY_PRESETS.map((s) => (
                 <div
                   key={s.name}
                   onClick={() => { setSelectedPreset(s); setSimResult(null); }}

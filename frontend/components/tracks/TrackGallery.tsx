@@ -13,24 +13,22 @@ interface TrackGalleryProps {
   selectedTrackId?: string;
   columns?: 2 | 3 | 4;
   showDetails?: boolean;
-  theme?: 'dark' | 'light';
 }
 
 interface TrackItemProps {
   track: TrackInfo;
   isSelected: boolean;
   onSelect?: (track: TrackInfo) => void;
-  theme: 'dark' | 'light';
   showDetails: boolean;
 }
 
-const TrackItem = memo(({ track, isSelected, onSelect, theme, showDetails }: TrackItemProps) => {
+const TrackItem = memo(({ track, isSelected, onSelect, showDetails }: TrackItemProps) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  const bgColor = theme === 'dark' ? COLORS.dark.secondary : COLORS.light.secondary;
-  const textColor = theme === 'dark' ? COLORS.dark.text : COLORS.light.text;
-  const textSecondary = theme === 'dark' ? COLORS.dark.textSecondary : COLORS.light.textSecondary;
-  const borderColor = theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+  const bgColor = COLORS.dark.secondary;
+  const textColor = COLORS.dark.text;
+  const textSecondary = COLORS.dark.textSecondary;
+  const borderColor = 'rgba(255,255,255,0.1)';
 
   const TrackComponent = track.component;
 
@@ -99,7 +97,7 @@ const TrackItem = memo(({ track, isSelected, onSelect, theme, showDetails }: Tra
           alignItems: 'center',
           marginBottom: '12px',
           padding: '8px',
-          backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+          backgroundColor: 'rgba(0,0,0,0.3)',
           borderRadius: '8px',
         }}
       >
@@ -192,7 +190,6 @@ export const TrackGallery: React.FC<TrackGalleryProps> = ({
   selectedTrackId,
   columns = 3,
   showDetails = true,
-  theme = 'dark',
 }) => {
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -219,7 +216,6 @@ export const TrackGallery: React.FC<TrackGalleryProps> = ({
           track={track}
           isSelected={selectedTrackId === track.id}
           onSelect={onTrackSelect}
-          theme={theme}
           showDetails={showDetails}
         />
       ))}

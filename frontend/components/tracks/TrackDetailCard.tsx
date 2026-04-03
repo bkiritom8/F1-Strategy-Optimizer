@@ -9,7 +9,6 @@ import { COLORS } from '../../constants';
 
 interface TrackDetailCardProps {
   trackId: string;
-  theme?: 'dark' | 'light';
   showFullStats?: boolean;
   onClose?: () => void;
 }
@@ -70,7 +69,6 @@ const getRatingLabel = (rating: 'low' | 'medium' | 'high') => {
 
 export const TrackDetailCard: React.FC<TrackDetailCardProps> = ({
   trackId,
-  theme = 'dark',
   showFullStats = true,
   onClose,
 }) => {
@@ -80,11 +78,11 @@ export const TrackDetailCard: React.FC<TrackDetailCardProps> = ({
   if (!track) return null;
 
   const TrackComponent = track.component;
-  const bgColor = theme === 'dark' ? COLORS.dark.secondary : COLORS.light.secondary;
-  const bgTertiary = theme === 'dark' ? COLORS.dark.tertiary : COLORS.light.tertiary;
-  const textColor = theme === 'dark' ? COLORS.dark.text : COLORS.light.text;
-  const textSecondary = theme === 'dark' ? COLORS.dark.textSecondary : COLORS.light.textSecondary;
-  const borderColor = theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+  const bgColor = COLORS.dark.secondary;
+  const bgTertiary = COLORS.dark.tertiary;
+  const textColor = COLORS.dark.text;
+  const textSecondary = COLORS.dark.textSecondary;
+  const borderColor = 'rgba(255,255,255,0.1)';
 
   return (
     <div

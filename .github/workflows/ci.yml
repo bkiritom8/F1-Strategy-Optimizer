@@ -8,34 +8,68 @@ on:
 
 jobs:
   # ── Path detection ────────────────────────────────────────────────────────
-  # Determines whether RL-specific files changed so downstream jobs can gate.
+  # Every downstream job gates on one or more of these outputs.
+  # Jobs whose paths didn't change are skipped; all-checks-passed treats
+  # skipped as success so the gate never blocks unrelated changes.
   changes:
     name: Detect Changed Paths
     runs-on: ubuntu-latest
     outputs:
-      rl: ${{ steps.filter.outputs.rl }}
+      backend:   ${{ steps.filter.outputs.backend }}
+      ml:        ${{ steps.filter.outputs.ml }}
+      rl:        ${{ steps.filter.outputs.rl }}
+      terraform: ${{ steps.filter.outputs.terraform }}
+      frontend:  ${{ steps.filter.outputs.frontend }}
+      docker:    ${{ steps.filter.outputs.docker }}
+      docs:      ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
+            backend:
+              - 'src/**'
+              - 'rag/**'
+              - 'tests/**'
+              - 'requirements*.txt'
+            ml:
+              - 'ml/**'
+              - '!ml/rl/**'
+              - '!ml/training/train_rl.py'
             rl:
               - 'ml/rl/**'
               - 'ml/training/train_rl.py'
               - 'docker/Dockerfile.ml'
+            terraform:
+              - 'infra/terraform/**'
+            frontend:
+              - 'frontend/**'
+            docker:
+              - 'docker/**'
+              - 'cloudbuild.yaml'
+              - 'cloudbuild/**'
+              - 'requirements*.txt'
+            docs:
+              - 'docs/**'
+              - '**/*.md'
+              - 'mkdocs.yml'
 
-  # ── General CI ────────────────────────────────────────────────────────────
+  # ── Lint ─────────────────────────────────────────────────────────────────
+  # Runs when any Python source changes (backend, ML, or RL).
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.ml == 'true' ||
+      needs.changes.outputs.rl == 'true'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
@@ -44,59 +78,66 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-test.txt
 
-      - name: Run Black
-        run: black --check src/ ml/
+      - name: Black
+        run: black --check src/ ml/ rag/
 
-      - name: Run MyPy
+      - name: MyPy
         run: mypy src/ --ignore-missing-imports --follow-imports=skip
 
+  # ── Security ──────────────────────────────────────────────────────────────
+  # Runs when Python source or Docker files change.
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.ml == 'true' ||
+      needs.changes.outputs.docker == 'true'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Install security tools
         run: pip install bandit safety
 
-      - name: Run Bandit
+      - name: Bandit
         run: bandit -r src/ -f json -o bandit-report.json --exit-zero
         continue-on-error: true
 
-      - name: Run Safety
+      - name: Safety
         run: safety check --json > safety-report.json
         continue-on-error: true
 
-      - name: Upload security reports
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: security-reports
           path: |
             bandit-report.json
             safety-report.json
 
+  # ── Unit + Coverage ───────────────────────────────────────────────────────
+  # Runs when backend or ML source changes.
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.ml == 'true'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
@@ -111,31 +152,31 @@ jobs:
             --ignore=tests/unit/test_ml_models.py \
             -v --cov=src --cov-report=xml --cov-report=html
 
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
 
-      - name: Upload coverage HTML
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: htmlcov/
 
+  # ── Integration Tests ─────────────────────────────────────────────────────
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: test
+    needs: [changes, test]
+    if: |
+      needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.ml == 'true'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -145,25 +186,27 @@ jobs:
       - name: Run integration tests
         run: pytest tests/integration/ -v -p no:warnings || exit 0
 
+  # ── Docker Build ──────────────────────────────────────────────────────────
+  # Runs when Dockerfiles, build config, or source code changes.
   docker-build:
     name: Build Docker Images
     runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      needs.changes.outputs.docker == 'true' ||
+      needs.changes.outputs.backend == 'true'
 
     strategy:
       fail-fast: false
       matrix:
         service: [api, ml, ingest]
-        # mock-dataflow is LOCAL DEVELOPMENT ONLY — excluded from CI
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/Dockerfile.${{ matrix.service }}
@@ -173,16 +216,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # ── Terraform ─────────────────────────────────────────────────────────────
+  # Runs only when infra/terraform/** changes.
   terraform-validate:
     name: Validate Terraform
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.0
 
@@ -201,16 +246,18 @@ jobs:
           cd infra/terraform
           terraform validate
 
+  # ── Docs ──────────────────────────────────────────────────────────────────
+  # Runs only when docs/** or *.md files change.
   docs:
     name: Build Documentation
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -220,7 +267,7 @@ jobs:
       - name: Build documentation
         run: mkdocs build
 
-  # ── RL Model CI (path-filtered) ───────────────────────────────────────────
+  # ── RL Smoke Test (path-filtered) ─────────────────────────────────────────
   rl-smoke-test:
     name: RL Smoke Test (physics fallback)
     runs-on: ubuntu-latest
@@ -228,14 +275,11 @@ jobs:
     if: needs.changes.outputs.rl == 'true'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -256,10 +300,8 @@ jobs:
         run: |
           ls /tmp/rl_ci_checkpoints/final_policy.zip
           ls /tmp/rl_ci_checkpoints/final_vec_normalize.pkl
-          echo "Policy and VecNormalize files saved successfully"
 
-      - name: Upload checkpoint artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: rl-smoke-checkpoint-${{ github.sha }}
           path: /tmp/rl_ci_checkpoints/
@@ -271,14 +313,11 @@ jobs:
     needs: rl-smoke-test
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -326,17 +365,19 @@ jobs:
           EOF
 
   # ── Frontend Deploy (Firebase Hosting) ───────────────────────────────────
+  # Runs only on push when frontend/** changes.
   deploy-frontend:
     name: Deploy Frontend to Firebase Hosting
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    needs: changes
+    if: |
+      github.event_name == 'push' &&
+      needs.changes.outputs.frontend == 'true'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -346,14 +387,30 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install data pipeline dependencies
+        run: pip install pandas pyarrow google-cloud-storage
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Generate static data from GCS
+        run: python pipeline/scripts/generate_static_json.py --bucket f1optimizer-data-lake --out frontend/public/data
+
       - name: Build
         run: npm run build
         working-directory: frontend
         env:
-          VITE_API_URL: https://f1-strategy-api-dev-694267183904.us-central1.run.app
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_CLOUD_RUN_URL: ${{ secrets.VITE_CLOUD_RUN_URL }}
+          VITE_API_USER: ${{ secrets.VITE_API_USER }}
+          VITE_API_PASS: ${{ secrets.VITE_API_PASS }}
 
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
@@ -361,53 +418,49 @@ jobs:
           channelId: live
           entryPoint: frontend
 
-  # Cloud Build is triggered automatically by the GCP Cloud Build trigger on
-  # the pipeline branch — no need to submit it again from GitHub Actions.
-
+  # ── Gate ──────────────────────────────────────────────────────────────────
+  # All path-filtered jobs treat "skipped" as success so this gate never
+  # blocks a push that only touched unrelated files.
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [lint, security, test, integration-test, docker-build, terraform-validate, docs, rl-smoke-test, rl-env-validation, deploy-frontend]
+    needs:
+      - changes
+      - lint
+      - security
+      - test
+      - integration-test
+      - docker-build
+      - terraform-validate
+      - docs
+      - rl-smoke-test
+      - rl-env-validation
+      - deploy-frontend
     if: always()
 
     steps:
       - name: Check all jobs
         run: |
-          # Core jobs must succeed
-          core_ok=true
-          if [[ "${{ needs.lint.result }}"               != "success" ]]; then core_ok=false; fi
-          if [[ "${{ needs.security.result }}"           != "success" ]]; then core_ok=false; fi
-          if [[ "${{ needs.test.result }}"               != "success" ]]; then core_ok=false; fi
-          if [[ "${{ needs.integration-test.result }}"  != "success" ]]; then core_ok=false; fi
-          if [[ "${{ needs.docker-build.result }}"       != "success" ]]; then core_ok=false; fi
-          if [[ "${{ needs.terraform-validate.result }}" != "success" ]]; then core_ok=false; fi
-          if [[ "${{ needs.docs.result }}"              != "success" ]]; then core_ok=false; fi
+          fail=false
+          check() {
+            local name=$1 result=$2
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "FAIL: $name => $result"
+              fail=true
+            else
+              echo "OK:   $name => $result"
+            fi
+          }
 
-          # RL jobs are optional — must succeed OR be skipped (no RL file changes)
-          rl_ok=true
-          for result in "${{ needs.rl-smoke-test.result }}" "${{ needs.rl-env-validation.result }}"; do
-            if [[ "$result" != "success" && "$result" != "skipped" ]]; then rl_ok=false; fi
-          done
+          check lint               "${{ needs.lint.result }}"
+          check security           "${{ needs.security.result }}"
+          check test               "${{ needs.test.result }}"
+          check integration-test   "${{ needs.integration-test.result }}"
+          check docker-build       "${{ needs.docker-build.result }}"
+          check terraform-validate "${{ needs.terraform-validate.result }}"
+          check docs               "${{ needs.docs.result }}"
+          check rl-smoke-test      "${{ needs.rl-smoke-test.result }}"
+          check rl-env-validation  "${{ needs.rl-env-validation.result }}"
+          check deploy-frontend    "${{ needs.deploy-frontend.result }}"
 
-          # Deploy is optional — skipped if no frontend changes or secret not set
-          deploy_ok=true
-          deploy_result="${{ needs.deploy-frontend.result }}"
-          if [[ "$deploy_result" != "success" && "$deploy_result" != "skipped" ]]; then deploy_ok=false; fi
-
-          if $core_ok && $rl_ok && $deploy_ok; then
-            echo "[OK] All checks passed!"
-            exit 0
-          else
-            echo "[FAIL] Some checks failed"
-            echo "  lint:               ${{ needs.lint.result }}"
-            echo "  security:           ${{ needs.security.result }}"
-            echo "  test:               ${{ needs.test.result }}"
-            echo "  integration-test:   ${{ needs.integration-test.result }}"
-            echo "  docker-build:       ${{ needs.docker-build.result }}"
-            echo "  terraform-validate: ${{ needs.terraform-validate.result }}"
-            echo "  docs:               ${{ needs.docs.result }}"
-            echo "  rl-smoke-test:      ${{ needs.rl-smoke-test.result }}"
-            echo "  rl-env-validation:  ${{ needs.rl-env-validation.result }}"
-            echo "  deploy-frontend:    ${{ needs.deploy-frontend.result }}"
-            exit 1
-          fi
+          $fail && exit 1 || echo "All checks passed."

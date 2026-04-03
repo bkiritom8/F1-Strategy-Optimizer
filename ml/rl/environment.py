@@ -27,7 +27,6 @@ Usage (with all 4 trained models):
 from __future__ import annotations
 
 import logging
-import random
 from typing import Any, Optional
 
 import numpy as np
@@ -124,25 +123,34 @@ class F1RaceEnv(gym.Env):
     ) -> tuple[np.ndarray, dict]:
         super().reset(seed=seed)
 
-        race_id = random.choice(self._race_ids) if self._race_ids else "mock"
+        if self._race_ids:
+            idx = int(self.np_random.integers(len(self._race_ids)))
+            race_id = self._race_ids[idx]
+        else:
+            race_id = "mock"
 
         if self._fixed_lineup is not None:
             lineup = self._fixed_lineup
         else:
+            # Curriculum: randomise starting position each episode so the agent
+            # trains from varied grid slots and builds a richer gradient signal.
+            start_pos = int(self.np_random.integers(5, 19))  # 5-18 inclusive
             lineup = build_race_lineup(
                 user_driver_id=self._driver_id,
                 user_profile=self._driver_profile,
-                user_start_position=self._start_position,
+                user_start_position=start_pos,
                 user_start_compound=self._start_compound,
                 rivals=self._rivals,
             )
 
+        runner_seed = int(self.np_random.integers(0, 2**31))
         self._runner = RaceRunner(
             race_id=race_id,
             drivers=lineup,
             adapters=self._adapters,
             project=self._project,
-            seed=seed or self._rng_seed,
+            seed=runner_seed,
+            ml_user_only=True,  # ML for user driver only; physics for rivals (~15x faster)
         )
         self._reward_fn.reset()
 
@@ -163,6 +171,15 @@ class F1RaceEnv(gym.Env):
         )
         new_position = info.get("position", self._prev_position)
 
+        field_laps = [
+            rec.lap_time_ms
+            for did, rec in lap_records.items()
+            if did != self._driver_id and rec.lap_time_ms > 0
+        ]
+        field_median = (
+            float(sorted(field_laps)[len(field_laps) // 2]) if field_laps else 0.0
+        )
+
         r = self._reward_fn.step(
             prev_position=self._prev_position,
             new_position=new_position,
@@ -171,6 +188,7 @@ class F1RaceEnv(gym.Env):
             tire_age_laps=info.get("tire_age_laps", 0),
             pitted=pitted,
             safety_car_active=info.get("safety_car", False),
+            field_median_lap_ms=field_median,
         )
         self._prev_position = new_position
         reward = float(r.total)
