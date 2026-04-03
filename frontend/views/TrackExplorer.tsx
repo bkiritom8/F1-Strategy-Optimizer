@@ -8,11 +8,7 @@ import { TrackGallery } from '../components/tracks/TrackGallery';
 import { TrackDetailCard } from '../components/tracks/TrackDetailCard';
 import { TrackInfo } from '../components/tracks/TrackMaps';
 
-interface TrackExplorerProps {
-    theme?: 'dark' | 'light';
-}
-
-const TrackExplorer: React.FC<TrackExplorerProps> = ({ theme = 'dark' }) => {
+const TrackExplorer: React.FC = () => {
     const [selectedTrack, setSelectedTrack] = useState<TrackInfo | null>(null);
 
     return (
@@ -29,7 +25,6 @@ const TrackExplorer: React.FC<TrackExplorerProps> = ({ theme = 'dark' }) => {
                 </div>
 
                 <TrackGallery
-                    theme={theme}
                     columns={selectedTrack ? 2 : 3}
                     selectedTrackId={selectedTrack?.id}
                     onTrackSelect={setSelectedTrack}
@@ -42,7 +37,6 @@ const TrackExplorer: React.FC<TrackExplorerProps> = ({ theme = 'dark' }) => {
                     <div className="sticky top-0">
                         <TrackDetailCard
                             trackId={selectedTrack.id}
-                            theme={theme}
                             onClose={() => setSelectedTrack(null)}
                         />
                     </div>

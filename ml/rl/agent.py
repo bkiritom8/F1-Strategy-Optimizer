@@ -53,9 +53,11 @@ class _EnvFactory:
     """
     Top-level picklable env factory for SubprocVecEnv / DummyVecEnv.
 
-    Accepts either pre-loaded adapters (for DummyVecEnv — same process) or a
-    models_dir path (for SubprocVecEnv — each worker loads its own copy so
-    the large pkl files are not pickled across process boundaries).
+    Three worker modes (mutually exclusive):
+      adapters=<dict>        — DummyVecEnv: reuse already-loaded objects (same process)
+      models_dir=<path>      — SubprocVecEnv: each worker loads from local disk
+      gcs_models_bucket=<b>  — SubprocVecEnv: each worker downloads directly from GCS
+                               (preferred when models are not checked into the repo)
     """
 
     def __init__(
@@ -64,28 +66,39 @@ class _EnvFactory:
         driver_id,
         driver_profile,
         project,
-        adapters=None,  # used by DummyVecEnv (same process)
-        models_dir=None,  # used by SubprocVecEnv (loaded inside worker)
+        adapters=None,
+        models_dir=None,
+        gcs_models_bucket=None,
     ):
         self.race_ids = race_ids
         self.driver_id = driver_id
         self.driver_profile = driver_profile
         self.project = project
-        self.adapters = adapters  # may be None for subprocess mode
-        self.models_dir = models_dir  # path to local models/ dir
+        self.adapters = adapters
+        self.models_dir = models_dir
+        self.gcs_models_bucket = gcs_models_bucket
 
     def __call__(self):
         from stable_baselines3.common.monitor import Monitor
 
-        # If running in a subprocess, load adapters locally (avoids pickling ~100 MB)
         adapters = self.adapters
-        if adapters is None and self.models_dir:
-            try:
-                from ml.rl.model_adapters import load_local_adapters
+        if adapters is None:
+            if self.gcs_models_bucket:
+                try:
+                    from ml.rl.model_adapters import load_gcs_adapters
 
-                adapters = load_local_adapters(self.models_dir)
-            except Exception:
-                adapters = {}
+                    adapters = load_gcs_adapters(
+                        bucket=self.gcs_models_bucket, project=self.project
+                    )
+                except Exception:
+                    adapters = {}
+            elif self.models_dir:
+                try:
+                    from ml.rl.model_adapters import load_local_adapters
+
+                    adapters = load_local_adapters(self.models_dir)
+                except Exception:
+                    adapters = {}
 
         env = F1RaceEnv(
             race_ids=self.race_ids,
@@ -100,24 +113,32 @@ class _EnvFactory:
 PROJECT_ID = os.environ.get("PROJECT_ID", "f1optimizer")
 MODELS_BUCKET = os.environ.get("MODELS_BUCKET", "gs://f1optimizer-models")
 
+
 # PPO hyperparameters — tuned for F1 discrete strategy (58-lap episodes)
 # Note: CPU is faster than GPU here — MLP with 29-dim obs is too small for
 # CUDA launch overhead to be worthwhile; env stepping is the bottleneck.
+def _linear_lr(progress_remaining: float) -> float:
+    """Anneal learning rate from 3e-4 → 5e-5 over training."""
+    return 5e-5 + (3e-4 - 5e-5) * progress_remaining
+
+
 _PPO_KWARGS: dict[str, Any] = {
     "policy": "MlpPolicy",
-    "learning_rate": 3e-4,
+    "learning_rate": _linear_lr,
     "n_steps": 2048,  # rollout length per env before each update
     "batch_size": 64,
     "n_epochs": 10,
     "gamma": 0.99,  # discount: 1 lap ≈ 1 step → long horizon matters
     "gae_lambda": 0.95,
     "clip_range": 0.2,
-    "ent_coef": 0.01,  # entropy bonus encourages exploration of compounds
+    "ent_coef": 0.05,  # increased from 0.01 — encourages pit strategy exploration
     "vf_coef": 0.5,
     "max_grad_norm": 0.5,
     "verbose": 1,
     "device": "cpu",  # MLP policy trains faster on CPU than GPU
-    "policy_kwargs": {"net_arch": [256, 256]},
+    "policy_kwargs": {
+        "net_arch": [512, 512]
+    },  # wider than [256,256] for richer features
 }
 
 
@@ -158,20 +179,23 @@ class F1StrategyAgent:
         n_envs: int = 4,
         driver_id: Optional[str] = None,
         models_dir: Optional[str] = None,
+        gcs_models_bucket: Optional[str] = None,
     ) -> dict[str, Any]:
         """
         Train the PPO agent over historical F1 races.
 
         Args:
-            race_ids:         Training race IDs sampled each episode reset.
-            total_timesteps:  Total environment steps to train for.
-            eval_race_ids:    Held-out races for periodic evaluation.
-            checkpoint_dir:   Local directory for intermediate checkpoints.
-            n_envs:           Parallel environments (recommend = CPU cores).
-            driver_id:        Driver to control (None → first driver per race).
-            models_dir:       Path to local models/ dir. When n_envs > 1, each
-                              subprocess loads its own adapters from this path
-                              instead of pickling the parent's loaded objects.
+            race_ids:            Training race IDs sampled each episode reset.
+            total_timesteps:     Total environment steps to train for.
+            eval_race_ids:       Held-out races for periodic evaluation.
+            checkpoint_dir:      Local directory for intermediate checkpoints.
+            n_envs:              Parallel environments (recommend = CPU cores).
+            driver_id:           Driver to control (None → first driver per race).
+            models_dir:          Local models/ dir for SubprocVecEnv workers.
+            gcs_models_bucket:   GCS bucket name (e.g. "f1optimizer-models").
+                                 When set, SubprocVecEnv workers stream models
+                                 directly from GCS — no local copy required.
+                                 Takes precedence over models_dir.
 
         Returns:
             dict with training metadata.
@@ -180,19 +204,19 @@ class F1StrategyAgent:
 
         os.makedirs(checkpoint_dir, exist_ok=True)
 
-        # DummyVecEnv (same process) → pass loaded adapters directly (fast).
-        # SubprocVecEnv (separate processes) → pass models_dir so each worker
-        # loads its own copy, avoiding pickling ~100 MB of model objects.
         if n_envs == 1:
             vec_cls = DummyVecEnv
             factory_kw: dict[str, Any] = {"adapters": self._adapters}
         else:
             vec_cls = SubprocVecEnv
-            if models_dir is not None:
-                # Normal mode: each worker loads its own adapters from disk
+            if gcs_models_bucket:
+                # Preferred: each worker streams directly from GCS
+                factory_kw = {"gcs_models_bucket": gcs_models_bucket}
+            elif models_dir is not None:
+                # Fallback: load from local disk
                 factory_kw = {"models_dir": models_dir}
             else:
-                # --no-models mode: pass empty adapters dict (picklable, no disk load)
+                # No models: physics fallback only
                 factory_kw = {"adapters": {}}
 
         train_factory = _EnvFactory(
@@ -207,7 +231,29 @@ class F1StrategyAgent:
         vec_env = make_vec_env(train_factory, n_envs=n_envs, vec_env_cls=vec_cls)
         self._vec_normalize = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
 
-        self._ppo = PPO(env=self._vec_normalize, **_PPO_KWARGS)
+        if self._ppo is not None:
+            # Resume: transfer learned weights into the new environment.
+            # set_env() works when n_envs matches; when it differs (e.g. Phase 1
+            # used 12 envs, Phase 2 uses 4) we must reload via PPO.load() with
+            # the new env so SB3 re-initialises the rollout buffer at the right size.
+            logger.info("Resuming from existing policy — attaching new environment")
+            if self._ppo.n_envs != n_envs:
+                logger.info(
+                    "n_envs changed (%d→%d): reloading policy with new env",
+                    self._ppo.n_envs,
+                    n_envs,
+                )
+                import tempfile
+
+                with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
+                    tmp_path = f.name
+                self._ppo.save(tmp_path)
+                self._ppo = PPO.load(tmp_path, env=self._vec_normalize)
+                os.unlink(tmp_path)
+            else:
+                self._ppo.set_env(self._vec_normalize)
+        else:
+            self._ppo = PPO(env=self._vec_normalize, **_PPO_KWARGS)
 
         callbacks = [
             CheckpointCallback(
@@ -253,7 +299,7 @@ class F1StrategyAgent:
         self._ppo.learn(
             total_timesteps=total_timesteps,
             callback=CallbackList(callbacks),
-            progress_bar=True,
+            progress_bar=False,
         )
         logger.info("Training complete")
 

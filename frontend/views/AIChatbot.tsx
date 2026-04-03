@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, User, Bot, Loader2, Info, Sparkles } from 'lucide-react';
+import { RaceSimulator } from '../components/simulation';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -15,12 +16,76 @@ const SYSTEM_PROMPT = `You are an elite F1 Race Engineer and Strategist for 'Ape
  */
 const GEMINI_MODEL = 'gemini-2.0-flash-lite';
 
+/** Keywords that suggest the user wants a race simulation. */
+const SIMULATION_KEYWORDS = [
+  'simulate', 'simulation', 'monte carlo', 'race result', 'race outcome',
+  'predict race', 'who will win', 'finish position', 'lap by lap', 'replay',
+];
+
+/**
+ * Returns true when the question likely requests a simulation.
+ * Matches case-insensitively against SIMULATION_KEYWORDS.
+ */
+function isSimulationQuestion(question: string): boolean {
+  const lower = question.toLowerCase();
+  return SIMULATION_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+/**
+ * Extracts a race/circuit ID from the question text.
+ * Falls back to 'monaco' when no known circuit is mentioned.
+ */
+function extractRaceId(question: string): string {
+  const lower = question.toLowerCase();
+  const CIRCUIT_MAP: Record<string, string> = {
+    bahrain: 'bahrain',
+    jeddah: 'jeddah',
+    saudi: 'jeddah',
+    melbourne: 'melbourne',
+    australia: 'melbourne',
+    suzuka: 'suzuka',
+    japan: 'suzuka',
+    shanghai: 'shanghai',
+    china: 'shanghai',
+    miami: 'miami',
+    imola: 'imola',
+    monaco: 'monaco',
+    barcelona: 'barcelona',
+    spain: 'barcelona',
+    montreal: 'montreal',
+    canada: 'montreal',
+    silverstone: 'silverstone',
+    britain: 'silverstone',
+    hungary: 'hungary',
+    budapest: 'hungary',
+    spa: 'spa',
+    belgium: 'spa',
+    zandvoort: 'zandvoort',
+    monza: 'monza',
+    italy: 'monza',
+    singapore: 'singapore',
+    austin: 'austin',
+    mexico: 'mexico',
+    'sao paulo': 'interlagos',
+    brazil: 'interlagos',
+    'las vegas': 'las-vegas',
+    qatar: 'qatar',
+    'abu dhabi': 'abu-dhabi',
+  };
+  for (const [key, id] of Object.entries(CIRCUIT_MAP)) {
+    if (lower.includes(key)) return id;
+  }
+  return 'monaco';
+}
+
 const AIChatbot: React.FC = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: "I am the Apex AI Strategist, powered by Google Gemini. Ask me anything about tire management, undercut opportunities, pit windows, or car setup for any Grand Prix." }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [simJobId, setSimJobId] = useState<string | null>(null);
+  const [simRaceId, setSimRaceId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +112,15 @@ const AIChatbot: React.FC = () => {
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
+
+    // Detect simulation questions and trigger the race replay panel
+    if (isSimulationQuestion(userMessage)) {
+      const raceId = extractRaceId(userMessage);
+      // Generate a deterministic job ID from the question text
+      const jobId = btoa(userMessage.slice(0, 32)).replace(/[^a-z0-9]/gi, '').slice(0, 16);
+      setSimJobId(jobId);
+      setSimRaceId(raceId);
+    }
 
     try {
       // Build conversation history for Gemini format
@@ -173,8 +247,8 @@ const AIChatbot: React.FC = () => {
           </AnimatePresence>
         </div>
 
-        {/* Input Bar */}
-        <div className="p-4 border-t" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+        {/* Input Bar — pb-safe anchors above iOS/Android keyboard on mobile */}
+        <div className="p-4 pb-[env(safe-area-inset-bottom,1rem)] border-t" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
           <div className="flex gap-4">
             <input
               type="text"
@@ -182,6 +256,8 @@ const AIChatbot: React.FC = () => {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder="Query the strategist... (e.g. 'Is an undercut viable on Lap 18?')"
+              aria-label="F1 strategy question for Apex AI"
+              maxLength={500}
               className="flex-1 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-red-600 transition-all placeholder:text-gray-500 bg-black/20"
               style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
             />
@@ -195,6 +271,20 @@ const AIChatbot: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Race Simulation Panel — shown when a simulation question is detected */}
+      {simJobId && simRaceId && (
+        <div className="mt-4">
+          <RaceSimulator
+            jobId={simJobId}
+            raceId={simRaceId}
+            streamUrl={`/api/v1/simulate/race/stream?job_id=${simJobId}`}
+            token=""
+            width={500}
+            height={340}
+          />
+        </div>
+      )}
     </div>
   );
 };

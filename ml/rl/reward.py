@@ -4,12 +4,11 @@ RewardFunction — per-lap and terminal reward for the F1 RL agent.
 Reward components
 ─────────────────
 position_gain      +5.0 per position gained this lap; -3.0 per position lost
-lap_time_bonus     deviation from an exponential moving average baseline
-                   (±1 s relative → ±0.5 reward)
+lap_time_bonus     deviation from field median lap time (±1 s → ±0.5 reward)
 tire_overstay      −0.3 per lap past 110 % of compound's optimal stint
-pit_cost           −2.0 flat (offset toward 0 if tire was already overdue)
+pit_cost           −1.0 flat (offset toward 0 if tire was already overdue)
 sc_pit_bonus       +8.0 bonus for pitting under safety car (free pit window)
-finish_reward      terminal only — large reward based on final position
+finish_reward      terminal only — graduated P1 (+50) through P20 (−10)
 """
 
 from __future__ import annotations
@@ -28,10 +27,11 @@ COMPOUND_OPTIMAL_LAPS: dict[str, int] = {
 
 POS_GAIN_REWARD = 5.0
 POS_LOSS_PENALTY = 3.0
-PIT_BASE_COST = 2.0
+PIT_BASE_COST = 1.0  # reduced from 2.0 — prevents "never pit" trap
 SC_PIT_BONUS = 8.0
 
-# P1–P10 terminal rewards; any position worse than 10 = −2
+# Terminal rewards: graduated P1–P20 so the agent has a gradient signal
+# even when finishing outside the points.
 _FINISH_REWARDS: dict[int, float] = {
     1: 50.0,
     2: 30.0,
@@ -43,6 +43,16 @@ _FINISH_REWARDS: dict[int, float] = {
     8: 2.0,
     9: 1.0,
     10: 0.0,
+    11: -1.0,
+    12: -2.0,
+    13: -3.0,
+    14: -4.0,
+    15: -5.0,
+    16: -6.0,
+    17: -7.0,
+    18: -8.0,
+    19: -9.0,
+    20: -10.0,
 }
 
 
@@ -87,10 +97,10 @@ class RewardFunction:
     """
 
     def __init__(self) -> None:
-        self._lap_time_ema: Optional[float] = None
+        pass
 
     def reset(self) -> None:
-        self._lap_time_ema = None
+        pass
 
     def step(
         self,
@@ -101,6 +111,7 @@ class RewardFunction:
         tire_age_laps: int,
         pitted: bool,
         safety_car_active: bool,
+        field_median_lap_ms: float = 0.0,
     ) -> RewardComponents:
         """Compute reward for one lap transition."""
         r = RewardComponents()
@@ -112,14 +123,13 @@ class RewardFunction:
         elif pos_delta < 0:
             r.position_gain = -POS_LOSS_PENALTY * abs(pos_delta)
 
-        # ── Lap time vs EMA baseline ───────────────────────────────────────────
-        if lap_time_ms > 0:
-            if self._lap_time_ema is None:
-                self._lap_time_ema = lap_time_ms
-            else:
-                self._lap_time_ema = 0.9 * self._lap_time_ema + 0.1 * lap_time_ms
-            delta_s = (lap_time_ms - self._lap_time_ema) / 1000.0
-            r.lap_time_bonus = -0.5 * delta_s  # faster than baseline → positive
+        # ── Lap time vs field median ───────────────────────────────────────────
+        # Positive when agent is faster than the field; negative when slower.
+        # This gives a continuous signal every lap rather than the self-
+        # referential EMA that converges to zero in steady state.
+        if lap_time_ms > 0 and field_median_lap_ms > 0:
+            delta_s = (field_median_lap_ms - lap_time_ms) / 1000.0
+            r.lap_time_bonus = max(-1.0, min(1.0, 0.5 * delta_s))
 
         # ── Tire overstay penalty ──────────────────────────────────────────────
         compound = tire_compound.upper() if tire_compound else "MEDIUM"
@@ -144,5 +154,5 @@ class RewardFunction:
     def terminal(self, final_position: int) -> RewardComponents:
         """Compute terminal reward at the end of the race."""
         r = RewardComponents()
-        r.finish_reward = _FINISH_REWARDS.get(final_position, -2.0)
+        r.finish_reward = _FINISH_REWARDS.get(final_position, -10.0)
         return r

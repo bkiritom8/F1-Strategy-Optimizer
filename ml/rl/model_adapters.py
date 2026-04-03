@@ -160,11 +160,48 @@ class _BaseAdapter:
         if path:
             try:
                 self._bundle = _load_pkl(path, project)
+                self._limit_threads(1)
                 logger.info("%s: loaded from %s", self.model_name, path)
             except Exception as exc:
                 logger.warning(
                     "%s: load failed (%s) — fallback active", self.model_name, exc
                 )
+
+    def _limit_threads(self, n: int = 1) -> None:
+        """
+        Limit LGB/XGB internal thread count to n per worker.
+        Without this, each SubprocVecEnv worker spawns all CPU threads,
+        causing contention across the 4 parallel training environments.
+        """
+        if self._bundle is None:
+            return
+        for key in ("lgb", "pit_lgb"):
+            m = self._bundle.get(key)
+            if m is not None and hasattr(m, "reset_parameter"):
+                try:
+                    m.reset_parameter({"num_threads": n})
+                except Exception:
+                    pass
+        for key in ("xgb", "pit_xgb"):
+            m = self._bundle.get(key)
+            if m is not None:
+                if hasattr(m, "set_param"):
+                    try:
+                        m.set_param({"nthread": n})
+                    except Exception:
+                        pass
+                elif hasattr(m, "set_params"):
+                    try:
+                        m.set_params(n_jobs=n)
+                    except Exception:
+                        pass
+        for key in ("cat",):
+            m = self._bundle.get(key)
+            if m is not None and hasattr(m, "set_params"):
+                try:
+                    m.set_params(thread_count=n)
+                except Exception:
+                    pass
 
     @property
     def loaded(self) -> bool:
@@ -984,10 +1021,7 @@ def load_local_adapters(
     models_dir: str = "models",
     project: str = "f1optimizer",
 ) -> dict[str, _BaseAdapter]:
-    """
-    Convenience: load all available models from a local models/ directory.
-    OvertakeProbAdapter remains in fallback mode (model not yet pushed).
-    """
+    """Convenience: load all available models from a local models/ directory."""
     return load_all_adapters(
         tire_deg_path=os.path.join(models_dir, "tire_degradation.pkl"),
         fuel_path=os.path.join(models_dir, "fuel_consumption.pkl"),
@@ -995,5 +1029,40 @@ def load_local_adapters(
         sc_path=os.path.join(models_dir, "safety_car.pkl"),
         pit_window_path=os.path.join(models_dir, "pit_window.pkl"),
         race_outcome_path=os.path.join(models_dir, "race_outcome.pkl"),
+        overtake_path=os.path.join(models_dir, "overtake_prob.pkl"),
+        project=project,
+    )
+
+
+# Known GCS paths for each model (bucket: f1optimizer-models)
+_GCS_BLOB_PATHS: dict[str, str] = {
+    "tire_degradation": "tire_degradation/model.pkl",
+    "driving_style": "driving_style/model.pkl",
+    "safety_car": "safety_car/model.pkl",
+    "pit_window": "pit_window/model.pkl",
+    "race_outcome": "race_outcome/model.pkl",
+    "overtake_prob": "overtake_prob/model.pkl",
+    # fuel_consumption not yet in GCS — stays in physics fallback
+}
+
+
+def load_gcs_adapters(
+    bucket: str = "f1optimizer-models",
+    project: str = "f1optimizer",
+) -> dict[str, _BaseAdapter]:
+    """
+    Load all available adapters directly from GCS without a local models/ dir.
+    Each adapter downloads its pkl on init via _load_pkl(gs://...).
+    Use this for inference; for training use download_gcs_models() so
+    SubprocVecEnv workers can load from a shared local path.
+    """
+    base = f"gs://{bucket}"
+    return load_all_adapters(
+        tire_deg_path=f"{base}/tire_degradation/model.pkl",
+        driving_style_path=f"{base}/driving_style/model.pkl",
+        sc_path=f"{base}/safety_car/model.pkl",
+        pit_window_path=f"{base}/pit_window/model.pkl",
+        race_outcome_path=f"{base}/race_outcome/model.pkl",
+        overtake_path=f"{base}/overtake_prob/model.pkl",
         project=project,
     )

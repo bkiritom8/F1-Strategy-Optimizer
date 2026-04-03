@@ -172,8 +172,63 @@ def parse_args() -> argparse.Namespace:
 # ── Adapter loading ────────────────────────────────────────────────────────────
 
 
+GCS_MODELS_BUCKET = "f1optimizer-models"
+
+# GCS blob path → local filename mapping (fuel_consumption not yet in GCS)
+_GCS_MODEL_FILES: dict[str, str] = {
+    "tire_degradation.pkl": "tire_degradation/model.pkl",
+    "driving_style.pkl": "driving_style/model.pkl",
+    "safety_car.pkl": "safety_car/model.pkl",
+    "pit_window.pkl": "pit_window/model.pkl",
+    "race_outcome.pkl": "race_outcome/model.pkl",
+    "overtake_prob.pkl": "overtake_prob/model.pkl",
+}
+
+
+def download_gcs_models(
+    local_dir: str = "/tmp/f1_rl_models",
+    project: str = "f1optimizer",
+) -> str:
+    """
+    Download trained models from GCS to local_dir so SubprocVecEnv workers
+    can load them from disk.  Already-cached files are skipped.
+    Returns local_dir for use as models_dir.
+    """
+    os.makedirs(local_dir, exist_ok=True)
+    try:
+        from google.cloud import storage
+
+        client = storage.Client(project=project)
+        bucket = client.bucket(GCS_MODELS_BUCKET)
+        downloaded, skipped, missing = [], [], []
+        for local_name, gcs_blob in _GCS_MODEL_FILES.items():
+            dest = os.path.join(local_dir, local_name)
+            if os.path.exists(dest):
+                skipped.append(local_name)
+                continue
+            blob = bucket.blob(gcs_blob)
+            if blob.exists():
+                blob.download_to_filename(dest)
+                downloaded.append(local_name)
+            else:
+                missing.append(local_name)
+        if downloaded:
+            logger.info("GCS download: %s", downloaded)
+        if skipped:
+            logger.info("GCS cache hit (skipped): %s", skipped)
+        if missing:
+            logger.info("Not in GCS (physics fallback): %s", missing)
+    except Exception as exc:
+        logger.warning("GCS model download failed (%s) — physics fallback", exc)
+    return local_dir
+
+
 def load_adapters(models_dir: str = "models", skip: bool = False) -> dict:
-    """Load all local pkl adapters, with graceful fallback per model."""
+    """
+    Load all pkl adapters.  If no models exist locally, downloads from GCS
+    to /tmp/f1_rl_models first so SubprocVecEnv workers can load from disk.
+    Returns (adapters_dict, effective_models_dir).
+    """
     if skip:
         logger.info("--no-models: running with physics fallbacks only")
         return {}
@@ -803,15 +858,15 @@ def main() -> None:
     ppo_hparams = {
         "algorithm": "PPO",
         "policy": "MlpPolicy",
-        "net_arch": "256x256",
-        "learning_rate": 3e-4,
+        "net_arch": "512x512",
+        "learning_rate": "3e-4_to_5e-5_linear",
         "n_steps": 2048,
         "batch_size": 64,
         "n_epochs": 10,
         "gamma": 0.99,
         "gae_lambda": 0.95,
         "clip_range": 0.2,
-        "ent_coef": 0.01,
+        "ent_coef": 0.05,
         "vf_coef": 0.5,
         "max_grad_norm": 0.5,
         "total_timesteps": args.timesteps,
@@ -836,8 +891,38 @@ def main() -> None:
             _run_ctx = None
 
     # ── Load adapters ─────────────────────────────────────────────────────────
+    # Main process: stream from GCS when no local models/ exist (normal case —
+    # models are not checked into the repo). SubprocVecEnv workers do the same
+    # independently via gcs_models_bucket passed to agent.train().
     models_dir = str(_REPO_ROOT / "models")
-    adapters = load_adapters(models_dir, skip=args.no_models)
+    _sentinel_files = ["tire_degradation.pkl", "driving_style.pkl"]
+    local_has_models = any(
+        os.path.exists(os.path.join(models_dir, f)) for f in _sentinel_files
+    )
+    # Also check the GCS download cache (/tmp/f1_rl_models from download_gcs_models())
+    # so workers load from disk instead of re-downloading from GCS on every startup.
+    if not local_has_models and any(
+        os.path.exists(os.path.join("/tmp/f1_rl_models", f)) for f in _sentinel_files
+    ):
+        models_dir = "/tmp/f1_rl_models"
+        local_has_models = True
+        logger.info("Using GCS model cache at %s", models_dir)
+    if args.no_models:
+        adapters = {}
+        logger.info("--no-models: running with physics fallbacks only")
+    elif local_has_models:
+        adapters = load_adapters(models_dir)
+    else:
+        logger.info("Local models/ not found — loading adapters from GCS…")
+        try:
+            from ml.rl.model_adapters import load_gcs_adapters
+
+            adapters = load_gcs_adapters(bucket=GCS_MODELS_BUCKET)
+            loaded = [k for k, v in adapters.items() if v.loaded]
+            logger.info("GCS adapters loaded: %s", loaded)
+        except Exception as exc:
+            logger.warning("GCS adapter load failed (%s) — physics fallback", exc)
+            adapters = {}
 
     # ── Prefetch GCS data ─────────────────────────────────────────────────────
     all_ids = list(set(train_ids + eval_ids))
@@ -871,7 +956,14 @@ def main() -> None:
         checkpoint_dir=args.save_dir,
         n_envs=args.n_envs,
         driver_id=args.driver_id,
-        models_dir=None if args.no_models else models_dir,
+        # Workers stream from GCS when no local models exist (preferred — avoids
+        # committing large pkl files to the repo). Falls back to local disk if present.
+        gcs_models_bucket=(
+            None if (args.no_models or local_has_models) else GCS_MODELS_BUCKET
+        ),
+        models_dir=(
+            None if args.no_models else (models_dir if local_has_models else None)
+        ),
     )
 
     elapsed = time.time() - t0
@@ -945,13 +1037,24 @@ def main() -> None:
 
     # ── Rollback check ────────────────────────────────────────────────────────
     baseline_policy = str(_REPO_ROOT / "models" / "rl" / "final_policy.zip")
-    deploy_model = compare_with_baseline(
-        new_avg_position=avg_pos,
-        baseline_path=baseline_policy,
-        adapters=adapters,
-        driver_id=args.driver_id,
-        start_pos=args.start_pos,
-    )
+    if args.resume:
+        # Fine-tuning run: the resumed policy was trained in a different
+        # environment (e.g. physics-only Phase 1 vs ML Phase 2). Comparing
+        # positions across environments is invalid — the baseline's VecNormalize
+        # was fitted on a different obs distribution, so its eval performance is
+        # meaningless. Always deploy the fine-tuned model.
+        logger.info(
+            "Resume mode: skipping baseline comparison — fine-tuned model auto-deployed"
+        )
+        deploy_model = True
+    else:
+        deploy_model = compare_with_baseline(
+            new_avg_position=avg_pos,
+            baseline_path=baseline_policy,
+            adapters=adapters,
+            driver_id=args.driver_id,
+            start_pos=args.start_pos,
+        )
 
     if deploy_model:
         # Copy to permanent models/rl/ directory

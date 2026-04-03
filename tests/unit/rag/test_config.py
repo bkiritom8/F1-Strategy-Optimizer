@@ -32,7 +32,7 @@ def test_defaults(monkeypatch):
     assert config.CHUNK_SIZE == 512
     assert config.CHUNK_OVERLAP == 50
     assert config.TOP_K == 5
-    assert config.MAX_OUTPUT_TOKENS == 1024
+    assert config.MAX_OUTPUT_TOKENS == 4096
     assert config.LLM_TEMPERATURE == 0.2
     assert config.EMBEDDING_BATCH_SIZE == 250
     assert config.EMBEDDING_BATCH_SLEEP_SECONDS == 1.0

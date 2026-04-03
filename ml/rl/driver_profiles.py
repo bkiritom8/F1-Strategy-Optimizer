@@ -30,10 +30,10 @@ DRIVER_PROFILES: dict[str, dict[str, float]] = {
         "tire_management": 0.82,
         "pressure_response": 0.93,
     },
-    "sergio_perez": {
-        "aggression": 0.68,
-        "consistency": 0.82,
-        "tire_management": 0.91,
+    "liam_lawson": {
+        "aggression": 0.74,
+        "consistency": 0.76,
+        "tire_management": 0.72,
         "pressure_response": 0.70,
     },
     # McLaren
@@ -114,18 +114,18 @@ DRIVER_PROFILES: dict[str, dict[str, float]] = {
         "tire_management": 0.76,
         "pressure_response": 0.68,
     },
-    # RB (VCARB)
+    # RB (Racing Bulls)
     "yuki_tsunoda": {
         "aggression": 0.76,
         "consistency": 0.73,
         "tire_management": 0.70,
         "pressure_response": 0.71,
     },
-    "liam_lawson": {
-        "aggression": 0.74,
-        "consistency": 0.76,
-        "tire_management": 0.72,
-        "pressure_response": 0.70,
+    "isack_hadjar": {
+        "aggression": 0.73,
+        "consistency": 0.74,
+        "tire_management": 0.71,
+        "pressure_response": 0.68,
     },
     # Sauber
     "nico_hulkenberg": {
@@ -184,18 +184,12 @@ DRIVER_PROFILES: dict[str, dict[str, float]] = {
         "tire_management": 0.82,
         "pressure_response": 0.65,
     },
-    "isack_hadjar": {
-        "aggression": 0.73,
-        "consistency": 0.74,
-        "tire_management": 0.71,
-        "pressure_response": 0.68,
-    },
 }
 
 # Human-readable display names
 DRIVER_DISPLAY_NAMES: dict[str, str] = {
     "max_verstappen": "Max Verstappen",
-    "sergio_perez": "Sergio Pérez",
+    "liam_lawson": "Liam Lawson",
     "lando_norris": "Lando Norris",
     "oscar_piastri": "Oscar Piastri",
     "charles_leclerc": "Charles Leclerc",
@@ -209,7 +203,7 @@ DRIVER_DISPLAY_NAMES: dict[str, str] = {
     "oliver_bearman": "Oliver Bearman",
     "esteban_ocon": "Esteban Ocon",
     "yuki_tsunoda": "Yuki Tsunoda",
-    "liam_lawson": "Liam Lawson",
+    "isack_hadjar": "Isack Hadjar",
     "nico_hulkenberg": "Nico Hülkenberg",
     "gabriel_bortoleto": "Gabriel Bortoleto",
     "alex_albon": "Alex Albon",
@@ -219,32 +213,41 @@ DRIVER_DISPLAY_NAMES: dict[str, str] = {
     "alain_prost": "Alain Prost",
     "sebastian_vettel": "Sebastian Vettel",
     "valtteri_bottas": "Valtteri Bottas",
-    "isack_hadjar": "Isack Hadjar",
 }
 
 # Per-driver car performance offset (ms/lap vs a median field car).
 # Negative = faster. Reflects 2025 constructor competitiveness.
 CAR_PERFORMANCE_OFFSET_MS: dict[str, float] = {
+    # Red Bull
     "max_verstappen": -600.0,
-    "sergio_perez": -500.0,
+    "liam_lawson": -480.0,
+    # McLaren
     "lando_norris": -550.0,
     "oscar_piastri": -540.0,
+    # Ferrari
     "charles_leclerc": -480.0,
-    "lewis_hamilton": -460.0,
+    "lewis_hamilton": -470.0,
+    # Mercedes
     "george_russell": -380.0,
     "kimi_antonelli": -360.0,
+    # Aston Martin
     "fernando_alonso": -320.0,
     "lance_stroll": -280.0,
-    "pierre_gasly": -100.0,
-    "jack_doohan": -80.0,
-    "oliver_bearman": -60.0,
-    "esteban_ocon": -50.0,
-    "yuki_tsunoda": -140.0,
-    "liam_lawson": -120.0,
-    "nico_hulkenberg": -80.0,
-    "gabriel_bortoleto": -60.0,
+    # Williams
     "alex_albon": -160.0,
     "carlos_sainz": -170.0,
+    # RB (Racing Bulls)
+    "yuki_tsunoda": -140.0,
+    "isack_hadjar": -110.0,
+    # Alpine
+    "pierre_gasly": -100.0,
+    "jack_doohan": -80.0,
+    # Haas
+    "esteban_ocon": -60.0,
+    "oliver_bearman": -50.0,
+    # Sauber
+    "nico_hulkenberg": -80.0,
+    "gabriel_bortoleto": -60.0,
 }
 
 # Default grid order (starting positions for a typical race)
@@ -253,19 +256,19 @@ DEFAULT_GRID: list[str] = [
     "lando_norris",
     "charles_leclerc",
     "oscar_piastri",
-    "carlos_sainz",
-    "george_russell",
     "lewis_hamilton",
+    "george_russell",
+    "carlos_sainz",
     "fernando_alonso",
-    "sergio_perez",
+    "liam_lawson",
     "kimi_antonelli",
     "yuki_tsunoda",
-    "liam_lawson",
+    "isack_hadjar",
     "alex_albon",
     "nico_hulkenberg",
     "gabriel_bortoleto",
-    "oliver_bearman",
     "esteban_ocon",
+    "oliver_bearman",
     "pierre_gasly",
     "lance_stroll",
     "jack_doohan",

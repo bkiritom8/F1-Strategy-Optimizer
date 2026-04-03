@@ -9,13 +9,16 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
       proxy: {
-        '/api/v1': { target: 'http://localhost:8000', changeOrigin: true },
-        '/token':  { target: 'http://localhost:8000', changeOrigin: true },
-        '/health': { target: 'http://localhost:8000', changeOrigin: true },
-        '/metrics':{ target: 'http://localhost:8000', changeOrigin: true },
+        '/api/v1':  { target: 'http://localhost:8000', changeOrigin: true, ws: true },
+        '/token':   { target: 'http://localhost:8000', changeOrigin: true },
+        '/health':  { target: 'http://localhost:8000', changeOrigin: true },
+        '/metrics': { target: 'http://localhost:8000', changeOrigin: true },
         '/strategy':{ target: 'http://localhost:8000', changeOrigin: true },
-        '/models': { target: 'http://localhost:8000', changeOrigin: true },
-        '/users':  { target: 'http://localhost:8000', changeOrigin: true },
+        '/models':  { target: 'http://localhost:8000', changeOrigin: true },
+        '/users':   { target: 'http://localhost:8000', changeOrigin: true },
+        // LLM & Admin routes used by StrategyHub and AdminPage
+        '/llm':     { target: 'http://localhost:8000', changeOrigin: true },
+        '/admin':   { target: 'http://localhost:8000', changeOrigin: true },
         // NOTE: Do NOT proxy /data here. Static files in public/data/ (drivers.json,
         // circuits.json, etc.) are served by Vite's built-in static file server.
         // Proxying /data would redirect those requests to the backend, which

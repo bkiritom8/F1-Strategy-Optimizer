@@ -28,6 +28,20 @@ steps:
       - "docker/Dockerfile.ml"
       - "."
 
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-rag"
+    args:
+      - "build"
+      - "--platform"
+      - "linux/amd64"
+      - "-t"
+      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:$COMMIT_SHA"
+      - "-t"
+      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:latest"
+      - "-f"
+      - "docker/Dockerfile.rag"
+      - "."
+
   # ── Push images to Artifact Registry ────────────────────────────────────────
   - name: "gcr.io/cloud-builders/docker"
     id: "push-api"
@@ -38,6 +52,11 @@ steps:
     id: "push-ml"
     args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml"]
     waitFor: ["build-ml"]
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-rag"
+    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag"]
+    waitFor: ["build-rag"]
 
   # ── Train all ML models on Vertex AI ────────────────────────────────────────
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
@@ -142,7 +161,7 @@ steps:
     args:
       - "-c"
       - |
-        for IMAGE in api ml; do
+        for IMAGE in api ml rag; do
           REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/$$IMAGE"
           DIGESTS=$$(gcloud artifacts docker images list $$REPO \
             --include-tags --sort-by="~CREATE_TIME" \
@@ -161,6 +180,8 @@ images:
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:$COMMIT_SHA"
   - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
+  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:$COMMIT_SHA"
+  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:latest"
 
 options:
   logging: LEGACY

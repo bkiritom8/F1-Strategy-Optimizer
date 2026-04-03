@@ -144,12 +144,39 @@ class GenericCache:
         t.start()
 
     def lookup(self, question: str) -> str | None:
-        """Return cached answer if a similar question exists, else None."""
+        """Synchronous lookup — safe to call from threads (e.g. warm thread).
+
+        From async route handlers use async_lookup() instead.
+        """
         if not self._ready:
             return None
         try:
             vertexai.init()  # no-op if already initialized
             q_emb = _embed_one(question)
+        except Exception:
+            return None
+
+        with self._lock:
+            best_score, best_answer = 0.0, None
+            for entry in self._entries:
+                score = _cosine(q_emb, entry.embedding)
+                if score > best_score:
+                    best_score, best_answer = score, entry.answer
+
+        if best_score >= GENERIC_THRESHOLD:
+            logger.debug("GenericCache hit (%.3f): %s", best_score, question[:60])
+            return best_answer
+        return None
+
+    async def async_lookup(self, question: str) -> str | None:
+        """Async-safe lookup — runs the blocking embed call in a thread."""
+        import asyncio
+
+        if not self._ready:
+            return None
+        try:
+            vertexai.init()
+            q_emb = await asyncio.to_thread(_embed_one, question)
         except Exception:
             return None
 
@@ -219,7 +246,10 @@ class RealtimeCache:
         self._driver_states[key] = dict(race_inputs)
 
     def lookup(self, question: str, race_inputs: dict) -> str | None:
-        """Return cached answer if a semantically similar query with matching state exists."""
+        """Synchronous lookup — safe to call from threads only.
+
+        From async route handlers use async_lookup() instead.
+        """
         driver = str(race_inputs.get("driver") or "")
         if driver:
             self._detect_invalidation(driver, race_inputs)
@@ -232,9 +262,37 @@ class RealtimeCache:
             return None
 
         with self._lock:
-            # Evict expired entries
             self._entries = [e for e in self._entries if not self._is_expired(e)]
+            best_score, best_entry = 0.0, None
+            for entry in self._entries:
+                if entry.state_hash != state_hash:
+                    continue
+                score = _cosine(q_emb, entry.embedding)
+                if score > best_score:
+                    best_score, best_entry = score, entry
 
+        if best_score >= REALTIME_THRESHOLD and best_entry:
+            logger.debug("RealtimeCache hit (%.3f) state=%s", best_score, state_hash)
+            return best_entry.answer
+        return None
+
+    async def async_lookup(self, question: str, race_inputs: dict) -> str | None:
+        """Async-safe lookup — runs the blocking embed call in a thread."""
+        import asyncio
+
+        driver = str(race_inputs.get("driver") or "")
+        if driver:
+            self._detect_invalidation(driver, race_inputs)
+
+        state_hash = _bucket_state(race_inputs)
+
+        try:
+            q_emb = await asyncio.to_thread(_embed_one, question)
+        except Exception:
+            return None
+
+        with self._lock:
+            self._entries = [e for e in self._entries if not self._is_expired(e)]
             best_score, best_entry = 0.0, None
             for entry in self._entries:
                 if entry.state_hash != state_hash:
@@ -251,7 +309,10 @@ class RealtimeCache:
     def store(
         self, question: str, race_inputs: dict, answer: str, model_predictions: dict
     ) -> None:
-        """Store a new answer in the real-time cache."""
+        """Synchronous store — safe to call from threads only.
+
+        From async route handlers use async_store() instead.
+        """
         try:
             q_emb = _embed_one(question)
             state_hash = _bucket_state(race_inputs)
@@ -259,11 +320,34 @@ class RealtimeCache:
             return
 
         with self._lock:
-            # LRU eviction
             if len(self._entries) >= REALTIME_MAX_SIZE:
                 self._entries.sort(key=lambda e: e.created_at)
                 self._entries = self._entries[REALTIME_MAX_SIZE // 4 :]
+            self._entries.append(
+                _RealtimeEntry(
+                    embedding=q_emb,
+                    state_hash=state_hash,
+                    answer=answer,
+                    model_predictions=model_predictions,
+                )
+            )
 
+    async def async_store(
+        self, question: str, race_inputs: dict, answer: str, model_predictions: dict
+    ) -> None:
+        """Async-safe store — runs the blocking embed call in a thread."""
+        import asyncio
+
+        try:
+            q_emb = await asyncio.to_thread(_embed_one, question)
+            state_hash = _bucket_state(race_inputs)
+        except Exception:
+            return
+
+        with self._lock:
+            if len(self._entries) >= REALTIME_MAX_SIZE:
+                self._entries.sort(key=lambda e: e.created_at)
+                self._entries = self._entries[REALTIME_MAX_SIZE // 4 :]
             self._entries.append(
                 _RealtimeEntry(
                     embedding=q_emb,

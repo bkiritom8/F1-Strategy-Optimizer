@@ -36,16 +36,16 @@ import {
   ValidationStats,
   BackendSystemHealth,
   PredictiveMetric,
+  GcpMetrics,
+  AdminLog,
+  AdminQuotas,
+  fetchAdminGcpMetrics,
+  fetchAdminLogs,
+  fetchAdminQuotas,
 } from '../services/endpoints';
 import { API_BASE } from '../services/client';
 import { logger } from '../services/logger';
 import type { DriverProfile, StrategyRecommendation } from '../types';
-import {
-  MOCK_DRIVERS,
-  MOCK_RACE_STATE,
-  getMockTelemetry,
-  getMockStrategy,
-} from '../constants';
 
 // ─── Shared result type ──────────────────────────────────────────────────────
 
@@ -132,11 +132,9 @@ function useApiCall<T>(
 
 /**
  * Fetches all driver profiles.
- * Falls back to 5 hardcoded MOCK_DRIVERS when the backend and static file are
- * both unreachable.
  */
 export function useDrivers(): UseApiResult<DriverProfile[]> {
-  return useApiCall(() => fetchDrivers(), MOCK_DRIVERS, [], 'drivers');
+  return useApiCall(() => fetchDrivers(), null, [], 'drivers');
 }
 
 /**
@@ -157,20 +155,7 @@ export function useDriverHistory(driverId: string) {
 export function useRaceState(raceId: string, lap: number) {
   return useApiCall(
     () => fetchRaceState(raceId, lap),
-    {
-      raceState: MOCK_RACE_STATE,
-      driverStates: MOCK_DRIVERS.map((d, i) => ({
-        driver_id:       d.driver_id,
-        position:        i + 1,
-        gap_to_leader:   i * 2.5,
-        gap_to_ahead:    1.2,
-        lap_time_ms:     74500,
-        tire_compound:   'MEDIUM',
-        tire_age_laps:   12,
-        pit_stops_count: 0,
-        fuel_remaining_kg: 42.5,
-      })),
-    },
+    null,
     [raceId, lap],
     `raceState(${raceId}:L${lap})`,
   );
@@ -222,7 +207,7 @@ export function useStrategyRecommendation(params: {
       if (!params) throw new Error('No strategy params provided');
       return fetchStrategyRecommendation(params);
     },
-    params ? getMockStrategy(params.driver_id) : null,
+    null,
     [params?.driver_id, params?.current_lap],
     `strategy(${params?.driver_id ?? 'none'})`,
   );
@@ -285,7 +270,7 @@ export function useOvertakeMetric(driverId: string | null, opponentId: string | 
       if (!driverId || !opponentId) throw new Error('Driver and Opponent IDs required');
       return fetchOvertakeProb(driverId, opponentId);
     },
-    { probability: 0.12, timestamp: new Date().toISOString(), model_version: '1.1.0' },
+    null,
     [driverId, opponentId],
     `overtake(${driverId ?? 'none'}-${opponentId ?? 'none'})`,
   );
@@ -300,7 +285,7 @@ export function useSafetyCarProb(raceId: string | null): UseApiResult<Predictive
       if (!raceId) throw new Error('Race ID required');
       return fetchSafetyCarProb(raceId);
     },
-    { probability: 0.08, timestamp: new Date().toISOString(), model_version: '1.2.0' },
+    null,
     [raceId],
     `scProb(${raceId ?? 'none'})`,
   );
@@ -363,6 +348,20 @@ export function useSeasons() {
  */
 export function usePipelineReports() {
   return useApiCall(() => fetchPipelineReports(), null, [], 'pipelineReports');
+}
+
+// ─── Admin Hooks ────────────────────────────────────────────────────────────
+
+export function useAdminGcpMetrics() {
+  return useApiCall<GcpMetrics>(() => fetchAdminGcpMetrics(), null, [], 'adminGcpMetrics');
+}
+
+export function useAdminLogs() {
+  return useApiCall<{ logs: AdminLog[] }>(() => fetchAdminLogs(), { logs: [] }, [], 'adminLogs');
+}
+
+export function useAdminQuotas() {
+  return useApiCall<AdminQuotas>(() => fetchAdminQuotas(), null, [], 'adminQuotas');
 }
 
 // ─── Backend connectivity hook ───────────────────────────────────────────────

@@ -189,7 +189,7 @@ class TestRewardFunction:
             tire_age_laps=10,   # well within optimal 30
             pitted=True, safety_car_active=False,
         )
-        assert r.pit_cost == pytest.approx(-2.0)
+        assert r.pit_cost == pytest.approx(-1.0)
 
     def test_sc_pit_bonus(self, rf):
         r = rf.step(
@@ -222,7 +222,7 @@ class TestRewardFunction:
 
     def test_terminal_outside_points(self, rf):
         r = rf.terminal(final_position=15)
-        assert r.finish_reward == pytest.approx(-2.0)
+        assert r.finish_reward == pytest.approx(-5.0)
 
     def test_reward_components_total(self, rf):
         from ml.rl.reward import RewardComponents

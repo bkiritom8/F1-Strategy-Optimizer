@@ -53,6 +53,23 @@ variable "timeout_seconds" {
   default     = 60
 }
 
+variable "max_concurrent_requests" {
+  description = "Max concurrent requests per Cloud Run instance (max_instance_request_concurrency). Tune based on workload: lower for CPU-heavy LLM calls, higher for I/O-bound services."
+  type        = number
+  default     = 80
+}
+
+variable "cpu_target_utilization" {
+  description = "Target CPU utilization percentage (1-100) that triggers autoscaling. Cloud Run adds instances when average CPU across active instances exceeds this value, and removes them when it drops below."
+  type        = number
+  default     = 85
+
+  validation {
+    condition     = var.cpu_target_utilization >= 1 && var.cpu_target_utilization <= 100
+    error_message = "cpu_target_utilization must be between 1 and 100."
+  }
+}
+
 variable "env_vars" {
   description = "Environment variables for the container"
   type        = map(string)
@@ -61,6 +78,12 @@ variable "env_vars" {
 
 variable "labels" {
   description = "Resource labels"
+  type        = map(string)
+  default     = {}
+}
+
+variable "secret_env_vars" {
+  description = "Secret Manager secrets injected as env vars: map of env var name to secret resource ID"
   type        = map(string)
   default     = {}
 }

@@ -13,7 +13,6 @@ describe('useAppStore', () => {
       selectedDriverId: 'max_verstappen',
       activeRaceId: '2024_1',
       activeLap: 1,
-      theme: 'dark',
       sidebarOpen: false,
     });
   });
@@ -23,7 +22,6 @@ describe('useAppStore', () => {
     expect(state.selectedDriverId).toBe('max_verstappen');
     expect(state.activeRaceId).toBe('2024_1');
     expect(state.activeLap).toBe(1);
-    expect(state.theme).toBe('dark');
     expect(state.sidebarOpen).toBe(false);
   });
 
@@ -42,14 +40,6 @@ describe('useAppStore', () => {
   it('should default lap to 1 when not provided', () => {
     useAppStore.getState().setActiveRace('2024_10');
     expect(useAppStore.getState().activeLap).toBe(1);
-  });
-
-  it('should toggle theme', () => {
-    expect(useAppStore.getState().theme).toBe('dark');
-    useAppStore.getState().toggleTheme();
-    expect(useAppStore.getState().theme).toBe('light');
-    useAppStore.getState().toggleTheme();
-    expect(useAppStore.getState().theme).toBe('dark');
   });
 
   it('should toggle sidebar', () => {

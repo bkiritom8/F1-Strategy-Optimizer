@@ -237,6 +237,7 @@ team-docs/*.local.md
 
 # Data directories
 data/
+!frontend/public/data/
 f1_cache/
 f1_telemetry/
 raw.zip
@@ -278,3 +279,5 @@ ml/models/artifacts/
 *.parquet
 *.pkl
 .worktrees/
+.vercel
+.env*.local
