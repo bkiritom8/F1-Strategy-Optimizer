@@ -10,6 +10,19 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Module-level metadata cache: keyed by "bucket/gcs_path".
+# Populated lazily on first query_index call and reused for the lifetime of
+# the process.  Cloud Run spawns one process per instance, so this effectively
+# gives per-instance caching without a separate caching layer.
+# Thread-safety assumption: Cloud Run instances serve requests
+# single-threaded (uvicorn --workers 1).  If multi-threaded serving is ever
+# enabled, wrap cache reads/writes with a threading.Lock.
+_metadata_cache: dict[str, dict] = {}
+
+
+def _metadata_cache_key(bucket: str, gcs_path: str) -> str:
+    return f"{bucket}/{gcs_path}"
+
 
 def create_index(
     project: str,
@@ -85,6 +98,9 @@ def save_metadata(
     logger.info(
         f"Saved metadata for {len(documents)} new documents (total: {len(existing)}) to gs://{bucket}/{gcs_path}"
     )
+    # Invalidate the in-process cache so the next query_index call re-reads
+    # the freshly written metadata from GCS.
+    _metadata_cache.pop(_metadata_cache_key(bucket, gcs_path), None)
 
 
 def load_metadata(bucket: str, gcs_path: str) -> dict:
@@ -201,7 +217,16 @@ def query_index(
     """
     aiplatform.init(project=project, location=region)
 
-    metadata = load_metadata(metadata_bucket, metadata_gcs_path)
+    cache_key = _metadata_cache_key(metadata_bucket, metadata_gcs_path)
+    if cache_key not in _metadata_cache:
+        logger.info(
+            f"Metadata cache miss — loading from gs://{metadata_bucket}/{metadata_gcs_path}"
+        )
+        _metadata_cache[cache_key] = load_metadata(metadata_bucket, metadata_gcs_path)
+    else:
+        logger.debug("Metadata cache hit — skipping GCS download")
+    metadata = _metadata_cache[cache_key]
+
     if not metadata:
         logger.warning("No metadata loaded; cannot resolve query results to documents")
         return []

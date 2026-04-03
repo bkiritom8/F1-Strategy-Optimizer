@@ -1,3 +1,4 @@
+import hashlib
 import os
 import sys
 import logging
@@ -15,10 +16,40 @@ logger = logging.getLogger(__name__)
 _FILE_BATCH_SIZE = int(os.environ.get("FILE_BATCH_SIZE", "5"))
 
 
-def _process_in_batches(config, index_id):
+def _content_hash(text: str) -> str:
+    """16-char SHA256 prefix as a content fingerprint."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _build_known_hashes(existing_metadata: dict) -> set[str]:
+    """Extract all content hashes from the existing metadata store."""
+    return {
+        entry["metadata"]["content_hash"]
+        for entry in existing_metadata.values()
+        if entry.get("metadata", {}).get("content_hash")
+    }
+
+
+def _dedup(docs: list, known_hashes: set[str], batch_seen: set[str]) -> list:
+    """
+    Filter docs whose content hash already exists in the index or this batch.
+    Tags new docs with content_hash in their metadata.
+    """
+    result = []
+    for doc in docs:
+        h = _content_hash(doc.page_content)
+        if h not in known_hashes and h not in batch_seen:
+            doc.metadata["content_hash"] = h
+            result.append(doc)
+            batch_seen.add(h)
+    return result
+
+
+def _process_in_batches(config, index_id, known_hashes: set[str]):
     """
     Stream GCS files in batches of _FILE_BATCH_SIZE.
-    Each batch is chunked → embedded → upserted, then released from memory.
+    Each batch is chunked → deduped → embedded → upserted, then released from memory.
+    Skips any document whose content hash already exists in the index.
     Returns total vectors upserted.
     """
     from google.cloud import storage as gcs
@@ -30,6 +61,7 @@ def _process_in_batches(config, index_id):
     total_vectors = 0
     batch_uris = []
     file_count = 0
+    batch_seen: set[str] = set()
 
     def _flush(uris):
         nonlocal total_vectors
@@ -39,6 +71,10 @@ def _process_in_batches(config, index_id):
         for uri, ftype in uris:
             docs.extend(chunk_uri(uri, ftype, client=gcs_client))
         if not docs:
+            return
+        docs = _dedup(docs, known_hashes, batch_seen)
+        if not docs:
+            logger.info("  All docs in batch already ingested — skipping embed/upsert")
             return
         pairs = embed_documents(
             docs,
@@ -127,17 +163,43 @@ if __name__ == "__main__":
             )
             sys.exit(0)
 
-        # Step 4: Stream GCS data lake in batches → embed → upsert
+        # Step 4: Load existing metadata to build dedup hash set
         logger.info(
-            f"[{datetime.utcnow().isoformat()}] Step 4: Streaming GCS files "
-            f"in batches of {_FILE_BATCH_SIZE} → embed → upsert"
+            f"[{datetime.utcnow().isoformat()}] Step 4: Loading existing metadata for deduplication"
         )
-        total_gcs = _process_in_batches(config, index_id)
-        logger.info(f"GCS data lake: {total_gcs} vectors upserted")
+        from rag import vector_store as _vs_early
 
-        # Step 5: Text documents (FIA regulations, circuit guides) — small, load all at once
+        existing_metadata = _vs_early.load_metadata(
+            config.GCS_MODELS_BUCKET, config.METADATA_GCS_PATH
+        )
+        known_hashes = _build_known_hashes(existing_metadata)
         logger.info(
-            f"[{datetime.utcnow().isoformat()}] Step 5: Ingesting text documents"
+            f"Found {len(known_hashes)} known content hashes — new docs with matching "
+            f"hashes will be skipped"
+        )
+        del existing_metadata  # free ~161 MB before embedding
+
+        # Step 5: Stream GCS data lake in batches → embed → upsert
+        # Skip GCS ingestion if no content hashes exist yet — this means existing docs
+        # were ingested before the dedup feature was added and are already in the index.
+        # On subsequent runs, docs will carry content_hash tags and dedup will apply.
+        if not known_hashes:
+            logger.info(
+                "Step 5: Skipping GCS data lake — no content hashes in existing metadata "
+                "(pre-dedup ingestion run already complete). GCS data will be deduped on next run."
+            )
+            total_gcs = 0
+        else:
+            logger.info(
+                f"[{datetime.utcnow().isoformat()}] Step 5: Streaming GCS files "
+                f"in batches of {_FILE_BATCH_SIZE} → dedup → embed → upsert"
+            )
+            total_gcs = _process_in_batches(config, index_id, known_hashes)
+            logger.info(f"GCS data lake: {total_gcs} vectors upserted")
+
+        # Step 6: Text documents (circuit guides, regulations, strategy) — small, load all at once
+        logger.info(
+            f"[{datetime.utcnow().isoformat()}] Step 6: Ingesting curated text documents"
         )
         from rag.document_fetcher import fetch_all_text_documents
         from rag.embedder import embed_documents
@@ -147,8 +209,14 @@ if __name__ == "__main__":
             bucket=config.GCS_DATA_BUCKET,
             force_refresh=False,
         )
-        logger.info(f"Loaded {len(text_docs)} text documents")
+        logger.info(f"Loaded {len(text_docs)} curated text documents")
 
+        # Dedup curated docs against existing index
+        curated_batch_seen: set[str] = set()
+        text_docs = _dedup(text_docs, known_hashes, curated_batch_seen)
+        logger.info(f"After dedup: {len(text_docs)} new curated documents to ingest")
+
+        text_pairs: list = []
         if text_docs:
             text_pairs = embed_documents(
                 text_docs,
@@ -165,12 +233,12 @@ if __name__ == "__main__":
                 metadata_bucket=config.GCS_MODELS_BUCKET,
                 metadata_gcs_path=config.METADATA_GCS_PATH,
             )
-            logger.info(f"Text documents: {len(text_pairs)} vectors upserted")
+            logger.info(f"Curated text documents: {len(text_pairs)} vectors upserted")
 
         elapsed = time.time() - job_start
         logger.info(
             f"[{datetime.utcnow().isoformat()}] Job completed successfully in {elapsed:.1f}s "
-            f"— total vectors: {total_gcs + len(text_pairs if text_docs else [])}"
+            f"— total vectors: {total_gcs + len(text_pairs)}"
         )
         sys.exit(0)
 
