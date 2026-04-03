@@ -24,6 +24,7 @@ class F1Retriever:
         self.config = RagConfig()
         self._initialized = False
         self._gemini_client = GeminiClient(self.config)
+        self._embedding_cache: dict[str, list[float]] = {}
 
     def _ensure_initialized(self) -> None:
         """
@@ -61,10 +62,15 @@ class F1Retriever:
 
         self._ensure_initialized()
 
-        query_embedding = embedder.get_embeddings(
-            [query],
-            model_name=self.config.EMBEDDING_MODEL,
-        )[0]
+        if query in self._embedding_cache:
+            logger.debug("Embedding cache hit for query: %s", query[:50])
+            query_embedding = self._embedding_cache[query]
+        else:
+            query_embedding = embedder.get_embeddings(
+                [query],
+                model_name=self.config.EMBEDDING_MODEL,
+            )[0]
+            self._embedding_cache[query] = query_embedding
 
         filter_season = filters.get("season") if filters else None
         filter_race = filters.get("race") if filters else None
