@@ -8,8 +8,10 @@ from langchain_core.documents import Document
 def _make_retriever():
     """Create an F1Retriever with a mock config — bypasses Vertex AI init."""
     from rag.retriever import F1Retriever
+
     retriever = F1Retriever.__new__(F1Retriever)
     retriever._initialized = False
+    retriever._embedding_cache = {}
     retriever._gemini_client = MagicMock()
 
     mock_config = MagicMock()
@@ -38,8 +40,9 @@ def test_query_returns_correct_shape():
         Document(page_content="Verstappen fastest lap", metadata={"season": 2022}),
     ]
 
-    with patch.object(retriever, "retrieve", return_value=fake_docs), \
-         patch.object(retriever, "generate", return_value="Test answer"):
+    with patch.object(retriever, "retrieve", return_value=fake_docs), patch.object(
+        retriever, "generate", return_value="Test answer"
+    ):
         result = retriever.query("Who won Monaco 2019?")
 
     assert "answer" in result
@@ -75,9 +78,11 @@ def test_generate_empty_context():
 
 def test_init_sets_attributes():
     """F1Retriever.__init__ sets config, _initialized=False, and _gemini_client."""
-    with patch("rag.retriever.RagConfig") as MockConfig, \
-         patch("rag.retriever.GeminiClient") as MockGeminiClient:
+    with patch("rag.retriever.RagConfig") as MockConfig, patch(
+        "rag.retriever.GeminiClient"
+    ) as MockGeminiClient:
         from rag.retriever import F1Retriever
+
         r = F1Retriever()
     assert r._initialized is False
     assert r._gemini_client is not None
@@ -98,6 +103,7 @@ def test_ensure_initialized_not_configured_raises():
     retriever = _make_retriever()
     retriever._initialized = False
     retriever.config.is_configured = False
+    retriever._embedding_cache = {}
 
     with pytest.raises(RuntimeError, match="RAG index not configured"):
         retriever._ensure_initialized()
@@ -124,9 +130,13 @@ def test_retrieve_calls_vector_store():
     fake_docs = [Document(page_content="some content", metadata={})]
     fake_embedding = [0.1] * 768
 
-    with patch("rag.retriever.embedder.get_embeddings", return_value=[fake_embedding]), \
-         patch("rag.retriever.vector_store.query_index", return_value=fake_docs), \
-         patch.object(retriever, "_ensure_initialized"):
+    with patch(
+        "rag.retriever.embedder.get_embeddings", return_value=[fake_embedding]
+    ), patch(
+        "rag.retriever.vector_store.query_index", return_value=fake_docs
+    ), patch.object(
+        retriever, "_ensure_initialized"
+    ):
         result = retriever.retrieve("fastest lap 2023", filters={"season": 2023})
 
     assert result == fake_docs
@@ -137,9 +147,13 @@ def test_retrieve_with_no_filters():
     retriever = _make_retriever()
     fake_embedding = [0.0] * 768
 
-    with patch("rag.retriever.embedder.get_embeddings", return_value=[fake_embedding]), \
-         patch("rag.retriever.vector_store.query_index", return_value=[]) as mock_query, \
-         patch.object(retriever, "_ensure_initialized"):
+    with patch(
+        "rag.retriever.embedder.get_embeddings", return_value=[fake_embedding]
+    ), patch(
+        "rag.retriever.vector_store.query_index", return_value=[]
+    ) as mock_query, patch.object(
+        retriever, "_ensure_initialized"
+    ):
         retriever.retrieve("any question")
 
     call_kwargs = mock_query.call_args[1]
