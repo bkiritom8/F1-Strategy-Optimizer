@@ -117,13 +117,50 @@ resource "google_secret_manager_secret_version" "jwt_secret_key" {
   secret_data = random_password.jwt_secret.result
 }
 
-# Grant the default Cloud Run compute SA access to read the secret
+# Grant the default Cloud Run compute SA access to read the JWT secret
 resource "google_secret_manager_secret_iam_member" "cloud_run_jwt_access" {
   secret_id = google_secret_manager_secret.jwt_secret_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
 
   depends_on = [google_secret_manager_secret.jwt_secret_key]
+}
+
+# ── Gmail SMTP credentials (email verification) ───────────────────────────────
+# Load values after creating secrets:
+#   gcloud secrets versions add smtp-user --data-file=- <<< "you@gmail.com"
+#   gcloud secrets versions add smtp-pass --data-file=- <<< "xxxx xxxx xxxx xxxx"
+
+resource "google_secret_manager_secret" "smtp_user" {
+  secret_id  = "smtp-user"
+  project    = var.project_id
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret" "smtp_pass" {
+  secret_id  = "smtp-pass"
+  project    = var.project_id
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_iam_member" "cloud_run_smtp_user_access" {
+  secret_id  = google_secret_manager_secret.smtp_user.secret_id
+  role       = "roles/secretmanager.secretAccessor"
+  member     = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  depends_on = [google_secret_manager_secret.smtp_user]
+}
+
+resource "google_secret_manager_secret_iam_member" "cloud_run_smtp_pass_access" {
+  secret_id  = google_secret_manager_secret.smtp_pass.secret_id
+  role       = "roles/secretmanager.secretAccessor"
+  member     = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  depends_on = [google_secret_manager_secret.smtp_pass]
 }
 
 module "cloud_run" {
@@ -161,10 +198,17 @@ module "cloud_run" {
     VECTOR_SEARCH_INDEX_ID          = google_vertex_ai_index.rag.id
     VECTOR_SEARCH_ENDPOINT_ID       = google_vertex_ai_index_endpoint.rag.id
     VECTOR_SEARCH_DEPLOYED_INDEX_ID = google_vertex_ai_index_endpoint_deployed_index.rag.deployed_index_id
+    EMAIL_PROVIDER = "smtp"
+    SMTP_HOST      = "smtp.gmail.com"
+    SMTP_PORT      = "587"
+    EMAIL_FROM     = var.email_from
+    APP_BASE_URL   = var.app_base_url
   }
 
   secret_env_vars = {
     JWT_SECRET_KEY = google_secret_manager_secret.jwt_secret_key.secret_id
+    SMTP_USER      = google_secret_manager_secret.smtp_user.secret_id
+    SMTP_PASS      = google_secret_manager_secret.smtp_pass.secret_id
   }
 
   labels = local.common_labels

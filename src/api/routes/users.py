@@ -21,7 +21,7 @@ import os
 from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field
 
@@ -34,6 +34,7 @@ from src.security.iam_simulator import (
     User,
     iam_simulator,
 )
+from src.security.email_sender import send_verification_email
 from src.security.user_store import user_store
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,14 @@ class RegisterRequest(BaseModel):
     gdpr_consent: bool = Field(..., description="Must be true to create an account")
 
 
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(..., min_length=1)
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(..., min_length=1)
     new_password: str = Field(..., min_length=8, max_length=128)
@@ -71,6 +80,7 @@ class UserProfile(BaseModel):
     created_at: str
     consent_at: str
     is_admin: bool
+    email_verified: bool = False
 
 
 class AdminUserView(BaseModel):
@@ -119,6 +129,7 @@ def _to_profile(record: dict, is_admin: bool) -> UserProfile:
         created_at=str(record.get("created_at", "")),
         consent_at=str(record.get("consent_at", "")),
         is_admin=is_admin,
+        email_verified=record.get("email_verified", False),
     )
 
 
@@ -126,15 +137,16 @@ def _to_profile(record: dict, is_admin: bool) -> UserProfile:
 
 
 @router.post("/users/register", status_code=201, response_model=UserProfile)
-async def register(request: RegisterRequest) -> UserProfile:
+async def register(
+    request: RegisterRequest, background_tasks: BackgroundTasks
+) -> UserProfile:
     """
     Create a new user account.
 
     - Password is hashed with PBKDF2-HMAC-SHA256 (260k iterations, random salt).
-    - `gdpr_consent` must be `true` — by checking this box the user acknowledges
-      that their username, email, and full name will be stored on GCP infrastructure
-      in the EU/US region, and that they may request erasure at any time via
-      DELETE /users/me.
+    - `gdpr_consent` must be `true`.
+    - A verification email is sent immediately; the account cannot be used until
+      the email link is clicked (`POST /users/verify-email`).
     - Self-registration is limited to roles: `roles/apiUser`, `roles/dataViewer`.
     """
     role = _role_from_str(request.role)
@@ -156,6 +168,11 @@ async def register(request: RegisterRequest) -> UserProfile:
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 
+    token = record["verification_token"]
+    background_tasks.add_task(
+        send_verification_email, str(request.email), request.username, token
+    )
+
     return _to_profile(record, is_admin=False)
 
 
@@ -167,6 +184,15 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
     """
     # Check user store first
     record = user_store.authenticate(form_data.username, form_data.password)
+    if record == "unverified":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Email address not verified. "
+                "Check your inbox and click the verification link, "
+                "or POST /users/resend-verification to get a new one."
+            ),
+        )
     if record:
         role = _role_from_str(record.get("role", Role.API_USER.value))
         access_token = iam_simulator.create_access_token(
@@ -188,6 +214,37 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
         expires_delta=timedelta(minutes=60),
     )
     return Token(access_token=access_token, token_type="bearer")
+
+
+@router.post("/users/verify-email", status_code=200)
+async def verify_email(request: VerifyEmailRequest) -> dict:
+    """
+    Verify email address using the token from the registration email.
+    The account becomes fully active after this call.
+    """
+    try:
+        username = user_store.verify_email(request.token)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"message": f"Email verified. Welcome, {username}! You can now log in."}
+
+
+@router.post("/users/resend-verification", status_code=200)
+async def resend_verification(
+    request: ResendVerificationRequest, background_tasks: BackgroundTasks
+) -> dict:
+    """
+    Re-send the email verification link for a given email address.
+    Only works if the account exists and is not yet verified.
+    Always returns 200 to avoid leaking whether an email is registered.
+    """
+    record = user_store.get_by_email(str(request.email))
+    if record and not record.get("email_verified", False):
+        token = user_store.regenerate_verification_token(record["username"])
+        background_tasks.add_task(
+            send_verification_email, str(request.email), record["username"], token
+        )
+    return {"message": "If that email is registered and unverified, a new link has been sent."}
 
 
 @router.get("/users/me", response_model=UserProfile)

@@ -16,7 +16,8 @@ what makes it secure against offline brute-force attacks.
 Firestore collections
 ─────────────────────
   users/{username}              — profile (no credentials)
-      username, email, full_name, role, disabled, created_at, consent_at
+      username, email, full_name, role, disabled, created_at, consent_at,
+      email_verified, verification_token (cleared after verification)
 
   user_credentials/{username}   — password hash only (separate collection)
       hash
@@ -149,12 +150,15 @@ class UserStore:
             if snapshot.exists:
                 raise ValueError(f"Username '{username}' is already taken.")
 
+            verification_token = secrets.token_urlsafe(32)
             profile = {
                 "username": username,
                 "email": email,
                 "full_name": full_name,
                 "role": role,
                 "disabled": False,
+                "email_verified": False,
+                "verification_token": verification_token,
                 "created_at": now,
                 "consent_at": now,
             }
@@ -172,7 +176,7 @@ class UserStore:
 
         _audit("user_registered", username, email=email, role=role)
         logger.info("UserStore: registered %s (role=%s)", username, role)
-        return profile
+        return profile  # includes verification_token for the caller to send via email
 
     def update_password(self, username: str, new_password: str) -> None:
         """Replace password hash. Atomic single-document write."""
@@ -246,11 +250,61 @@ class UserStore:
         profile = user_snap.to_dict()
         if profile.get("disabled"):
             return None
+        if not profile.get("email_verified", False):
+            return "unverified"
         if not verify_password(password, cred_snap.to_dict()["hash"]):
             return None
 
         _audit("user_login", username)
         return profile
+
+    def verify_email(self, token: str) -> str:
+        """
+        Mark the user whose verification_token matches as email_verified=True.
+
+        Returns the username on success.
+        Raises ValueError if the token is invalid or already used.
+        """
+        db = _firestore()
+        results = (
+            db.collection(_USERS)
+            .where("verification_token", "==", token)
+            .limit(1)
+            .stream()
+        )
+        docs = list(results)
+        if not docs:
+            raise ValueError("Invalid or expired verification token.")
+
+        doc = docs[0]
+        username = doc.id
+        doc.reference.update(
+            {"email_verified": True, "verification_token": None}
+        )
+        _audit("email_verified", username)
+        logger.info("UserStore: email verified for %s", username)
+        return username
+
+    def get_by_email(self, email: str) -> dict | None:
+        """Return user profile by email address (case-sensitive). Admin / resend use."""
+        results = (
+            _firestore()
+            .collection(_USERS)
+            .where("email", "==", email)
+            .limit(1)
+            .stream()
+        )
+        docs = list(results)
+        return docs[0].to_dict() if docs else None
+
+    def regenerate_verification_token(self, username: str) -> str:
+        """Issue a fresh verification token (for resend). Returns the new token."""
+        token = secrets.token_urlsafe(32)
+        _firestore().collection(_USERS).document(username).update(
+            {"verification_token": token, "email_verified": False}
+        )
+        _audit("verification_token_regenerated", username)
+        return token
 
     def get(self, username: str) -> dict | None:
         """Return user profile without credentials."""
