@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.jolpi.ca/ergast/f1"
-_MIN_REQUEST_INTERVAL = 1.0
+_MIN_REQUEST_INTERVAL = 9.0  # Jolpica limit: 450 req/hr ≈ 1/8s; 9s gives safety margin
 _last_request_time: float = 0.0
 
 # FastF1 missing rounds to backfill: {year: list of round numbers}

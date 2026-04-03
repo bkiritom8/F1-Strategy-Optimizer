@@ -105,13 +105,16 @@ jobs:
       - name: Install security tools
         run: pip install bandit safety
 
-      - name: Bandit
+      - name: Bandit (report all findings)
         run: bandit -r src/ -f json -o bandit-report.json --exit-zero
-        continue-on-error: true
 
-      - name: Safety
-        run: safety check --json > safety-report.json
-        continue-on-error: true
+      - name: Bandit (fail on HIGH severity)
+        run: bandit -r src/ -lll -f text
+
+      - name: Safety (check for vulnerabilities)
+        run: |
+          safety check --json > safety-report.json || true
+          safety check
 
       - uses: actions/upload-artifact@v4
         with:
