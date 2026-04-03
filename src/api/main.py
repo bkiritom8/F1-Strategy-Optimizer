@@ -204,7 +204,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
     REQUEST_COUNT.labels(method="POST", endpoint="/token", status="200").inc()
 
-    logger.info(f"User {user.username} logged in successfully")
+    _masked = user.username[:2] + "***" if len(user.username) > 2 else "***"
+    logger.info("User %s logged in successfully", _masked)
 
     return Token(access_token=access_token, token_type="bearer")
 
