@@ -278,9 +278,7 @@ class UserStore:
 
         doc = docs[0]
         username = doc.id
-        doc.reference.update(
-            {"email_verified": True, "verification_token": None}
-        )
+        doc.reference.update({"email_verified": True, "verification_token": None})
         _audit("email_verified", username)
         logger.info("UserStore: email verified for %s", username)
         return username
