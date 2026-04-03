@@ -193,7 +193,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
                 "or POST /users/resend-verification to get a new one."
             ),
         )
-    if record:
+    if isinstance(record, dict):
         role = _role_from_str(record.get("role", Role.API_USER.value))
         access_token = iam_simulator.create_access_token(
             data={"sub": record["username"], "roles": [role.value]},
