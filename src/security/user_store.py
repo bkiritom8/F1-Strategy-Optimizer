@@ -223,7 +223,7 @@ class UserStore:
 
     # ── Read operations ───────────────────────────────────────────────────────
 
-    def authenticate(self, username: str, password: str) -> dict | None:
+    def authenticate(self, username: str, password: str) -> "dict | str | None":
         """
         Verify credentials. Returns user profile dict on success, None on failure.
         Reads profile and credentials in a single batch (no transaction needed —
