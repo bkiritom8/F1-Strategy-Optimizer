@@ -244,7 +244,9 @@ async def resend_verification(
         background_tasks.add_task(
             send_verification_email, str(request.email), record["username"], token
         )
-    return {"message": "If that email is registered and unverified, a new link has been sent."}
+    return {
+        "message": "If that email is registered and unverified, a new link has been sent."
+    }
 
 
 @router.get("/users/me", response_model=UserProfile)

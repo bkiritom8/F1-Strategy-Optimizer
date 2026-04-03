@@ -132,8 +132,8 @@ resource "google_secret_manager_secret_iam_member" "cloud_run_jwt_access" {
 #   gcloud secrets versions add smtp-pass --data-file=- <<< "xxxx xxxx xxxx xxxx"
 
 resource "google_secret_manager_secret" "smtp_user" {
-  secret_id  = "smtp-user"
-  project    = var.project_id
+  secret_id = "smtp-user"
+  project   = var.project_id
   replication {
     auto {}
   }
@@ -141,8 +141,8 @@ resource "google_secret_manager_secret" "smtp_user" {
 }
 
 resource "google_secret_manager_secret" "smtp_pass" {
-  secret_id  = "smtp-pass"
-  project    = var.project_id
+  secret_id = "smtp-pass"
+  project   = var.project_id
   replication {
     auto {}
   }
@@ -198,11 +198,11 @@ module "cloud_run" {
     VECTOR_SEARCH_INDEX_ID          = google_vertex_ai_index.rag.id
     VECTOR_SEARCH_ENDPOINT_ID       = google_vertex_ai_index_endpoint.rag.id
     VECTOR_SEARCH_DEPLOYED_INDEX_ID = google_vertex_ai_index_endpoint_deployed_index.rag.deployed_index_id
-    EMAIL_PROVIDER = "smtp"
-    SMTP_HOST      = "smtp.gmail.com"
-    SMTP_PORT      = "587"
-    EMAIL_FROM     = var.email_from
-    APP_BASE_URL   = var.app_base_url
+    EMAIL_PROVIDER                  = "smtp"
+    SMTP_HOST                       = "smtp.gmail.com"
+    SMTP_PORT                       = "587"
+    EMAIL_FROM                      = var.email_from
+    APP_BASE_URL                    = var.app_base_url
   }
 
   secret_env_vars = {
