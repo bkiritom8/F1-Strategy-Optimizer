@@ -203,6 +203,7 @@ module "cloud_run" {
     SMTP_PORT                       = "587"
     EMAIL_FROM                      = var.email_from
     APP_BASE_URL                    = var.app_base_url
+    ALLOWED_ORIGINS                 = var.allowed_origins
   }
 
   secret_env_vars = {

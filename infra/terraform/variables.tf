@@ -87,3 +87,9 @@ variable "app_base_url" {
   type        = string
   default     = "https://f1optimizer.app"
 }
+
+variable "allowed_origins" {
+  description = "Comma-separated list of allowed CORS origins"
+  type        = string
+  default     = "https://f1optimizer.web.app,https://f1optimizer.firebaseapp.com"
+}
