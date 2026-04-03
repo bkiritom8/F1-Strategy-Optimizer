@@ -3,6 +3,7 @@ F1 Strategy Optimizer API
 FastAPI application with security, monitoring, and operational guarantees.
 """
 
+import asyncio
 import logging
 import os
 from datetime import datetime, timedelta
@@ -857,8 +858,6 @@ async def full_simulate(
 @v1.get("/health/system")
 async def system_health():
     """Return system health with real dependency checks."""
-    import asyncio
-
     checks: Dict[str, Any] = {
         "timestamp": datetime.utcnow().isoformat(),
         "feature_pipeline": "not_loaded",
@@ -885,7 +884,7 @@ async def system_health():
             bucket = client.bucket("f1optimizer-models")
             bucket.exists()
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await asyncio.wait_for(
             loop.run_in_executor(None, _ping_gcs),
             timeout=5.0,
@@ -911,7 +910,7 @@ async def system_health():
                 )
                 r.ping()
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await asyncio.wait_for(
                 loop.run_in_executor(None, _ping_redis),
                 timeout=5.0,
