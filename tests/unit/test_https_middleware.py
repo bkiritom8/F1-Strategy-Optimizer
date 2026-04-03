@@ -179,9 +179,16 @@ class TestHTTPSRedirectMiddleware:
         r = client.get("/health")
         assert r.status_code == 200
 
-    def test_enabled_logs_warning_but_allows_http(self):
+    def test_enabled_blocks_http_without_forwarded_proto(self):
         app = _make_app((HTTPSRedirectMiddleware, {"enabled": True}))
         client = TestClient(app)
         r = client.get("/ping")
-        # Current impl logs warning but still allows (no strict block)
+        # HTTPS enforcement: plain HTTP (no x-forwarded-proto) returns 403
+        assert r.status_code == 403
+        assert r.json() == {"detail": "HTTPS required"}
+
+    def test_enabled_allows_https_via_forwarded_proto(self):
+        app = _make_app((HTTPSRedirectMiddleware, {"enabled": True}))
+        client = TestClient(app)
+        r = client.get("/ping", headers={"x-forwarded-proto": "https"})
         assert r.status_code == 200
