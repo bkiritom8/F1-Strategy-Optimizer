@@ -370,44 +370,6 @@ locals {
   all_notification_channels = [for ch in google_monitoring_notification_channel.email : ch.id]
 }
 
-resource "google_monitoring_alert_policy" "api_error_rate" {
-  display_name = "F1 API High Error Rate"
-  combiner     = "OR"
-
-  conditions {
-    display_name = "API Error Rate > 5%"
-
-    condition_threshold {
-      filter          = "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"5xx\""
-      duration        = "60s"
-      comparison      = "COMPARISON_GT"
-      threshold_value = 0.05
-
-      aggregations {
-        alignment_period   = "60s"
-        per_series_aligner = "ALIGN_RATE"
-      }
-    }
-  }
-
-  notification_channels = local.all_notification_channels
-
-  alert_strategy {
-    auto_close = "1800s"
-  }
-
-  # When alert_emails changes (channels added/removed), replace the alert policy
-  # rather than update it in-place. create_before_destroy ensures the new policy
-  # (with the updated channel list) is created BEFORE the old one is destroyed
-  # and BEFORE any deleted channels are removed — preventing the GCP 400 "still
-  # referenced" error that occurs when channel deletes race the policy update.
-  lifecycle {
-    create_before_destroy = true
-    replace_triggered_by  = [google_monitoring_notification_channel.email]
-  }
-}
-
-
 # Vertex AI Training Infrastructure
 resource "google_storage_bucket" "training" {
   name          = "${var.project_id}-training"
