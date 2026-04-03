@@ -800,14 +800,18 @@ async def full_simulate(
 
 @v1.get("/health/system")
 async def system_health():
-    """Return basic system health and pipeline status."""
+    """Return system health with real dependency checks."""
+    import asyncio
+
     checks: Dict[str, Any] = {
         "timestamp": datetime.utcnow().isoformat(),
-        "status": "healthy",
         "feature_pipeline": "not_loaded",
         "simulators_cached": len(_simulators),
         "ml_model": "loaded" if _strategy_model is not None else "fallback",
+        "gcs": "unknown",
+        "redis": "unknown",
     }
+
     if _feature_pipeline is not None:
         checks["feature_pipeline"] = "loaded"
         try:
@@ -815,6 +819,59 @@ async def system_health():
             checks["laps_cached_rows"] = n_races
         except Exception:
             pass
+
+    # GCS connectivity check
+    try:
+        from google.cloud import storage as gcs_storage
+
+        def _ping_gcs():
+            client = gcs_storage.Client()
+            bucket = client.bucket("f1optimizer-models")
+            bucket.exists()
+
+        loop = asyncio.get_event_loop()
+        await asyncio.wait_for(
+            loop.run_in_executor(None, _ping_gcs),
+            timeout=5.0,
+        )
+        checks["gcs"] = "ok"
+    except asyncio.TimeoutError:
+        checks["gcs"] = "timeout"
+    except Exception as e:
+        checks["gcs"] = f"error: {type(e).__name__}"
+
+    # Redis connectivity check
+    redis_host = os.getenv("REDIS_HOST")
+    if redis_host:
+        try:
+            import redis as redis_lib
+
+            def _ping_redis():
+                r = redis_lib.Redis(
+                    host=redis_host,
+                    port=int(os.getenv("REDIS_PORT", "6379")),
+                    socket_connect_timeout=3,
+                    socket_timeout=3,
+                )
+                r.ping()
+
+            loop = asyncio.get_event_loop()
+            await asyncio.wait_for(
+                loop.run_in_executor(None, _ping_redis),
+                timeout=5.0,
+            )
+            checks["redis"] = "ok"
+        except asyncio.TimeoutError:
+            checks["redis"] = "timeout"
+        except Exception as e:
+            checks["redis"] = f"error: {type(e).__name__}"
+    else:
+        checks["redis"] = "not_configured"
+
+    # Overall status
+    unhealthy = [k for k, v in checks.items() if isinstance(v, str) and "error" in v]
+    checks["status"] = "degraded" if unhealthy else "healthy"
+
     return checks
 
 
