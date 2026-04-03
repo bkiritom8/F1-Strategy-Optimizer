@@ -76,3 +76,14 @@ variable "db_name" {
   type        = string
   default     = "f1_strategy"
 }
+
+variable "email_from" {
+  description = "Sender address used for verification emails (must match the Gmail account in smtp-user secret)"
+  type        = string
+}
+
+variable "app_base_url" {
+  description = "Frontend root URL used to build email verification links"
+  type        = string
+  default     = "https://f1optimizer.app"
+}
