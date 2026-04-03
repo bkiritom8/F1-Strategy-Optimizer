@@ -579,12 +579,50 @@ async def list_drivers(current_user=Depends(get_current_user)):
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
     try:
+        import pandas as pd
+
         pipeline = _get_pipeline()
         drv_df = pipeline._drivers()
+
+        # Batch-compute career stats in one groupby instead of N per-driver calls
+        stats_map: Dict[str, Any] = {}
+        try:
+            results = pipeline._race_results()
+            id_col = "driverId" if "driverId" in results.columns else None
+            if id_col:
+                results_numeric = results.copy()
+                results_numeric["position"] = pd.to_numeric(
+                    results_numeric.get("position", pd.Series(dtype=float)),
+                    errors="coerce",
+                )
+                results_numeric["points"] = pd.to_numeric(
+                    results_numeric.get("points", pd.Series(dtype=float)),
+                    errors="coerce",
+                )
+                for did, g in results_numeric.groupby(id_col):
+                    stats_map[str(did)] = {
+                        "races": len(g),
+                        "wins": int((g["position"] == 1).sum()),
+                        "podiums": int((g["position"] <= 3).sum()),
+                        "points_total": float(g["points"].sum()),
+                        "seasons": sorted(
+                            g["season"].dropna().astype(int).unique().tolist()
+                        ),
+                    }
+        except Exception as exc:
+            logger.warning("Could not batch-compute driver stats: %s", exc)
+
         drivers_out = []
+        empty_stats = {
+            "races": 0,
+            "wins": 0,
+            "podiums": 0,
+            "points_total": 0.0,
+            "seasons": [],
+        }
         for _, row in drv_df.iterrows():
             driver_id = str(row.get("driverId", ""))
-            history = pipeline.get_driver_history(driver_id)
+            career = stats_map.get(driver_id, empty_stats)
             drivers_out.append(
                 {
                     "driver_id": driver_id,
@@ -593,7 +631,7 @@ async def list_drivers(current_user=Depends(get_current_user)):
                     "nationality": str(row.get("nationality", "")),
                     "code": str(row.get("code", "")),
                     "permanent_number": str(row.get("permanentNumber", "")),
-                    **{k: v for k, v in history.items() if k != "driver_id"},
+                    **career,
                 }
             )
         return {"count": len(drivers_out), "drivers": drivers_out}
