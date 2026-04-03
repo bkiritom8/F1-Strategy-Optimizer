@@ -67,6 +67,13 @@ ENABLE_HTTPS = os.getenv("ENABLE_HTTPS", "false").lower() == "true"
 ENABLE_IAM = os.getenv("ENABLE_IAM", "true").lower() == "true"
 ENV = os.getenv("ENV", "local")
 
+_ALLOWED_ORIGINS_DEFAULT = "http://localhost:3000,http://localhost:8080"
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", _ALLOWED_ORIGINS_DEFAULT).split(",")
+    if o.strip()
+]
+
 # ML model state — loaded once at startup
 _strategy_model = None
 _models_loaded_from_gcs = False
@@ -102,7 +109,7 @@ app.add_middleware(RequestValidationMiddleware)
 app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8080", "*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
 )
 
