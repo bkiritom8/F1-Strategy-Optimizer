@@ -8,6 +8,8 @@ dist-ssr/
 # Environment
 *.local
 .env
+.env.production
+.env.staging
 
 # Editor
 .vscode/*
