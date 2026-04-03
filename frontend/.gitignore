@@ -29,6 +29,9 @@ coverage/
 # Vercel
 .vercel/
 
+# Firebase
+.firebase/
+
 # Debug logs
 *.log
 npm-debug.log*

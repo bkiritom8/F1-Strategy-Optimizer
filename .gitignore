@@ -221,6 +221,9 @@ __marimo__/
 
 # Local project memory (Claude Code - never commit)
 CLAUDE.md
+
+# Superpowers (Claude Code plugin artifacts)
+.superpowers/
 session_summary.md
 docs/superpowers/
 .python-version
