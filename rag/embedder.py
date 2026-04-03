@@ -10,6 +10,20 @@ logger = logging.getLogger(__name__)
 # 1 500 chars ≈ 375 tokens — first-pass per-text guard before sending to the API.
 _MAX_CHARS = 1500
 
+# Module-level model cache: keyed by model_name.
+# TextEmbeddingModel.from_pretrained() makes a network round-trip to Vertex AI
+# on every call.  Caching the model object per process eliminates that overhead
+# for every query after the first.
+# Thread-safety assumption: single-threaded Cloud Run instance (uvicorn --workers 1).
+_model_cache: dict[str, "TextEmbeddingModel"] = {}
+
+
+def _get_model(model_name: str) -> "TextEmbeddingModel":
+    if model_name not in _model_cache:
+        logger.info(f"Loading embedding model '{model_name}' (first call)")
+        _model_cache[model_name] = TextEmbeddingModel.from_pretrained(model_name)
+    return _model_cache[model_name]
+
 
 def _is_token_limit_error(e: Exception) -> bool:
     err = str(e).lower()
@@ -80,7 +94,7 @@ def get_embeddings(
     if batch_size <= 0:
         raise ValueError(f"batch_size must be positive, got {batch_size}")
 
-    model = TextEmbeddingModel.from_pretrained(model_name)
+    model = _get_model(model_name)
     embeddings: list[list[float]] = []
 
     # First-pass per-text truncation. _embed_batch_with_split handles any
