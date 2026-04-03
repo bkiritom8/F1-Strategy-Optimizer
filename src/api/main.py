@@ -404,35 +404,53 @@ async def general_exception_handler(request, exc):
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    """Initialize on startup — load ML models from GCS if available."""
-    global _strategy_model, _models_loaded_from_gcs
-    logger.info(f"F1 Strategy Optimizer API starting in {ENV} environment")
-    logger.info(f"HTTPS enabled: {ENABLE_HTTPS}")
-    logger.info(f"IAM enabled: {ENABLE_IAM}")
+    """Initialize on startup — load ML models from GCS in a background thread."""
+    global _strategy_model, _models_loaded_from_gcs, _model_loaded_at
+    logger.info("F1 Strategy Optimizer API starting in %s environment", ENV)
+    logger.info("HTTPS enabled: %s", ENABLE_HTTPS)
+    logger.info("IAM enabled: %s", ENABLE_IAM)
 
-    try:
-        from google.cloud import storage
-        import io
-        import joblib
+    import asyncio
 
-        gcs_client = storage.Client()
-        bucket = gcs_client.bucket("f1optimizer-models")
-        blob = bucket.blob("strategy_predictor/latest/model.pkl")
-        if blob.exists():
-            buf = io.BytesIO()
-            blob.download_to_file(buf)
-            buf.seek(0)
-            _strategy_model = joblib.load(buf)
-            _models_loaded_from_gcs = True
-            logger.info("ML model loaded from GCS: strategy_predictor/latest/model.pkl")
-        else:
-            logger.error(
-                "No ML model found at strategy_predictor/latest/model.pkl - Strict mode enabled (no mock fallback)"
+    async def _load_model():
+        global _strategy_model, _models_loaded_from_gcs, _model_loaded_at
+        try:
+            from google.cloud import storage
+            import io
+            import joblib
+
+            def _download():
+                gcs_client = storage.Client()
+                bucket = gcs_client.bucket("f1optimizer-models")
+                blob = bucket.blob("strategy_predictor/latest/model.pkl")
+                if not blob.exists():
+                    logger.error(
+                        "No ML model found at strategy_predictor/latest/model.pkl"
+                    )
+                    return None
+                buf = io.BytesIO()
+                blob.download_to_file(buf)
+                buf.seek(0)
+                return joblib.load(buf)
+
+            model = await asyncio.wait_for(
+                asyncio.to_thread(_download),
+                timeout=60.0,
             )
-    except Exception as e:
-        logger.error(
-            "Model load failed - Strict mode enabled (no mock fallback): %s", e
-        )
+            if model is not None:
+                _strategy_model = model
+                _models_loaded_from_gcs = True
+                _model_loaded_at = datetime.utcnow().isoformat()
+                logger.info(
+                    "ML model loaded from GCS: strategy_predictor/latest/model.pkl"
+                )
+        except asyncio.TimeoutError:
+            logger.error("Model load timed out after 60s — using rule-based fallback")
+        except Exception as e:
+            logger.error("Model load failed — using rule-based fallback: %s", e)
+
+    asyncio.create_task(_load_model())
+    logger.info("Model load started in background")
 
 
 # ── /api/v1 router ─────────────────────────────────────────────────────────
