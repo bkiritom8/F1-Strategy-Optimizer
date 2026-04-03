@@ -77,6 +77,7 @@ ALLOWED_ORIGINS = [
 # ML model state — loaded once at startup
 _strategy_model = None
 _models_loaded_from_gcs = False
+_model_loaded_at: Optional[str] = None  # ISO timestamp when model was loaded
 
 # Lazy-loaded pipeline / simulator singletons (instantiated on first request)
 _feature_pipeline: Any = None
@@ -357,8 +358,7 @@ async def get_drivers(
 @app.get("/models/status")
 async def get_models_status(current_user: User = Depends(get_current_user)):
     """
-    Get ML models status
-
+    Get ML models load status.
     Requires: ML_MODEL_READ permission
     """
     if not iam_simulator.check_permission(current_user, Permission.ML_MODEL_READ):
@@ -366,27 +366,16 @@ async def get_models_status(current_user: User = Depends(get_current_user)):
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
 
-    # Placeholder - would query model registry
-    models = [
-        {
-            "name": "tire_degradation",
-            "version": "1.2.0",
-            "status": "active",
-            "accuracy": 0.92,
-            "last_updated": "2024-01-15T10:30:00Z",
-        },
-        {
-            "name": "fuel_consumption",
-            "version": "1.1.0",
-            "status": "active",
-            "accuracy": 0.89,
-            "last_updated": "2024-01-10T14:20:00Z",
-        },
-    ]
+    strategy_status = {
+        "name": "strategy_predictor",
+        "status": "loaded" if _strategy_model is not None else "fallback",
+        "source": "gcs" if _models_loaded_from_gcs else "none",
+        "loaded_at": _model_loaded_at,
+        "gcs_path": "strategy_predictor/latest/model.pkl",
+    }
 
     REQUEST_COUNT.labels(method="GET", endpoint="/models/status", status="200").inc()
-
-    return {"models": models}
+    return {"models": [strategy_status], "fallback_active": _strategy_model is None}
 
 
 # Error handlers
