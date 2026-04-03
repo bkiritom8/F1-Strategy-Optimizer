@@ -26,23 +26,23 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
         self.enabled = enabled
 
     async def dispatch(self, request: Request, call_next: Callable):
-        # Skip HTTPS enforcement for health checks and local dev
+        # Skip HTTPS enforcement for health checks
         if not self.enabled or request.url.path in ["/health", "/metrics"]:
             return await call_next(request)
 
-        # Check if request is over HTTPS
-        if request.url.scheme != "https":
-            # In production, redirect to HTTPS
-            # For local dev, log warning but allow
+        # Cloud Run terminates TLS externally; check forwarded proto header
+        forwarded_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        if forwarded_proto != "https":
             logger.warning(
-                f"Non-HTTPS request detected: {request.method} {request.url.path}"
+                "Non-HTTPS request rejected: %s %s (x-forwarded-proto=%s)",
+                request.method,
+                request.url.path,
+                forwarded_proto,
             )
-
-            # Uncomment for production:
-            # return JSONResponse(
-            #     status_code=status.HTTP_403_FORBIDDEN,
-            #     content={"detail": "HTTPS required"}
-            # )
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": "HTTPS required"},
+            )
 
         response = await call_next(request)
         return response
