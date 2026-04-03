@@ -58,14 +58,36 @@ steps:
     args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag"]
     waitFor: ["build-rag"]
 
-  # ── Train all ML models on Vertex AI ────────────────────────────────────────
+  # ── Detect whether ML training files changed ──────────────────────────────
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
-    id: "train-models"
+    id: "detect-ml-changes"
     waitFor: ["push-ml"]
     entrypoint: "bash"
     args:
       - "-c"
       - |
+        git fetch --depth=2 origin 2>/dev/null || true
+        CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^ml/(training|features|preprocessing)/' | wc -l || echo 0)
+        echo "ML training files changed: $CHANGED"
+        if [ "$CHANGED" -gt 0 ]; then
+          touch /workspace/ml_changed
+          echo "Model training WILL run"
+        else
+          echo "No ML training file changes — model training will be skipped"
+        fi
+
+  # ── Train all ML models on Vertex AI ────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "train-models"
+    waitFor: ["detect-ml-changes"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        if [ ! -f /workspace/ml_changed ]; then
+          echo "Skipping model training — no ML training file changes detected"
+          exit 0
+        fi
         for MODEL in tire_degradation driving_style safety_car pit_window overtake_prob race_outcome; do
           echo "Submitting: $$MODEL"
           gcloud ai custom-jobs create \
@@ -100,6 +122,10 @@ steps:
     args:
       - "-c"
       - |
+        if [ ! -f /workspace/ml_changed ]; then
+          echo "Skipping — training was skipped"
+          exit 0
+        fi
         pip install --quiet google-cloud-aiplatform
         python /workspace/cloudbuild/validate_models.py
 
@@ -111,6 +137,10 @@ steps:
     args:
       - "-c"
       - |
+        if [ ! -f /workspace/ml_changed ]; then
+          echo "Skipping — training was skipped"
+          exit 0
+        fi
         pip install --quiet google-cloud-aiplatform
         python /workspace/cloudbuild/check_bias.py
 
