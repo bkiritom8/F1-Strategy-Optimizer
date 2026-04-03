@@ -2111,7 +2111,9 @@ def fetch_all_text_documents(
         )
 
     n_circuits = len(_CIRCUIT_GUIDES) + len(_CIRCUIT_GUIDES_HISTORICAL)
-    n_regs = len(_REGULATION_DOCS) + len(_REGULATION_DOCS_HISTORICAL) + len(_STRATEGY_DOCS)
+    n_regs = (
+        len(_REGULATION_DOCS) + len(_REGULATION_DOCS_HISTORICAL) + len(_STRATEGY_DOCS)
+    )
     n_drivers = len(_DRIVER_PROFILES)
     n_constructors = len(_CONSTRUCTOR_PROFILES)
     logger.info(
