@@ -160,6 +160,7 @@ df = df.dropna(
 print(f"After feature engineering: {len(df)} rows")
 
 FEATURES = [
+    "constructor_enc",
     # Tyre state
     "TyreLife",
     "Stint",

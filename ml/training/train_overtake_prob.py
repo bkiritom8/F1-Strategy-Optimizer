@@ -148,6 +148,7 @@ df = df.dropna(subset=["overtake_success", "position"])
 print(f"\nAfter feature engineering: {len(df)} rows")
 
 FEATURES = [
+    "constructor_enc",
     # Real gap features
     "real_gap_ahead",
     "in_drs_zone",

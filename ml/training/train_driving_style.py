@@ -103,6 +103,7 @@ df = df.dropna(subset=["style_encoded", "mean_throttle", "mean_brake"])
 print(f"\nAfter feature engineering: {len(df)} rows")
 
 FEATURES = [
+    "constructor_enc",
     # Race context
     "LapNumber",
     "total_laps",

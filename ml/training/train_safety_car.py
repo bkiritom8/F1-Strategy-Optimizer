@@ -107,6 +107,7 @@ sc_df = sc_df.dropna(
 print(f"After cleaning: {len(sc_df)} rows")
 
 FEATURES = [
+    "constructor_enc",
     # Tire state — most important for SC decision
     "TyreLife",
     "tyre_life_pct",
