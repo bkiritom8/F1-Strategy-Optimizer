@@ -190,3 +190,16 @@ class BaseF1Model(ABC):
             self._publisher.publish(self._topic_path, data=payload)
         except Exception as exc:
             self.logger.warning("Pub/Sub publish failed: %s", exc)
+    
+    @staticmethod
+    def get_constructor_enc(team_series: pd.Series) -> pd.Series:
+        """Map Team names to stable integer codes using constructor_map.json from GCS."""
+        import json
+        import gcsfs
+        try:
+            fs = gcsfs.GCSFileSystem()
+            with fs.open("gs://f1optimizer-data-lake/ml_features/constructor_map.json") as f:
+                constructor_map = json.load(f)
+        except Exception:
+            constructor_map = {}
+        return team_series.map(constructor_map).fillna(-1).astype(int)

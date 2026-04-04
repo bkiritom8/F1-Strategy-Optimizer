@@ -79,6 +79,12 @@ class PitWindowModel(BaseF1Model):
             df['circuit_encoded'] = -1
         df['driving_style_encoded'] = df['driving_style'] if df['driving_style'].dtype != object else \
             df['driving_style'].map({'NEUTRAL': 0, 'BALANCE': 1, 'PUSH': 2}).fillna(1)
+        
+        if 'Team' in df.columns:
+            df['constructor_enc'] = self.get_constructor_enc(df['Team'])
+        elif 'constructor_enc' not in df.columns:
+            df['constructor_enc'] = -1
+        
         return df
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:

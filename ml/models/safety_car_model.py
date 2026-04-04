@@ -33,6 +33,12 @@ class SafetyCarModel(BaseF1Model):
         OPTIMAL_STINT = {'SOFT': 20, 'MEDIUM': 30, 'HARD': 45, 'INTERMEDIATE': 25, 'WET': 20}
         df['optimal_stint_len'] = df['Compound'].str.upper().map(OPTIMAL_STINT).fillna(30)
         df['laps_past_optimal'] = (df['TyreLife'] - df['optimal_stint_len']).clip(lower=0)
+
+        if 'Team' in df.columns:
+            df['constructor_enc'] = self.get_constructor_enc(df['Team'])
+        elif 'constructor_enc' not in df.columns:
+            df['constructor_enc'] = -1
+        
         return df
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
