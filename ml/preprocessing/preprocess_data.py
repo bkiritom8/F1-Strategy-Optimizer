@@ -27,7 +27,30 @@ def load_fastf1_data():
     df = laps.merge(
         telemetry, on=["season", "round", "Driver", "LapNumber"], how="inner"
     )
-    print(f"  Merged: {len(df)} rows")
+    print(f"  Merged laps+telemetry: {len(df)} rows")
+
+    # Add Team from telemetry_laps_all
+    print("  Adding Team/constructor from telemetry_laps_all...")
+    tel_laps = pd.read_parquet(
+        f"{RAW_DIR}/telemetry_laps_all.parquet",
+        columns=["season", "round", "Driver", "LapNumber", "Team"]
+    )
+    tel_laps = tel_laps.dropna(subset=["season", "round", "Driver", "LapNumber", "Team"])
+    tel_laps["season"] = tel_laps["season"].astype(int)
+    tel_laps["round"] = tel_laps["round"].astype(int)
+    tel_laps["LapNumber"] = tel_laps["LapNumber"].astype(int)
+    tel_laps = tel_laps.drop_duplicates(subset=["season", "round", "Driver", "LapNumber"])
+
+    df["season"] = df["season"].astype(int)
+    df["round"] = df["round"].astype(int)
+    df["LapNumber"] = df["LapNumber"].astype(int)
+
+    df = df.merge(tel_laps, on=["season", "round", "Driver", "LapNumber"], how="left")
+    df["Team"] = df["Team"].fillna("Unknown")
+    df["constructor_enc"] = df["Team"].astype("category").cat.codes
+
+    print(f"  Teams found: {df['Team'].nunique()} ({df['Team'].unique()[:5].tolist()}...)")
+    print(f"  Rows after Team join: {len(df)}")
     return df
 
 
