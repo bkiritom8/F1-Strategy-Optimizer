@@ -30,6 +30,7 @@ def load_fastf1_data():
     print(f"  Merged laps+telemetry: {len(df)} rows")
 
     # Add Team from telemetry_laps_all
+    # Add Team from telemetry_laps_all
     print("  Adding Team/constructor from telemetry_laps_all...")
     tel_laps = pd.read_parquet(
         f"{RAW_DIR}/telemetry_laps_all.parquet",
@@ -47,8 +48,17 @@ def load_fastf1_data():
 
     df = df.merge(tel_laps, on=["season", "round", "Driver", "LapNumber"], how="left")
     df["Team"] = df["Team"].fillna("Unknown")
-    df["constructor_enc"] = df["Team"].astype("category").cat.codes
 
+    # Build stable constructor mapping and save to GCS
+    team_categories = sorted(df["Team"].unique().tolist())
+    constructor_map = {team: i for i, team in enumerate(team_categories)}
+    df["constructor_enc"] = df["Team"].map(constructor_map).fillna(-1).astype(int)
+
+    import json
+    map_path = f"{PROCESSED_DIR}/constructor_map.json"
+    with fs.open(map_path, "w") as f:
+        json.dump(constructor_map, f)
+    print(f"  Constructor map saved: {len(constructor_map)} teams -> {map_path}")
     print(f"  Teams found: {df['Team'].nunique()} ({df['Team'].unique()[:5].tolist()}...)")
     print(f"  Rows after Team join: {len(df)}")
     return df

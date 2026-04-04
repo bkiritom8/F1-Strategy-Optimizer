@@ -32,6 +32,11 @@ class DrivingStyleModel(BaseF1Model):
             df['prev_style'] = df.groupby(['season', 'round', 'Driver'])['driving_style'].shift(1).fillna(1)
         else:
             df['prev_style'] = 1
+
+        if 'Team' in df.columns:
+            df['constructor_enc'] = self.get_constructor_enc(df['Team'])
+        elif 'constructor_enc' not in df.columns:
+            df['constructor_enc'] = -1
         return df
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:

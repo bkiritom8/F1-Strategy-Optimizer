@@ -46,6 +46,11 @@ class TireDegradationModel(BaseF1Model):
         df['cum_brake']    = df.groupby(['season', 'round', 'Driver'])['mean_brake'].cumsum() / df['LapNumber']
         df['position_prev']   = df.groupby(['season', 'round', 'Driver'])['position'].shift(1).fillna(df['position'])
         df['position_change'] = df['position'] - df['position_prev']
+
+        if 'Team' in df.columns:
+            df['constructor_enc'] = self.get_constructor_enc(df['Team'])
+        elif 'constructor_enc' not in df.columns:
+            df['constructor_enc'] = -1
         return df
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
