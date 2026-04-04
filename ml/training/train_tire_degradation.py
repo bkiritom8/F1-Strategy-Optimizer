@@ -107,6 +107,7 @@ df = df.dropna(subset=["tyre_delta", "TyreLife", "mean_throttle", "mean_brake"])
 print(f"After feature engineering: {len(df)} rows")
 
 FEATURES = [
+    "constructor_enc",
     # Tire state
     "TyreLife",
     "Stint",
