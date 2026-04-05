@@ -24,16 +24,36 @@ jobs:
       docs:      ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
-      - name: Force all checks
+      - uses: dorny/paths-filter@v3
         id: filter
-        run: |
-          echo "backend=true" >> $GITHUB_OUTPUT
-          echo "ml=true" >> $GITHUB_OUTPUT
-          echo "rl=true" >> $GITHUB_OUTPUT
-          echo "terraform=true" >> $GITHUB_OUTPUT
-          echo "frontend=true" >> $GITHUB_OUTPUT
-          echo "docker=true" >> $GITHUB_OUTPUT
-          echo "docs=true" >> $GITHUB_OUTPUT
+        with:
+          filters: |
+            backend:
+              - 'src/**'
+              - 'rag/**'
+              - 'tests/**'
+              - 'requirements*.txt'
+            ml:
+              - 'ml/**'
+              - '!ml/rl/**'
+              - '!ml/training/train_rl.py'
+            rl:
+              - 'ml/rl/**'
+              - 'ml/training/train_rl.py'
+              - 'docker/Dockerfile.ml'
+            terraform:
+              - 'infra/terraform/**'
+            frontend:
+              - 'frontend/**'
+            docker:
+              - 'docker/**'
+              - 'cloudbuild.yaml'
+              - 'cloudbuild/**'
+              - 'requirements*.txt'
+            docs:
+              - 'docs/**'
+              - '**/*.md'
+              - 'mkdocs.yml'
 
   # ── Lint ─────────────────────────────────────────────────────────────────
   # Runs when any Python source changes (backend, ML, or RL).
