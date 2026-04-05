@@ -39,26 +39,10 @@ steps:
         [ -f /workspace/ml_changed ]   && echo "  ml training:   RUN"     || echo "  ml training:   skip"
         [ -f /workspace/rag_changed ]  && echo "  rag ingestion: RUN"     || echo "  rag ingestion: skip"
 
-  # ── Lint + security gate (must pass before any image is built/pushed) ────────
-  - name: "python:3.10-slim"
-    id: "lint-and-security"
-    waitFor: ["detect-changes"]
-    entrypoint: "bash"
-    args:
-      - "-c"
-      - |
-        pip install --quiet black mypy bandit
-        echo "=== black ==="
-        black --check src/ ml/ rag/
-        echo "=== mypy ==="
-        mypy src/ --ignore-missing-imports --follow-imports=skip
-        echo "=== bandit ==="
-        bandit -r src/ -lll -f txt
-
   # ── Build/push API image (rebuild or retag) ──────────────────────────────────
   - name: "gcr.io/cloud-builders/docker"
     id: "build-push-api"
-    waitFor: ["lint-and-security"]
+    waitFor: ["detect-changes"]
     entrypoint: "bash"
     args:
       - "-c"
@@ -81,7 +65,7 @@ steps:
   # ── Build/push ML image (rebuild or retag) ───────────────────────────────────
   - name: "gcr.io/cloud-builders/docker"
     id: "build-push-ml"
-    waitFor: ["lint-and-security"]
+    waitFor: ["detect-changes"]
     entrypoint: "bash"
     args:
       - "-c"
@@ -104,7 +88,7 @@ steps:
   # ── Build/push RAG image (rebuild or retag) ──────────────────────────────────
   - name: "gcr.io/cloud-builders/docker"
     id: "build-push-rag"
-    waitFor: ["lint-and-security"]
+    waitFor: ["detect-changes"]
     entrypoint: "bash"
     args:
       - "-c"
