@@ -6,6 +6,8 @@ FastAPI application with security, monitoring, and operational guarantees.
 import asyncio
 import logging
 import os
+import sys
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -21,8 +23,6 @@ from prometheus_client import Counter, Histogram, generate_latest
 from prometheus_client import CONTENT_TYPE_LATEST
 
 # Import security components
-import sys
-import os
 
 # Dynamically resolve project root to allow imports from pipeline, ml, etc.
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -209,7 +209,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     _masked = user.username[:2] + "***" if len(user.username) > 2 else "***"
     logger.info("User %s logged in successfully", _masked)
 
-    return Token(access_token=access_token, token_type="bearer")
+    return Token(access_token=access_token, token_type="bearer")  # nosec B106
 
 
 @app.get("/users/me", response_model=User)
@@ -239,8 +239,6 @@ async def recommend_strategy(
         )
 
     # Track request
-    import time
-
     start_time = time.time()
 
     try:
@@ -410,8 +408,6 @@ async def startup_event():
     logger.info("F1 Strategy Optimizer API starting in %s environment", ENV)
     logger.info("HTTPS enabled: %s", ENABLE_HTTPS)
     logger.info("IAM enabled: %s", ENABLE_IAM)
-
-    import asyncio
 
     async def _load_model():
         global _strategy_model, _models_loaded_from_gcs, _model_loaded_at
@@ -872,8 +868,8 @@ async def system_health():
         try:
             n_races = len(_feature_pipeline._cache.get("laps_all", []))
             checks["laps_cached_rows"] = n_races
-        except Exception:
-            pass
+        except Exception as exc:  # nosec B110
+            logger.debug("feature pipeline cache access failed: %s", exc)
 
     # GCS connectivity check
     try:
@@ -1066,4 +1062,4 @@ app.include_router(simulate_router, prefix="/api/v1")
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)  # nosec B104

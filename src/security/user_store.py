@@ -84,7 +84,7 @@ _db = None
 def _firestore():
     global _db
     if _db is None:
-        from google.cloud import firestore
+        from google.cloud import firestore  # type: ignore[attr-defined]
 
         _db = firestore.Client(project=_PROJECT)
     return _db
@@ -92,7 +92,7 @@ def _firestore():
 
 def _audit(event: str, username: str, **extra: Any) -> None:
     try:
-        from google.cloud import firestore
+        from google.cloud import firestore  # type: ignore[attr-defined]
 
         _firestore().collection(_AUDIT).add(
             {
@@ -136,7 +136,7 @@ class UserStore:
         if not gdpr_consent:
             raise ValueError("GDPR consent is required to create an account.")
 
-        from google.cloud import firestore
+        from google.cloud import firestore  # type: ignore[attr-defined]
 
         db = _firestore()
         user_ref = db.collection(_USERS).document(username)
@@ -180,7 +180,7 @@ class UserStore:
 
     def update_password(self, username: str, new_password: str) -> None:
         """Replace password hash. Atomic single-document write."""
-        from google.cloud import firestore
+        from google.cloud import firestore  # type: ignore[attr-defined]
 
         db = _firestore()
         cred_ref = db.collection(_CREDS).document(username)
@@ -206,7 +206,7 @@ class UserStore:
         GDPR right of erasure — atomically delete profile and credentials,
         then write an erasure record to the audit log.
         """
-        from google.cloud import firestore
+        from google.cloud import firestore  # type: ignore[attr-defined]
 
         db = _firestore()
         user_ref = db.collection(_USERS).document(username)
@@ -278,7 +278,9 @@ class UserStore:
 
         doc = docs[0]
         username = doc.id
-        doc.reference.update({"email_verified": True, "verification_token": None})
+        doc.reference.update(
+            {"email_verified": True, "verification_token": None}  # nosec B105
+        )
         _audit("email_verified", username)
         logger.info("UserStore: email verified for %s", username)
         return username

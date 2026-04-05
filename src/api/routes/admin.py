@@ -56,7 +56,7 @@ async def get_logs(current_user: User = Depends(get_current_user)):
 
     logs = []
     try:
-        from google.cloud import logging as gcp_logging
+        from google.cloud import logging as gcp_logging  # type: ignore[attr-defined]
 
         client = gcp_logging.Client()
         filter_str = "severity >= ERROR"

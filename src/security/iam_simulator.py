@@ -18,7 +18,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # JWT configuration — secret must be set via JWT_SECRET_KEY env var in production
-_JWT_SECRET_DEFAULT = "f1-strategy-optimizer-secret-key-change-in-production"
+_JWT_SECRET_DEFAULT = (
+    "f1-strategy-optimizer-secret-key-change-in-production"  # nosec B105
+)
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", _JWT_SECRET_DEFAULT)
 if SECRET_KEY == _JWT_SECRET_DEFAULT and os.environ.get("ENV", "local") != "local":
     raise RuntimeError(

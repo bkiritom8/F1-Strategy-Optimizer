@@ -114,7 +114,7 @@ def get_predictions(race_inputs: dict) -> dict[str, str]:
         try:
             from ml.models.tire_degradation_model import TireDegradationModel
 
-            m = TireDegradationModel.__new__(TireDegradationModel)
+            m: Any = TireDegradationModel.__new__(TireDegradationModel)
             m._bundle = bundle
             row = m._engineer_features(df.copy())
             feats = bundle["features"]

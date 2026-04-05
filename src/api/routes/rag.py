@@ -150,8 +150,8 @@ async def rag_health():
         if blob.exists():
             blob.reload()
             last_updated = blob.updated.isoformat() if blob.updated else None
-    except Exception:
-        pass
+    except Exception as exc:  # nosec B110
+        logger.debug("GCS metadata check failed: %s", exc)
 
     return HealthResponse(
         status=rag_status,

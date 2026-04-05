@@ -481,7 +481,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                     }
                     for rec in lap_records.values()
                 ],
-                key=lambda x: x["position"],
+                key=lambda x: int(x["position"]),  # type: ignore[call-overload]
             )
 
             lap_snap = {
@@ -540,14 +540,14 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
             await websocket.send_json(
                 {"type": "error", "message": "Connection timed out"}
             )
-        except Exception:
-            pass
+        except Exception:  # nosec B110
+            pass  # WebSocket already closed; ignore send failure
     except Exception as exc:
         logger.error("Race simulation error: %s", exc, exc_info=True)
         try:
             await websocket.send_json({"type": "error", "message": str(exc)})
-        except Exception:
-            pass
+        except Exception:  # nosec B110
+            pass  # WebSocket already closed; ignore send failure
 
 
 # ── Available races endpoint (for frontend circuit selector) ──────────────────

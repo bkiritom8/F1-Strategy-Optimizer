@@ -199,7 +199,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
             data={"sub": record["username"], "roles": [role.value]},
             expires_delta=timedelta(minutes=60),
         )
-        return Token(access_token=access_token, token_type="bearer")
+        return Token(access_token=access_token, token_type="bearer")  # nosec B106
 
     # Fall back to built-in service accounts (admin, ml_engineer, etc.)
     user = iam_simulator.authenticate_user(form_data.username, form_data.password)
@@ -213,7 +213,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
         data={"sub": user.username, "roles": [r.value for r in user.roles]},
         expires_delta=timedelta(minutes=60),
     )
-    return Token(access_token=access_token, token_type="bearer")
+    return Token(access_token=access_token, token_type="bearer")  # nosec B106
 
 
 @router.post("/users/verify-email", status_code=200)

@@ -48,9 +48,9 @@ class SimulationCoordinator:
         key = f"sim:result:{job_id}"
         if not self._redis.exists(key):
             return None
-        raw = self._redis.get(key)
+        raw = self._redis.get(key)  # type: ignore[assignment]
         try:
-            return json.loads(raw)
+            return json.loads(raw)  # type: ignore[arg-type]
         except (json.JSONDecodeError, TypeError):
             return None
 
@@ -69,13 +69,13 @@ class SimulationCoordinator:
         self._redis.setex(f"sim:status:{job_id}", CACHE_TTL, status)
 
     def get_status(self, job_id: str) -> str:
-        return self._redis.get(f"sim:status:{job_id}") or "unknown"
+        return self._redis.get(f"sim:status:{job_id}") or "unknown"  # type: ignore[return-value]
 
     def get_frames_from(self, job_id: str, offset: int) -> list[dict]:
         """Return frames starting at offset from the Redis list."""
-        raw_frames = self._redis.lrange(f"sim:frames:{job_id}", offset, -1)
+        raw_frames = self._redis.lrange(f"sim:frames:{job_id}", offset, -1)  # type: ignore[assignment]
         result = []
-        for raw in raw_frames:
+        for raw in raw_frames:  # type: ignore[union-attr]
             try:
                 result.append(json.loads(raw))
             except json.JSONDecodeError:
@@ -84,15 +84,15 @@ class SimulationCoordinator:
 
     def get_queue_depth(self) -> int:
         """Approximate queue depth from Redis key count of pending jobs."""
-        return len(self._redis.keys("sim:status:*"))
+        return len(self._redis.keys("sim:status:*"))  # type: ignore[arg-type]
 
     def replay_from_cache(self, job_id: str) -> bool:
         """
         If cached frames exist for job_id, set status to complete so streamer
         can replay them. Returns True if replay is available.
         """
-        frame_count = self._redis.llen(f"sim:frames:{job_id}")
-        if frame_count > 0:
+        frame_count = self._redis.llen(f"sim:frames:{job_id}")  # type: ignore[assignment]
+        if frame_count > 0:  # type: ignore[operator]
             self.set_status(job_id, "complete")
             return True
         return False

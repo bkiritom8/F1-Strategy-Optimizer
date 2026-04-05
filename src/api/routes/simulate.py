@@ -5,7 +5,9 @@ POST /api/v1/simulate/race   — submit a scenario, returns job_id
 GET  /api/v1/simulate/race/stream — SSE stream of lap frames for job_id
 """
 
+import json
 import logging
+import math
 import os
 from typing import Any
 
@@ -89,10 +91,8 @@ async def _run_simulation(
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: "):
                         continue
-                    import json as _json
-
                     try:
-                        frame = _json.loads(line[6:])
+                        frame = json.loads(line[6:])
                         coordinator.push_frame(job_id, frame)
                         if frame.get("type") == "complete":
                             coordinator.cache_result(
@@ -104,7 +104,7 @@ async def _run_simulation(
                                     )
                                 ),
                             )
-                    except _json.JSONDecodeError:
+                    except json.JSONDecodeError:
                         pass
         coordinator.set_status(job_id, "complete")
 
@@ -124,8 +124,6 @@ def _run_rule_based_fallback(
     Rule-based lap position generator used when simulation endpoint is unavailable.
     Produces plausible but non-ML lap frames so the frontend always has data.
     """
-    import math
-
     drivers = payload.get("drivers", [])
     total_laps = payload.get("total_laps", 57)
 
