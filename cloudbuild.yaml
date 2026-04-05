@@ -202,8 +202,16 @@ steps:
     args:
       - '-c'
       - |
-        pip install -r docker/requirements-rag.txt -q
-        pip install pytest pytest-cov -q
+        set -e
+        pip install --quiet \
+          pydantic==2.5.3 pydantic-settings==2.1.0 \
+          pandas==2.2.2 pyarrow==15.0.2 \
+          langchain-core==0.2.40 \
+          google-cloud-storage==2.16.0 \
+          google-cloud-aiplatform==1.71.1 \
+          vertexai==1.71.1 \
+          requests==2.31.0 "beautifulsoup4>=4.12.0" "lxml>=4.9.0" "pypdf>=3.0.0" \
+          pytest pytest-cov
         printf '[run]\nomit = rag/ingestion_job.py\n' > .coveragerc
         PYTHONPATH=. pytest tests/unit/rag/ -v \
           --cov=rag \
