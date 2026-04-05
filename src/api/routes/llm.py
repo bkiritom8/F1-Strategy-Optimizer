@@ -129,7 +129,10 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     # Pit when tires older than compound-specific cliff (laps)
     _CLIFF = {"SOFT": 18, "MEDIUM": 28, "HARD": 38}
     cliff = _CLIFF.get(compound, 28)
-    pit_soon = tire_age >= cliff or (remaining > 15 and deg_rate * (remaining) > 1.5)
+    laps_left_in_stint = max(0, cliff - tire_age)
+    pit_soon = tire_age >= cliff or (
+        laps_left_in_stint <= 5 and remaining > 5
+    )
 
     _NEXT_COMPOUND = {
         "SOFT": "MEDIUM",
@@ -177,8 +180,8 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
         "total_race_time_estimate_s": round(total_race_time, 1),
         # Pit recommendation
         "recommended_action": "PIT_SOON" if pit_soon else "CONTINUE",
-        "pit_window_start": lap + 1 if pit_soon else lap + max(1, cliff - tire_age),
-        "pit_window_end": lap + 5 if pit_soon else lap + max(6, cliff - tire_age + 5),
+        "pit_window_start": lap + 1 if pit_soon else lap + max(1, laps_left_in_stint),
+        "pit_window_end": lap + 5 if pit_soon else lap + max(6, laps_left_in_stint + 5),
         "target_compound": next_compound,
         "driving_mode": "PUSH" if not pit_soon and tire_age < cliff - 5 else "BALANCED",
         "brake_bias": 52.5,
