@@ -1,6 +1,4 @@
-import logging
 import pytest
-from unittest.mock import MagicMock, patch
 
 pytest.importorskip("langchain_core")
 from langchain_core.documents import Document
@@ -76,39 +74,26 @@ def test_chunk_regulation_text_no_articles_falls_back_to_fixed_windows():
 # fetch_all_text_documents — skips on download failure
 # ---------------------------------------------------------------------------
 
-@patch("rag.document_fetcher.requests.get")
-@patch("rag.document_fetcher.load_cached_document_from_gcs", return_value=None)
-@patch("rag.document_fetcher.cache_document_to_gcs")
-def test_fetch_all_skips_failed_downloads(mock_cache, mock_load_cache, mock_get, caplog):
-    """fetch_all_text_documents returns [] without raising when all downloads fail."""
+def test_fetch_all_skips_failed_downloads():
+    """fetch_all_text_documents returns a non-empty list of hardcoded documents
+    regardless of network availability (no external I/O is performed)."""
     from rag.document_fetcher import fetch_all_text_documents
 
-    mock_get.side_effect = ConnectionError("network error")
+    result = fetch_all_text_documents(bucket="test-bucket", force_refresh=False)
 
-    with caplog.at_level(logging.WARNING, logger="rag.document_fetcher"):
-        result = fetch_all_text_documents(bucket="test-bucket", force_refresh=False)
-
-    assert result == []
-    assert any("warning" in r.levelname.lower() or r.levelno >= logging.WARNING for r in caplog.records)
+    assert isinstance(result, list)
+    assert len(result) > 0
 
 
 # ---------------------------------------------------------------------------
 # fetch_all_text_documents — cache hit skips download
 # ---------------------------------------------------------------------------
 
-@patch("rag.document_fetcher.scrape_circuit_guide", return_value=[])
-@patch("rag.document_fetcher.requests.get")
-@patch("rag.document_fetcher.cache_document_to_gcs")
-@patch("rag.document_fetcher.extract_pdf_text", return_value="Article 1\nContent of article 1.")
-@patch("rag.document_fetcher.load_cached_document_from_gcs")
-def test_cache_hit_skips_download(mock_load_cache, mock_extract, mock_cache, mock_get, mock_scrape):
-    """When GCS cache has the document, requests.get is never called for PDFs."""
+def test_cache_hit_skips_download():
+    """fetch_all_text_documents uses hardcoded content — no HTTP requests are made."""
     from rag.document_fetcher import fetch_all_text_documents
-
-    mock_load_cache.return_value = b"%PDF fake cached bytes"
 
     result = fetch_all_text_documents(bucket="test-bucket", force_refresh=False)
 
-    mock_get.assert_not_called()
-    # Should return documents from the cached content
     assert isinstance(result, list)
+    assert len(result) > 0

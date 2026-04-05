@@ -12,9 +12,83 @@ Using hardcoded authoritative content rather than web scraping because:
 """
 
 import logging
+import re
 from langchain_core.documents import Document
 
 logger = logging.getLogger(__name__)
+
+
+def chunk_regulation_text(
+    text: str,
+    source_meta: dict,
+    chunk_size: int = 500,
+    chunk_overlap: int = 50,
+) -> list[Document]:
+    """
+    Split FIA regulation text into LangChain Documents.
+
+    If Article markers are present (e.g. "Article 28\\n..."), splits on each
+    article boundary and stores the header in metadata["article"].
+    Otherwise falls back to fixed-size windows with overlap, setting
+    metadata["article"] = None for every chunk.
+
+    Args:
+        text: Raw regulation text.
+        source_meta: Dict merged into every Document's metadata (must include
+            at least "source", "doc_type", "season", "category").
+        chunk_size: Characters per chunk in the fixed-window fallback.
+        chunk_overlap: Overlap in characters between consecutive fixed chunks.
+
+    Returns:
+        List of Documents in original order with sequential chunk_index values.
+    """
+    if not text:
+        return []
+
+    article_re = re.compile(r"^(Article \d+)", re.MULTILINE)
+    matches = list(article_re.finditer(text))
+
+    if matches:
+        chunks: list[Document] = []
+        for i, match in enumerate(matches):
+            start = match.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+            chunk_text = text[start:end].strip()
+            if not chunk_text:
+                continue
+            chunks.append(
+                Document(
+                    page_content=chunk_text,
+                    metadata={
+                        **source_meta,
+                        "article": match.group(1),
+                        "chunk_index": len(chunks),
+                    },
+                )
+            )
+        return chunks
+
+    # Fixed-window fallback
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = min(start + chunk_size, len(text))
+        chunk_text = text[start:end].strip()
+        if chunk_text:
+            chunks.append(
+                Document(
+                    page_content=chunk_text,
+                    metadata={
+                        **source_meta,
+                        "article": None,
+                        "chunk_index": len(chunks),
+                    },
+                )
+            )
+        if end == len(text):
+            break
+        start = end - chunk_overlap
+    return chunks
 
 
 # ── Circuit Guides ─────────────────────────────────────────────────────────────
