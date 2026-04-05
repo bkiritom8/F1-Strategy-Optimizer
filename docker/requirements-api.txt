@@ -46,8 +46,8 @@ tenacity==8.2.3
 psutil>=5.9.0
 
 # RAG pipeline (Vertex AI Vector Search + Gemini + LangChain)
-google-cloud-aiplatform==1.51.0
-vertexai==1.51.0
+google-cloud-aiplatform==1.71.1
+vertexai==1.71.1
 langchain==0.2.16
 langchain-core==0.2.40
 langchain-google-vertexai==1.0.6

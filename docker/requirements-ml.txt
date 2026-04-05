@@ -5,7 +5,7 @@ lightgbm==4.3.0
 catboost==1.2.3
 
 # ── Vertex AI + KFP SDK ───────────────────────────────────────────────────────
-google-cloud-aiplatform[pipelines]==1.51.0
+google-cloud-aiplatform[pipelines]==1.71.1
 kfp==2.7.0
 kfp-pipeline-spec==0.3.0
 

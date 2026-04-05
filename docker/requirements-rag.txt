@@ -1,9 +1,9 @@
-google-cloud-aiplatform==1.51.0
+google-cloud-aiplatform==1.71.1
 google-cloud-storage==2.16.0
 langchain==0.2.16
 langchain-core==0.2.40
 langchain-google-vertexai==1.0.6
-vertexai==1.51.0
+vertexai==1.71.1
 pandas==2.2.2
 pyarrow==15.0.2
 pypdf>=3.0.0
