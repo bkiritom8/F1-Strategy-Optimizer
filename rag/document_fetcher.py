@@ -1130,6 +1130,39 @@ _REGULATION_DOCS_HISTORICAL: list[dict] = [
         ),
     },
     {
+        "title": "F1 2026 Technical and Sporting Regulations",
+        "category": "regulations",
+        "content": (
+            "2026 marks the most comprehensive F1 regulation overhaul since 2022, "
+            "covering both technical and power unit rules simultaneously. "
+            "POWER UNIT: New 1.6L V6 turbo-hybrid retains ICE but removes the MGU-H entirely. "
+            "Simplified hybrid system: MGU-K output increased dramatically — up to ~350 kW "
+            "(from ~120 kW in 2022-2025), contributing ~50% of total power. "
+            "Combined peak output: ~1000+ bhp. Fuel: fully sustainable (100% non-fossil) fuel mandatory. "
+            "Maximum fuel load reduced — cars carry less fuel as electric deployment covers more distance. "
+            "New manufacturers: Audi joins as a works PU supplier (replacing Sauber → Audi works team). "
+            "Honda returns as a full works supplier (Red Bull/RBPT partnership). "
+            "AERODYNAMICS: Active aerodynamics (manually adjustable body elements) replace DRS. "
+            "Front and rear wing flaps can be adjusted by the driver via a single switch — "
+            "replaces the fixed rear-wing DRS system. Both wings move simultaneously. "
+            "Narrower cars: overall car width reduced from 2000 mm to 1900 mm. "
+            "Shorter wheelbase mandated. Significant reduction in aerodynamic downforce "
+            "(estimated ~30% less than 2025 cars) to offset increased straight-line speed "
+            "from higher electric deployment. "
+            "TYRES: Pirelli 18-inch wheels retained. New compound range expected — "
+            "heavier MGU-K deployment changes thermal loading on tyres significantly. "
+            "Teams must recalibrate tyre management strategies for the new energy profile. "
+            "WEIGHT: Minimum weight target reduced (approx 768 kg) despite MGU-K enlargement, "
+            "achieved by removing MGU-H and associated components. "
+            "STRATEGY IMPLICATIONS: Higher electric power = more energy harvesting under braking. "
+            "Shorter pit windows possible if electric overcut strategy (avoiding fuel-heavy laps) "
+            "becomes viable. Active aero replaces DRS detection zones — overtaking dynamics change. "
+            "Battery deployment management becomes a key within-lap tactical variable. "
+            "Teams must manage both fuel (ICE) and battery (electric) separately per stint. "
+            "New Concorde Agreement period: 2026-2030."
+        ),
+    },
+    {
         "title": "F1 Parc Fermé and Setup Freeze Regulations",
         "category": "regulations",
         "content": (
@@ -2110,7 +2143,7 @@ def fetch_all_text_documents(
     Includes:
       - 24 circuit guides for the 2025 F1 calendar
       - 15 historical circuit guides (1996–2024 circuits not on 2025 calendar)
-      - 10 current FIA regulation/strategy documents
+      - 11 current FIA regulation/strategy documents
       - 10 historical/era regulation documents
       - 9 extended strategy fundamentals
       - 28 driver profiles (20 x 2025 grid + 8 historical legends)

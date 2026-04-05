@@ -145,6 +145,44 @@ steps:
         pip install --quiet google-cloud-aiplatform
         python /workspace/cloudbuild/check_bias.py
 
+  # ── Detect whether RAG document_fetcher changed ──────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "detect-rag-changes"
+    waitFor: ["push-rag"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        git fetch --depth=2 origin 2>/dev/null || true
+        CHANGED=$$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^rag/document_fetcher\.py$$' | wc -l || echo 0)
+        echo "rag/document_fetcher.py changed: $$CHANGED"
+        if [ "$$CHANGED" -gt 0 ]; then
+          touch /workspace/rag_changed
+          echo "RAG ingestion WILL run"
+        else
+          echo "No RAG document changes — ingestion will be skipped"
+        fi
+
+  # ── Run RAG ingestion job on GCP ─────────────────────────────────────────────
+  - name: "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:$COMMIT_SHA"
+    id: "run-rag-ingestion"
+    waitFor: ["detect-rag-changes"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        if [ ! -f /workspace/rag_changed ]; then
+          echo "Skipping RAG ingestion — no document_fetcher.py changes detected"
+          exit 0
+        fi
+        python -m rag.ingestion_job
+    env:
+      - "GOOGLE_CLOUD_PROJECT=f1optimizer"
+      - "VECTOR_SEARCH_INDEX_ID=$_VECTOR_SEARCH_INDEX_ID"
+      - "VECTOR_SEARCH_ENDPOINT_ID=$_VECTOR_SEARCH_ENDPOINT_ID"
+      - "VECTOR_SEARCH_DEPLOYED_INDEX_ID=$_VECTOR_SEARCH_DEPLOYED_INDEX_ID"
+
   # ── RAG unit tests ────────────────────────────────────────────────────────────
   - name: 'python:3.10-slim'
     id: 'test-rag'
@@ -176,7 +214,7 @@ steps:
   # ── Rollback check ────────────────────────────────────────────────────────────
   - name: "python:3.10-slim"
     id: "rollback-check"
-    waitFor: ["push-models-registry"]
+    waitFor: ["push-models-registry", "run-rag-ingestion"]
     entrypoint: "bash"
     args:
       - "-c"
