@@ -73,8 +73,8 @@ resource "google_monitoring_alert_policy" "api_latency_p99" {
       comparison      = "COMPARISON_GT"
       threshold_value = 500
       aggregations {
-        alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_PERCENTILE_99"
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_PERCENTILE_99"
       }
     }
   }

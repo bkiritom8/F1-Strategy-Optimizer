@@ -924,7 +924,11 @@ async def system_health():
         checks["redis"] = "not_configured"
 
     # Overall status
-    unhealthy = [k for k, v in checks.items() if isinstance(v, str) and ("error" in v or v == "timeout")]
+    unhealthy = [
+        k
+        for k, v in checks.items()
+        if isinstance(v, str) and ("error" in v or v == "timeout")
+    ]
     checks["status"] = "degraded" if unhealthy else "healthy"
 
     return checks

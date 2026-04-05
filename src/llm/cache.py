@@ -91,7 +91,7 @@ def _bucket_state(race_inputs: dict) -> str:
     tire_age_bucket = (tire_age // 5) * 5  # age 10-14 → bucket 10
 
     state_str = f"{driver}|{position}|{compound}|{lap_bucket}|{tire_age_bucket}"
-    return hashlib.md5(state_str.encode()).hexdigest()[:8]
+    return hashlib.md5(state_str.encode(), usedforsecurity=False).hexdigest()[:8]
 
 
 # ── Layer 1: Pre-warmed generic cache ─────────────────────────────────────────

@@ -30,7 +30,7 @@ _cache_keys: list = []
 def _cache_key(query: str, filters: dict | None, top_k: int) -> str:
     """Generate a cache key from query parameters."""
     payload = {"query": query, "filters": filters or {}, "top_k": top_k}
-    return hashlib.md5(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    return hashlib.md5(json.dumps(payload, sort_keys=True).encode(), usedforsecurity=False).hexdigest()
 
 
 def get_retriever() -> F1Retriever:
