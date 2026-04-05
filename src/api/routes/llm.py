@@ -130,9 +130,7 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     _CLIFF = {"SOFT": 18, "MEDIUM": 28, "HARD": 38}
     cliff = _CLIFF.get(compound, 28)
     laps_left_in_stint = max(0, cliff - tire_age)
-    pit_soon = tire_age >= cliff or (
-        laps_left_in_stint <= 5 and remaining > 5
-    )
+    pit_soon = tire_age >= cliff or (laps_left_in_stint <= 5 and remaining > 5)
 
     _NEXT_COMPOUND = {
         "SOFT": "MEDIUM",
