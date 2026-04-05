@@ -1,86 +1,133 @@
 steps:
-  # ── Build Docker images ──────────────────────────────────────────────────────
-  - name: "gcr.io/cloud-builders/docker"
-    id: "build-api"
-    args:
-      - "build"
-      - "--platform"
-      - "linux/amd64"
-      - "-t"
-      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:$COMMIT_SHA"
-      - "-t"
-      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
-      - "-f"
-      - "docker/Dockerfile.api"
-      - "."
-
-  - name: "gcr.io/cloud-builders/docker"
-    id: "build-ml"
-    args:
-      - "build"
-      - "--platform"
-      - "linux/amd64"
-      - "-t"
-      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:$COMMIT_SHA"
-      - "-t"
-      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
-      - "-f"
-      - "docker/Dockerfile.ml"
-      - "."
-
-  - name: "gcr.io/cloud-builders/docker"
-    id: "build-rag"
-    args:
-      - "build"
-      - "--platform"
-      - "linux/amd64"
-      - "-t"
-      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:$COMMIT_SHA"
-      - "-t"
-      - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:latest"
-      - "-f"
-      - "docker/Dockerfile.rag"
-      - "."
-
-  # ── Push images to Artifact Registry ────────────────────────────────────────
-  - name: "gcr.io/cloud-builders/docker"
-    id: "push-api"
-    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api"]
-    waitFor: ["build-api"]
-
-  - name: "gcr.io/cloud-builders/docker"
-    id: "push-ml"
-    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml"]
-    waitFor: ["build-ml"]
-
-  - name: "gcr.io/cloud-builders/docker"
-    id: "push-rag"
-    args: ["push", "--all-tags", "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag"]
-    waitFor: ["build-rag"]
-
-  # ── Detect whether ML training files changed ──────────────────────────────
+  # ── Detect all changes (single git diff, all flags) ──────────────────────────
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
-    id: "detect-ml-changes"
-    waitFor: ["push-ml"]
+    id: "detect-changes"
     entrypoint: "bash"
     args:
       - "-c"
       - |
         set -e
         git fetch --depth=2 origin 2>/dev/null || true
-        CHANGED=$$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^ml/(training|features|preprocessing)/' | wc -l || echo 0)
-        echo "ML training files changed: $$CHANGED"
-        if [ "$$CHANGED" -gt 0 ]; then
-          touch /workspace/ml_changed
-          echo "Model training WILL run"
+        DIFF=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+        echo "Changed files:"
+        echo "$$DIFF"
+
+        # api image: Dockerfile.api, requirements-api.txt, src/, rag/, pipeline/, ml/
+        echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.api|docker/requirements-api\.txt|src/|rag/|pipeline/|ml/)' \
+          && touch /workspace/api_rebuild || true
+
+        # ml image: Dockerfile.ml, requirements-ml*.txt, ml/, src/
+        echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.ml|docker/requirements-ml|ml/|src/)' \
+          && touch /workspace/ml_rebuild || true
+
+        # rag image: Dockerfile.rag, requirements-rag.txt, rag/, src/
+        echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.rag|docker/requirements-rag\.txt|rag/|src/)' \
+          && touch /workspace/rag_rebuild || true
+
+        # ml training: ml/training/, ml/features/, ml/preprocessing/
+        echo "$$DIFF" | grep -qE '^ml/(training|features|preprocessing)/' \
+          && touch /workspace/ml_changed || true
+
+        # rag ingestion trigger: rag/document_fetcher.py
+        echo "$$DIFF" | grep -qE '^rag/document_fetcher\.py$' \
+          && touch /workspace/rag_changed || true
+
+        echo "--- Summary ---"
+        [ -f /workspace/api_rebuild ]  && echo "  api image:     REBUILD" || echo "  api image:     retag only"
+        [ -f /workspace/ml_rebuild ]   && echo "  ml image:      REBUILD" || echo "  ml image:      retag only"
+        [ -f /workspace/rag_rebuild ]  && echo "  rag image:     REBUILD" || echo "  rag image:     retag only"
+        [ -f /workspace/ml_changed ]   && echo "  ml training:   RUN"     || echo "  ml training:   skip"
+        [ -f /workspace/rag_changed ]  && echo "  rag ingestion: RUN"     || echo "  rag ingestion: skip"
+
+  # ── Lint + security gate (must pass before any image is built/pushed) ────────
+  - name: "python:3.10-slim"
+    id: "lint-and-security"
+    waitFor: ["detect-changes"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install --quiet black mypy bandit
+        echo "=== black ==="
+        black --check src/ ml/ rag/
+        echo "=== mypy ==="
+        mypy src/ --ignore-missing-imports --follow-imports=skip
+        echo "=== bandit ==="
+        bandit -r src/ -lll -f txt
+
+  # ── Build/push API image (rebuild or retag) ──────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-push-api"
+    waitFor: ["lint-and-security"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api"
+        if [ -f /workspace/api_rebuild ]; then
+          echo "Building api image..."
+          docker build --platform linux/amd64 \
+            -t $$REPO:$COMMIT_SHA \
+            -t $$REPO:latest \
+            -f docker/Dockerfile.api .
+          docker push --all-tags $$REPO
         else
-          echo "No ML training file changes — model training will be skipped"
+          echo "No api changes — retagging latest as $COMMIT_SHA"
+          docker pull $$REPO:latest
+          docker tag $$REPO:latest $$REPO:$COMMIT_SHA
+          docker push $$REPO:$COMMIT_SHA
         fi
 
-  # ── Train all ML models on Vertex AI ────────────────────────────────────────
+  # ── Build/push ML image (rebuild or retag) ───────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-push-ml"
+    waitFor: ["lint-and-security"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml"
+        if [ -f /workspace/ml_rebuild ]; then
+          echo "Building ml image..."
+          docker build --platform linux/amd64 \
+            -t $$REPO:$COMMIT_SHA \
+            -t $$REPO:latest \
+            -f docker/Dockerfile.ml .
+          docker push --all-tags $$REPO
+        else
+          echo "No ml changes — retagging latest as $COMMIT_SHA"
+          docker pull $$REPO:latest
+          docker tag $$REPO:latest $$REPO:$COMMIT_SHA
+          docker push $$REPO:$COMMIT_SHA
+        fi
+
+  # ── Build/push RAG image (rebuild or retag) ──────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-push-rag"
+    waitFor: ["lint-and-security"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag"
+        if [ -f /workspace/rag_rebuild ]; then
+          echo "Building rag image..."
+          docker build --platform linux/amd64 \
+            -t $$REPO:$COMMIT_SHA \
+            -t $$REPO:latest \
+            -f docker/Dockerfile.rag .
+          docker push --all-tags $$REPO
+        else
+          echo "No rag changes — retagging latest as $COMMIT_SHA"
+          docker pull $$REPO:latest
+          docker tag $$REPO:latest $$REPO:$COMMIT_SHA
+          docker push $$REPO:$COMMIT_SHA
+        fi
+
+  # ── Train all ML models on Vertex AI (only if ml/training|features|preprocessing changed) ──
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
     id: "train-models"
-    waitFor: ["detect-ml-changes"]
+    waitFor: ["build-push-ml"]
     entrypoint: "bash"
     args:
       - "-c"
@@ -145,29 +192,10 @@ steps:
         pip install --quiet google-cloud-aiplatform
         python /workspace/cloudbuild/check_bias.py
 
-  # ── Detect whether RAG document_fetcher changed ──────────────────────────────
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
-    id: "detect-rag-changes"
-    waitFor: ["push-rag"]
-    entrypoint: "bash"
-    args:
-      - "-c"
-      - |
-        set -e
-        git fetch --depth=2 origin 2>/dev/null || true
-        CHANGED=$$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E '^rag/document_fetcher\.py$$' | wc -l || echo 0)
-        echo "rag/document_fetcher.py changed: $$CHANGED"
-        if [ "$$CHANGED" -gt 0 ]; then
-          touch /workspace/rag_changed
-          echo "RAG ingestion WILL run"
-        else
-          echo "No RAG document changes — ingestion will be skipped"
-        fi
-
-  # ── Run RAG ingestion job on GCP ─────────────────────────────────────────────
+  # ── Run RAG ingestion job on GCP (only if rag/document_fetcher.py changed) ───
   - name: "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:$COMMIT_SHA"
     id: "run-rag-ingestion"
-    waitFor: ["detect-rag-changes"]
+    waitFor: ["build-push-rag"]
     entrypoint: "bash"
     args:
       - "-c"
@@ -183,7 +211,7 @@ steps:
       - "VECTOR_SEARCH_ENDPOINT_ID=$_VECTOR_SEARCH_ENDPOINT_ID"
       - "VECTOR_SEARCH_DEPLOYED_INDEX_ID=$_VECTOR_SEARCH_DEPLOYED_INDEX_ID"
 
-  # ── RAG unit tests ────────────────────────────────────────────────────────────
+  # ── RAG unit tests (always run — fast, no image dependency) ─────────────────
   - name: 'python:3.10-slim'
     id: 'test-rag'
     entrypoint: 'bash'
@@ -243,14 +271,6 @@ steps:
               --quiet --project=f1optimizer --async || true
           done
         done
-
-images:
-  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:$COMMIT_SHA"
-  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:latest"
-  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:$COMMIT_SHA"
-  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:latest"
-  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:$COMMIT_SHA"
-  - "us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag:latest"
 
 options:
   logging: LEGACY
