@@ -316,7 +316,7 @@ class GeminiClient:
                         "tire_age_laps": int(
                             si.get("tire_age_laps")
                             if si.get("tire_age_laps") is not None
-                            else current_lap
+                            else current_lap  # type: ignore[arg-type]
                         ),
                     },
                 )

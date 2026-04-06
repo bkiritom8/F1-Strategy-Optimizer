@@ -109,6 +109,7 @@ def get_predictions(race_inputs: dict) -> dict[str, str]:
     Any model that fails or isn't loaded yet is silently skipped.
     """
     df = _build_df(race_inputs)
+    circuit = str(race_inputs.get("circuit") or "unknown")
     results: dict[str, str] = {}
 
     # ── Tire Degradation ─────────────────────────────────────────────────────
