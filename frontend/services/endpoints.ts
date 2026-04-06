@@ -180,18 +180,22 @@ interface PipelineReports {
 // ─── Team mapping ───────────────────────────────────────────────────────────
 
 const DRIVER_TEAM_MAP: Record<string, string> = {
+  // 2024 grid
   max_verstappen: 'Red Bull', perez: 'Red Bull',
   hamilton: 'Ferrari', leclerc: 'Ferrari',
   norris: 'McLaren', piastri: 'McLaren',
   russell: 'Mercedes', antonelli: 'Mercedes',
   alonso: 'Aston Martin', stroll: 'Aston Martin',
   gasly: 'Alpine', doohan: 'Alpine',
-  tsunoda: 'RB', lawson: 'RB',
+  tsunoda: 'RB', lawson: 'Red Bull',
   albon: 'Williams', sainz: 'Williams',
-  hulkenberg: 'Sauber', bortoleto: 'Sauber',
+  hulkenberg: 'Audi', bortoleto: 'Audi',
   ocon: 'Haas', bearman: 'Haas',
   ricciardo: 'RB', kevin_magnussen: 'Haas',
-  bottas: 'Sauber', zhou: 'Sauber', sargeant: 'Williams',
+  bottas: 'Audi', zhou: 'Sauber', sargeant: 'Williams',
+  // 2026 additions / rookies
+  hadjar: 'RB', arvid_lindblad: 'RB',
+  colapinto: 'Alpine',
 };
 
 // ─── Helper: fetch static JSON from public/data/ ────────────────────────────
@@ -220,37 +224,80 @@ async function fetchStatic<T>(filename: string): Promise<T> {
 // ─── Endpoint functions ─────────────────────────────────────────────────────
 
 /**
+ * Maps a static drivers.json entry to a DriverProfile.
+ */
+function _staticDriverToProfile(d: any): DriverProfile {
+  return {
+    driver_id:          d.id,
+    name:               d.name,
+    team:               DRIVER_TEAM_MAP[d.id] || 'Unknown',
+    code:               d.code || d.id.slice(0, 3).toUpperCase(),
+    nationality:        d.nationality || '',
+    career_races:       d.career_races || 0,
+    career_wins:        d.career_wins || 0,
+    aggression_score:   d.aggression_score ?? 50,
+    consistency_score:  d.consistency_score ?? 50,
+    pressure_response:  d.pressure_response ?? 50,
+    tire_management:    d.tire_management ?? 50,
+    wet_weather_skill:  d.wet_weather_skill ?? 50,
+    qualifying_pace:    d.qualifying_pace ?? 50,
+    race_pace:          d.race_pace ?? 50,
+    overtaking_ability: d.overtaking_ability ?? 50,
+    defensive_ability:  d.defensive_ability ?? 50,
+    fuel_efficiency:    d.fuel_efficiency ?? 50,
+    experience_years:   d.experience_years || 1,
+    rookie_status:      d.rookie_status ?? false,
+    last_season:        d.last_season,
+  };
+}
+
+/**
+ * Loads driver profiles from the static pipeline data file.
+ * Returns all modern drivers (last_season >= 2018) + all-time legends.
+ */
+export async function fetchStaticDrivers(): Promise<DriverProfile[]> {
+  const raw = await fetchStatic<any[]>('drivers.json');
+  return raw.map(_staticDriverToProfile);
+}
+
+/**
  * Fetch driver profiles.
  * 1. Try backend /api/v1/drivers
- * 2. Fall back to static /data/drivers.json (860+ drivers from pipeline)
+ * 2. Fall back to static /data/drivers.json (all modern drivers + legends)
  */
 export async function fetchDrivers(): Promise<DriverProfile[]> {
   logger.info('[endpoints] fetchDrivers: attempting live backend…');
-  const data = await apiFetch<{ count: number; drivers: any[] }>('/data/drivers');
-  return data.drivers.map((d: any) => {
-    const rng = seedRandom(`live_driver_${d.driver_id}`);
-    return {
-      driver_id: d.driver_id,
-      name: `${d.given_name} ${d.family_name}`,
-      team: DRIVER_TEAM_MAP[d.driver_id] || 'Unknown',
-      code: d.code || d.driver_id.slice(0, 3).toUpperCase(),
-      nationality: d.nationality || '',
-      career_races: d.races || 0,
-      career_wins: d.wins || 0,
-      aggression_score: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.3) * 100) / 100,
-      consistency_score: Math.round(Math.min(100, 60 + (d.races || 0) * 0.05) * 100) / 100,
-      pressure_response: Math.round(Math.min(100, 65 + (d.podiums || 0) * 0.4) * 100) / 100,
-      tire_management: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
-      wet_weather_skill: Math.round(Math.min(100, 65 + rng() * 25) * 100) / 100,
-      qualifying_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.5) * 100) / 100,
-      race_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.4) * 100) / 100,
-      overtaking_ability: Math.round(Math.min(100, 65 + (d.wins || 0) * 0.35) * 100) / 100,
-      defensive_ability: Math.round(Math.min(100, 65 + (d.races || 0) * 0.03) * 100) / 100,
-      fuel_efficiency: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
-      experience_years: d.seasons?.length || 0,
-      rookie_status: (d.races || 0) < 25,
-    };
-  });
+  try {
+    const data = await apiFetch<{ count: number; drivers: any[] }>('/data/drivers');
+    return data.drivers.map((d: any) => {
+      const rng = seedRandom(`live_driver_${d.driver_id}`);
+      return {
+        driver_id: d.driver_id,
+        name: `${d.given_name} ${d.family_name}`,
+        team: DRIVER_TEAM_MAP[d.driver_id] || 'Unknown',
+        code: d.code || d.driver_id.slice(0, 3).toUpperCase(),
+        nationality: d.nationality || '',
+        career_races: d.races || 0,
+        career_wins: d.wins || 0,
+        aggression_score: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.3) * 100) / 100,
+        consistency_score: Math.round(Math.min(100, 60 + (d.races || 0) * 0.05) * 100) / 100,
+        pressure_response: Math.round(Math.min(100, 65 + (d.podiums || 0) * 0.4) * 100) / 100,
+        tire_management: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
+        wet_weather_skill: Math.round(Math.min(100, 65 + rng() * 25) * 100) / 100,
+        qualifying_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.5) * 100) / 100,
+        race_pace: Math.round(Math.min(100, 70 + (d.wins || 0) * 0.4) * 100) / 100,
+        overtaking_ability: Math.round(Math.min(100, 65 + (d.wins || 0) * 0.35) * 100) / 100,
+        defensive_ability: Math.round(Math.min(100, 65 + (d.races || 0) * 0.03) * 100) / 100,
+        fuel_efficiency: Math.round(Math.min(100, 70 + rng() * 20) * 100) / 100,
+        experience_years: d.seasons?.length || 0,
+        rookie_status: (d.races || 0) < 25,
+        last_season: undefined,
+      };
+    });
+  } catch {
+    logger.warn('[endpoints] fetchDrivers: backend unavailable, using static drivers.json');
+    return fetchStaticDrivers();
+  }
 }
 
 /**
@@ -572,6 +619,24 @@ export async function fetchStaticCircuits(): Promise<StaticCircuit[]> {
 export async function fetchStaticRaces2024(): Promise<StaticRace[]> {
   return fetchStatic<StaticRace[]>('races-2024.json');
 }
+
+/**
+ * Loads the full 2025 season race results from the static data file.
+ * Generated by pipeline/scripts/generate_static_json.py once 2025 data lands.
+ */
+export async function fetchStaticRaces2025(): Promise<StaticRace[]> {
+  return fetchStatic<StaticRace[]>('races-2025.json');
+}
+
+/**
+ * Loads the full 2026 season race results from the static data file.
+ * Generated by pipeline/scripts/generate_static_json.py once 2026 data lands.
+ */
+export async function fetchStaticRaces2026(): Promise<StaticRace[]> {
+  return fetchStatic<StaticRace[]>('races-2026.json');
+}
+
+export type { StaticRace };
 
 /**
  * Loads the list of all seasons present in the pipeline dataset (1950–2026).

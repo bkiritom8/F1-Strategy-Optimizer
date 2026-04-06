@@ -874,7 +874,9 @@ const RaceSimulation: React.FC = () => {
     setStatusMsg('Connecting to simulation…');
 
     const wsBase = API_BASE.replace(/^https?:\/\//, '');
-    const wsProto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsProto = API_BASE
+      ? (API_BASE.startsWith('https://') ? 'wss' : 'ws')
+      : (window.location.protocol === 'https:' ? 'wss' : 'ws');
     const wsUrl = API_BASE
       ? `${wsProto}://${wsBase}/api/v1/simulation/ws`
       : `${wsProto}://${window.location.host}/api/v1/simulation/ws`;

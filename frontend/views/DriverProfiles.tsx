@@ -16,23 +16,33 @@ import React, { useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { TEAM_COLORS } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useDrivers, useRaces2024 } from '../hooks/useApi';
+import { useDrivers, useRaces2024, useRaces2025, useRaces2026 } from '../hooks/useApi';
 import ConnectionBadge from '../components/ConnectionBadge';
 import { LiveBadge } from '../components/LiveBadge';
 import { Search, Users, Trophy, Flag, MapPin, Calendar, ChevronRight } from 'lucide-react';
 import type { DriverProfile } from '../types';
 
+const SEASON_YEARS = [2026, 2025, 2024] as const;
+type SeasonYear = typeof SEASON_YEARS[number];
+
 const DriverProfiles: React.FC = () => {
   const { data: drivers, loading, isLive } = useDrivers();
-  const { data: races } = useRaces2024();
+  const { data: races2024 } = useRaces2024();
+  const { data: races2025 } = useRaces2025();
+  const { data: races2026 } = useRaces2026();
+  const [activeYear, setActiveYear] = useState<SeasonYear>(2026);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTeam, setFilterTeam] = useState<string>('all');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Compute real 2024 season stats from race results
+  const racesForYear = activeYear === 2026 ? races2026 : activeYear === 2025 ? races2025 : races2024;
+  const hasRaceData = racesForYear !== null && (racesForYear as any[]).length > 0;
+
+  // Compute season stats from race results (any year)
   const seasonStats = useMemo(() => {
-    if (!races) return new Map<string, { points: number; wins: number; podiums: number; races: number; dnfs: number; avgGrid: number; avgFinish: number; bestFinish: number; team: string }>();
+    if (!racesForYear || !hasRaceData) return new Map<string, { points: number; wins: number; podiums: number; races: number; dnfs: number; avgGrid: number; avgFinish: number; bestFinish: number; team: string }>();
+    const races = racesForYear as any[];
     const stats = new Map<string, { points: number; wins: number; podiums: number; races: number; dnfs: number; grids: number[]; finishes: number[]; bestFinish: number; team: string }>();
 
     for (const race of races) {
@@ -73,16 +83,12 @@ const DriverProfiles: React.FC = () => {
       });
     }
     return result;
-  }, [races]);
+  }, [racesForYear, hasRaceData]);
 
-  // Active 2024 drivers (those with season stats)
-  const activeDriverIds = useMemo(() => new Set(seasonStats.keys()), [seasonStats]);
-
-  // Filter drivers: only show 2024 active drivers
+  // Show all drivers we have a profile for — no year filtering
   const filteredDrivers = useMemo(() => {
     if (!drivers) return [];
     return drivers.filter(d => {
-      if (!activeDriverIds.has(d.driver_id)) return false;
       const matchesSearch = searchQuery === '' ||
         d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         d.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -91,39 +97,42 @@ const DriverProfiles: React.FC = () => {
       const matchesTeam = filterTeam === 'all' || team === filterTeam;
       return matchesSearch && matchesTeam;
     });
-  }, [drivers, searchQuery, filterTeam, activeDriverIds, seasonStats]);
+  }, [drivers, searchQuery, filterTeam, seasonStats]);
 
   const selectedDriver = useMemo(() => {
     if (!drivers || drivers.length === 0) return null;
     if (selectedId) return drivers.find(d => d.driver_id === selectedId) || null;
-    // Auto-select first active driver
-    const first = drivers.find(d => activeDriverIds.has(d.driver_id));
-    return first || null;
-  }, [drivers, selectedId, activeDriverIds]);
+    return drivers[0] || null;
+  }, [drivers, selectedId]);
 
   const selectedStats = selectedDriver ? seasonStats.get(selectedDriver.driver_id) : null;
 
-  // Teams from 2024 season
+  // Teams from all driver profiles + season stats
   const teams = useMemo(() => {
     const teamSet = new Set<string>();
-    for (const s of seasonStats.values()) teamSet.add(s.team);
+    if (drivers) {
+      for (const d of drivers) {
+        const team = seasonStats.get(d.driver_id)?.team || d.team;
+        if (team && team !== 'Unknown') teamSet.add(team);
+      }
+    }
     return Array.from(teamSet).sort();
-  }, [seasonStats]);
+  }, [drivers, seasonStats]);
 
-  // Nationality breakdown (2024 drivers only)
+  // Nationality breakdown — all drivers we have profiles for
   const nationalityData = useMemo(() => {
     if (!drivers) return [];
     const counts: Record<string, number> = {};
-    drivers.filter(d => activeDriverIds.has(d.driver_id)).forEach(d => {
+    drivers.forEach(d => {
       if (d.nationality) counts[d.nationality] = (counts[d.nationality] || 0) + 1;
     });
     return Object.entries(counts)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [drivers, activeDriverIds]);
+  }, [drivers]);
 
   // Summary stats
-  const totalDrivers = activeDriverIds.size;
+  const totalDrivers = drivers?.length ?? 0;
   const totalWins = Array.from(seasonStats.values()).reduce((sum, s) => sum + s.wins, 0);
   const nationalities = nationalityData.length;
 
@@ -140,17 +149,31 @@ const DriverProfiles: React.FC = () => {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-start flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Driver Roster</h1>
             <LiveBadge isLive={isLive} />
           </div>
           <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2">
-            2024 Season, {totalDrivers} active drivers across {teams.length} constructors
+            {totalDrivers} drivers · {teams.length} constructors · Stats from {activeYear} season
           </p>
         </div>
-        <ConnectionBadge isLive={isLive} />
+        <div className="flex items-center gap-3">
+          {/* Year selector */}
+          <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-color)' }}>
+            {SEASON_YEARS.map(yr => (
+              <button
+                key={yr}
+                onClick={() => { setActiveYear(yr); setSelectedId(null); setFilterTeam('all'); }}
+                className={`px-4 py-2 text-xs font-bold uppercase transition-colors ${activeYear === yr ? 'bg-red-600 text-white' : 'text-white/40 hover:text-white'}`}
+              >
+                {yr}
+              </button>
+            ))}
+          </div>
+          <ConnectionBadge isLive={isLive} />
+        </div>
       </div>
 
       {/* Stats Bar */}
@@ -228,9 +251,15 @@ const DriverProfiles: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Driver List */}
         <div className="lg:col-span-7 space-y-3">
-          <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1 mb-2">2024 Grid</div>
+          <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1 mb-2">All Drivers</div>
           {filteredDrivers
-            .sort((a, b) => (seasonStats.get(b.driver_id)?.points || 0) - (seasonStats.get(a.driver_id)?.points || 0))
+            .slice()
+            .sort((a, b) => {
+              const aPoints = seasonStats.get(a.driver_id)?.points ?? -1;
+              const bPoints = seasonStats.get(b.driver_id)?.points ?? -1;
+              if (aPoints !== bPoints) return bPoints - aPoints;
+              return (b.career_wins ?? 0) - (a.career_wins ?? 0);
+            })
             .map((d, i) => {
               const st = seasonStats.get(d.driver_id);
               const isSelected = selectedDriver?.driver_id === d.driver_id;
@@ -287,7 +316,7 @@ const DriverProfiles: React.FC = () => {
         {/* Driver Detail Card */}
         <div className="lg:col-span-5">
           <div className="sticky top-6 space-y-6">
-            {selectedDriver && selectedStats && (
+            {selectedDriver && (
               <AnimatePresence mode="wait">
                 <motion.div
                   key={selectedDriver.driver_id}
@@ -297,31 +326,45 @@ const DriverProfiles: React.FC = () => {
                   className="rounded-2xl p-8 border shadow-2xl relative overflow-hidden"
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
                 >
-                  <div
-                    className="absolute top-0 right-0 w-48 h-48 opacity-10 pointer-events-none"
-                    style={{ background: `radial-gradient(circle at top right, ${TEAM_COLORS[selectedStats.team] || '#666'}, transparent)` }}
-                  />
+                  {(() => {
+                    const teamName = selectedStats?.team || selectedDriver.team;
+                    const teamColor = TEAM_COLORS[teamName] || '#666';
+                    return (
+                      <div
+                        className="absolute top-0 right-0 w-48 h-48 opacity-10 pointer-events-none"
+                        style={{ background: `radial-gradient(circle at top right, ${teamColor}, transparent)` }}
+                      />
+                    );
+                  })()}
 
                   {/* Header */}
-                  <div className="flex gap-6 items-center mb-8">
-                    <div
-                      className="w-20 h-20 rounded-2xl bg-white/5 flex items-center justify-center font-display text-4xl font-black border border-white/10 italic"
-                      style={{ color: TEAM_COLORS[selectedStats.team] || '#666' }}
-                    >
-                      {selectedDriver.code}
-                    </div>
-                    <div>
-                      <h2 className="text-3xl font-display font-bold tracking-tight">{selectedDriver.name}</h2>
-                      <p className="text-xs text-white/40 uppercase font-black tracking-[0.2em]">{selectedStats.team}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <MapPin className="w-3 h-3 text-white/40" />
-                        <span className="text-[10px] text-white/40">{selectedDriver.nationality}</span>
+                  {(() => {
+                    const teamName = selectedStats?.team || selectedDriver.team;
+                    const teamColor = TEAM_COLORS[teamName] || '#666';
+                    return (
+                      <div className="flex gap-6 items-center mb-8">
+                        <div
+                          className="w-20 h-20 rounded-2xl bg-white/5 flex items-center justify-center font-display text-4xl font-black border border-white/10 italic"
+                          style={{ color: teamColor }}
+                        >
+                          {selectedDriver.code}
+                        </div>
+                        <div>
+                          <h2 className="text-3xl font-display font-bold tracking-tight">{selectedDriver.name}</h2>
+                          <p className="text-xs text-white/40 uppercase font-black tracking-[0.2em]">{teamName}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <MapPin className="w-3 h-3 text-white/40" />
+                            <span className="text-[10px] text-white/40">{selectedDriver.nationality}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
-                  {/* Season Performance Grid */}
-                  <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-3">2024 Season Performance</div>
+                  {/* Season Performance Grid — only when race results are available */}
+                  {selectedStats ? (
+                    <>
+                  <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-3">{activeYear} Season Performance</div>
                   <div className="grid grid-cols-3 gap-3 mb-6">
                     <StatCard label="Points" value={selectedStats.points.toString()} highlight />
                     <StatCard label="Wins" value={selectedStats.wins.toString()} />
@@ -353,12 +396,35 @@ const DriverProfiles: React.FC = () => {
                     );
                   })()}
 
+                  {/* Data Source Note — season stats */}
+                    <div className="mt-6 pt-4 border-t border-white/5">
+                      <p className="text-[9px] text-gray-600 italic">
+                        All metrics computed from verified {activeYear} FIA race results via Jolpica API.
+                        Telemetry-derived behavioral scores will be available once the FastF1 pipeline is deployed.
+                      </p>
+                    </div>
+                    </>
+                  ) : (
+                    /* Career stats fallback when season race data is not yet available */
+                    <>
+                      <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-3">Career Statistics</div>
+                      <div className="grid grid-cols-3 gap-3 mb-6">
+                        <StatCard label="Career Races" value={selectedDriver.career_races.toString()} />
+                        <StatCard label="Career Wins" value={selectedDriver.career_wins.toString()} highlight />
+                        <StatCard label="Experience" value={`${selectedDriver.experience_years}yr`} />
+                      </div>
+                      <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+                        <p className="text-[10px] text-white/40 font-mono uppercase tracking-widest">
+                          {activeYear} season results pending — race data will appear once the pipeline ingests {activeYear} results from Jolpica API.
+                        </p>
+                      </div>
+                    </>
+                  )}
+
                   {/* Data Source Note */}
                   <div className="mt-6 pt-4 border-t border-white/5">
                     <p className="text-[9px] text-gray-600 italic">
-                      All metrics computed from verified 2024 FIA race results via Jolpica API.
-                      Telemetry-derived behavioral scores (tire management, aggression index, wet weather skill)
-                      will be available once the FastF1 pipeline is deployed.
+                      Driver data sourced from Jolpica API (Ergast). Skill scores derived from career statistics.
                     </p>
                   </div>
                 </motion.div>
@@ -371,7 +437,7 @@ const DriverProfiles: React.FC = () => {
       {/* Nationality Breakdown */}
       <div className="rounded-2xl p-6 border shadow-2xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
         <h3 className="text-xs font-display font-bold uppercase tracking-widest text-white/40 mb-6 px-2">
-          Driver Nationalities (2024 Season)
+          Driver Nationalities ({activeYear} Season)
         </h3>
         <div className="h-[280px]">
           <ResponsiveContainer width="100%" height="100%">

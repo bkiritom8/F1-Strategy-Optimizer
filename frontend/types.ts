@@ -33,6 +33,7 @@ export interface DriverProfile {
   fuel_efficiency: number;
   experience_years: number;
   rookie_status: boolean;
+  last_season?: number;
 }
 
 /**

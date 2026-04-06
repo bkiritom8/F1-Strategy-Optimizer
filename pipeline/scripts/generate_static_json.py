@@ -376,7 +376,7 @@ def build_circuits_json(circuits_df: pd.DataFrame) -> list:
     return records
 
 
-def build_races_2024_json(results_df: pd.DataFrame, circuits_df: pd.DataFrame) -> list:
+def build_races_season_json(results_df: pd.DataFrame, circuits_df: pd.DataFrame, season: int) -> list:
     results_df  = results_df.copy()
     results_df.columns  = [c.lower() for c in results_df.columns]
     results_df = _expand_race_results(results_df)
@@ -388,9 +388,9 @@ def build_races_2024_json(results_df: pd.DataFrame, circuits_df: pd.DataFrame) -
         log.warning("No season column; returning empty races list")
         return []
 
-    r2024 = results_df[pd.to_numeric(results_df[season_col], errors="coerce") == 2024].copy()
+    r2024 = results_df[pd.to_numeric(results_df[season_col], errors="coerce") == season].copy()
     if r2024.empty:
-        log.warning("No 2024 results found")
+        log.warning(f"No {season} results found")
         return []
 
     circ_map = circuits_df.set_index("circuitid")[["name", "country"]].to_dict("index")
@@ -529,7 +529,12 @@ def main():
 
     write_json(build_drivers_json(drivers_df, results_df),                          out_dir / "drivers.json")
     write_json(build_circuits_json(circuits_df),                                    out_dir / "circuits.json")
-    write_json(build_races_2024_json(results_df, circuits_df),                      out_dir / "races-2024.json")
+    for season in (2024, 2025, 2026):
+        data = build_races_season_json(results_df, circuits_df, season)
+        if data:
+            write_json(data, out_dir / f"races-{season}.json")
+        else:
+            log.info(f"No data for {season} — skipping races-{season}.json")
     write_json(build_seasons_json(results_df),                                      out_dir / "seasons.json")
     write_json(build_pipeline_reports_json(results_df, drivers_df, circuits_df),    out_dir / "pipeline-reports.json")
 
