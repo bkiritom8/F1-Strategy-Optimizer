@@ -112,16 +112,19 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     ml_preds: dict = {}
     try:
         from src.llm.model_bridge import get_predictions
-        ml_preds = get_predictions({
-            "current_lap": lap,
-            "total_laps": total_laps,
-            "tire_age_laps": tire_age,
-            "tire_compound": compound,
-            "position": grid_position,
-            "driver": driver_id,
-            "circuit": circuit_key,
-            "gap_to_leader": 2.0,
-        })
+
+        ml_preds = get_predictions(
+            {
+                "current_lap": lap,
+                "total_laps": total_laps,
+                "tire_age_laps": tire_age,
+                "tire_compound": compound,
+                "position": grid_position,
+                "driver": driver_id,
+                "circuit": circuit_key,
+                "gap_to_leader": 2.0,
+            }
+        )
     except Exception:
         pass
 
@@ -129,7 +132,9 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     deg_rate = _DEG_RATE_FALLBACK.get(compound, 0.042)
     if "tire_degradation" in ml_preds:
         try:
-            deg_rate = abs(float(ml_preds["tire_degradation"].replace("s/lap", "").strip()))
+            deg_rate = abs(
+                float(ml_preds["tire_degradation"].replace("s/lap", "").strip())
+            )
         except (ValueError, AttributeError):
             pass
 
@@ -139,6 +144,7 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     laps_left_in_stint = max(0, cliff - tire_age)
     if "pit_window" in ml_preds:
         import re as _re
+
         m = _re.search(r"(\d+)", ml_preds["pit_window"])
         if m:
             laps_left_in_stint = max(0, int(m.group(1)))
@@ -149,7 +155,9 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     # Driving style from ML model; fall back to rule-based
     _STYLE_MAP = {"PUSH": "PUSH", "NEUTRAL": "BALANCED", "BALANCE": "BALANCED"}
     if "recommended_driving_style" in ml_preds:
-        driving_mode = _STYLE_MAP.get(ml_preds["recommended_driving_style"].upper(), "BALANCED")
+        driving_mode = _STYLE_MAP.get(
+            ml_preds["recommended_driving_style"].upper(), "BALANCED"
+        )
     else:
         driving_mode = "PUSH" if not pit_soon and tire_age < cliff - 5 else "BALANCED"
 
@@ -183,7 +191,9 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     deg_penalty = deg_rate * tire_age
     temp_correction = max(0.0, (track_temp - 35.0) * 0.03)
     fuel_penalty = fuel_level * 0.45
-    avg_lap_time = base_lap_time + compound_delta + deg_penalty + temp_correction + fuel_penalty
+    avg_lap_time = (
+        base_lap_time + compound_delta + deg_penalty + temp_correction + fuel_penalty
+    )
 
     sector_1 = round(avg_lap_time * s1_frac, 3)
     sector_2 = round(avg_lap_time * s2_frac, 3)
@@ -230,7 +240,11 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
         "model_source": "ml" if ml_preds else "rule_based",
     }
     # Append any extra ML signals that the rule-based path can't produce
-    for key in ("safety_car_probability", "overtake_probability", "predicted_race_outcome"):
+    for key in (
+        "safety_car_probability",
+        "overtake_probability",
+        "predicted_race_outcome",
+    ):
         if key in ml_preds:
             result[key] = ml_preds[key]
     return result
