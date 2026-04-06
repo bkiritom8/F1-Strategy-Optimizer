@@ -37,11 +37,11 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
 
     Returns rich simulation data: lap times, sector splits, grid/finish position,
     pit window, tire recommendation, and race time estimate.
+    ML model outputs (tire degradation, pit window, driving style, safety car,
+    overtake probability, race outcome) override rule-based fallbacks when available.
     """
     if tool_name != "get_strategy_recommendation":
         return {"error": f"Unknown tool: {tool_name}"}
-
-    import math
 
     race_id = str(args.get("race_id", "unknown"))
     driver_id = str(args.get("driver_id", "unknown"))
@@ -51,6 +51,7 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     track_temp = float(args.get("track_temp", 44.0))
     air_temp = float(args.get("air_temp", 26.0))
     grid_position = int(args.get("grid_position", 5))
+    tire_age = int(args.get("tire_age_laps", lap))
 
     # ── Circuit-specific base lap times (seconds) ──────────────────────────────
     circuit_key = race_id.split("_")[-1].lower() if "_" in race_id else "default"
@@ -89,34 +90,16 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     }
     compound_delta = _COMPOUND_DELTA.get(compound, 0.0)
 
-    # ── Tire degradation: seconds lost per lap on current compound ─────────────
-    tire_age = int(args.get("tire_age_laps", lap))
-    _DEG_RATE = {
+    # ── Rule-based fallback deg rates ─────────────────────────────────────────
+    _DEG_RATE_FALLBACK = {
         "SOFT": 0.065,
         "MEDIUM": 0.042,
         "HARD": 0.028,
         "INTERMEDIATE": 0.050,
         "WET": 0.045,
     }
-    deg_rate = _DEG_RATE.get(compound, 0.042)
-    deg_penalty = deg_rate * tire_age
 
-    # ── Track temperature correction (+0.03s per °C above 35°C) ───────────────
-    temp_correction = max(0.0, (track_temp - 35.0) * 0.03)
-
-    # ── Fuel load correction (fuel burn ~0.12s/kg, ~2.3 kg/lap at start) ──────
-    fuel_penalty = fuel_level * 0.45  # heavier car = slower
-
-    avg_lap_time = (
-        base_lap_time + compound_delta + deg_penalty + temp_correction + fuel_penalty
-    )
-
-    # ── Sector times ───────────────────────────────────────────────────────────
-    sector_1 = round(avg_lap_time * s1_frac, 3)
-    sector_2 = round(avg_lap_time * s2_frac, 3)
-    sector_3 = round(avg_lap_time - sector_1 - sector_2, 3)
-
-    # ── Pit strategy decision ──────────────────────────────────────────────────
+    # ── Try ML models (override rule-based values where available) ─────────────
     total_laps = {
         "monaco": 78,
         "monza": 53,
@@ -125,12 +108,50 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
         "bahrain": 57,
         "default": 57,
     }.get(circuit_key, 57)
-    remaining = total_laps - lap
-    # Pit when tires older than compound-specific cliff (laps)
+
+    ml_preds: dict = {}
+    try:
+        from src.llm.model_bridge import get_predictions
+        ml_preds = get_predictions({
+            "current_lap": lap,
+            "total_laps": total_laps,
+            "tire_age_laps": tire_age,
+            "tire_compound": compound,
+            "position": grid_position,
+            "driver": driver_id,
+            "circuit": circuit_key,
+            "gap_to_leader": 2.0,
+        })
+    except Exception:
+        pass
+
+    # Parse ML tire degradation: "+0.285s/lap" → 0.285
+    deg_rate = _DEG_RATE_FALLBACK.get(compound, 0.042)
+    if "tire_degradation" in ml_preds:
+        try:
+            deg_rate = abs(float(ml_preds["tire_degradation"].replace("s/lap", "").strip()))
+        except (ValueError, AttributeError):
+            pass
+
+    # Parse ML pit window: "pit in ~12 laps" → laps_to_pit = 12
     _CLIFF = {"SOFT": 18, "MEDIUM": 28, "HARD": 38}
     cliff = _CLIFF.get(compound, 28)
     laps_left_in_stint = max(0, cliff - tire_age)
-    pit_soon = tire_age >= cliff or (laps_left_in_stint <= 5 and remaining > 5)
+    if "pit_window" in ml_preds:
+        import re as _re
+        m = _re.search(r"(\d+)", ml_preds["pit_window"])
+        if m:
+            laps_left_in_stint = max(0, int(m.group(1)))
+
+    remaining = total_laps - lap
+    pit_soon = laps_left_in_stint == 0 or (laps_left_in_stint <= 5 and remaining > 5)
+
+    # Driving style from ML model; fall back to rule-based
+    _STYLE_MAP = {"PUSH": "PUSH", "NEUTRAL": "BALANCED", "BALANCE": "BALANCED"}
+    if "recommended_driving_style" in ml_preds:
+        driving_mode = _STYLE_MAP.get(ml_preds["recommended_driving_style"].upper(), "BALANCED")
+    else:
+        driving_mode = "PUSH" if not pit_soon and tire_age < cliff - 5 else "BALANCED"
 
     _NEXT_COMPOUND = {
         "SOFT": "MEDIUM",
@@ -142,21 +163,42 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
     next_compound = _NEXT_COMPOUND.get(compound, "HARD")
 
     # ── Projected finish position ──────────────────────────────────────────────
-    strategy_bonus = -1 if not pit_soon and tire_age < cliff else 0
-    finish_position = max(1, min(20, grid_position + strategy_bonus))
+    # Use race outcome tier from ML if available, else rule-based nudge
+    # Classes are exactly: "Podium" (P1-3), "Points" (P4-10), "Outside" (P11+)
+    _OUTCOME_POSITION: dict[str, int] = {
+        "Podium": 2,
+        "Points": 7,
+        "Outside": 15,
+    }
+    if "predicted_race_outcome" in ml_preds:
+        finish_position = _OUTCOME_POSITION.get(
+            ml_preds["predicted_race_outcome"].lower(), grid_position
+        )
+        finish_position = max(1, min(20, finish_position))
+    else:
+        strategy_bonus = -1 if not pit_soon and tire_age < cliff else 0
+        finish_position = max(1, min(20, grid_position + strategy_bonus))
 
-    # ── Total race time estimate ────────────────────────────────────────────────
-    # Laps already done at current pace + remaining laps at next-compound pace
+    # ── Lap time & race time estimate ─────────────────────────────────────────
+    deg_penalty = deg_rate * tire_age
+    temp_correction = max(0.0, (track_temp - 35.0) * 0.03)
+    fuel_penalty = fuel_level * 0.45
+    avg_lap_time = base_lap_time + compound_delta + deg_penalty + temp_correction + fuel_penalty
+
+    sector_1 = round(avg_lap_time * s1_frac, 3)
+    sector_2 = round(avg_lap_time * s2_frac, 3)
+    sector_3 = round(avg_lap_time - sector_1 - sector_2, 3)
+
     next_compound_delta = _COMPOUND_DELTA.get(next_compound, 0.0)
     laps_done_time = lap * avg_lap_time
     remaining_lap_time = base_lap_time + next_compound_delta + temp_correction
-    pit_stop_time = 22.5  # Monaco pit lane loss ~22.5s
+    pit_stop_time = 22.5
     pit_count = 1 if pit_soon or lap > cliff else 0
     total_race_time = (
         laps_done_time + remaining * remaining_lap_time + pit_count * pit_stop_time
     )
 
-    return {
+    result = {
         "race_id": race_id,
         "driver_id": driver_id,
         "circuit": circuit_key,
@@ -170,6 +212,7 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
         "sector_1_avg_s": sector_1,
         "sector_2_avg_s": sector_2,
         "sector_3_avg_s": sector_3,
+        "current_compound": compound,
         "tire_deg_per_lap_s": round(deg_rate, 3),
         "tire_age_laps": tire_age,
         # Grid / position
@@ -181,11 +224,16 @@ def _execute_strategy_tool(tool_name: str, args: dict) -> dict:
         "pit_window_start": lap + 1 if pit_soon else lap + max(1, laps_left_in_stint),
         "pit_window_end": lap + 5 if pit_soon else lap + max(6, laps_left_in_stint + 5),
         "target_compound": next_compound,
-        "driving_mode": "PUSH" if not pit_soon and tire_age < cliff - 5 else "BALANCED",
+        "driving_mode": driving_mode,
         "brake_bias": 52.5,
         "confidence": 0.72,
-        "model_source": "rule_based",
+        "model_source": "ml" if ml_preds else "rule_based",
     }
+    # Append any extra ML signals that the rule-based path can't produce
+    for key in ("safety_car_probability", "overtake_probability", "predicted_race_outcome"):
+        if key in ml_preds:
+            result[key] = ml_preds[key]
+    return result
 
 
 class RaceInputs(BaseModel):

@@ -55,7 +55,8 @@ def _build_df(inputs: dict) -> pd.DataFrame:
     """Build a minimal single-row DataFrame from race_inputs with sensible defaults."""
     lap = int(inputs.get("current_lap") or 20)
     total = int(inputs.get("total_laps") or 66)
-    tire_age = int(inputs.get("tire_age_laps") or 10)
+    tire_age_raw = inputs.get("tire_age_laps")
+    tire_age = int(tire_age_raw if tire_age_raw is not None else 10)
     compound = str(inputs.get("tire_compound") or "MEDIUM").upper()
     position = int(inputs.get("position") or 10)
     gap = float(inputs.get("gap_to_leader") or 2.0)
@@ -81,6 +82,8 @@ def _build_df(inputs: dict) -> pd.DataFrame:
                 "compound_SOFT": 1 if compound == "SOFT" else 0,
                 "compound_MEDIUM": 1 if compound == "MEDIUM" else 0,
                 "compound_HARD": 1 if compound == "HARD" else 0,
+                "compound_INTERMEDIATE": 1 if compound == "INTERMEDIATE" else 0,
+                "compound_WET": 1 if compound == "WET" else 0,
                 "fuel_load_pct": fuel_pct,
                 "mean_throttle": 75.0,
                 "mean_brake": 20.0,
@@ -142,6 +145,8 @@ def get_predictions(race_inputs: dict) -> dict[str, str]:
             logger.debug("pit_window failed: %s", exc)
 
     # ── Safety Car ───────────────────────────────────────────────────────────
+    # Use circuit_sc_prob lookup (probability that a SC occurs at this circuit),
+    # NOT predict() which predicts pitted_under_sc and was trained only on SC laps.
     bundle = _load("safety_car")
     if bundle:
         try:
@@ -149,8 +154,7 @@ def get_predictions(race_inputs: dict) -> dict[str, str]:
 
             m = SafetyCarModel.__new__(SafetyCarModel)
             m._bundle = bundle
-            out = m.predict(df.copy())
-            prob = float(out["probability"].iloc[0])
+            prob = m.predict_circuit_sc_prob(circuit)
             results["safety_car_probability"] = f"{prob:.0%}"
         except Exception as exc:
             logger.debug("safety_car failed: %s", exc)

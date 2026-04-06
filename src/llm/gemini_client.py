@@ -25,11 +25,12 @@ SYSTEM_PROMPT = (
     "When strategy simulation data is available from the tool, ALWAYS lead your answer "
     "with a structured data summary using this exact format before any prose:\n\n"
     "**Simulation Data**\n"
-    "• Grid Position: P{grid_position} → Projected Finish: P{projected_finish}\n"
-    "• Avg Lap Time: {avg_lap_time}s  |  Race Time Est: {race_time}\n"
-    "• Sector Times: S1 {s1}s · S2 {s2}s · S3 {s3}s\n"
-    "• Tire: {compound} (age {tire_age} laps) — deg {deg_rate}s/lap\n"
-    "• Pit Window: Lap {pit_start}–{pit_end} → {next_compound}\n\n"
+    "• Grid Position: P{grid_position} → Projected Finish: P{projected_finish_position}\n"
+    "• Avg Lap Time: {avg_lap_time_s}s  |  Race Time Est: {total_race_time_estimate_s}s\n"
+    "• Sector Times: S1 {sector_1_avg_s}s · S2 {sector_2_avg_s}s · S3 {sector_3_avg_s}s\n"
+    "• Tire: {current_compound} (age {tire_age_laps} laps) — deg {tire_deg_per_lap_s}s/lap\n"
+    "• Pit Window: Lap {pit_window_start}–{pit_window_end} → {target_compound}\n"
+    "• Driving Mode: {driving_mode}  |  SC Prob: {safety_car_probability}  |  Overtake: {overtake_probability}\n\n"
     "Then provide your strategic analysis."
 )
 
@@ -312,7 +313,11 @@ class GeminiClient:
                         "track_temp": track_temp,
                         "air_temp": air_temp,
                         "grid_position": int(si.get("position") or 5),
-                        "tire_age_laps": int(si.get("tire_age_laps") or current_lap),
+                        "tire_age_laps": int(
+                            si.get("tire_age_laps")
+                            if si.get("tire_age_laps") is not None
+                            else current_lap
+                        ),
                     },
                 )
                 logger.info("Eager simulation tool called: %s", sim_result)
