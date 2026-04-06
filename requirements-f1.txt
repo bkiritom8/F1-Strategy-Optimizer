@@ -19,7 +19,7 @@ tenacity==8.2.3
 
 # GCP clients
 google-cloud-pubsub==2.19.0
-google-cloud-storage==2.14.0
+google-cloud-storage>=2.18.2
 google-cloud-logging==3.9.0
 gcsfs==2024.6.1
 
