@@ -106,7 +106,7 @@ class TurboQuantCodec:
         """Compress a 768-dim L2-normalised embedding into a TurboQuantVector."""
         k = np.array(vec, dtype=np.float32)
         k_tilde = self._rotation() @ k  # (768,) rotated
-        codes = np.digitize(k_tilde, BOUNDARIES).astype(np.uint8)  # (768,) 0-7
+        codes: np.ndarray = np.digitize(k_tilde, BOUNDARIES).astype(np.uint8)  # (768,) 0-7
         y_hat = CENTROIDS[codes]  # (768,) decoded approximation
         r = k_tilde - y_hat  # (768,) quantisation residual
         proj = self._qjl() @ r  # (768,) QJL projections
