@@ -1,4 +1,5 @@
 """telemetry_extractor.py — FastF1 per-lap telemetry extraction."""
+
 from __future__ import annotations
 
 import logging
@@ -26,6 +27,8 @@ def extract_telemetry(session) -> Optional[pd.DataFrame]:
         except Exception as exc:
             log.debug(
                 "skipped lap %s/%s: %s",
-                lap.get("Driver"), lap.get("LapNumber"), exc,
+                lap.get("Driver"),
+                lap.get("LapNumber"),
+                exc,
             )
     return pd.concat(frames, ignore_index=True) if frames else None

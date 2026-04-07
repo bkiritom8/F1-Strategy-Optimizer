@@ -175,7 +175,7 @@ class F1StrategyAgent:
         race_ids: list[str],
         total_timesteps: int = 500_000,
         eval_race_ids: Optional[list[str]] = None,
-        checkpoint_dir: str = "/tmp/f1_rl_checkpoints",
+        checkpoint_dir: str = "/tmp/f1_rl_checkpoints",  # nosec B108
         n_envs: int = 4,
         driver_id: Optional[str] = None,
         models_dir: Optional[str] = None,

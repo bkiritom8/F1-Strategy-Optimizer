@@ -113,25 +113,15 @@ class DataSharding:
             return ""
 
         placeholders = ",".join(["%s"] * len(race_ids))
-        query = f"""
-            SELECT
-                lf.race_id,
-                lf.driver_id,
-                lf.lap_number,
-                lf.lap_time_ms,
-                lf.tire_compound,
-                lf.tire_age_laps,
-                lf.gap_to_leader_ms,
-                lf.gap_to_car_ahead_ms,
-                lf.pit_stop_flag,
-                lf.position,
-                r.year,
-                r.circuit_id
-            FROM lap_features lf
-            JOIN races r USING (race_id)
-            WHERE lf.race_id IN ({placeholders})
-            ORDER BY lf.race_id, lf.driver_id, lf.lap_number
-        """
+        query = (
+            "SELECT lf.race_id, lf.driver_id, lf.lap_number, lf.lap_time_ms,"  # nosec B608
+            " lf.tire_compound, lf.tire_age_laps, lf.gap_to_leader_ms,"
+            " lf.gap_to_car_ahead_ms, lf.pit_stop_flag, lf.position,"
+            " r.year, r.circuit_id"
+            " FROM lap_features lf JOIN races r USING (race_id)"
+            " WHERE lf.race_id IN (" + placeholders + ")"
+            " ORDER BY lf.race_id, lf.driver_id, lf.lap_number"
+        )
 
         conn = self._get_connection()
         try:

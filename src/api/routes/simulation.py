@@ -481,7 +481,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                     }
                     for rec in lap_records.values()
                 ],
-                key=lambda x: int(x["position"]),  # type: ignore[call-overload]
+                key=lambda x: int(x["position"]),  # type: ignore[arg-type]
             )
 
             lap_snap = {

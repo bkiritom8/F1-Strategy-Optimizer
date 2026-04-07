@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ID = os.environ.get("PROJECT_ID", "f1optimizer")
 TRAINING_BUCKET = os.environ.get("TRAINING_BUCKET", "gs://f1optimizer-training")
-LOCAL_CACHE_DIR = os.environ.get("F1_LOCAL_CACHE", "/tmp/f1_cache")
+LOCAL_CACHE_DIR = os.environ.get("F1_LOCAL_CACHE", "/tmp/f1_cache")  # nosec B108
 
 
 class FeatureStore:

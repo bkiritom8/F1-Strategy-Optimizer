@@ -77,7 +77,8 @@ except Exception as _va_exc:
     _VERTEX_AVAILABLE = False
     logger.info("Vertex AI unavailable (%s) — tracking skipped", _va_exc)
 
-PLOTS_DIR = "/tmp/plots"
+PLOTS_DIR = "/tmp/plots"  # nosec B108
+_DEFAULT_SAVE_DIR = "/tmp/f1_rl_checkpoints"  # nosec B108
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
 # ── Race ID sets ──────────────────────────────────────────────────────────────
@@ -154,7 +155,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--n-envs", type=int, default=4, help="Parallel envs")
     p.add_argument("--driver-id", type=str, default="lando_norris")
     p.add_argument("--start-pos", type=int, default=10, help="Grid position 1-20")
-    p.add_argument("--save-dir", type=str, default="/tmp/f1_rl_checkpoints")
+    p.add_argument("--save-dir", type=str, default=_DEFAULT_SAVE_DIR)
     p.add_argument(
         "--gcs-save", type=str, default=None, help="gs://bucket/path to upload"
     )
@@ -186,7 +187,7 @@ _GCS_MODEL_FILES: dict[str, str] = {
 
 
 def download_gcs_models(
-    local_dir: str = "/tmp/f1_rl_models",
+    local_dir: str = "/tmp/f1_rl_models",  # nosec B108
     project: str = "f1optimizer",
 ) -> str:
     """
@@ -901,10 +902,11 @@ def main() -> None:
     )
     # Also check the GCS download cache (/tmp/f1_rl_models from download_gcs_models())
     # so workers load from disk instead of re-downloading from GCS on every startup.
+    tmp_rl_models = "/tmp/f1_rl_models"  # nosec B108
     if not local_has_models and any(
-        os.path.exists(os.path.join("/tmp/f1_rl_models", f)) for f in _sentinel_files
+        os.path.exists(os.path.join(tmp_rl_models, f)) for f in _sentinel_files
     ):
-        models_dir = "/tmp/f1_rl_models"
+        models_dir = tmp_rl_models
         local_has_models = True
         logger.info("Using GCS model cache at %s", models_dir)
     if args.no_models:

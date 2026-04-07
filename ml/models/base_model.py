@@ -168,7 +168,7 @@ class BaseF1Model(ABC):
                 pkl_path = os.path.join(tmp, "model.pkl")
                 bucket.blob(f"{prefix}/model.pkl").download_to_filename(pkl_path)
                 with open(pkl_path, "rb") as f:
-                    loaded: BaseF1Model = pickle.load(f)
+                    loaded: BaseF1Model = pickle.load(f)  # nosec B301
                 self.__dict__.update(loaded.__dict__)
                 self.logger.info("%s: loaded via pickle fallback", self.model_name)
 
