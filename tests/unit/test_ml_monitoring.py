@@ -239,3 +239,75 @@ class TestAccuracyTracker:
         assert d["model_name"] == "tire_degradation"
         assert d["degraded"] is True
         assert "degradation_pct" in d
+
+
+# ── monitoring_logger tests ───────────────────────────────────────────────────
+
+class TestMonitoringLogger:
+    def _make_drift_report(self):
+        from ml.monitoring.drift_detector import DriftReport
+        return DriftReport(
+            model_name="tire_degradation",
+            race_id="2025_5",
+            feature_psi={"TyreLife": 0.05, "fuel_load_pct": 0.12},
+            drifted_features=[],
+            warned_features=["fuel_load_pct"],
+            overall_status="warn",
+        )
+
+    def _make_accuracy_report(self):
+        from ml.monitoring.accuracy_tracker import AccuracyReport
+        return AccuracyReport(
+            model_name="tire_degradation",
+            season=2025,
+            current_metrics={"mae": 0.350},
+            baseline_metrics={"mae": 0.285},
+            degradation_pct={"mae": 22.8},
+            degraded=False,
+        )
+
+    def test_log_drift_appends_jsonl(self):
+        from ml.monitoring.monitoring_logger import MonitoringLogger
+
+        appended: list[str] = []
+
+        mock_blob = MagicMock()
+        mock_blob.exists.return_value = False
+        mock_blob.upload_from_string.side_effect = lambda data, **kw: appended.append(data)
+        mock_blob.download_to_file.side_effect = lambda stream: stream.write(b"")
+        mock_bucket = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        mock_client = MagicMock()
+        mock_client.bucket.return_value = mock_bucket
+
+        with patch("ml.monitoring.monitoring_logger.storage.Client", return_value=mock_client):
+            ml_logger = MonitoringLogger()
+            ml_logger.log_drift(self._make_drift_report())
+
+        assert len(appended) == 1
+        row = json.loads(appended[0].strip().splitlines()[-1])
+        assert row["model_name"] == "tire_degradation"
+        assert row["overall_status"] == "warn"
+        assert "timestamp" in row
+
+    def test_log_accuracy_appends_jsonl(self):
+        from ml.monitoring.monitoring_logger import MonitoringLogger
+
+        appended: list[str] = []
+        mock_blob = MagicMock()
+        mock_blob.exists.return_value = False
+        mock_blob.upload_from_string.side_effect = lambda data, **kw: appended.append(data)
+        mock_blob.download_to_file.side_effect = lambda stream: stream.write(b"")
+        mock_bucket = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        mock_client = MagicMock()
+        mock_client.bucket.return_value = mock_bucket
+
+        with patch("ml.monitoring.monitoring_logger.storage.Client", return_value=mock_client):
+            ml_logger = MonitoringLogger()
+            ml_logger.log_accuracy(self._make_accuracy_report())
+
+        assert len(appended) == 1
+        row = json.loads(appended[0].strip().splitlines()[-1])
+        assert row["model_name"] == "tire_degradation"
+        assert row["degraded"] is False
