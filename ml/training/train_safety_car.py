@@ -554,4 +554,10 @@ storage.Client(project="f1optimizer").bucket("f1optimizer-models").blob(
 ).upload_from_filename("models/safety_car.pkl")
 print("Uploaded: gs://f1optimizer-models/safety_car/model.pkl")
 print(f"  Circuit SC probabilities: {len(circuit_prob)} circuits")
+
+# ── Save feature distribution baseline for drift monitoring ──────────────────
+from ml.monitoring.feature_stats import extract_feature_stats, save_to_gcs as save_stats  # noqa: E402
+_train_stats = extract_feature_stats(X_train, features)
+save_stats(_train_stats, "safety_car")
+print("Saved feature baseline for drift monitoring: safety_car")
 print(f"  Pit decision — Val F1: {best_f1:.3f}")
