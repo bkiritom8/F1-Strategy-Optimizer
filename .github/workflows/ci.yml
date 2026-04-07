@@ -390,19 +390,9 @@ jobs:
         run: npm ci
         working-directory: frontend
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install data pipeline dependencies
-        run: pip install pandas pyarrow google-cloud-storage
-
       - uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Generate static data from GCS
-        run: python pipeline/scripts/generate_static_json.py --bucket f1optimizer-data-lake --out frontend/public/data
 
       - name: Build
         run: npm run build

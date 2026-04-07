@@ -12,8 +12,8 @@ steps:
         echo "Changed files:"
         echo "$$DIFF"
 
-        # api image: Dockerfile.api, requirements-api.txt, src/, rag/, pipeline/, ml/
-        echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.api|docker/requirements-api\.txt|src/|rag/|pipeline/|ml/)' \
+        # api image: Dockerfile.api, requirements-api.txt, src/, rag/, ml/
+        echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.api|docker/requirements-api\.txt|src/|rag/|ml/)' \
           && touch /workspace/api_rebuild || true
 
         # ml image: Dockerfile.ml, requirements-ml*.txt, ml/, src/

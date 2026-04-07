@@ -19,7 +19,6 @@ RUN pip install --no-cache-dir --prefer-binary -r /tmp/requirements-api.txt
 # Copy application code
 COPY src/ /app/src/
 COPY rag/ /app/rag/
-COPY pipeline/ /app/pipeline/
 COPY ml/ /app/ml/
 
 # Set Python path

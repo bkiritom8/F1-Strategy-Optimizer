@@ -81,9 +81,8 @@ _strategy_model = None
 _models_loaded_from_gcs = False
 _model_loaded_at: Optional[str] = None  # ISO timestamp when model was loaded
 
-# Lazy-loaded pipeline / simulator singletons (instantiated on first request)
+# Lazy-loaded pipeline singleton (instantiated on first request)
 _feature_pipeline: Any = None
-_simulators: Dict[str, Any] = {}  # race_id → RaceSimulator
 
 
 def _get_pipeline():
@@ -93,14 +92,6 @@ def _get_pipeline():
 
         _feature_pipeline = FeaturePipeline()
     return _feature_pipeline
-
-
-def _get_simulator(race_id: str):
-    if race_id not in _simulators:
-        from pipeline.simulator.race_simulator import RaceSimulator
-
-        _simulators[race_id] = RaceSimulator(race_id)
-    return _simulators[race_id]
 
 
 # Add middleware
@@ -522,35 +513,7 @@ async def race_state(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
-    try:
-        sim = _get_simulator(race_id)
-        race_state_obj = sim.step(lap)
-        return {
-            "race_id": race_state_obj.race_id,
-            "lap_number": race_state_obj.lap_number,
-            "total_laps": race_state_obj.total_laps,
-            "weather": race_state_obj.weather,
-            "track_temp": race_state_obj.track_temp,
-            "air_temp": race_state_obj.air_temp,
-            "safety_car": race_state_obj.safety_car,
-            "drivers": [
-                {
-                    "driver_id": d.driver_id,
-                    "position": d.position,
-                    "gap_to_leader": d.gap_to_leader,
-                    "gap_to_ahead": d.gap_to_ahead,
-                    "lap_time_ms": d.lap_time_ms,
-                    "tire_compound": d.tire_compound,
-                    "tire_age_laps": d.tire_age_laps,
-                    "pit_stops_count": d.pit_stops_count,
-                    "fuel_remaining_kg": d.fuel_remaining_kg,
-                }
-                for d in race_state_obj.drivers
-            ],
-        }
-    except Exception as exc:
-        logger.error("race_state error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+    raise HTTPException(status_code=501, detail="Race simulator not available")
 
 
 @v1.get("/race/standings")
@@ -564,12 +527,7 @@ async def race_standings(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
-    try:
-        sim = _get_simulator(race_id)
-        return {"race_id": race_id, "lap": lap, "standings": sim.get_standings(lap)}
-    except Exception as exc:
-        logger.error("race_standings error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+    raise HTTPException(status_code=501, detail="Race simulator not available")
 
 
 @v1.get("/telemetry/{driver_id}/lap/{lap}")
@@ -741,31 +699,7 @@ async def simulate_strategy(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
-    try:
-        strategy_tuples = [(int(s[0]), str(s[1])) for s in request.strategy]
-        sim = _get_simulator(request.race_id)
-        result = sim.simulate_strategy(request.driver_id, strategy_tuples)
-        predicted_pos = result.predicted_final_position
-        win_prob = max(0.02, 0.35 - predicted_pos * 0.03)
-        podium_prob = max(0.05, 0.65 - predicted_pos * 0.05)
-        return SimulateResponse(
-            driver_id=result.driver_id,
-            race_id=result.race_id,
-            predicted_final_position=predicted_pos,
-            predicted_total_time_s=result.predicted_total_time_s,
-            strategy=[[p, c] for p, c in result.strategy],
-            lap_times_s=result.lap_times_s,
-            win_probability=round(win_prob, 4),
-            podium_probability=round(podium_prob, 4),
-        )
-    except Exception as exc:
-        logger.warning(
-            "simulate_strategy RaceSimulator failed (%s) — using rule-based fallback",
-            exc,
-        )
-        return _rule_based_simulate(
-            request.race_id, request.driver_id, request.strategy
-        )
+    return _rule_based_simulate(request.race_id, request.driver_id, request.strategy)
 
 
 # ── Full race simulation via StrategySimulator ──────────────────────────────
