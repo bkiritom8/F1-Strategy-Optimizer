@@ -80,6 +80,8 @@ const AIChatbot: React.FC = () => {
     { role: 'assistant', content: "I am the Apex AI Strategist, powered by the F1 backend. Ask me anything about tire management, undercut opportunities, pit windows, or Grand Prix strategy." }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  /** Indicates what the AI is currently doing so the user sees a meaningful loading state. */
+  const [loadingType, setLoadingType] = useState<'data' | 'simulation' | null>(null);
   const [simJobId, setSimJobId] = useState<string | null>(null);
   const [simRaceId, setSimRaceId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -97,6 +99,8 @@ const AIChatbot: React.FC = () => {
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
+    // Choose loading indicator type before awaiting — gives instant feedback
+    setLoadingType(isSimulationQuestion(userMessage) ? 'simulation' : 'data');
 
     try {
       // Build conversation history for the backend ChatHistory schema
@@ -117,7 +121,7 @@ const AIChatbot: React.FC = () => {
         setSimJobId(data.job_id);
         setSimRaceId(data.simulation_race_id);
       } else if (isSimulationQuestion(userMessage)) {
-        // Backend didn't trigger a sim — fall back to client-side detection
+        // Backend didn't trigger a sim -- fall back to client-side detection
         const raceId = extractRaceId(userMessage);
         const jobId = btoa(userMessage.slice(0, 32)).replace(/[^a-z0-9]/gi, '').slice(0, 16);
         setSimJobId(jobId);
@@ -131,6 +135,7 @@ const AIChatbot: React.FC = () => {
       }]);
     } finally {
       setIsLoading(false);
+      setLoadingType(null);
     }
   };
 
@@ -169,7 +174,7 @@ const AIChatbot: React.FC = () => {
                   backgroundColor: m.role === 'assistant' ? 'rgba(30, 41, 59, 0.5)' : undefined,
                   borderColor: m.role === 'assistant' ? 'var(--border-color)' : undefined
                 }}>
-                  {m.content || (isLoading && i === messages.length - 1 ? <Loader2 className="w-4 h-4 animate-spin text-red-600" /> : '')}
+                  {m.content}
                 </div>
                 {m.role === 'user' && (
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border mt-1" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
@@ -178,6 +183,39 @@ const AIChatbot: React.FC = () => {
                 )}
               </motion.div>
             ))}
+            {/* Contextual loading bubble - appears below the last message */}
+            {isLoading && (
+              <motion.div
+                key="loading-indicator"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex gap-4 justify-start"
+              >
+                <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0 shadow-lg mt-1">
+                  <Bot className="w-5 h-5 text-white" />
+                </div>
+                <div
+                  className="p-4 rounded-2xl rounded-tl-none border text-sm"
+                  style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', borderColor: 'var(--border-color)' }}
+                >
+                  {loadingType === 'simulation' ? (
+                    <div className="flex items-center gap-2 text-blue-300">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span className="animate-pulse font-mono text-xs tracking-wide">
+                        Simulating to generate answer...
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-amber-300">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span className="animate-pulse font-mono text-xs tracking-wide">
+                        Finding answer from historical data...
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
 

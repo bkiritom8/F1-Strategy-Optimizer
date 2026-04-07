@@ -31,7 +31,7 @@ describe('useAppStore', () => {
   });
 
   it('should update active race', () => {
-    useAppStore.getState().setActiveRace('2024_5', 10);
+    useAppStore.getState().setActiveRace('2024_5', undefined, 10);
     const state = useAppStore.getState();
     expect(state.activeRaceId).toBe('2024_5');
     expect(state.activeLap).toBe(10);

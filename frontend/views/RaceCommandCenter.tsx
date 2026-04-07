@@ -80,7 +80,7 @@ function getMockStrategy(driver_id: string): StrategyRecommendation {
   };
 }
 import type { DriverProfile } from '../types';
-import { useDrivers, useBackendStatus, useRaces2024, useOvertakeMetric, useSafetyCarProb } from '../hooks/useApi';
+import { useDrivers, useBackendStatus, useRaces2024, useRaces2025, useRaces2026, useOvertakeMetric, useSafetyCarProb } from '../hooks/useApi';
 import { fetchRaceState, fetchStrategyRecommendation } from '../services/endpoints';
 import { useAppStore } from '../store/useAppStore';
 
@@ -267,9 +267,13 @@ function SectorTimingCard({ driverCode, sectors }: {
 /* ── Main View ────────────────────────────────────────────────────────── */
 
 const RaceCommandCenter: React.FC = () => {
-  const { data: apiDrivers, isLive: driversLive } = useDrivers();
+  const { data: apiDrivers } = useDrivers();
   const { online } = useBackendStatus();
-  const { data: races } = useRaces2024();
+  const { data: races2024 } = useRaces2024();
+  const { data: races2025 } = useRaces2025();
+  const { data: races2026 } = useRaces2026();
+
+  const [activeYear, setActiveYear] = useState<2024 | 2025 | 2026>(2024);
 
   const { 
     activeRaceRound, 
@@ -277,6 +281,9 @@ const RaceCommandCenter: React.FC = () => {
     setBackgroundCircuitId,
     setSelectedDriverId: setStoreDriverId 
   } = useAppStore();
+
+  // Resolve the correct race list based on the selected year
+  const races = activeYear === 2026 ? races2026 : activeYear === 2025 ? races2025 : races2024;
 
   // Reset background override to follow the active race round when in this view
   useEffect(() => {
@@ -493,7 +500,23 @@ const RaceCommandCenter: React.FC = () => {
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-tight uppercase italic truncate">
                 {selectedRace ? selectedRace.name : raceState.circuit}
               </h1>
-              <LiveBadge isLive={online} />
+              {/* Year selector */}
+              <div className="flex gap-1" role="group" aria-label="Season year">
+                {([2024, 2025, 2026] as const).map(yr => (
+                  <button
+                    key={yr}
+                    onClick={() => { setActiveYear(yr); setSelectedRaceId(null); }}
+                    className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wide transition-colors ${
+                      activeYear === yr
+                        ? 'bg-red-600 text-white'
+                        : 'text-white/40 hover:text-white hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    {yr}
+                  </button>
+                ))}
+              </div>
+              {/* Race selector */}
               <select
                 value={selectedRaceId || ''}
                 onChange={e => setSelectedRaceId(Number(e.target.value))}

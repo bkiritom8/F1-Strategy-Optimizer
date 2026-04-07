@@ -34,7 +34,7 @@ from src.security.iam_simulator import (
     User,
     iam_simulator,
 )
-from src.security.email_sender import send_verification_email
+from src.security.email_sender import send_otp_email, send_verification_email
 from src.security.user_store import user_store
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,15 @@ class VerifyEmailRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(..., min_length=1)
     new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class OtpRequest(BaseModel):
+    email: EmailStr
+
+
+class OtpLoginRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
 class UserProfile(BaseModel):
@@ -431,3 +440,118 @@ async def admin_dashboard(
         model_metrics=model_metrics,
         training_bucket="gs://f1optimizer-training",
     )
+
+
+# ── OTP endpoints ──────────────────────────────────────────────────
+
+
+@router.post("/users/request-otp", status_code=200)
+async def request_otp(
+    request: OtpRequest, background_tasks: BackgroundTasks
+) -> dict:
+    """
+    Request a 6-digit OTP for passwordless sign-in.
+
+    Always returns 200 to avoid leaking whether an email is registered.
+    The OTP is valid for 10 minutes and can only be used once.
+    """
+    # Look up the user by email — silently no-op if not found.
+    record = user_store.get_by_email(str(request.email))
+    if record and record.get("email_verified", False) and not record.get("disabled"):
+        otp_plain = user_store.create_otp(str(request.email))
+        username = record.get("username", "User")
+        background_tasks.add_task(send_otp_email, str(request.email), username, otp_plain)
+    return {
+        "message": (
+            "If that email is registered and verified, a sign-in code has been sent."
+        )
+    }
+
+
+@router.post("/users/login-otp", response_model=Token)
+async def login_with_otp(request: OtpLoginRequest) -> Token:
+    """
+    Sign in using a 6-digit OTP sent to the user’s email.
+
+    Returns a JWT on success. Raises 401 on invalid/expired OTP or
+    unverified/disabled account.
+    """
+    try:
+        record = user_store.verify_otp(str(request.email), request.otp)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    role = _role_from_str(record.get("role", Role.API_USER.value))
+    access_token = iam_simulator.create_access_token(
+        data={"sub": record["username"], "roles": [role.value]},
+        expires_delta=timedelta(minutes=60),
+    )
+    return Token(access_token=access_token, token_type="bearer")  # nosec B106
+
+
+# ── Admin seed ────────────────────────────────────────────────────
+
+
+class SeedAdminRequest(BaseModel):
+    seed_secret: str
+    username: str = "Admin"
+    email: EmailStr
+    full_name: str = "Platform Administrator"
+    password: str = Field(..., min_length=8)
+
+
+@router.post("/admin/seed", status_code=201)
+async def seed_admin(request: SeedAdminRequest) -> dict:
+    """
+    One-time endpoint to create the admin account in Firestore.
+
+    Protected by the SEED_SECRET environment variable — if the secret doesn't
+    match, the endpoint returns 403.  If the username already exists in
+    Firestore, returns 409 (idempotent — safe to call multiple times).
+
+    After the admin account is created, set email_verified=True directly in
+    Firestore (admins bypass the email-verification gate) by calling
+    POST /users/verify-email with the token returned in this response.
+    """
+    import os
+
+    expected_secret = os.environ.get("SEED_SECRET", "")
+    if not expected_secret or request.seed_secret != expected_secret:
+        raise HTTPException(status_code=403, detail="Invalid seed secret.")
+
+    try:
+        record = user_store.register(
+            username=request.username,
+            email=str(request.email),
+            full_name=request.full_name,
+            password=request.password,
+            role=Role.ADMIN.value,
+            gdpr_consent=True,
+        )
+    except ValueError as exc:
+        if "already taken" in str(exc):
+            raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    # Auto-verify admin email so they can log in immediately
+    try:
+        user_store.verify_email(record["verification_token"])
+    except Exception:
+        pass  # If already verified, ignore
+
+    logger.info("Admin account '%s' seeded successfully.", request.username)
+    return {
+        "message": f"Admin account '{request.username}' created and email pre-verified.",
+        "username": request.username,
+    }

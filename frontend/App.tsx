@@ -3,54 +3,56 @@
  * @description Root layout component for Apex Intelligence.
  *
  * Responsibilities:
- * - Declares all application routes via React Router `<Routes>`.
+ * - Declares all application routes via React Router <Routes>.
  * - Renders the collapsible left sidebar (desktop) and mobile bottom-nav bar.
  * - Shows the racing simulation background on every view.
  * - Lazy-loads every view for optimal code-splitting performance.
  * - Logs route transitions via the structured logger (dev only).
  * - Wraps views in an ErrorBoundary to prevent white-screen crashes.
+ *
+ * Auth model:
+ * - Admin tab is NOT in the nav; only reachable after logging in with admin credentials.
+ * - Live/Mock data status is admin-only; removed from the public sidebar.
  */
 
 import React from 'react';
-import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Gauge, Users, Compass, BarChart3, Shield, Activity,
-  Cpu, Map, Wifi, WifiOff, ChevronLeft, ChevronRight
+  Gauge, Users, Compass, BarChart3, Activity,
+  Cpu, Map, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { useBackendStatus, useRaces2024 } from './hooks/useApi';
+import { useRaces2024 } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
 import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
 import { logger } from './services/logger';
 
 // Lazy-load views for code splitting
 const RaceCommandCenter = React.lazy(() => import('./views/RaceCommandCenter'));
-const DriverProfiles = React.lazy(() => import('./views/DriverProfiles'));
-const StrategyHub = React.lazy(() => import('./views/StrategyHub'));
-const TrackExplorer = React.lazy(() => import('./views/TrackExplorer'));
-const LapByLapAnalysis = React.lazy(() => import('./views/LapByLapAnalysis'));
-const AdminPage = React.lazy(() => import('./views/AdminPage'));
-const LandingPage = React.lazy(() => import('./views/LandingPage'));
+const DriverProfiles    = React.lazy(() => import('./views/DriverProfiles'));
+const StrategyHub       = React.lazy(() => import('./views/StrategyHub'));
+const TrackExplorer     = React.lazy(() => import('./views/TrackExplorer'));
+const LapByLapAnalysis  = React.lazy(() => import('./views/LapByLapAnalysis'));
+const AdminPage         = React.lazy(() => import('./views/AdminPage'));
+const LandingPage       = React.lazy(() => import('./views/LandingPage'));
+const VerifyEmailPage   = React.lazy(() => import('./views/VerifyEmailPage'));
 
 const APP_NAME = 'APEX F1';
 
 /**
  * Primary navigation item definition.
  * Only items marked `mobile: true` appear in the mobile bottom nav strip.
- *
- * Validation, Model Engineering, and System Health are admin-only views
- * accessible as tabs inside AdminPage (behind password gate).
+ * Admin is intentionally absent — accessible only after admin login.
  */
 const navItems = [
-  { path: '/race',        label: 'Race Command',      icon: Gauge,          mobile: true  },
-  { path: '/drivers',     label: 'Driver Roster',     icon: Users,          mobile: true  },
-  { path: '/strategy',    label: 'Strategy Hub',      icon: Compass,        mobile: true,  highlight: true },
-  { path: '/circuits',    label: 'Circuit Directory',  icon: Map,            mobile: true  },
-  { path: '/analysis',    label: 'Post-Race',          icon: BarChart3,      mobile: false },
-  { path: '/admin',       label: 'Admin Control',      icon: Shield,         mobile: false },
+  { path: '/race',     label: 'Race Command',     icon: Gauge,    mobile: true  },
+  { path: '/drivers',  label: 'Driver Roster',    icon: Users,    mobile: true  },
+  { path: '/strategy', label: 'Strategy Hub',     icon: Compass,  mobile: true,  highlight: true },
+  { path: '/circuits', label: 'Circuit Directory', icon: Map,      mobile: true  },
+  { path: '/analysis', label: 'Post-Race',         icon: BarChart3, mobile: false },
 ];
 
-/** Mobile bottom-nav, shows the first 5 mobile-tagged routes as icon tabs. */
+/** Mobile bottom-nav shows all mobile-tagged routes. */
 const mobileNavItems = navItems.filter((n) => n.mobile);
 
 /** Full-screen spinner shown while a lazy-loaded view is being fetched. */
@@ -120,19 +122,20 @@ class ViewErrorBoundary extends React.Component<
  * Root application component.
  */
 const App: React.FC = () => {
-  const { online, latency } = useBackendStatus();
   const {
     activeRaceRound,
     backgroundCircuitId,
     sidebarOpen,
     setSidebarOpen,
     sidebarCollapsed,
-    toggleSidebarCollapsed
+    toggleSidebarCollapsed,
+    isAdmin,
   } = useAppStore();
   const { data: races } = useRaces2024();
-  const location = useLocation();
+  const location  = useLocation();
+  const navigate  = useNavigate();
 
-  /** 
+  /**
    * Determine the current circuit ID for the background simulation.
    * Priority:
    * 1. Explicit background override (from Track Explorer)
@@ -151,12 +154,40 @@ const App: React.FC = () => {
     logger.info(`[App] Route changed -> ${location.pathname}`);
   }, [location.pathname]);
 
-  // Render landing page standalone — no sidebar, no nav wrapper
+  /**
+   * Global auth:expired listener.
+   * When the API client fires this event (401/403 or missing token), redirect
+   * the user to the landing page where they can sign in again.
+   */
+  React.useEffect(() => {
+    const handleAuthExpired = () => {
+      logger.info('[App] auth:expired — redirecting to landing page');
+      navigate('/');
+    };
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('auth:expired', handleAuthExpired);
+  }, [navigate]);
+
+  // Render verify-email page standalone — no sidebar, no nav wrapper
+  if (location.pathname === '/verify-email') {
+    return (
+      <ViewErrorBoundary>
+        <React.Suspense fallback={null}>
+          <VerifyEmailPage onGoToLogin={() => navigate('/')} />
+        </React.Suspense>
+      </ViewErrorBoundary>
+    );
+  }
+
+  // Render landing page standalone - no sidebar, no nav wrapper
   if (location.pathname === '/') {
     return (
       <ViewErrorBoundary>
         <React.Suspense fallback={null}>
-          <LandingPage />
+          <LandingPage
+            onLoginSuccess={() => navigate('/race')}
+            onAdminLogin={() => navigate('/admin')}
+          />
         </React.Suspense>
       </ViewErrorBoundary>
     );
@@ -166,12 +197,16 @@ const App: React.FC = () => {
     <div className="flex h-screen bg-black text-white overflow-hidden font-sans">
       {/* Mobile Top Header (hidden on lg+) */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 backdrop-blur-xl border-b border-white/[0.07] z-50 flex items-center px-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
-        <div className="flex items-center gap-2">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          aria-label="Go to home page"
+        >
           <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center">
             <Cpu className="w-4 h-4 text-white" />
           </div>
           <span className="font-display font-black tracking-tighter text-lg italic">{APP_NAME}</span>
-        </div>
+        </button>
       </div>
 
       {/* Sidebar */}
@@ -187,9 +222,14 @@ const App: React.FC = () => {
       `}>
         <div className="p-6 pb-4 relative flex items-center justify-between">
           <div className="flex items-center gap-4 overflow-hidden w-full">
-            <div className="w-10 h-10 rounded-xl shrink-0 bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center shadow-lg shadow-red-900/20">
+            {/* Logo button - navigates to landing page */}
+            <button
+              onClick={() => { setSidebarOpen(false); navigate('/'); }}
+              className="w-10 h-10 rounded-xl shrink-0 bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center shadow-lg shadow-red-900/20 hover:opacity-80 transition-opacity"
+              aria-label="Go to home page"
+            >
               <Cpu className="w-6 h-6 text-white shrink-0" />
-            </div>
+            </button>
             <AnimatePresence>
               {!sidebarCollapsed && (
                 <motion.div
@@ -198,10 +238,15 @@ const App: React.FC = () => {
                   exit={{ opacity: 0, width: 0 }}
                   className="whitespace-nowrap flex-1 overflow-hidden"
                 >
-                  <div className="pr-2">
+                  {/* Clicking the text also navigates home */}
+                  <button
+                    onClick={() => { setSidebarOpen(false); navigate('/'); }}
+                    className="text-left hover:opacity-80 transition-opacity pr-2"
+                    aria-label="Go to home page"
+                  >
                     <h1 className="font-display font-black tracking-tighter text-xl italic leading-none text-white">{APP_NAME}</h1>
                     <p className="text-[10px] font-mono text-red-500 font-bold uppercase tracking-widest mt-1">Race Intelligence</p>
-                  </div>
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -254,38 +299,30 @@ const App: React.FC = () => {
           ))}
         </nav>
 
-        {/* Backend Status */}
-        <div className="p-4 mt-auto border-t border-white/[0.07]" style={{ background: 'rgba(0,0,0,0.4)' }}>
-          {!sidebarCollapsed ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <div className="flex items-center justify-between mb-4 px-2">
-                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 uppercase tracking-widest whitespace-nowrap">Backend</span>
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${online ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
-                  <span className={`text-[10px] font-mono font-bold whitespace-nowrap ${online ? 'text-green-500' : 'text-yellow-500'}`}>
-                    {online ? 'LIVE' : 'MOCK'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.05] border border-white/[0.07]">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  {online ? <Wifi className="shrink-0 w-4 h-4 text-green-500" /> : <WifiOff className="shrink-0 w-4 h-4 text-yellow-500" />}
-                  <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap truncate">
-                    {online ? 'FastAPI Connected' : 'Using Mock Data'}
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono text-gray-900 dark:text-white whitespace-nowrap pl-2">
-                  {online && latency ? `${latency}ms` : ''}
-                </span>
-              </div>
-            </motion.div>
-          ) : (
-             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center gap-3 py-2" title={online ? 'FastAPI Connected (LIVE)' : 'Using Mock Data (MOCK)'}>
-                <div className={`w-2 h-2 rounded-full ${online ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
-                {online ? <Wifi className="w-5 h-5 text-green-500" /> : <WifiOff className="w-5 h-5 text-yellow-500" />}
-             </motion.div>
-          )}
-        </div>
+        {/* Admin shortcut pill - only visible when logged in as admin */}
+        {isAdmin && (
+          <div className="px-4 pb-4">
+            <NavLink
+              to="/admin"
+              onClick={() => setSidebarOpen(false)}
+              title={sidebarCollapsed ? 'Admin Panel' : undefined}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-3 rounded-xl transition-all duration-300 border ${
+                  sidebarCollapsed ? 'justify-center p-3' : 'px-4 py-3'
+                } ${
+                  isActive
+                    ? 'bg-amber-600/20 border-amber-500/50 text-amber-400'
+                    : 'border-amber-500/30 text-amber-500/70 hover:bg-amber-500/10 hover:text-amber-400'
+                }`
+              }
+            >
+              {!sidebarCollapsed && (
+                <span className="text-xs font-bold uppercase tracking-widest">Admin Panel</span>
+              )}
+              {sidebarCollapsed && <span className="text-xs font-bold">ADM</span>}
+            </NavLink>
+          </div>
+        )}
       </motion.aside>
 
       {/* Mobile Overlay */}
@@ -303,13 +340,13 @@ const App: React.FC = () => {
           <ViewErrorBoundary>
             <React.Suspense fallback={<ViewLoader />}>
               <Routes>
-                <Route path="/race"       element={<RaceCommandCenter />} />
-                <Route path="/drivers"    element={<DriverProfiles />} />
-                <Route path="/strategy"   element={<StrategyHub />} />
-                <Route path="/circuits"   element={<TrackExplorer />} />
-                <Route path="/analysis"   element={<LapByLapAnalysis />} />
-                <Route path="/admin"      element={<AdminPage />} />
-                <Route path="*"           element={<Navigate to="/race" replace />} />
+                <Route path="/race"     element={<RaceCommandCenter />} />
+                <Route path="/drivers"  element={<DriverProfiles />} />
+                <Route path="/strategy" element={<StrategyHub />} />
+                <Route path="/circuits" element={<TrackExplorer />} />
+                <Route path="/analysis" element={<LapByLapAnalysis />} />
+                <Route path="/admin"    element={<AdminPage />} />
+                <Route path="*"         element={<Navigate to="/race" replace />} />
               </Routes>
             </React.Suspense>
           </ViewErrorBoundary>

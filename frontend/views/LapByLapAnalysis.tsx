@@ -56,8 +56,8 @@ const LapByLapAnalysis: React.FC = () => {
                   <tr key={r.driver.id} className="border-b hover:bg-white/[0.03] transition-colors" style={{ borderColor: 'var(--border-color)' }}>
                     <td className="p-4 font-bold" style={{ color: 'var(--text-primary)' }}>{r.position}</td>
                     <td className="p-4">
-                      <span className="font-bold mr-2 lg:hidden">{r.driver.code}</span>
-                      <span className="hidden lg:inline font-bold">{r.driver.name}</span>
+                      <span className="font-bold mr-2 lg:hidden">{(r.driver.code || '').toUpperCase()}</span>
+                      <span className="hidden lg:inline font-bold">{r.driver.name?.toUpperCase() ?? r.driver.id.toUpperCase()}</span>
                     </td>
                     <td className="p-4 text-white/40">{r.constructor}</td>
                     <td className="p-4 text-center">{r.laps}</td>

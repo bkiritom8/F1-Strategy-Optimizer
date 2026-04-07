@@ -2,6 +2,9 @@
 /**
  * Application Constants
  * Defines the visual theme, team identities, and F1 glossary for the Apex Intelligence platform.
+ *
+ * Team names use full official 2026 season names throughout.
+ * 'RB' is now 'Visa Cash App RB'; 'Sauber' is now 'Audi'.
  */
 
 export const APP_NAME = "Apex Intelligence";
@@ -46,17 +49,21 @@ export const COLORS = {
   }
 };
 
+/**
+ * Official 2026 team identity colors.
+ * Keys use full official team names to match DRIVER_TEAM_MAP in endpoints.ts.
+ */
 export const TEAM_COLORS: Record<string, string> = {
-  'Red Bull': '#3671C6',
-  'Mercedes': '#27F4D2',
-  'Ferrari': '#E8002D',
-  'McLaren': '#FF8000',
-  'Aston Martin': '#229971',
-  'Alpine': '#FF87BC',
-  'Williams': '#64C4FF',
-  'Haas': '#B6BABD',
-  'RB': '#6692FF',
-  'Sauber': '#52E252',
+  'Red Bull Racing':  '#3671C6',
+  'Mercedes':         '#27F4D2',
+  'Ferrari':          '#E8002D',
+  'McLaren':          '#FF8000',
+  'Aston Martin':     '#229971',
+  'Alpine':           '#FF87BC',
+  'Williams':         '#64C4FF',
+  'Haas F1 Team':     '#B6BABD',
+  'Visa Cash App RB': '#6692FF',
+  'Audi':             '#52E252',
 };
 
 /**
@@ -74,4 +81,3 @@ export const F1_GLOSSARY: Record<string, string> = {
   Apex: "The innermost point of the line taken through a curve, where the car is closest to the inside of the corner.",
   Stint: "The period between pit stops during which a driver is on track with a single set of tires.",
 };
-

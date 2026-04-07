@@ -64,7 +64,7 @@ describe('useDrivers', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
   });
 
-  it('resolves with data even if API and static fetch both fail (handles error silently)', async () => {
+  it('resolves with an error when API and static fetch both fail', async () => {
     mockApiFetch.mockRejectedValueOnce(new Error('backend down'));
     globalThis.fetch = vi.fn().mockResolvedValueOnce({ ok: false });
     
@@ -72,11 +72,8 @@ describe('useDrivers', () => {
     const { result } = renderHook(() => useDrivers());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    // It should have the fallback data
-    expect(Array.isArray(result.current.data)).toBe(true);
-    // Since the service wrapper (fetchDrivers) now handles fallbacks and returns data, 
-    // the hook itself sees a successful execution and error remains null.
-    expect(result.current.error).toBeNull();
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toBeDefined();
   });
 });
 

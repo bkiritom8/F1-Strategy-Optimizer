@@ -1,2 +1,2 @@
-export { apiFetch, getToken, API_BASE } from './client';
+export { apiFetch, API_BASE } from './client';
 export * from './endpoints';

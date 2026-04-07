@@ -179,23 +179,41 @@ interface PipelineReports {
 
 // ─── Team mapping ───────────────────────────────────────────────────────────
 
+/**
+ * Maps Ergast driver slugs to their full official 2026 team names.
+ * Keys match TEAM_COLORS in constants.ts exactly.
+ */
 const DRIVER_TEAM_MAP: Record<string, string> = {
-  // 2024 grid
-  max_verstappen: 'Red Bull', perez: 'Red Bull',
-  hamilton: 'Ferrari', leclerc: 'Ferrari',
-  norris: 'McLaren', piastri: 'McLaren',
-  russell: 'Mercedes', antonelli: 'Mercedes',
-  alonso: 'Aston Martin', stroll: 'Aston Martin',
-  gasly: 'Alpine', doohan: 'Alpine',
-  tsunoda: 'RB', lawson: 'Red Bull',
-  albon: 'Williams', sainz: 'Williams',
-  hulkenberg: 'Audi', bortoleto: 'Audi',
-  ocon: 'Haas', bearman: 'Haas',
-  ricciardo: 'RB', kevin_magnussen: 'Haas',
-  bottas: 'Audi', zhou: 'Sauber', sargeant: 'Williams',
-  // 2026 additions / rookies
-  hadjar: 'RB', arvid_lindblad: 'RB',
-  colapinto: 'Alpine',
+  // 2026 confirmed grid
+  max_verstappen:  'Red Bull Racing',
+  lawson:          'Red Bull Racing',
+  hamilton:        'Ferrari',
+  leclerc:         'Ferrari',
+  norris:          'McLaren',
+  piastri:         'McLaren',
+  russell:         'Mercedes',
+  antonelli:       'Mercedes',
+  alonso:          'Aston Martin',
+  stroll:          'Aston Martin',
+  gasly:           'Alpine',
+  doohan:          'Alpine',
+  colapinto:       'Alpine',
+  tsunoda:         'Visa Cash App RB',
+  hadjar:          'Visa Cash App RB',
+  arvid_lindblad:  'Visa Cash App RB',
+  albon:           'Williams',
+  sainz:           'Williams',
+  hulkenberg:      'Audi',
+  bortoleto:       'Audi',
+  ocon:            'Haas F1 Team',
+  bearman:         'Haas F1 Team',
+  // Legacy / 2024 drivers kept for historical data resolution
+  perez:           'Red Bull Racing',
+  ricciardo:       'Visa Cash App RB',
+  kevin_magnussen: 'Haas F1 Team',
+  bottas:          'Audi',
+  zhou:            'Audi',
+  sargeant:        'Williams',
 };
 
 // ─── Helper: fetch static JSON from public/data/ ────────────────────────────

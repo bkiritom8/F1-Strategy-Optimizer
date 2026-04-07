@@ -69,7 +69,12 @@ ENABLE_HTTPS = os.getenv("ENABLE_HTTPS", "false").lower() == "true"
 ENABLE_IAM = os.getenv("ENABLE_IAM", "true").lower() == "true"
 ENV = os.getenv("ENV", "local")
 
-_ALLOWED_ORIGINS_DEFAULT = "http://localhost:3000,http://localhost:8080"
+_ALLOWED_ORIGINS_DEFAULT = (
+    "http://localhost:3000,"
+    "http://localhost:3001,"
+    "http://localhost:8080,"
+    "https://apex-intelligence.vercel.app"
+)
 ALLOWED_ORIGINS = [
     o.strip()
     for o in os.getenv("ALLOWED_ORIGINS", _ALLOWED_ORIGINS_DEFAULT).split(",")
