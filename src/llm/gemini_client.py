@@ -5,7 +5,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Callable
 
-from vertexai.generative_models import FunctionDeclaration, GenerativeModel, Part, Tool
+from vertexai.generative_models import (
+    FunctionDeclaration,
+    GenerativeModel,
+    Part,
+    Tool,
+    ToolConfig,
+)
 import vertexai
 
 from rag.config import RagConfig
@@ -352,6 +358,12 @@ class GeminiClient:
             except Exception as exc:
                 logger.warning("Eager simulation tool failed: %s", exc)
 
+        if eager_sim_context:
+            chat._model._tool_config = ToolConfig(
+                function_calling_config=ToolConfig.FunctionCallingConfig(
+                    mode=ToolConfig.FunctionCallingConfig.Mode.NONE
+                )
+            )
         initial_message = (
             self.build_prompt(
                 question,
