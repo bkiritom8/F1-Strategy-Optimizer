@@ -30,33 +30,37 @@ The circuit guide data for all 24 circuits IS hardcoded in `rag/document_fetcher
 
 ---
 
-## 3. LLM Response Cache Defined but Disconnected
+## 3. LLM Response Cache Defined but Disconnected — FIXED
 
 **File**: `src/llm/cache.py`
 
 Two cache layers exist:
-- `GenericF1Cache`: Pre-warmed with 20 common F1 questions, TTL-based
-- `RealtimeF1Cache`: Semantic cache for race-context queries (TurboQuant-backed embeddings)
+- `GenericCache`: Pre-warmed with 20 common F1 questions, TurboQuant-backed cosine similarity (threshold 0.85)
+- `RealtimeCache`: Semantic cache for race-context queries, keyed on question embedding + bucketed race state (threshold 0.88, 3-min TTL)
 
-Neither is instantiated or called in the `llm_chat()` endpoint (`src/api/routes/llm.py`). Every chat request hits the Gemini API cold.
+Neither was instantiated or called in the `llm_chat()` endpoint (`src/api/routes/llm.py`). Every chat request hit the Gemini API cold.
 
-**Fix needed**: Wire `GenericF1Cache` into `llm_chat()` — check cache before `client.generate_with_tools()`, store result after.
+**Fixed**:
+- `llm_chat()` now checks `GenericCache.async_lookup()` first; returns immediately on hit
+- If race_inputs are present, checks `RealtimeCache.async_lookup()` next
+- After a Gemini call with race_inputs, stores the result via `RealtimeCache.async_store()` as a background task
+- `GenericCache.warm()` is now called at API startup so the cache is pre-populated before the first request arrives
 
 ---
 
-## 4. High Latency (15–25s)
+## 4. High Latency (15–25s) — PARTIALLY FIXED
 
-Root causes, in order of impact:
+Root causes and status:
 
-| Cause | Impact | Notes |
+| Cause | Impact | Status |
 |---|---|---|
-| Gemini API generation | 8–12s | Inherent to `gemini-2.5-flash` with tool use |
-| ML model GCS load | 3–8s | Lazy-loaded on first strategy question; cached after |
-| `vertexai.init()` cold start | 1–2s | Only on first request after Cloud Run cold start |
-| No response caching | Full Gemini RTT every request | See issue #3 |
-| `MAX_OUTPUT_TOKENS=4096` | Unnecessary ceiling | Most answers are <500 tokens |
+| Gemini API generation | 8–12s | Inherent; streaming from backend would help |
+| ML model GCS load | 3–8s | Fixed — all 6 bundles pre-loaded at startup |
+| `vertexai.init()` cold start | 1–2s | Unchanged — only hits on Cloud Run cold start |
+| No response caching | Full Gemini RTT every request | Fixed — see issue #3 |
+| `MAX_OUTPUT_TOKENS=4096` | Unnecessary ceiling | Fixed — reduced to 1024 in `rag/config.py` |
 
-**Partial fix**: Routing through the backend at least removes the perception problem — the backend response is non-streaming, so the frontend now shows the spinner until the full answer arrives (same wall time, but unified behavior). Streaming SSE from the backend would be the real fix.
+**Remaining**: Backend returns the full response as a single JSON blob (non-streaming). Adding SSE streaming from the FastAPI endpoint to the frontend would make responses feel instantaneous even at 8-12s generation time.
 
 ---
 

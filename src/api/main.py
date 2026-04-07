@@ -450,6 +450,41 @@ async def startup_event():
     asyncio.create_task(_load_model())
     logger.info("Model load started in background")
 
+    # Pre-load all 6 ML model bridge bundles from GCS so the first chat
+    # request doesn't pay the 3-8s cold-load penalty.
+    async def _preload_model_bridge():
+        try:
+            from src.llm.model_bridge import _load, _PATHS
+
+            def _download_all():
+                for name in _PATHS:
+                    _load(name)
+
+            await asyncio.to_thread(_download_all)
+            logger.info("model_bridge: all 6 bundles pre-loaded at startup")
+        except Exception as exc:
+            logger.warning("model_bridge pre-load failed (non-fatal): %s", exc)
+
+    asyncio.create_task(_preload_model_bridge())
+
+    # Warm the generic LLM cache in the background so common F1 questions
+    # are served instantly without hitting the Gemini API.
+    async def _warm_generic_cache():
+        try:
+            from src.llm.cache import get_generic_cache
+            from src.llm.gemini_client import get_client
+            from rag.config import RagConfig
+
+            cfg = RagConfig()
+            cache = get_generic_cache()
+            client = get_client()
+            await asyncio.to_thread(cache.warm, client, cfg.PROJECT_ID, cfg.REGION)
+            logger.info("GenericCache warming started in background")
+        except Exception as exc:
+            logger.warning("GenericCache warm failed (non-fatal): %s", exc)
+
+    asyncio.create_task(_warm_generic_cache())
+
 
 # ── /api/v1 router ─────────────────────────────────────────────────────────
 
