@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import math
 import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
 import vertexai
+from src.llm.turboquant import TurboQuantVector, get_codec
 
 logger = logging.getLogger(__name__)
 
@@ -61,15 +61,6 @@ GENERIC_QUESTIONS: list[str] = [
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    mag_a = math.sqrt(sum(x * x for x in a))
-    mag_b = math.sqrt(sum(x * x for x in b))
-    if mag_a == 0 or mag_b == 0:
-        return 0.0
-    return dot / (mag_a * mag_b)
-
-
 def _embed_one(text: str) -> list[float]:
     """Embed a single text. Caller must have called vertexai.init() first."""
     from vertexai.language_models import TextEmbeddingModel
@@ -100,7 +91,7 @@ def _bucket_state(race_inputs: dict) -> str:
 @dataclass
 class _GenericEntry:
     question: str
-    embedding: list[float]
+    embedding: TurboQuantVector
     answer: str
 
 
@@ -127,7 +118,7 @@ class GenericCache:
                         emb = _embed_one(q)
                         answer = client.generate(q)
                         entries.append(
-                            _GenericEntry(question=q, embedding=emb, answer=answer)
+                            _GenericEntry(question=q, embedding=get_codec().encode(emb), answer=answer)
                         )
                         logger.debug("GenericCache: warmed — %s", q[:60])
                         time.sleep(0.5)  # stay within embedding quota
@@ -156,10 +147,12 @@ class GenericCache:
         except Exception:
             return None
 
+        codec = get_codec()
+        q_prepared = codec.prepare_query(q_emb)
         with self._lock:
             best_score, best_answer = 0.0, None
             for entry in self._entries:
-                score = _cosine(q_emb, entry.embedding)
+                score = codec.score(q_prepared, entry.embedding)
                 if score > best_score:
                     best_score, best_answer = score, entry.answer
 
@@ -180,10 +173,12 @@ class GenericCache:
         except Exception:
             return None
 
+        codec = get_codec()
+        q_prepared = codec.prepare_query(q_emb)
         with self._lock:
             best_score, best_answer = 0.0, None
             for entry in self._entries:
-                score = _cosine(q_emb, entry.embedding)
+                score = codec.score(q_prepared, entry.embedding)
                 if score > best_score:
                     best_score, best_answer = score, entry.answer
 
@@ -198,7 +193,7 @@ class GenericCache:
 
 @dataclass
 class _RealtimeEntry:
-    embedding: list[float]
+    embedding: TurboQuantVector
     state_hash: str
     answer: str
     model_predictions: dict
@@ -261,13 +256,15 @@ class RealtimeCache:
         except Exception:
             return None
 
+        codec = get_codec()
+        q_prepared = codec.prepare_query(q_emb)
         with self._lock:
             self._entries = [e for e in self._entries if not self._is_expired(e)]
             best_score, best_entry = 0.0, None
             for entry in self._entries:
                 if entry.state_hash != state_hash:
                     continue
-                score = _cosine(q_emb, entry.embedding)
+                score = codec.score(q_prepared, entry.embedding)
                 if score > best_score:
                     best_score, best_entry = score, entry
 
@@ -291,13 +288,15 @@ class RealtimeCache:
         except Exception:
             return None
 
+        codec = get_codec()
+        q_prepared = codec.prepare_query(q_emb)
         with self._lock:
             self._entries = [e for e in self._entries if not self._is_expired(e)]
             best_score, best_entry = 0.0, None
             for entry in self._entries:
                 if entry.state_hash != state_hash:
                     continue
-                score = _cosine(q_emb, entry.embedding)
+                score = codec.score(q_prepared, entry.embedding)
                 if score > best_score:
                     best_score, best_entry = score, entry
 
@@ -325,7 +324,7 @@ class RealtimeCache:
                 self._entries = self._entries[REALTIME_MAX_SIZE // 4 :]
             self._entries.append(
                 _RealtimeEntry(
-                    embedding=q_emb,
+                    embedding=get_codec().encode(q_emb),
                     state_hash=state_hash,
                     answer=answer,
                     model_predictions=model_predictions,
@@ -350,7 +349,7 @@ class RealtimeCache:
                 self._entries = self._entries[REALTIME_MAX_SIZE // 4 :]
             self._entries.append(
                 _RealtimeEntry(
-                    embedding=q_emb,
+                    embedding=get_codec().encode(q_emb),
                     state_hash=state_hash,
                     answer=answer,
                     model_predictions=model_predictions,
