@@ -446,9 +446,7 @@ async def admin_dashboard(
 
 
 @router.post("/users/request-otp", status_code=200)
-async def request_otp(
-    request: OtpRequest, background_tasks: BackgroundTasks
-) -> dict:
+async def request_otp(request: OtpRequest, background_tasks: BackgroundTasks) -> dict:
     """
     Request a 6-digit OTP for passwordless sign-in.
 
@@ -460,7 +458,9 @@ async def request_otp(
     if record and record.get("email_verified", False) and not record.get("disabled"):
         otp_plain = user_store.create_otp(str(request.email))
         username = record.get("username", "User")
-        background_tasks.add_task(send_otp_email, str(request.email), username, otp_plain)
+        background_tasks.add_task(
+            send_otp_email, str(request.email), username, otp_plain
+        )
     return {
         "message": (
             "If that email is registered and verified, a sign-in code has been sent."

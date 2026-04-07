@@ -352,7 +352,6 @@ class UserStore:
             logger.warning("UserStore.list_audit_log failed: %s", exc)
             return []
 
-
     # ── OTP operations ──────────────────────────────────────────────────────
 
     def create_otp(self, email: str) -> str:
@@ -416,9 +415,7 @@ class UserStore:
         doc.reference.delete()
 
         # Resolve user profile by email
-        results = (
-            db.collection(_USERS).where("email", "==", email).limit(1).stream()
-        )
+        results = db.collection(_USERS).where("email", "==", email).limit(1).stream()
         docs = list(results)
         if not docs:
             return None
@@ -426,7 +423,9 @@ class UserStore:
         if profile.get("disabled"):
             return None
         if not profile.get("email_verified", False):
-            raise ValueError("Email not verified. Check your inbox for the verification link.")
+            raise ValueError(
+                "Email not verified. Check your inbox for the verification link."
+            )
 
         _audit("otp_login", profile.get("username", email))
         return profile

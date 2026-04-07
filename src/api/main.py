@@ -99,6 +99,17 @@ def _get_pipeline():
     return _feature_pipeline
 
 
+# Lazy-loaded race simulator singleton (None until an external endpoint sets it)
+_race_simulator: Any = None
+
+
+def _get_simulator():
+    global _race_simulator
+    if _race_simulator is None:
+        raise RuntimeError("Race simulator not available")
+    return _race_simulator
+
+
 # Add middleware
 if ENABLE_HTTPS:
     app.add_middleware(HTTPSRedirectMiddleware, enabled=True)
@@ -518,7 +529,21 @@ async def race_state(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
-    raise HTTPException(status_code=501, detail="Race simulator not available")
+    try:
+        sim = _get_simulator()
+        state = sim.step(race_id, lap)
+        return {
+            "race_id": state.race_id,
+            "lap_number": state.lap_number,
+            "total_laps": state.total_laps,
+            "weather": state.weather,
+            "track_temp": state.track_temp,
+            "air_temp": state.air_temp,
+            "safety_car": state.safety_car,
+            "drivers": state.drivers,
+        }
+    except Exception:
+        raise HTTPException(status_code=501, detail="Race simulator not available")
 
 
 @v1.get("/race/standings")
@@ -532,7 +557,12 @@ async def race_standings(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
-    raise HTTPException(status_code=501, detail="Race simulator not available")
+    try:
+        sim = _get_simulator()
+        standings = sim.get_standings(race_id, lap)
+        return {"standings": standings}
+    except Exception:
+        raise HTTPException(status_code=501, detail="Race simulator not available")
 
 
 @v1.get("/telemetry/{driver_id}/lap/{lap}")
@@ -704,7 +734,25 @@ async def simulate_strategy(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
-    return _rule_based_simulate(request.race_id, request.driver_id, request.strategy)
+    try:
+        sim = _get_simulator()
+        result = sim.simulate_strategy(
+            request.race_id, request.driver_id, request.strategy
+        )
+        return SimulateResponse(
+            driver_id=result.driver_id,
+            race_id=result.race_id,
+            predicted_final_position=result.predicted_final_position,
+            predicted_total_time_s=result.predicted_total_time_s,
+            strategy=result.strategy,
+            lap_times_s=result.lap_times_s,
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        return _rule_based_simulate(
+            request.race_id, request.driver_id, request.strategy
+        )
 
 
 # ── Full race simulation via StrategySimulator ──────────────────────────────
