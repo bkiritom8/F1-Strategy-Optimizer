@@ -137,6 +137,15 @@ class GeminiClient:
         self._model = GenerativeModel(self._config.LLM_MODEL)
         self._initialized = True
 
+    def warm_cache(self) -> None:
+        """Start background cache warm-up. Call once at app startup."""
+        from src.llm.cache import get_generic_cache
+        get_generic_cache().warm(
+            client=self,
+            project=self._config.PROJECT_ID,
+            region=self._config.REGION,
+        )
+
     def build_prompt(
         self,
         question: str,
@@ -191,6 +200,12 @@ class GeminiClient:
     ) -> str:
         """Call Gemini and return the answer text."""
         self._ensure_initialized()
+        from src.llm.cache import get_generic_cache, get_realtime_cache
+        if cached := get_generic_cache().lookup(question):
+            return cached
+        if structured_inputs:
+            if cached := get_realtime_cache().lookup(question, structured_inputs):
+                return cached
         prompt = self.build_prompt(
             question,
             context_docs=context_docs,
@@ -259,6 +274,12 @@ class GeminiClient:
         from vertexai.generative_models import Content
 
         self._ensure_initialized()
+        from src.llm.cache import get_generic_cache, get_realtime_cache
+        if cached := get_generic_cache().lookup(question):
+            return cached
+        if structured_inputs:
+            if cached := get_realtime_cache().lookup(question, structured_inputs):
+                return cached
 
         # Convert history dicts to Vertex AI Content objects
         formatted_history: list[Content] = []
