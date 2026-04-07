@@ -635,3 +635,10 @@ storage.Client(project="f1optimizer").bucket("f1optimizer-models").blob(
     "race_outcome/model.pkl"
 ).upload_from_filename("models/race_outcome.pkl")
 print("Uploaded: gs://f1optimizer-models/race_outcome/model.pkl")
+
+# ── Save feature distribution baseline for drift monitoring ──────────────────
+from ml.monitoring.feature_stats import extract_feature_stats, save_to_gcs as save_stats  # noqa: E402
+_train_stats = extract_feature_stats(X_train, features)
+save_stats(_train_stats, "race_outcome")
+print("Saved feature baseline for drift monitoring: race_outcome")
+print("Uploaded: gs://f1optimizer-models/race_outcome/model.pkl")
