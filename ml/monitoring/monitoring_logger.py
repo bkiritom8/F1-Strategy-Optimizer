@@ -8,6 +8,7 @@ GCS paths:
 Each line is a self-contained JSON object with a timestamp field added
 automatically. Existing content is preserved on each append.
 """
+
 from __future__ import annotations
 
 import io
@@ -49,10 +50,10 @@ class MonitoringLogger:
             existing = buf.getvalue()
 
         line = (json.dumps(row) + "\n").encode()
-        blob.upload_from_string(
-            existing + line, content_type="application/x-ndjson"
+        blob.upload_from_string(existing + line, content_type="application/x-ndjson")
+        logger.info(
+            "monitoring_logger: appended to gs://%s/%s", self._bucket_name, blob_path
         )
-        logger.info("monitoring_logger: appended to gs://%s/%s", self._bucket_name, blob_path)
 
     def log_drift(self, report: DriftReport) -> None:
         """Append a DriftReport to drift_log.jsonl."""

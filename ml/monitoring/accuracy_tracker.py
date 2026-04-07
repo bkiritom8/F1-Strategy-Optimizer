@@ -12,6 +12,7 @@ Degradation thresholds (matches monitoring.md):
     overtake_prob     F1  < 0.25         → degraded
     race_outcome      F1  < 0.55         → degraded
 """
+
 from __future__ import annotations
 
 import json
@@ -30,11 +31,11 @@ MODELS_BUCKET = os.environ.get("MODELS_BUCKET", "f1optimizer-models")
 # (metric_key, higher_is_better, warn_threshold)
 MODEL_THRESHOLDS: dict[str, tuple[str, bool, float]] = {
     "tire_degradation": ("mae", False, 0.40),
-    "driving_style":    ("f1",  True,  0.70),
-    "safety_car":       ("f1",  True,  0.85),
-    "pit_window":       ("mae", False, 2.0),
-    "overtake_prob":    ("f1",  True,  0.25),
-    "race_outcome":     ("f1",  True,  0.55),
+    "driving_style": ("f1", True, 0.70),
+    "safety_car": ("f1", True, 0.85),
+    "pit_window": ("mae", False, 2.0),
+    "overtake_prob": ("f1", True, 0.25),
+    "race_outcome": ("f1", True, 0.55),
 }
 
 
@@ -96,7 +97,9 @@ def load_baseline_metrics(
         card = json.loads(data)
         return card.get("train_metrics", {})
     except Exception as exc:
-        logger.warning("accuracy_tracker: could not load model_card for %s: %s", model_name, exc)
+        logger.warning(
+            "accuracy_tracker: could not load model_card for %s: %s", model_name, exc
+        )
         return {}
 
 
@@ -123,7 +126,9 @@ def build_accuracy_report(
 
     metric_key, higher_is_better_flag, warn_threshold = threshold_info
     higher_is_better_map = {metric_key: higher_is_better_flag}
-    degradation = compute_degradation_pct(baseline_metrics, current_metrics, higher_is_better_map)
+    degradation = compute_degradation_pct(
+        baseline_metrics, current_metrics, higher_is_better_map
+    )
 
     current_val = current_metrics.get(metric_key)
     if current_val is None:

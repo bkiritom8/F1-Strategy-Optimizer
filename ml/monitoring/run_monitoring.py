@@ -20,6 +20,7 @@ Exit codes:
     1 — at least one model is in "warn" or "critical" drift / degraded
     2 — runtime error (bad args, GCS unreachable, etc.)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,46 +35,74 @@ MODEL_CONFIG: dict[str, dict] = {
     "tire_degradation": {
         "feature_uri": "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet",
         "feature_cols": [
-            "TyreLife", "Stint", "FreshTyre", "fuel_load_pct", "LapNumber",
-            "mean_throttle", "mean_brake", "mean_speed", "lap_progress",
+            "TyreLife",
+            "Stint",
+            "FreshTyre",
+            "fuel_load_pct",
+            "LapNumber",
+            "mean_throttle",
+            "mean_brake",
+            "mean_speed",
+            "lap_progress",
         ],
         "metric_key": "mae",
     },
     "driving_style": {
         "feature_uri": "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet",
         "feature_cols": [
-            "mean_throttle", "std_throttle", "mean_brake", "std_brake",
-            "mean_speed", "max_speed", "mean_rpm", "drs_usage_pct",
+            "mean_throttle",
+            "std_throttle",
+            "mean_brake",
+            "std_brake",
+            "mean_speed",
+            "max_speed",
+            "mean_rpm",
+            "drs_usage_pct",
         ],
         "metric_key": "f1",
     },
     "safety_car": {
         "feature_uri": "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet",
         "feature_cols": [
-            "LapNumber", "lap_progress", "position", "gap_to_leader",
+            "LapNumber",
+            "lap_progress",
+            "position",
+            "gap_to_leader",
         ],
         "metric_key": "f1",
     },
     "pit_window": {
         "feature_uri": "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet",
         "feature_cols": [
-            "TyreLife", "Stint", "fuel_load_pct", "LapNumber", "laps_remaining",
-            "mean_speed", "mean_throttle",
+            "TyreLife",
+            "Stint",
+            "fuel_load_pct",
+            "LapNumber",
+            "laps_remaining",
+            "mean_speed",
+            "mean_throttle",
         ],
         "metric_key": "mae",
     },
     "overtake_prob": {
         "feature_uri": "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet",
         "feature_cols": [
-            "mean_speed", "max_speed", "drs_usage_pct", "position",
-            "gap_to_leader", "LapNumber",
+            "mean_speed",
+            "max_speed",
+            "drs_usage_pct",
+            "position",
+            "gap_to_leader",
+            "LapNumber",
         ],
         "metric_key": "f1",
     },
     "race_outcome": {
         "feature_uri": "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet",
         "feature_cols": [
-            "grid_position", "position", "points", "constructor_enc",
+            "grid_position",
+            "position",
+            "points",
+            "constructor_enc",
         ],
         "metric_key": "f1",
     },
@@ -93,7 +122,10 @@ def _run_drift_check(race_id: str) -> bool:
     for model_name, cfg in MODEL_CONFIG.items():
         baseline = load_from_gcs(model_name)
         if baseline is None:
-            logger.warning("%s: no baseline stats — run training first to generate them", model_name)
+            logger.warning(
+                "%s: no baseline stats — run training first to generate them",
+                model_name,
+            )
             continue
 
         try:
@@ -113,11 +145,16 @@ def _run_drift_check(race_id: str) -> bool:
         report = detector.detect(race_df, race_id=race_id, model_name=model_name)
         ml_logger.log_drift(report)
 
-        symbol = {"ok": "OK  ", "warn": "WARN", "critical": "CRIT"}[report.overall_status]
+        symbol = {"ok": "OK  ", "warn": "WARN", "critical": "CRIT"}[
+            report.overall_status
+        ]
         logger.info(
             "[%s] %s race=%s | drifted=%s warned=%s",
-            symbol, model_name, race_id,
-            report.drifted_features, report.warned_features,
+            symbol,
+            model_name,
+            race_id,
+            report.drifted_features,
+            report.warned_features,
         )
         if report.overall_status != "ok":
             any_issue = True
@@ -130,7 +167,10 @@ def _run_accuracy_check(season: int) -> bool:
     import joblib
     import pandas as pd
     from unittest.mock import patch
-    from ml.monitoring.accuracy_tracker import build_accuracy_report, load_baseline_metrics
+    from ml.monitoring.accuracy_tracker import (
+        build_accuracy_report,
+        load_baseline_metrics,
+    )
     from ml.monitoring.monitoring_logger import MonitoringLogger
 
     ml_logger = MonitoringLogger()
@@ -139,7 +179,10 @@ def _run_accuracy_check(season: int) -> bool:
     for model_name, cfg in MODEL_CONFIG.items():
         baseline_metrics = load_baseline_metrics(model_name)
         if not baseline_metrics:
-            logger.warning("%s: no baseline metrics in model_card — skipping accuracy check", model_name)
+            logger.warning(
+                "%s: no baseline metrics in model_card — skipping accuracy check",
+                model_name,
+            )
             continue
 
         try:
@@ -149,19 +192,23 @@ def _run_accuracy_check(season: int) -> bool:
                 logger.warning("%s: no rows for season %d", model_name, season)
                 continue
         except Exception as exc:
-            logger.error("%s: failed to load features for season %d: %s", model_name, season, exc)
+            logger.error(
+                "%s: failed to load features for season %d: %s", model_name, season, exc
+            )
             continue
 
         try:
-            with patch("ml.models.base_model.cloud_logging.Client"), \
-                 patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
-                 patch("ml.models.base_model.storage.Client"):
+            with patch("ml.models.base_model.cloud_logging.Client"), patch(
+                "ml.models.base_model.pubsub_v1.PublisherClient"
+            ), patch("ml.models.base_model.storage.Client"):
                 bundle = joblib.load(f"models/{model_name}.pkl")
 
             if hasattr(bundle, "evaluate"):
                 current_metrics = bundle.evaluate(season_df)
             else:
-                logger.warning("%s: bundle has no evaluate() — accuracy check skipped", model_name)
+                logger.warning(
+                    "%s: bundle has no evaluate() — accuracy check skipped", model_name
+                )
                 continue
         except Exception as exc:
             logger.error("%s: failed to load/evaluate model: %s", model_name, exc)
@@ -178,8 +225,11 @@ def _run_accuracy_check(season: int) -> bool:
         symbol = "DEGRADED" if report.degraded else "OK      "
         logger.info(
             "[%s] %s season=%d | current=%s degradation_pct=%s",
-            symbol, model_name, season,
-            current_metrics, report.degradation_pct,
+            symbol,
+            model_name,
+            season,
+            current_metrics,
+            report.degradation_pct,
         )
         if report.degraded:
             any_degraded = True
@@ -190,7 +240,9 @@ def _run_accuracy_check(season: int) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description="F1 ML model drift & accuracy monitor")
     parser.add_argument("--race-id", help='Race to check drift, e.g. "2025_5"')
-    parser.add_argument("--season", type=int, help="Season year for accuracy check, e.g. 2025")
+    parser.add_argument(
+        "--season", type=int, help="Season year for accuracy check, e.g. 2025"
+    )
     args = parser.parse_args()
 
     if not args.race_id and not args.season:

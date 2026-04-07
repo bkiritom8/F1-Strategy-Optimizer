@@ -6,6 +6,7 @@ Read at monitoring time by drift_detector.py.
 
 GCS path: gs://f1optimizer-training/monitoring/feature_stats_{model_name}.json
 """
+
 from __future__ import annotations
 
 import json
@@ -50,7 +51,9 @@ def extract_feature_stats(
             continue
         series = pd.to_numeric(df[col], errors="coerce").dropna()
         if len(series) == 0:
-            logger.warning("feature_stats: column %s is empty after dropna, skipping", col)
+            logger.warning(
+                "feature_stats: column %s is empty after dropna, skipping", col
+            )
             continue
 
         edges = np.unique(np.percentile(series, percentiles))
@@ -106,5 +109,7 @@ def load_from_gcs(
         data = client.bucket(bucket).blob(blob_path).download_as_text()
         return json.loads(data)
     except Exception as exc:
-        logger.warning("feature_stats: could not load baseline for %s: %s", model_name, exc)
+        logger.warning(
+            "feature_stats: could not load baseline for %s: %s", model_name, exc
+        )
         return None

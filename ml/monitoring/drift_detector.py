@@ -11,6 +11,7 @@ Thresholds (industry standard):
     PSI < 0.25  →  "warn"     (slight shift)
     PSI ≥ 0.25  →  "critical" (significant shift — consider retraining)
 """
+
 from __future__ import annotations
 
 import logging
@@ -69,10 +70,10 @@ def compute_psi(feature_stat: dict[str, Any], actual_series: pd.Series) -> float
 class DriftReport:
     model_name: str
     race_id: str
-    feature_psi: dict[str, float]           # {feature_name: psi_score}
+    feature_psi: dict[str, float]  # {feature_name: psi_score}
     drifted_features: list[str] = field(default_factory=list)
     warned_features: list[str] = field(default_factory=list)
-    overall_status: str = "ok"              # "ok" | "warn" | "critical"
+    overall_status: str = "ok"  # "ok" | "warn" | "critical"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -119,7 +120,9 @@ class DriftDetector:
 
         for col, stat in self._baseline.items():
             if col not in current_df.columns:
-                logger.debug("drift_detector: column %s not in current_df, skipping", col)
+                logger.debug(
+                    "drift_detector: column %s not in current_df, skipping", col
+                )
                 continue
             psi = compute_psi(stat, current_df[col])
             feature_psi[col] = round(psi, 6)

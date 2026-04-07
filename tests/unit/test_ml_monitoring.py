@@ -1,4 +1,5 @@
 """Unit tests for ml.monitoring — all GCS interactions mocked."""
+
 from __future__ import annotations
 
 import json
@@ -10,6 +11,7 @@ import pytest
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_df(n: int = 500, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
@@ -23,6 +25,7 @@ def _make_df(n: int = 500, seed: int = 42) -> pd.DataFrame:
 
 
 # ── feature_stats tests ───────────────────────────────────────────────────────
+
 
 class TestExtractFeatureStats:
     def test_returns_all_features(self):
@@ -64,7 +67,11 @@ class TestExtractFeatureStats:
 
 class TestSaveLoadFeatureStats:
     def test_roundtrip_via_mock_gcs(self):
-        from ml.monitoring.feature_stats import extract_feature_stats, save_to_gcs, load_from_gcs
+        from ml.monitoring.feature_stats import (
+            extract_feature_stats,
+            save_to_gcs,
+            load_from_gcs,
+        )
 
         df = _make_df()
         stats = extract_feature_stats(df, ["TyreLife", "fuel_load_pct"])
@@ -84,7 +91,9 @@ class TestSaveLoadFeatureStats:
         mock_client = MagicMock()
         mock_client.bucket.return_value = mock_bucket
 
-        with patch("ml.monitoring.feature_stats.storage.Client", return_value=mock_client):
+        with patch(
+            "ml.monitoring.feature_stats.storage.Client", return_value=mock_client
+        ):
             save_to_gcs(stats, "tire_degradation")
             loaded = load_from_gcs("tire_degradation")
 
@@ -102,13 +111,16 @@ class TestSaveLoadFeatureStats:
         mock_client = MagicMock()
         mock_client.bucket.return_value = mock_bucket
 
-        with patch("ml.monitoring.feature_stats.storage.Client", return_value=mock_client):
+        with patch(
+            "ml.monitoring.feature_stats.storage.Client", return_value=mock_client
+        ):
             result = load_from_gcs("nonexistent_model")
 
         assert result is None
 
 
 # ── drift_detector tests ──────────────────────────────────────────────────────
+
 
 class TestComputePsi:
     def test_identical_distribution_near_zero(self):
@@ -144,6 +156,7 @@ class TestComputePsi:
 class TestDriftDetector:
     def _make_stats(self):
         from ml.monitoring.feature_stats import extract_feature_stats
+
         df = _make_df(n=1000)
         return extract_feature_stats(df, ["TyreLife", "fuel_load_pct", "mean_speed"])
 
@@ -152,10 +165,16 @@ class TestDriftDetector:
 
         stats = self._make_stats()
         detector = DriftDetector(baseline_stats=stats)
-        report = detector.detect(_make_df(n=200), race_id="2025_1", model_name="tire_degradation")
+        report = detector.detect(
+            _make_df(n=200), race_id="2025_1", model_name="tire_degradation"
+        )
         assert report.model_name == "tire_degradation"
         assert report.race_id == "2025_1"
-        assert set(report.feature_psi.keys()) == {"TyreLife", "fuel_load_pct", "mean_speed"}
+        assert set(report.feature_psi.keys()) == {
+            "TyreLife",
+            "fuel_load_pct",
+            "mean_speed",
+        }
         assert report.overall_status in ("ok", "warn", "critical")
 
     def test_stable_data_ok_status(self):
@@ -163,12 +182,15 @@ class TestDriftDetector:
 
         rng = np.random.default_rng(99)
         df_train = pd.DataFrame({"TyreLife": rng.integers(1, 40, 1000).astype(float)})
-        df_prod  = pd.DataFrame({"TyreLife": rng.integers(1, 40, 200).astype(float)})
+        df_prod = pd.DataFrame({"TyreLife": rng.integers(1, 40, 200).astype(float)})
 
         from ml.monitoring.feature_stats import extract_feature_stats
+
         stats = extract_feature_stats(df_train, ["TyreLife"])
         detector = DriftDetector(baseline_stats=stats)
-        report = detector.detect(df_prod, race_id="2025_1", model_name="tire_degradation")
+        report = detector.detect(
+            df_prod, race_id="2025_1", model_name="tire_degradation"
+        )
         assert report.overall_status == "ok"
 
     def test_drifted_data_non_ok_status(self):
@@ -177,10 +199,12 @@ class TestDriftDetector:
 
         rng = np.random.default_rng(0)
         df_train = pd.DataFrame({"TyreLife": rng.integers(1, 5, 1000).astype(float)})
-        df_prod  = pd.DataFrame({"TyreLife": rng.integers(35, 40, 200).astype(float)})
+        df_prod = pd.DataFrame({"TyreLife": rng.integers(35, 40, 200).astype(float)})
         stats = extract_feature_stats(df_train, ["TyreLife"])
         detector = DriftDetector(baseline_stats=stats)
-        report = detector.detect(df_prod, race_id="2025_1", model_name="tire_degradation")
+        report = detector.detect(
+            df_prod, race_id="2025_1", model_name="tire_degradation"
+        )
         assert report.overall_status != "ok"
 
     def test_missing_column_skipped(self):
@@ -197,29 +221,34 @@ class TestDriftDetector:
 
 # ── accuracy_tracker tests ────────────────────────────────────────────────────
 
+
 class TestAccuracyTracker:
     def test_compute_degradation_pct_regression(self):
         from ml.monitoring.accuracy_tracker import compute_degradation_pct
 
         baseline = {"mae": 0.285, "r2": 0.850}
-        current  = {"mae": 0.400, "r2": 0.750}
-        result = compute_degradation_pct(baseline, current, higher_is_better={"r2": True})
+        current = {"mae": 0.400, "r2": 0.750}
+        result = compute_degradation_pct(
+            baseline, current, higher_is_better={"r2": True}
+        )
         assert result["mae"] == pytest.approx((0.400 - 0.285) / 0.285 * 100, rel=1e-3)
-        assert result["r2"]  == pytest.approx((0.850 - 0.750) / 0.850 * 100, rel=1e-3)
+        assert result["r2"] == pytest.approx((0.850 - 0.750) / 0.850 * 100, rel=1e-3)
 
     def test_compute_degradation_pct_classification(self):
         from ml.monitoring.accuracy_tracker import compute_degradation_pct
 
         baseline = {"f1": 0.800}
-        current  = {"f1": 0.720}
-        result = compute_degradation_pct(baseline, current, higher_is_better={"f1": True})
+        current = {"f1": 0.720}
+        result = compute_degradation_pct(
+            baseline, current, higher_is_better={"f1": True}
+        )
         assert result["f1"] == pytest.approx((0.800 - 0.720) / 0.800 * 100, rel=1e-3)
 
     def test_no_degradation_when_equal(self):
         from ml.monitoring.accuracy_tracker import compute_degradation_pct
 
         baseline = {"mae": 0.285}
-        current  = {"mae": 0.285}
+        current = {"mae": 0.285}
         result = compute_degradation_pct(baseline, current, higher_is_better={})
         assert result["mae"] == pytest.approx(0.0, abs=1e-6)
 
@@ -243,9 +272,11 @@ class TestAccuracyTracker:
 
 # ── monitoring_logger tests ───────────────────────────────────────────────────
 
+
 class TestMonitoringLogger:
     def _make_drift_report(self):
         from ml.monitoring.drift_detector import DriftReport
+
         return DriftReport(
             model_name="tire_degradation",
             race_id="2025_5",
@@ -257,6 +288,7 @@ class TestMonitoringLogger:
 
     def _make_accuracy_report(self):
         from ml.monitoring.accuracy_tracker import AccuracyReport
+
         return AccuracyReport(
             model_name="tire_degradation",
             season=2025,
@@ -273,14 +305,18 @@ class TestMonitoringLogger:
 
         mock_blob = MagicMock()
         mock_blob.exists.return_value = False
-        mock_blob.upload_from_string.side_effect = lambda data, **kw: appended.append(data)
+        mock_blob.upload_from_string.side_effect = lambda data, **kw: appended.append(
+            data
+        )
         mock_blob.download_to_file.side_effect = lambda stream: stream.write(b"")
         mock_bucket = MagicMock()
         mock_bucket.blob.return_value = mock_blob
         mock_client = MagicMock()
         mock_client.bucket.return_value = mock_bucket
 
-        with patch("ml.monitoring.monitoring_logger.storage.Client", return_value=mock_client):
+        with patch(
+            "ml.monitoring.monitoring_logger.storage.Client", return_value=mock_client
+        ):
             ml_logger = MonitoringLogger()
             ml_logger.log_drift(self._make_drift_report())
 
@@ -296,14 +332,18 @@ class TestMonitoringLogger:
         appended: list[str] = []
         mock_blob = MagicMock()
         mock_blob.exists.return_value = False
-        mock_blob.upload_from_string.side_effect = lambda data, **kw: appended.append(data)
+        mock_blob.upload_from_string.side_effect = lambda data, **kw: appended.append(
+            data
+        )
         mock_blob.download_to_file.side_effect = lambda stream: stream.write(b"")
         mock_bucket = MagicMock()
         mock_bucket.blob.return_value = mock_blob
         mock_client = MagicMock()
         mock_client.bucket.return_value = mock_bucket
 
-        with patch("ml.monitoring.monitoring_logger.storage.Client", return_value=mock_client):
+        with patch(
+            "ml.monitoring.monitoring_logger.storage.Client", return_value=mock_client
+        ):
             ml_logger = MonitoringLogger()
             ml_logger.log_accuracy(self._make_accuracy_report())
 
