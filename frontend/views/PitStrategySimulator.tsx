@@ -101,7 +101,8 @@ const PitStrategySimulator: React.FC = () => {
     // Custom builder
     const arr: [number, string][] = [];
     let currentComp = startingCompound;
-    for (const stop of customStints) {
+    const sortedStints = [...customStints].sort((a, b) => a.pitLap - b.pitLap);
+    for (const stop of sortedStints) {
       arr.push([stop.pitLap, currentComp]);
       currentComp = stop.compound;
     }
@@ -190,8 +191,9 @@ const PitStrategySimulator: React.FC = () => {
         const stints: { comp: string; laps: number }[] = [];
         let prevLap = 0;
         let currentComp = startingCompound;
+        const sortedStints = [...customStints].sort((a, b) => a.pitLap - b.pitLap);
         
-        for (const stop of customStints) {
+        for (const stop of sortedStints) {
           if (stop.pitLap > prevLap) {
             stints.push({ comp: currentComp, laps: stop.pitLap - prevLap });
           }

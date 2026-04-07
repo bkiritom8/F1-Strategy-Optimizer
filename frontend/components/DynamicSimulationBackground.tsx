@@ -245,7 +245,7 @@ export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundPr
    */
     const sectors = useMemo(() => {
       // Split the raw path into individual commands (M, L, C, etc.)
-      const commands = rawPath.match(/[MLCQZTSHmVVAA][^MLCQZTSHmVVAA]*/gi) ?? []; // More robust regex
+      const commands = rawPath.match(/[MLCQZTSHVA][^MLCQZTSHVA]*/gi) ?? []; // More robust regex
       if (commands.length < 3) {
         // Fallback for extremely simple paths
         return [
@@ -263,16 +263,13 @@ export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundPr
        */
       const ensureMoveto = (cmds: string[]) => {
         if (!cmds.length) return '';
-        let pathStr = cmds.join(' ').trim();
-        if (pathStr && !pathStr.startsWith('M') && !pathStr.startsWith('m')) {
-          // Safely replace the first command char with 'M' (moveto)
-          // Look for the first coordinate pair to recreate a valid M
+        const pathStr = cmds.join(' ').trim();
+        if (pathStr && !pathStr.match(/^[mM]/)) {
+          // Safely prepend 'M' (moveto) to ensure the path segment is valid
           const firstCmd = cmds[0];
           const coordsMatch = firstCmd.match(/-?\d+\.?\d*,-?\d+\.?\d*/);
           if (coordsMatch) {
-            pathStr = 'M' + coordsMatch[0] + ' ' + pathStr.substring(firstCmd.indexOf(coordsMatch[0]) + coordsMatch[0].length);
-          } else {
-             pathStr = 'M' + pathStr.substring(1);
+            return 'M' + coordsMatch[0] + ' ' + pathStr;
           }
         }
         return pathStr;
