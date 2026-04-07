@@ -193,3 +193,49 @@ class TestDriftDetector:
         # Should not raise — missing column is skipped
         report = detector.detect(df, race_id="2025_1", model_name="tire_degradation")
         assert "mean_speed" not in report.feature_psi
+
+
+# ── accuracy_tracker tests ────────────────────────────────────────────────────
+
+class TestAccuracyTracker:
+    def test_compute_degradation_pct_regression(self):
+        from ml.monitoring.accuracy_tracker import compute_degradation_pct
+
+        baseline = {"mae": 0.285, "r2": 0.850}
+        current  = {"mae": 0.400, "r2": 0.750}
+        result = compute_degradation_pct(baseline, current, higher_is_better={"r2": True})
+        assert result["mae"] == pytest.approx((0.400 - 0.285) / 0.285 * 100, rel=1e-3)
+        assert result["r2"]  == pytest.approx((0.850 - 0.750) / 0.850 * 100, rel=1e-3)
+
+    def test_compute_degradation_pct_classification(self):
+        from ml.monitoring.accuracy_tracker import compute_degradation_pct
+
+        baseline = {"f1": 0.800}
+        current  = {"f1": 0.720}
+        result = compute_degradation_pct(baseline, current, higher_is_better={"f1": True})
+        assert result["f1"] == pytest.approx((0.800 - 0.720) / 0.800 * 100, rel=1e-3)
+
+    def test_no_degradation_when_equal(self):
+        from ml.monitoring.accuracy_tracker import compute_degradation_pct
+
+        baseline = {"mae": 0.285}
+        current  = {"mae": 0.285}
+        result = compute_degradation_pct(baseline, current, higher_is_better={})
+        assert result["mae"] == pytest.approx(0.0, abs=1e-6)
+
+    def test_accuracy_report_degraded_flag(self):
+        from ml.monitoring.accuracy_tracker import AccuracyReport
+
+        report = AccuracyReport(
+            model_name="tire_degradation",
+            season=2025,
+            current_metrics={"mae": 0.50},
+            baseline_metrics={"mae": 0.285},
+            degradation_pct={"mae": 75.4},
+            degraded=True,
+        )
+        assert report.degraded is True
+        d = report.as_dict()
+        assert d["model_name"] == "tire_degradation"
+        assert d["degraded"] is True
+        assert "degradation_pct" in d
