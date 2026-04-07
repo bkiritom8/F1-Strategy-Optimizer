@@ -832,7 +832,7 @@ async def system_health():
     checks: Dict[str, Any] = {
         "timestamp": datetime.utcnow().isoformat(),
         "feature_pipeline": "not_loaded",
-        "simulators_cached": len(_simulators),
+        "simulators_cached": 1 if _strategy_simulator is not None else 0,
         "ml_model": "loaded" if _strategy_model is not None else "fallback",
         "gcs": "unknown",
         "redis": "unknown",
