@@ -55,6 +55,7 @@ class TestTaskDispatcher:
         (1, 2019),
         (3, 2021),
         (7, 2025),
+        (8, 2026),
     ])
     def test_fastf1_tasks_route_to_correct_year(self, index, expected_year, monkeypatch):
         monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", str(index))
@@ -74,7 +75,7 @@ class TestTaskDispatcher:
         mock_historical.assert_not_called()
 
     def test_historical_task_routes_to_historical_worker(self, monkeypatch):
-        monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", "8")
+        monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", "9")
         monkeypatch.setenv("GCS_BUCKET", "test-bucket")
 
         mock_gcs_client, mock_bucket, mock_progress = _make_mocks()
@@ -87,7 +88,7 @@ class TestTaskDispatcher:
             from ingest.task import main
             main()
 
-        mock_historical.assert_called_once_with(8, mock_bucket, mock_progress)
+        mock_historical.assert_called_once_with(9, mock_bucket, mock_progress)
         mock_fastf1.assert_not_called()
 
     def test_invalid_task_index_exits_with_error(self, monkeypatch):

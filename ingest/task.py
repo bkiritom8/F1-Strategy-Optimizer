@@ -3,8 +3,8 @@ task.py — Cloud Run Jobs entry point.
 
 Cloud Run sets CLOUD_RUN_TASK_INDEX (0-based) and GCS_BUCKET automatically.
 
-  Task index 0-7  → FastF1 telemetry worker for year (2018 + index)
-  Task index 8    → Ergast/Jolpica historical worker  (1950-2017)
+  Task index 0-8  → FastF1 telemetry worker for year (2018 + index, i.e. 2018-2026)
+  Task index 9    → Ergast/Jolpica historical worker  (1996-2017)
 """
 
 from __future__ import annotations
@@ -27,12 +27,14 @@ from .progress import Progress
 logging.basicConfig(
     stream=sys.stdout,
     level=logging.INFO,
-    format=json.dumps({
-        "time":     "%(asctime)s",
-        "severity": "%(levelname)s",
-        "logger":   "%(name)s",
-        "message":  "%(message)s",
-    }),
+    format=json.dumps(
+        {
+            "time": "%(asctime)s",
+            "severity": "%(levelname)s",
+            "logger": "%(name)s",
+            "message": "%(message)s",
+        }
+    ),
 )
 
 # Also attach the Cloud Logging handler so logs appear in the GCP console
@@ -51,13 +53,13 @@ def main() -> None:
     log.info("task starting  index=%d  bucket=%s", task_index, bucket_name)
 
     gcs_client = storage.Client()
-    bucket     = gcs_client.bucket(bucket_name)
-    progress   = Progress(bucket)
+    bucket = gcs_client.bucket(bucket_name)
+    progress = Progress(bucket)
 
-    if task_index < 8:
+    if task_index < 9:
         year = 2018 + task_index
         run_fastf1(year, task_index, bucket, progress)
-    elif task_index == 8:
+    elif task_index == 9:
         run_historical(task_index, bucket, progress)
     else:
         log.error("unexpected task index: %d", task_index)

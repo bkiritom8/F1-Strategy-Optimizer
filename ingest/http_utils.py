@@ -1,4 +1,5 @@
 """http_utils.py — Rate-limited HTTP helpers for ingest workers."""
+
 from __future__ import annotations
 
 import logging
@@ -11,9 +12,12 @@ log = logging.getLogger(__name__)
 
 _last_req: float = 0.0
 BACKOFF_BASE = 60
-BACKOFF_CAP = 120  
+BACKOFF_CAP = 120
 
-def rate_limited_get(url: str, gap: float = 1.0, timeout: int = 30) -> requests.Response:
+
+def rate_limited_get(
+    url: str, gap: float = 1.0, timeout: int = 30
+) -> requests.Response:
     """HTTP GET with rate limiting. *gap* = min seconds between calls."""
     global _last_req
     elapsed = time.monotonic() - _last_req
@@ -30,7 +34,7 @@ def is_rate_limit(exc: Exception) -> bool:
 
 
 def backoff_wait(attempt: int) -> float:
-    wait = min(BACKOFF_BASE * (2 ** attempt), BACKOFF_CAP)
+    wait = min(BACKOFF_BASE * (2**attempt), BACKOFF_CAP)
     log.warning("backoff: sleeping %.0fs (attempt %d)", wait, attempt + 1)
     time.sleep(wait)
     return wait
@@ -46,6 +50,10 @@ def retry_forever(fn: Callable, label: str, retry_sleep: int = 3600) -> Any:
             attempt += 1
             log.error(
                 "error — will retry after %ds  label=%s attempt=%d: %s: %s",
-                retry_sleep, label, attempt, type(exc).__name__, exc,
+                retry_sleep,
+                label,
+                attempt,
+                type(exc).__name__,
+                exc,
             )
             time.sleep(retry_sleep)

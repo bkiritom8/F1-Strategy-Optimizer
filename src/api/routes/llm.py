@@ -328,12 +328,38 @@ async def llm_chat(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     from src.llm.gemini_client import get_client
+    from src.llm.cache import get_generic_cache, get_realtime_cache
     from rag.config import RagConfig
 
     try:
         client = get_client()
         start = time.time()
         structured = request.race_inputs.model_dump() if request.race_inputs else None
+
+        # Layer 1: generic pre-warmed cache (no race context required)
+        generic_cache = get_generic_cache()
+        cached = await generic_cache.async_lookup(request.question)
+        if cached:
+            logger.info("llm_chat: generic cache hit for %r", request.question[:60])
+            return ChatResponse(
+                answer=cached,
+                latency_ms=round((time.time() - start) * 1000, 2),
+                model=RagConfig().LLM_MODEL,
+            )
+
+        # Layer 2: realtime semantic cache (race-context questions)
+        if structured:
+            realtime_cache = get_realtime_cache()
+            cached = await realtime_cache.async_lookup(request.question, structured)
+            if cached:
+                logger.info(
+                    "llm_chat: realtime cache hit for %r", request.question[:60]
+                )
+                return ChatResponse(
+                    answer=cached,
+                    latency_ms=round((time.time() - start) * 1000, 2),
+                    model=RagConfig().LLM_MODEL,
+                )
 
         # Retrieve RAG context if Vector Search is configured
         retriever = _get_retriever()
@@ -353,6 +379,13 @@ async def llm_chat(
             history=[{"role": h.role, "content": h.content} for h in request.history],
         )
         latency_ms = round((time.time() - start) * 1000, 2)
+
+        # Store in realtime cache for future race-context requests
+        if structured:
+            realtime_cache = get_realtime_cache()
+            background_tasks.add_task(
+                realtime_cache.async_store, request.question, structured, answer, {}
+            )
 
         # If this was a simulation question, kick off the simulation job
         job_id = None

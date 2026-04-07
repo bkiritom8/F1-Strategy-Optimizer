@@ -19,8 +19,6 @@ import {
 } from 'lucide-react';
 import { simulateStrategy } from '../services/endpoints';
 import { apiFetch } from '../services/client';
-import { useBackendStatus } from '../hooks/useApi';
-import { LiveBadge } from '../components/LiveBadge';
 import type { TireCompound } from '../types';
 import RaceSimulation from '../components/RaceSimulation';
 
@@ -35,7 +33,58 @@ const STRATEGY_PRESETS = [
 ];
 
 const COMPOUNDS: TireCompound[] = ['SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET'];
-const TOTAL_LAPS = 57; // default race length (no race selector)
+const TOTAL_LAPS = 57;
+
+/** 2026 confirmed driver list for the driver selector. */
+const DRIVERS_2026 = [
+  { id: 'max_verstappen',  name: 'Max Verstappen' },
+  { id: 'lawson',          name: 'Liam Lawson' },
+  { id: 'hamilton',        name: 'Lewis Hamilton' },
+  { id: 'leclerc',         name: 'Charles Leclerc' },
+  { id: 'norris',          name: 'Lando Norris' },
+  { id: 'piastri',         name: 'Oscar Piastri' },
+  { id: 'russell',         name: 'George Russell' },
+  { id: 'antonelli',       name: 'Kimi Antonelli' },
+  { id: 'alonso',          name: 'Fernando Alonso' },
+  { id: 'stroll',          name: 'Lance Stroll' },
+  { id: 'gasly',           name: 'Pierre Gasly' },
+  { id: 'doohan',          name: 'Jack Doohan' },
+  { id: 'colapinto',       name: 'Franco Colapinto' },
+  { id: 'tsunoda',         name: 'Yuki Tsunoda' },
+  { id: 'hadjar',          name: 'Isack Hadjar' },
+  { id: 'albon',           name: 'Alex Albon' },
+  { id: 'sainz',           name: 'Carlos Sainz' },
+  { id: 'hulkenberg',      name: 'Nico Hulkenberg' },
+  { id: 'bortoleto',       name: 'Gabriel Bortoleto' },
+  { id: 'bearman',         name: 'Oliver Bearman' },
+];
+
+/** 2026 calendar races for the track selector. */
+const TRACKS_2026 = [
+  { id: '2026_1',  name: 'Bahrain Grand Prix' },
+  { id: '2026_2',  name: 'Saudi Arabian Grand Prix' },
+  { id: '2026_3',  name: 'Australian Grand Prix' },
+  { id: '2026_4',  name: 'Japanese Grand Prix' },
+  { id: '2026_5',  name: 'Chinese Grand Prix' },
+  { id: '2026_6',  name: 'Miami Grand Prix' },
+  { id: '2026_7',  name: 'Emilia Romagna Grand Prix' },
+  { id: '2026_8',  name: 'Monaco Grand Prix' },
+  { id: '2026_9',  name: 'Spanish Grand Prix' },
+  { id: '2026_10', name: 'Canadian Grand Prix' },
+  { id: '2026_11', name: 'Austrian Grand Prix' },
+  { id: '2026_12', name: 'British Grand Prix' },
+  { id: '2026_13', name: 'Hungarian Grand Prix' },
+  { id: '2026_14', name: 'Belgian Grand Prix' },
+  { id: '2026_15', name: 'Dutch Grand Prix' },
+  { id: '2026_16', name: 'Italian Grand Prix' },
+  { id: '2026_17', name: 'Singapore Grand Prix' },
+  { id: '2026_18', name: 'United States Grand Prix' },
+  { id: '2026_19', name: 'Mexico City Grand Prix' },
+  { id: '2026_20', name: 'Sao Paulo Grand Prix' },
+  { id: '2026_21', name: 'Las Vegas Grand Prix' },
+  { id: '2026_22', name: 'Qatar Grand Prix' },
+  { id: '2026_23', name: 'Abu Dhabi Grand Prix' },
+];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -64,8 +113,6 @@ interface ChatMessage {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 const StrategyHub: React.FC = () => {
-  const { online: isLive } = useBackendStatus();
-
   // ── Tab state ───────────────────────────────────────────────────────────────
   const [hubTab, setHubTab] = useState<HubTab>('strategy');
 
@@ -76,10 +123,14 @@ const StrategyHub: React.FC = () => {
     { pitLap: 20, compound: 'MEDIUM' },
     { pitLap: 42, compound: 'HARD' },
   ]);
-  const [driverName, setDriverName] = useState('Max Verstappen');
+  /** Selected driver (dropdown, 2026 grid). */
+  const [selectedDriverId, setSelectedDriverId] = useState(DRIVERS_2026[0].id);
+  /** Starting tire compound - applied at race start before the first pit stop. */
+  const [startingTire, setStartingTire] = useState<TireCompound>('MEDIUM');
+  /** Selected 2026 race for the simulation context. */
+  const [selectedTrackId, setSelectedTrackId] = useState(TRACKS_2026[0].id);
   const [simResult, setSimResult] = useState<SimResult | null>(null);
   const [simLoading, setSimLoading] = useState(false);
-  const [simSource, setSimSource] = useState<'live' | 'local' | null>(null);
 
   // ── Chat state ──────────────────────────────────────────────────────────────
   const [chatInput, setChatInput] = useState('');
@@ -143,18 +194,23 @@ const StrategyHub: React.FC = () => {
   const currentWinProb   = simResult ? simResult.win_probability   : (mode === 'preset' ? selectedPreset.win_prob   : 0.15);
   const currentPodiumProb = simResult ? simResult.podium_probability : (mode === 'preset' ? selectedPreset.podium_prob : 0.35);
 
+  /**
+   * Runs the Monte Carlo pit strategy simulation via the backend API.
+   * Falls back to a local approximation if the backend is unreachable.
+   * Uses the selected driver, track, and starting tire from UI state.
+   */
   const runSimulation = useCallback(async () => {
     setSimLoading(true);
     setSimResult(null);
-    setSimSource(null);
-    // Convert display name → snake_case id for the API
-    const driverId = driverName.trim().toLowerCase().replace(/\s+/g, '_');
     try {
-      const result = await simulateStrategy({ race_id: '2024_1', driver_id: driverId, strategy: strategyArray });
+      const result = await simulateStrategy({
+        race_id: selectedTrackId,
+        driver_id: selectedDriverId,
+        strategy: strategyArray,
+      });
       setSimResult(result);
-      setSimSource('live');
     } catch {
-      // Local fallback approximation
+      // Local fallback approximation when backend is unavailable
       setSimResult({
         predicted_final_position: 3,
         predicted_total_time_s: 5400,
@@ -163,11 +219,10 @@ const StrategyHub: React.FC = () => {
         podium_probability: currentPodiumProb,
         strategy: strategyArray,
       });
-      setSimSource('local');
     } finally {
       setSimLoading(false);
     }
-  }, [strategyArray, currentWinProb, currentPodiumProb, driverName]);
+  }, [strategyArray, currentWinProb, currentPodiumProb, selectedDriverId, selectedTrackId]);
 
   const addStint = () => {
     const lastLap = customStints.length > 0 ? customStints[customStints.length - 1].pitLap + 15 : 20;
@@ -210,18 +265,15 @@ const StrategyHub: React.FC = () => {
   return (
     <div className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-6 h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
             <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Strategy Hub</h1>
-            <LiveBadge isLive={isLive} />
+            <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2 font-mono flex items-center gap-2">
+              <Sparkles className="w-3 h-3 text-blue-400" />
+              Monte Carlo Simulation · AI Strategist · Backend LLM
+            </p>
           </div>
-          <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2 font-mono flex items-center gap-2">
-            <Sparkles className="w-3 h-3 text-blue-400" />
-            Monte Carlo Simulation · AI Strategist · Backend LLM
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
           {/* Tab switcher */}
           <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-color)' }}>
             <button
@@ -237,21 +289,62 @@ const StrategyHub: React.FC = () => {
               <Flag className="w-3 h-3" /> Race Sim
             </button>
           </div>
-          {/* Driver name input — only shown in strategy tab */}
-          {hubTab === 'strategy' && (
+        </div>
+        {/* Strategy controls row — driver, track, starting tire */}
+        {hubTab === 'strategy' && (
+          <div className="flex flex-wrap gap-3 items-end p-4 rounded-2xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+            {/* Driver dropdown */}
             <div className="flex flex-col gap-1">
               <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Driver</span>
-              <input
-                type="text"
-                value={driverName}
-                onChange={e => { setDriverName(e.target.value); setSimResult(null); }}
-                placeholder="e.g. Max Verstappen"
-                className="px-3 py-2 rounded-xl border text-sm font-bold bg-transparent focus:outline-none focus:ring-1 focus:ring-red-600 w-48"
+              <select
+                value={selectedDriverId}
+                onChange={e => { setSelectedDriverId(e.target.value); setSimResult(null); }}
+                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[180px]"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
-              />
+              >
+                {DRIVERS_2026.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
             </div>
-          )}
-        </div>
+            {/* Track dropdown */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Circuit</span>
+              <select
+                value={selectedTrackId}
+                onChange={e => { setSelectedTrackId(e.target.value); setSimResult(null); }}
+                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[220px]"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
+              >
+                {TRACKS_2026.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+            {/* Starting tire selector */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Starting Tire</span>
+              <div className="flex gap-1">
+                {(['SOFT', 'MEDIUM', 'HARD'] as TireCompound[]).map(c => (
+                  <button
+                    key={c}
+                    onClick={() => { setStartingTire(c); setSimResult(null); }}
+                    className={`px-3 py-2 rounded-xl text-xs font-black uppercase transition-all border ${
+                      startingTire === c ? 'text-black shadow-lg scale-105' : 'text-white/50 hover:text-white'
+                    }`}
+                    style={{
+                      backgroundColor: startingTire === c ? (COLORS.tires as any)[c] : 'transparent',
+                      borderColor: (COLORS.tires as any)[c],
+                    }}
+                    title={`Start on ${c} tyres`}
+                  >
+                    {c.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Race Simulation tab */}
@@ -303,9 +396,13 @@ const StrategyHub: React.FC = () => {
                 exit={{ opacity: 0 }}
                 className="space-y-2"
               >
-                {/* Driver label above cards */}
+                {/* Driver + track label above cards */}
                 <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
-                  Simulating: <span className="text-white font-bold">{toDriverName(driverName)}</span>
+                  Simulating: <span className="text-white font-bold">{DRIVERS_2026.find(d => d.id === selectedDriverId)?.name ?? selectedDriverId}</span>
+                  <span className="text-white/30"> &middot; </span>
+                  <span className="text-white/70">{TRACKS_2026.find(t => t.id === selectedTrackId)?.name ?? selectedTrackId}</span>
+                  <span className="text-white/30"> &middot; </span>
+                  Starting on <span style={{ color: (COLORS.tires as any)[startingTire] }}>{startingTire}</span>
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <ResultCard icon={Trophy}     label="Predicted Finish" value={`P${simResult.predicted_final_position}`}               color={simResult.predicted_final_position <= 3 ? COLORS.accent.green : COLORS.accent.yellow} />
@@ -467,14 +564,6 @@ const StrategyHub: React.FC = () => {
                 <span className="text-[9px] text-white/40 font-bold uppercase block">Podium Prob</span>
                 <span className="text-base font-mono font-bold text-purple-400">{(currentPodiumProb * 100).toFixed(2)}%</span>
               </div>
-              {simSource && (
-                <div className="ml-auto flex items-center gap-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${simSource === 'live' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                  <span className={`text-[9px] font-mono font-bold uppercase ${simSource === 'live' ? 'text-green-500' : 'text-yellow-500'}`}>
-                    {simSource === 'live' ? 'Live Backend' : 'Local Approx'}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>

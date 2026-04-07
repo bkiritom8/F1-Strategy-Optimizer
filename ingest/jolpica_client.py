@@ -1,4 +1,5 @@
 """jolpica_client.py — Jolpica/Ergast API pagination and JSON fetch."""
+
 from __future__ import annotations
 
 import logging
@@ -30,7 +31,10 @@ def fetch_json(url: str) -> Optional[dict[str, Any]]:
             else:
                 log.error(
                     "fetch error  url=%s attempt=%d: %s: %s",
-                    url, attempt, type(exc).__name__, exc,
+                    url,
+                    attempt,
+                    type(exc).__name__,
+                    exc,
                 )
             backoff_wait(attempt)
             attempt += 1

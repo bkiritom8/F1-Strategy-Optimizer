@@ -17,16 +17,32 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { TEAM_COLORS } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDrivers, useRaces2024, useRaces2025, useRaces2026 } from '../hooks/useApi';
-import ConnectionBadge from '../components/ConnectionBadge';
-import { LiveBadge } from '../components/LiveBadge';
-import { Search, Users, Trophy, Flag, MapPin, Calendar, ChevronRight } from 'lucide-react';
+import { Search, Users, Trophy, Flag, MapPin, Calendar, ChevronRight, Star } from 'lucide-react';
 import type { DriverProfile } from '../types';
+
+/**
+ * Driver IDs on the 2026 confirmed grid.
+ * Drivers NOT in this set are shown only when the Legends toggle is active.
+ */
+const CURRENT_2026_DRIVERS = new Set([
+  'max_verstappen', 'lawson',
+  'hamilton', 'leclerc',
+  'norris', 'piastri',
+  'russell', 'antonelli',
+  'alonso', 'stroll',
+  'gasly', 'doohan', 'colapinto',
+  'tsunoda', 'hadjar', 'arvid_lindblad',
+  'albon', 'sainz',
+  'hulkenberg', 'bortoleto',
+  'ocon', 'bearman',
+]);
+
 
 const SEASON_YEARS = [2026, 2025, 2024] as const;
 type SeasonYear = typeof SEASON_YEARS[number];
 
 const DriverProfiles: React.FC = () => {
-  const { data: drivers, loading, isLive } = useDrivers();
+  const { data: drivers, loading } = useDrivers();
   const { data: races2024 } = useRaces2024();
   const { data: races2025 } = useRaces2025();
   const { data: races2026 } = useRaces2026();
@@ -35,6 +51,7 @@ const DriverProfiles: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTeam, setFilterTeam] = useState<string>('all');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showLegends, setShowLegends] = useState(false);
 
   const racesForYear = activeYear === 2026 ? races2026 : activeYear === 2025 ? races2025 : races2024;
   const hasRaceData = racesForYear !== null && (racesForYear as any[]).length > 0;
@@ -85,10 +102,15 @@ const DriverProfiles: React.FC = () => {
     return result;
   }, [racesForYear, hasRaceData]);
 
-  // Show all drivers we have a profile for — no year filtering
+  /**
+   * Split drivers into current-grid members and legends (historical only).
+   * Legends are only rendered when the user activates the Legends toggle.
+   */
   const filteredDrivers = useMemo(() => {
     if (!drivers) return [];
     return drivers.filter(d => {
+      const isCurrent = CURRENT_2026_DRIVERS.has(d.driver_id);
+      if (!isCurrent && !showLegends) return false;   // hide legends unless toggle is on
       const matchesSearch = searchQuery === '' ||
         d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         d.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -97,7 +119,7 @@ const DriverProfiles: React.FC = () => {
       const matchesTeam = filterTeam === 'all' || team === filterTeam;
       return matchesSearch && matchesTeam;
     });
-  }, [drivers, searchQuery, filterTeam, seasonStats]);
+  }, [drivers, searchQuery, filterTeam, seasonStats, showLegends]);
 
   const selectedDriver = useMemo(() => {
     if (!drivers || drivers.length === 0) return null;
@@ -153,7 +175,6 @@ const DriverProfiles: React.FC = () => {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Driver Roster</h1>
-            <LiveBadge isLive={isLive} />
           </div>
           <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2">
             {totalDrivers} drivers · {teams.length} constructors · Stats from {activeYear} season
@@ -172,7 +193,19 @@ const DriverProfiles: React.FC = () => {
               </button>
             ))}
           </div>
-          <ConnectionBadge isLive={isLive} />
+          {/* Legends toggle */}
+          <button
+            onClick={() => setShowLegends(prev => !prev)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold uppercase transition-all ${
+              showLegends
+                ? 'bg-amber-600/20 border-amber-500/50 text-amber-400'
+                : 'border-white/10 text-white/40 hover:text-white hover:bg-white/5'
+            }`}
+            title="Show retired / historical drivers"
+          >
+            <Star className={`w-3.5 h-3.5 ${showLegends ? 'fill-amber-400 text-amber-400' : ''}`} />
+            Legends
+          </button>
         </div>
       </div>
 

@@ -43,7 +43,7 @@ import hashlib
 import logging
 import os
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -351,6 +351,85 @@ class UserStore:
         except Exception as exc:
             logger.warning("UserStore.list_audit_log failed: %s", exc)
             return []
+
+
+    # ── OTP operations ──────────────────────────────────────────────────────
+
+    def create_otp(self, email: str) -> str:
+        """
+        Generate a 6-digit OTP for the given email, hash it, and store it in
+        Firestore with a 10-minute TTL.  Returns the plaintext OTP so the
+        caller can email it to the user.
+
+        OTPs are keyed by email so each user can have at most one active OTP at
+        a time — requesting a new code overwrites the previous one.
+        """
+        otp_plain = "{:06d}".format(secrets.randbelow(1_000_000))
+        # Use PBKDF2 with fewer iterations (10 000) — OTP is short-lived and the
+        # main protection is the 10-min window + single-use invalidation.
+        salt = secrets.token_bytes(16)
+        dk = hashlib.pbkdf2_hmac("sha256", otp_plain.encode(), salt, 10_000)
+        otp_hash = f"{salt.hex()}:{dk.hex()}"
+
+        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        _firestore().collection("otp_tokens").document(email).set(
+            {"hash": otp_hash, "expires_at": expires_at, "email": email}
+        )
+        _audit("otp_requested", email)
+        return otp_plain
+
+    def verify_otp(self, email: str, otp_plain: str) -> dict | None:
+        """
+        Validate a plaintext OTP against the stored hash for *email*.
+
+        Returns the user profile dict on success (so the caller can issue a
+        JWT), raises ValueError on expiry/mismatch, returns None if no pending
+        OTP or if the user account does not exist / is unverified.
+
+        The OTP document is **deleted on first successful use** (single-use).
+        Failed attempts leave the document intact to allow re-entry, but the
+        document is always bounded by its 10-min TTL.
+        """
+        from datetime import timezone
+
+        db = _firestore()
+        doc = db.collection("otp_tokens").document(email).get()
+        if not doc.exists:
+            raise ValueError("No pending OTP for this email address.")
+
+        data = doc.to_dict()
+        # Check expiry
+        exp = datetime.fromisoformat(data["expires_at"])
+        if datetime.now(timezone.utc) > exp:
+            doc.reference.delete()  # clean up stale OTP
+            raise ValueError("OTP has expired. Please request a new one.")
+
+        # Constant-time comparison
+        salt_hex, hash_hex = data["hash"].split(":", 1)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(hash_hex)
+        dk = hashlib.pbkdf2_hmac("sha256", otp_plain.encode(), salt, 10_000)
+        if not secrets.compare_digest(dk, expected):
+            raise ValueError("Incorrect code. Please try again.")
+
+        # Success — invalidate OTP immediately (single-use)
+        doc.reference.delete()
+
+        # Resolve user profile by email
+        results = (
+            db.collection(_USERS).where("email", "==", email).limit(1).stream()
+        )
+        docs = list(results)
+        if not docs:
+            return None
+        profile = docs[0].to_dict()
+        if profile.get("disabled"):
+            return None
+        if not profile.get("email_verified", False):
+            raise ValueError("Email not verified. Check your inbox for the verification link.")
+
+        _audit("otp_login", profile.get("username", email))
+        return profile
 
 
 # Singleton

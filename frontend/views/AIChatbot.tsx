@@ -2,19 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, User, Bot, Loader2, Info, Sparkles } from 'lucide-react';
 import { RaceSimulator } from '../components/simulation';
+import { apiFetch } from '../services/client';
+import type { ChatResponse } from '../services/endpoints';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
-const SYSTEM_PROMPT = `You are an elite F1 Race Engineer and Strategist for 'Apex Intelligence', an advanced race strategy platform. Your knowledge covers tire physics, aerodynamics, historical F1 data, and real-time tactical decisions. Be technical, concise, and analytical. Use professional racing terminology (e.g., 'thermals', 'dirty air', 'box-to-box', 'overcut', 'undercut', 'stint length', 'degradation curve'). Reference real drivers, circuits, and historical races when relevant. Format key data points clearly.`;
-
-/**
- * Gemini model to use. gemini-2.0-flash-lite is the cheapest option
- * at $0.00 per 1M tokens (free tier) or minimal cost beyond that.
- */
-const GEMINI_MODEL = 'gemini-2.0-flash-lite';
+const BACKEND_MODEL_LABEL = 'gemini-2.5-flash (backend)';
 
 /** Keywords that suggest the user wants a race simulation. */
 const SIMULATION_KEYWORDS = [
@@ -81,9 +77,11 @@ function extractRaceId(question: string): string {
 const AIChatbot: React.FC = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "I am the Apex AI Strategist, powered by Google Gemini. Ask me anything about tire management, undercut opportunities, pit windows, or car setup for any Grand Prix." }
+    { role: 'assistant', content: "I am the Apex AI Strategist, powered by the F1 backend. Ask me anything about tire management, undercut opportunities, pit windows, or Grand Prix strategy." }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  /** Indicates what the AI is currently doing so the user sees a meaningful loading state. */
+  const [loadingType, setLoadingType] = useState<'data' | 'simulation' | null>(null);
   const [simJobId, setSimJobId] = useState<string | null>(null);
   const [simRaceId, setSimRaceId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -98,105 +96,46 @@ const AIChatbot: React.FC = () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-    if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
-      setMessages(prev => [...prev,
-        { role: 'user', content: userMessage },
-        { role: 'assistant', content: "Gemini API key not configured. Set VITE_GEMINI_API_KEY in your .env.local file. You can get a free key at https://aistudio.google.com/apikey" }
-      ]);
-      setInput('');
-      return;
-    }
-
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
-
-    // Detect simulation questions and trigger the race replay panel
-    if (isSimulationQuestion(userMessage)) {
-      const raceId = extractRaceId(userMessage);
-      // Generate a deterministic job ID from the question text
-      const jobId = btoa(userMessage.slice(0, 32)).replace(/[^a-z0-9]/gi, '').slice(0, 16);
-      setSimJobId(jobId);
-      setSimRaceId(raceId);
-    }
+    // Choose loading indicator type before awaiting — gives instant feedback
+    setLoadingType(isSimulationQuestion(userMessage) ? 'simulation' : 'data');
 
     try {
-      // Build conversation history for Gemini format
+      // Build conversation history for the backend ChatHistory schema
       const history = messages.slice(1).map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
+        role: m.role,
+        content: m.content,
       }));
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`;
-
-      const response = await fetch(url, {
+      const data = await apiFetch<ChatResponse>('/api/v1/llm/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [
-            ...history,
-            { role: 'user', parts: [{ text: userMessage }] },
-          ],
-          generationConfig: {
-            maxOutputTokens: 800,
-            temperature: 0.7,
-            topP: 0.95,
-          },
-        }),
+        body: JSON.stringify({ question: userMessage, history }),
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Gemini API error ${response.status}: ${errText.slice(0, 200)}`);
-      }
+      setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
 
-      if (!response.body) throw new Error('No response body');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-
-      let fullResponse = '';
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const jsonStr = line.slice(6);
-            if (jsonStr === '[DONE]') continue;
-            try {
-              const data = JSON.parse(jsonStr);
-              const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (text) {
-                fullResponse += text;
-                setMessages(prev => {
-                  const updated = [...prev];
-                  updated[updated.length - 1] = { role: 'assistant', content: fullResponse };
-                  return updated;
-                });
-              }
-            } catch (_parseErr) {
-              // Incomplete JSON chunk during streaming, skip
-            }
-          }
-        }
+      // Use job_id / simulation_race_id returned by the backend
+      if (data.job_id && data.simulation_race_id) {
+        setSimJobId(data.job_id);
+        setSimRaceId(data.simulation_race_id);
+      } else if (isSimulationQuestion(userMessage)) {
+        // Backend didn't trigger a sim -- fall back to client-side detection
+        const raceId = extractRaceId(userMessage);
+        const jobId = btoa(userMessage.slice(0, 32)).replace(/[^a-z0-9]/gi, '').slice(0, 16);
+        setSimJobId(jobId);
+        setSimRaceId(raceId);
       }
     } catch (error) {
-      console.error('Gemini API Error:', error);
+      console.error('Backend chat error:', error);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}. Check your API key and network.`
+        content: `Backend unavailable: ${error instanceof Error ? error.message : 'Unknown error'}. Ensure the API is running and credentials are set.`,
       }]);
     } finally {
       setIsLoading(false);
+      setLoadingType(null);
     }
   };
 
@@ -208,7 +147,7 @@ const AIChatbot: React.FC = () => {
           AI Strategist
         </h1>
         <p className="text-gray-500 uppercase text-xs tracking-widest mt-2 flex items-center gap-2 font-mono">
-          <Sparkles className="w-3 h-3 text-blue-400" /> Powered by Google Gemini ({GEMINI_MODEL})
+          <Sparkles className="w-3 h-3 text-blue-400" /> Powered by {BACKEND_MODEL_LABEL} via Vertex AI
         </p>
       </div>
 
@@ -235,7 +174,7 @@ const AIChatbot: React.FC = () => {
                   backgroundColor: m.role === 'assistant' ? 'rgba(30, 41, 59, 0.5)' : undefined,
                   borderColor: m.role === 'assistant' ? 'var(--border-color)' : undefined
                 }}>
-                  {m.content || (isLoading && i === messages.length - 1 ? <Loader2 className="w-4 h-4 animate-spin text-red-600" /> : '')}
+                  {m.content}
                 </div>
                 {m.role === 'user' && (
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border mt-1" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
@@ -244,6 +183,39 @@ const AIChatbot: React.FC = () => {
                 )}
               </motion.div>
             ))}
+            {/* Contextual loading bubble - appears below the last message */}
+            {isLoading && (
+              <motion.div
+                key="loading-indicator"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex gap-4 justify-start"
+              >
+                <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0 shadow-lg mt-1">
+                  <Bot className="w-5 h-5 text-white" />
+                </div>
+                <div
+                  className="p-4 rounded-2xl rounded-tl-none border text-sm"
+                  style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', borderColor: 'var(--border-color)' }}
+                >
+                  {loadingType === 'simulation' ? (
+                    <div className="flex items-center gap-2 text-blue-300">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span className="animate-pulse font-mono text-xs tracking-wide">
+                        Simulating to generate answer...
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-amber-300">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span className="animate-pulse font-mono text-xs tracking-wide">
+                        Finding answer from historical data...
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
 

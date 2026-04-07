@@ -489,6 +489,32 @@ Audited full GCP billing breakdown and reduced projected monthly cost from ~$170
 
 ---
 
+## Session 2026-04-07 — TurboQuant Embedding Compression
+
+**Date**: 2026-04-07
+**Branch**: pipeline
+
+**Summary**:
+Integrated `TurboQuant_prod` product-quantization codec into the LLM semantic cache (`src/llm/cache.py`) to reduce embedding memory footprint. Added comprehensive tests and formatting fixes.
+
+**Completed**:
+- [x] Implemented `TurboQuant_prod` codec in `src/llm/turboquant.py` — product-quantizes 768-dim float32 embeddings into compact codes
+- [x] Integrated codec into `src/llm/cache.py` via `get_codec()` helper (hoisted out of `warm()` loop for efficiency)
+- [x] Added encode correctness tests for `TurboQuantCodec` (`ml/tests/`)
+- [x] Added cosine similarity accuracy tests — validates compression does not degrade retrieval quality
+- [x] Applied `black` formatting to `turboquant.py` and `cache.py`
+
+**Key Decisions**:
+1. **`get_codec()` hoisted out of loop**: Previously reconstructed codec on every `warm()` iteration; now called once and reused — prevents redundant PQ training on startup
+2. **TurboQuant in cache layer only**: Compression applied at cache read/write boundaries; all in-memory operations use full float32 vectors
+
+**Next Steps**:
+1. Set up Cloud Monitoring dashboards (last remaining gap)
+
+**Blockers**: None
+
+---
+
 **Instructions for Future Sessions**:
 1. After running `/compact`, append a new session entry above this line
 2. Include date, summary, completed tasks, decisions, next steps

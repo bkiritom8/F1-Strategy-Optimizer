@@ -18,7 +18,7 @@ from google.cloud import storage
 log = logging.getLogger(__name__)
 
 PROGRESS_BLOB = "status/progress.json"
-_LOCK_RETRY_BASE = 0.2   # seconds — jittered backoff on write conflicts
+_LOCK_RETRY_BASE = 0.2  # seconds — jittered backoff on write conflicts
 
 
 class Progress:

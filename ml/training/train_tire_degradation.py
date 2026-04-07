@@ -22,7 +22,7 @@ aiplatform.init(
     project="f1optimizer", location="us-central1", experiment="f1-strategy-models"
 )
 
-PLOTS_DIR = "/tmp/plots"
+PLOTS_DIR = "/tmp/plots"  # nosec B108
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
 
@@ -555,3 +555,13 @@ storage.Client(project="f1optimizer").bucket("f1optimizer-models").blob(
     "tire_degradation/model.pkl"
 ).upload_from_filename("models/tire_degradation.pkl")
 print("Uploaded: gs://f1optimizer-models/tire_degradation/model.pkl")
+
+# ── Save feature distribution baseline for drift monitoring ──────────────────
+from ml.monitoring.feature_stats import (
+    extract_feature_stats,
+    save_to_gcs as save_stats,
+)  # noqa: E402
+
+_train_stats = extract_feature_stats(X_train, features)
+save_stats(_train_stats, "tire_degradation")
+print("Saved feature baseline for drift monitoring: tire_degradation")

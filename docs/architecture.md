@@ -1,6 +1,6 @@
 # System Architecture and Deployment
 
-**Last Updated**: 2026-03-31
+**Last Updated**: 2026-04-07
 
 ## Overview
 
@@ -306,6 +306,7 @@ validate_data
 - Layer 1 is pre-warmed at API startup in a daemon background thread
 - Layer 2 detects cache invalidation on tire compound change (pit stop) or safety car flag change
 - Embeddings use Vertex AI `text-embedding-004` (768-dim)
+- **TurboQuant compression** (`src/llm/turboquant.py`): 768-dim float32 embeddings are product-quantized into compact codes via `TurboQuant_prod`, reducing cache memory footprint with configurable accuracy/compression trade-off
 
 ### Model Serving: FastAPI on Cloud Run
 
@@ -394,5 +395,4 @@ See `docs/DEV_SETUP.md` §9 for the full list.
 1. `predict()` raises `NotImplementedError` in `ml/models/strategy_predictor.py` and `ml/models/pit_stop_optimizer.py` — API falls back to rule-based logic (the 6 new `ml/models/*.py` wrappers are separate)
 2. `ml/training/distributed_trainer.py` imports `ray` but Ray is not in `docker/requirements-ml.txt`
 3. Monitoring dashboards and alerting policies not yet created
-4. Frontend (`frontend/`) still calls Gemini directly from the browser in `AIChatbot.tsx` — wiring to `/llm/chat` deferred until Firebase Hosting migration is complete
-5. Terraform for Firestore (`infra/terraform/firestore.tf`) has been written but not yet applied — run `terraform apply` to provision the Firestore database in GCP before user auth endpoints become functional
+4. Monitoring dashboards and alerting policies not yet created (Cloud Monitoring)

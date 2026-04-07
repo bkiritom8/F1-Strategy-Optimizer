@@ -69,7 +69,12 @@ ENABLE_HTTPS = os.getenv("ENABLE_HTTPS", "false").lower() == "true"
 ENABLE_IAM = os.getenv("ENABLE_IAM", "true").lower() == "true"
 ENV = os.getenv("ENV", "local")
 
-_ALLOWED_ORIGINS_DEFAULT = "http://localhost:3000,http://localhost:8080"
+_ALLOWED_ORIGINS_DEFAULT = (
+    "http://localhost:3000,"
+    "http://localhost:3001,"
+    "http://localhost:8080,"
+    "https://apex-intelligence.vercel.app"
+)
 ALLOWED_ORIGINS = [
     o.strip()
     for o in os.getenv("ALLOWED_ORIGINS", _ALLOWED_ORIGINS_DEFAULT).split(",")
@@ -81,9 +86,8 @@ _strategy_model = None
 _models_loaded_from_gcs = False
 _model_loaded_at: Optional[str] = None  # ISO timestamp when model was loaded
 
-# Lazy-loaded pipeline / simulator singletons (instantiated on first request)
+# Lazy-loaded pipeline singleton (instantiated on first request)
 _feature_pipeline: Any = None
-_simulators: Dict[str, Any] = {}  # race_id → RaceSimulator
 
 
 def _get_pipeline():
@@ -93,14 +97,6 @@ def _get_pipeline():
 
         _feature_pipeline = FeaturePipeline()
     return _feature_pipeline
-
-
-def _get_simulator(race_id: str):
-    if race_id not in _simulators:
-        from pipeline.simulator.race_simulator import RaceSimulator
-
-        _simulators[race_id] = RaceSimulator(race_id)
-    return _simulators[race_id]
 
 
 # Add middleware
@@ -450,6 +446,41 @@ async def startup_event():
     asyncio.create_task(_load_model())
     logger.info("Model load started in background")
 
+    # Pre-load all 6 ML model bridge bundles from GCS so the first chat
+    # request doesn't pay the 3-8s cold-load penalty.
+    async def _preload_model_bridge():
+        try:
+            from src.llm.model_bridge import _load, _PATHS
+
+            def _download_all():
+                for name in _PATHS:
+                    _load(name)
+
+            await asyncio.to_thread(_download_all)
+            logger.info("model_bridge: all 6 bundles pre-loaded at startup")
+        except Exception as exc:
+            logger.warning("model_bridge pre-load failed (non-fatal): %s", exc)
+
+    asyncio.create_task(_preload_model_bridge())
+
+    # Warm the generic LLM cache in the background so common F1 questions
+    # are served instantly without hitting the Gemini API.
+    async def _warm_generic_cache():
+        try:
+            from src.llm.cache import get_generic_cache
+            from src.llm.gemini_client import get_client
+            from rag.config import RagConfig
+
+            cfg = RagConfig()
+            cache = get_generic_cache()
+            client = get_client()
+            await asyncio.to_thread(cache.warm, client, cfg.PROJECT_ID, cfg.REGION)
+            logger.info("GenericCache warming started in background")
+        except Exception as exc:
+            logger.warning("GenericCache warm failed (non-fatal): %s", exc)
+
+    asyncio.create_task(_warm_generic_cache())
+
 
 # ── /api/v1 router ─────────────────────────────────────────────────────────
 
@@ -487,35 +518,7 @@ async def race_state(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
-    try:
-        sim = _get_simulator(race_id)
-        race_state_obj = sim.step(lap)
-        return {
-            "race_id": race_state_obj.race_id,
-            "lap_number": race_state_obj.lap_number,
-            "total_laps": race_state_obj.total_laps,
-            "weather": race_state_obj.weather,
-            "track_temp": race_state_obj.track_temp,
-            "air_temp": race_state_obj.air_temp,
-            "safety_car": race_state_obj.safety_car,
-            "drivers": [
-                {
-                    "driver_id": d.driver_id,
-                    "position": d.position,
-                    "gap_to_leader": d.gap_to_leader,
-                    "gap_to_ahead": d.gap_to_ahead,
-                    "lap_time_ms": d.lap_time_ms,
-                    "tire_compound": d.tire_compound,
-                    "tire_age_laps": d.tire_age_laps,
-                    "pit_stops_count": d.pit_stops_count,
-                    "fuel_remaining_kg": d.fuel_remaining_kg,
-                }
-                for d in race_state_obj.drivers
-            ],
-        }
-    except Exception as exc:
-        logger.error("race_state error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+    raise HTTPException(status_code=501, detail="Race simulator not available")
 
 
 @v1.get("/race/standings")
@@ -529,12 +532,7 @@ async def race_standings(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
-    try:
-        sim = _get_simulator(race_id)
-        return {"race_id": race_id, "lap": lap, "standings": sim.get_standings(lap)}
-    except Exception as exc:
-        logger.error("race_standings error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+    raise HTTPException(status_code=501, detail="Race simulator not available")
 
 
 @v1.get("/telemetry/{driver_id}/lap/{lap}")
@@ -706,31 +704,7 @@ async def simulate_strategy(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
-    try:
-        strategy_tuples = [(int(s[0]), str(s[1])) for s in request.strategy]
-        sim = _get_simulator(request.race_id)
-        result = sim.simulate_strategy(request.driver_id, strategy_tuples)
-        predicted_pos = result.predicted_final_position
-        win_prob = max(0.02, 0.35 - predicted_pos * 0.03)
-        podium_prob = max(0.05, 0.65 - predicted_pos * 0.05)
-        return SimulateResponse(
-            driver_id=result.driver_id,
-            race_id=result.race_id,
-            predicted_final_position=predicted_pos,
-            predicted_total_time_s=result.predicted_total_time_s,
-            strategy=[[p, c] for p, c in result.strategy],
-            lap_times_s=result.lap_times_s,
-            win_probability=round(win_prob, 4),
-            podium_probability=round(podium_prob, 4),
-        )
-    except Exception as exc:
-        logger.warning(
-            "simulate_strategy RaceSimulator failed (%s) — using rule-based fallback",
-            exc,
-        )
-        return _rule_based_simulate(
-            request.race_id, request.driver_id, request.strategy
-        )
+    return _rule_based_simulate(request.race_id, request.driver_id, request.strategy)
 
 
 # ── Full race simulation via StrategySimulator ──────────────────────────────

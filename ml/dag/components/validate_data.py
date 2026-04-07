@@ -78,7 +78,7 @@ def validate_data_op(
         conn = get_conn()
         cur = conn.cursor()
         for table in ("races", "lap_features", "telemetry_features", "drivers"):
-            cur.execute(f"SELECT COUNT(*) FROM {table}")
+            cur.execute(f"SELECT COUNT(*) FROM {table}")  # nosec B608
             count = cur.fetchone()[0]
             checks[table] = count
             logger.info("validate_data: %s → %d rows", table, count)

@@ -11,48 +11,42 @@ describe('API Client', () => {
     vi.restoreAllMocks();
   });
 
-  it('should cache token in sessionStorage after authentication', async () => {
-    const mockResponse = { access_token: 'test-jwt-token', token_type: 'bearer' };
-
-    globalThis.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(mockResponse),
+  it('should include Authorization header when token is in sessionStorage', async () => {
+    sessionStorage.setItem('f1_api_token', 'test-jwt');
+    sessionStorage.setItem('f1_api_token_expiry', String(Date.now() + 60000));
+    
+    let capturedHeaders: Headers | undefined;
+    globalThis.fetch = vi.fn().mockImplementationOnce(async (url, options) => {
+      capturedHeaders = options.headers;
+      return { ok: true, json: () => Promise.resolve({ success: true }) };
     });
 
-    const { getToken } = await import('../services/client');
-    const token = await getToken();
+    const { apiFetch } = await import('../services/client');
+    await apiFetch('/test-endpoint');
 
-    expect(token).toBe('test-jwt-token');
-    expect(sessionStorage.getItem('f1_api_token')).toBe('test-jwt-token');
+    expect(globalThis.fetch).toHaveBeenCalled();
+    expect(capturedHeaders?.get('Authorization')).toBe('Bearer test-jwt');
   });
 
-  it('should return cached token on subsequent calls', async () => {
-    sessionStorage.setItem('f1_api_token', 'cached-token');
-    sessionStorage.setItem('f1_api_token_expiry', String(Date.now() + 60_000));
-
-    // Re-import to get fresh module
-    vi.resetModules();
-    const { getToken } = await import('../services/client');
-    const token = await getToken();
-
-    expect(token).toBe('cached-token');
-  });
-
-  it('should re-authenticate when token is expired', async () => {
-    sessionStorage.setItem('f1_api_token', 'expired-token');
-    sessionStorage.setItem('f1_api_token_expiry', String(Date.now() - 1000));
-
-    const mockResponse = { access_token: 'fresh-token', token_type: 'bearer' };
+  it('should dispatch auth:expired event on 401 response', async () => {
     globalThis.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(mockResponse),
+      ok: false,
+      status: 401,
+      text: () => Promise.resolve('Unauthorized'),
     });
 
-    vi.resetModules();
-    const { getToken } = await import('../services/client');
-    const token = await getToken();
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');
+    const { apiFetch } = await import('../services/client');
 
-    expect(token).toBe('fresh-token');
+    try {
+      await apiFetch('/protected');
+    } catch (e) {
+      // Expected to throw
+    }
+
+    expect(dispatchEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'auth:expired' })
+    );
   });
 });
 

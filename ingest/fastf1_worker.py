@@ -1,5 +1,5 @@
 """
-fastf1_worker.py — Tasks 0-7: download FastF1 telemetry for one year (2018-2025).
+fastf1_worker.py — Tasks 0-8: download FastF1 telemetry for one year (2018-2026).
 
 Telemetry is saved to:
   gs://{bucket}/telemetry/{year}/{event_name}/{session_type}.parquet
@@ -28,17 +28,19 @@ log = logging.getLogger(__name__)
 CACHE_DIR = Path("/tmp/f1_cache")
 
 SESSION_TYPES: dict[str, list[str]] = {
-    "conventional":      ["FP1", "FP2", "FP3", "Q", "R"],
+    "conventional": ["FP1", "FP2", "FP3", "Q", "R"],
     "sprint_qualifying": ["FP1", "SQ", "FP2", "S", "Q", "R"],
-    "sprint":            ["FP1", "SQ", "SS", "Q", "R"],
+    "sprint": ["FP1", "SQ", "SS", "Q", "R"],
 }
 
-SESSION_PAUSE = 0.5    # seconds between sessions
+SESSION_PAUSE = 0.5  # seconds between sessions within a round
+ROUND_PAUSE = 120  # seconds between rounds (events)
 
 
 # ---------------------------------------------------------------------------
 # Single-session download with infinite exponential-backoff retry
 # ---------------------------------------------------------------------------
+
 
 def _download_session(
     year: int,
@@ -58,52 +60,92 @@ def _download_session(
     attempt = 0
     while True:
         try:
-            log.info("loading session  year=%d  event=%s  type=%s  attempt=%d",
-                     year, event_name, session_type, attempt)
+            log.info(
+                "loading session  year=%d  event=%s  type=%s  attempt=%d",
+                year,
+                event_name,
+                session_type,
+                attempt,
+            )
             session = fastf1.get_session(year, event_name, session_type)
             session.load(telemetry=True, laps=True, weather=False, messages=False)
 
             tel = extract_telemetry(session)
             if tel is None:
                 # No telemetry data at all — mark done so we never retry
-                log.warning("no telemetry  year=%d  event=%s  type=%s  marking done",
-                            year, event_name, session_type)
-                print(f"  [SKIP]  {year} | {event_name} | {session_type}  (no telemetry data)")
+                log.warning(
+                    "no telemetry  year=%d  event=%s  type=%s  marking done",
+                    year,
+                    event_name,
+                    session_type,
+                )
+                print(
+                    f"  [SKIP]  {year} | {event_name} | {session_type}  (no telemetry data)"
+                )
                 progress.mark_done(key)
                 return
 
             upload_parquet(tel, bucket, blob_path)
             progress.mark_done(key)
-            print(f"  [OK]    {year} | {event_name} | {session_type}  ({len(tel):,} rows)")
-            log.info("session done  year=%d  event=%s  type=%s  rows=%d",
-                     year, event_name, session_type, len(tel))
+            print(
+                f"  [OK]    {year} | {event_name} | {session_type}  ({len(tel):,} rows)"
+            )
+            log.info(
+                "session done  year=%d  event=%s  type=%s  rows=%d",
+                year,
+                event_name,
+                session_type,
+                len(tel),
+            )
             return
 
         except Exception as exc:
-                # Permanent error — mark done and skip, don't retry
-                if isinstance(exc, ValueError) and "does not exist" in str(exc).lower():
-                    log.warning("permanent error, skipping  year=%d  event=%s  type=%s: %s",
-                                year, event_name, session_type, exc)
-                    print(f"  [SKIP]  {year} | {event_name} | {session_type}  — {exc}")
-                    progress.mark_done(key)
-                    return
+            # Permanent error — mark done and skip, don't retry
+            if isinstance(exc, ValueError) and "does not exist" in str(exc).lower():
+                log.warning(
+                    "permanent error, skipping  year=%d  event=%s  type=%s: %s",
+                    year,
+                    event_name,
+                    session_type,
+                    exc,
+                )
+                print(f"  [SKIP]  {year} | {event_name} | {session_type}  — {exc}")
+                progress.mark_done(key)
+                return
 
-                if is_rate_limit(exc):
-                    log.warning("rate limit  year=%d  event=%s  type=%s: %s",
-                                year, event_name, session_type, exc)
-                    print(f"  [RATE]  {year} | {event_name} | {session_type}  — rate limited, backing off")
-                else:
-                    log.error("error  year=%d  event=%s  type=%s  attempt=%d: %s: %s",
-                            year, event_name, session_type, attempt, type(exc).__name__, exc)
-                    print(f"  [ERR]   {year} | {event_name} | {session_type}  — {type(exc).__name__}: {exc}")
+            if is_rate_limit(exc):
+                log.warning(
+                    "rate limit  year=%d  event=%s  type=%s: %s",
+                    year,
+                    event_name,
+                    session_type,
+                    exc,
+                )
+                print(
+                    f"  [RATE]  {year} | {event_name} | {session_type}  — rate limited, backing off"
+                )
+            else:
+                log.error(
+                    "error  year=%d  event=%s  type=%s  attempt=%d: %s: %s",
+                    year,
+                    event_name,
+                    session_type,
+                    attempt,
+                    type(exc).__name__,
+                    exc,
+                )
+                print(
+                    f"  [ERR]   {year} | {event_name} | {session_type}  — {type(exc).__name__}: {exc}"
+                )
 
-                backoff_wait(attempt)
-                attempt += 1
+            backoff_wait(attempt)
+            attempt += 1
 
 
 # ---------------------------------------------------------------------------
 # Year entry point
 # ---------------------------------------------------------------------------
+
 
 def run(year: int, task_id: int, bucket: storage.Bucket, progress: Progress) -> None:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -121,15 +163,23 @@ def run(year: int, task_id: int, bucket: storage.Bucket, progress: Progress) -> 
         raise
 
     for _, event in schedule.iterrows():
-        event_name   = event["EventName"]
+        event_name = event["EventName"]
         event_format = event.get("EventFormat", "conventional")
-        sessions     = SESSION_TYPES.get(event_format, SESSION_TYPES["conventional"])
+        sessions = SESSION_TYPES.get(event_format, SESSION_TYPES["conventional"])
 
         print(f"\n  {event_name}  [{event_format}]")
 
         for stype in sessions:
             _download_session(year, event_name, stype, bucket, progress)
             time.sleep(SESSION_PAUSE)
+
+        log.info(
+            "round pause  year=%d  event=%s  sleeping=%ds",
+            year,
+            event_name,
+            ROUND_PAUSE,
+        )
+        time.sleep(ROUND_PAUSE)
 
     upload_done_marker(bucket, task_id)
     log.info("fastf1_worker complete  task=%d  year=%d", task_id, year)

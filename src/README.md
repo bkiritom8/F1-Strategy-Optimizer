@@ -16,6 +16,8 @@ src/
 ├── ingestion/               # Jolpica + FastF1 connectors
 ├── llm/                     # Gemini Pro (Vertex AI) integration
 │   ├── connectors.py
+│   ├── cache.py             # Two-layer semantic cache (TurboQuant-compressed embeddings)
+│   ├── turboquant.py        # TurboQuant_prod PQ codec for embedding compression
 │   └── prompts/             # Prompt templates + structured output parsers
 ├── preprocessing/           # Shared data cleaning + feature engineering
 ├── common/                  # Logging, config, environment variable loaders

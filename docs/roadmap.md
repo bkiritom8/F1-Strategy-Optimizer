@@ -1,12 +1,12 @@
 # Project Roadmap and Timeline
 
-**Last Updated**: 2026-03-26
+**Last Updated**: 2026-04-07
 **Project Duration**: 13 weeks
 **Target Completion**: Week 13
 
 ## Overview
 
-The F1 Strategy Optimizer follows a phased development approach across 13 weeks, organized into 5 major phases: Setup & Data (Weeks 1-4), Model Development (Weeks 5-7), RAG + API (Weeks 8-9), Frontend + CI/CD (Weeks 10-11), and Driver Profiles + Monitoring (Weeks 12-13). Phases 1-4 are complete. Phase 5 is not yet started.
+The F1 Strategy Optimizer follows a phased development approach across 13 weeks, organized into 5 major phases: Setup & Data (Weeks 1-4), Model Development (Weeks 5-7), RAG + API (Weeks 8-9), Frontend + CI/CD (Weeks 10-11), and Driver Profiles + Monitoring (Weeks 12-13). Phases 1-4 are complete. Monte Carlo simulation pipeline is complete. Monitoring dashboards remain the only open item.
 
 ## Timeline Visualization
 
@@ -36,7 +36,7 @@ Monitoring Dashboards                                                    ░░�
 **Phase 2** (Wk 5-7): ML Models — **Complete**
 **Phase 3** (Wk 8-9): RAG + API — **Complete**
 **Phase 4** (Wk 10-11): Frontend + CI/CD — **Complete**
-**Phase 5** (Wk 12-13): Driver Profiles — **In Progress** | Monitoring — **Not Started**
+**Phase 5** (Wk 12-13): Monitoring — **Not Started**
 
 ## Phase 1: Setup & Data (Weeks 1-4)
 
@@ -397,7 +397,7 @@ Monitoring Dashboards                                                    ░░�
 | 7 | All 6 Models + RL Trained | Complete | 6 supervised ensembles + PPO RL agent (`models/rl/final_policy.zip`) |
 | 9 | RAG Pipeline Added | Complete | `rag/` — chunker, embedder, Vector Search, Gemini retriever + API routes |
 | 11 | API Deployed | Complete | Cloud Run `f1-strategy-api-dev`, `/recommend` + `/rag/query` |
-| 11 | React Frontend Deployed | Complete | Vercel — Apex Intelligence (`frontend/`) |
+| 11 | React Frontend Deployed | Complete | Firebase Hosting — Apex Intelligence (`frontend/`) |
 | 12 | CI/CD Stable | Complete | Cloud Build + GitHub Actions — all steps passing incl. test-rag |
 | 13 | Monitoring Dashboards | Not Started | Cloud Monitoring dashboards + alert policies |
 
