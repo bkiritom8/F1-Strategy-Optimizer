@@ -25,6 +25,7 @@ vs 3072 bytes raw float32 → 3.5× compression.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import threading
 
 import math
 import numpy as np
@@ -50,7 +51,7 @@ _DIM = 768
 # ── Data structure ────────────────────────────────────────────────────────────
 
 
-@dataclass
+@dataclass(eq=False)
 class TurboQuantVector:
     """Compressed representation of one embedding vector.
 
@@ -74,24 +75,29 @@ class TurboQuantCodec:
     def __init__(self) -> None:
         self._R: np.ndarray | None = None  # (768, 768) float32 — orthogonal rotation
         self._J: np.ndarray | None = None  # (768, 768) float32 — QJL ±1/√768 matrix
+        self._init_lock = threading.Lock()
 
     # ── Lazy matrix init ──────────────────────────────────────────────────────
 
     def _rotation(self) -> np.ndarray:
         if self._R is None:
-            rng = np.random.default_rng(42)
-            G = rng.standard_normal((_DIM, _DIM)).astype(np.float32)
-            Q, _ = np.linalg.qr(G)
-            self._R = Q.astype(np.float32)
+            with self._init_lock:
+                if self._R is None:
+                    rng = np.random.default_rng(42)
+                    G = rng.standard_normal((_DIM, _DIM)).astype(np.float32)
+                    Q, _ = np.linalg.qr(G)
+                    self._R = Q.astype(np.float32)
         return self._R
 
     def _qjl(self) -> np.ndarray:
         if self._J is None:
-            rng = np.random.default_rng(43)
-            signs = (
-                rng.integers(0, 2, size=(_DIM, _DIM), dtype=np.int8) * 2 - 1
-            ).astype(np.float32)
-            self._J = signs / math.sqrt(_DIM)
+            with self._init_lock:
+                if self._J is None:
+                    rng = np.random.default_rng(43)
+                    signs = (
+                        rng.integers(0, 2, size=(_DIM, _DIM), dtype=np.int8) * 2 - 1
+                    ).astype(np.float32)
+                    self._J = signs / math.sqrt(_DIM)
         return self._J
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -139,11 +145,14 @@ class TurboQuantCodec:
 # ── Module singleton ──────────────────────────────────────────────────────────
 
 _codec: TurboQuantCodec | None = None
+_codec_lock = threading.Lock()
 
 
 def get_codec() -> TurboQuantCodec:
     """Return the shared TurboQuantCodec instance (created on first call)."""
     global _codec
     if _codec is None:
-        _codec = TurboQuantCodec()
+        with _codec_lock:
+            if _codec is None:
+                _codec = TurboQuantCodec()
     return _codec
