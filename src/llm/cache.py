@@ -119,7 +119,9 @@ class GenericCache:
                         emb = _embed_one(q)
                         answer = client.generate(q)
                         entries.append(
-                            _GenericEntry(question=q, embedding=codec.encode(emb), answer=answer)
+                            _GenericEntry(
+                                question=q, embedding=codec.encode(emb), answer=answer
+                            )
                         )
                         logger.debug("GenericCache: warmed — %s", q[:60])
                         time.sleep(0.5)  # stay within embedding quota
