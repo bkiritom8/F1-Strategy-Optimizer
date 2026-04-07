@@ -7,15 +7,22 @@ import React, { useState } from 'react';
 import { TrackGallery } from '../components/tracks/TrackGallery';
 import { TrackDetailCard } from '../components/tracks/TrackDetailCard';
 import { TrackInfo } from '../components/tracks/TrackMaps';
+import { useAppStore } from '../store/useAppStore';
 
 const TrackExplorer: React.FC = () => {
+    const { setBackgroundCircuitId } = useAppStore();
     const [selectedTrack, setSelectedTrack] = useState<TrackInfo | null>(null);
+
+    const handleTrackSelect = (track: TrackInfo) => {
+        setSelectedTrack(track);
+        setBackgroundCircuitId(track.id);
+    };
 
     return (
         <div className="flex h-full overflow-hidden relative">
             {/* Left Pane: Track Gallery */}
-            <div className={`flex-1 p-4 md:p-6 overflow-y-auto ${selectedTrack ? 'hidden xl:block xl:w-2/3' : 'w-full'} transition-all duration-300`}>
-                <div className="mb-4 md:mb-6 border-b pb-4" style={{ borderColor: 'var(--border-color)' }}>
+            <div className={`flex-1 p-2 md:p-4 overflow-y-auto ${selectedTrack ? 'hidden xl:block xl:w-2/3' : 'w-full'} transition-all duration-300`}>
+                <div className="mb-2 md:mb-4 border-b pb-2" style={{ borderColor: 'var(--border-color)' }}>
                     <h1 className="text-3xl md:text-4xl font-display font-black tracking-tighter uppercase italic text-gray-900 dark:text-white">
                         Circuit Directory
                     </h1>
@@ -27,7 +34,7 @@ const TrackExplorer: React.FC = () => {
                 <TrackGallery
                     columns={selectedTrack ? 2 : 3}
                     selectedTrackId={selectedTrack?.id}
-                    onTrackSelect={setSelectedTrack}
+                    onTrackSelect={handleTrackSelect}
                 />
             </div>
 

@@ -46,6 +46,7 @@ httpx==0.26.0
 locust==2.20.0
 
 # Database
+redis==5.0.1
 sqlalchemy==2.0.25
 psycopg2-binary==2.9.9
 alembic==1.13.1

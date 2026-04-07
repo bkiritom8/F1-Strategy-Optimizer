@@ -243,21 +243,50 @@ export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundPr
    * control points — a rough but visually effective approach for the sector
    * flash animation.
    */
-  const sectors = useMemo(() => {
-    // Very simple heuristic: split the path string into three equal-length
-    // sub-paths for the three sector colours. A closed circuit's sector
-    // points are already ordered, so this produces a visually reasonable result.
-    const commands = rawPath.match(/[MLCQAZTS][^MLCQAZTS]*/g) ?? [];
-    const third = Math.floor(commands.length / 3);
-    return [
-      { d: commands.slice(0, third + 1).join(' '),        color: '#E10600' },
-      { d: commands.slice(third, third * 2 + 1).join(' '), color: '#FFF200' },
-      { d: commands.slice(third * 2).join(' '),            color: '#00D2BE' },
-    ];
-  }, [rawPath]);
+    const sectors = useMemo(() => {
+      // Split the raw path into individual commands (M, L, C, etc.)
+      const commands = rawPath.match(/[MLCQZTSHmVVAA][^MLCQZTSHmVVAA]*/gi) ?? []; // More robust regex
+      if (commands.length < 3) {
+        // Fallback for extremely simple paths
+        return [
+          { d: rawPath, color: '#E10600' },
+          { d: rawPath, color: '#FFF200' },
+          { d: rawPath, color: '#00D2BE' },
+        ];
+      }
+
+      const third = Math.floor(commands.length / 3);
+      
+      /** 
+       * Ensures an SVG path segment is valid by forcing it to start with 'M' 
+       * if it doesn't already. This prevents "Expected moveto path command" errors.
+       */
+      const ensureMoveto = (cmds: string[]) => {
+        if (!cmds.length) return '';
+        let pathStr = cmds.join(' ').trim();
+        if (pathStr && !pathStr.startsWith('M') && !pathStr.startsWith('m')) {
+          // Safely replace the first command char with 'M' (moveto)
+          // Look for the first coordinate pair to recreate a valid M
+          const firstCmd = cmds[0];
+          const coordsMatch = firstCmd.match(/-?\d+\.?\d*,-?\d+\.?\d*/);
+          if (coordsMatch) {
+            pathStr = 'M' + coordsMatch[0] + ' ' + pathStr.substring(firstCmd.indexOf(coordsMatch[0]) + coordsMatch[0].length);
+          } else {
+             pathStr = 'M' + pathStr.substring(1);
+          }
+        }
+        return pathStr;
+      };
+
+      return [
+        { d: ensureMoveto(commands.slice(0, third + 1)),         color: '#E10600' },
+        { d: ensureMoveto(commands.slice(third, third * 2 + 1)),  color: '#FFF200' },
+        { d: ensureMoveto(commands.slice(third * 2)),             color: '#00D2BE' },
+      ];
+    }, [rawPath]);
 
   return (
-    <div className="fixed inset-0 z-0 overflow-hidden transition-colors duration-500 bg-gray-100 dark:bg-[#080808]">
+    <div data-circuit-id={circuitId} className="fixed inset-0 z-0 overflow-hidden transition-colors duration-500 bg-gray-100 dark:bg-[#080808]">
 
       {/* ── Layer 1: Atmospheric glows ───────────────────────────── */}
       <div className="absolute top-[-15%] left-[-10%] w-[45%] h-[50%] bg-red-500/5 dark:bg-red-900/25 blur-[140px] rounded-full pointer-events-none" />

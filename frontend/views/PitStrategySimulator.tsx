@@ -56,10 +56,9 @@ const PitStrategySimulator: React.FC = () => {
   const [selectedPreset, setSelectedPreset] = useState(STRATEGY_PRESETS[0]);
   const [mode, setMode] = useState<'preset' | 'custom'>('preset');
 
-  // Custom stint builder
+  const [startingCompound, setStartingCompound] = useState<TireCompound>('MEDIUM');
   const [customStints, setCustomStints] = useState<Stint[]>([
-    { pitLap: 20, compound: 'MEDIUM' },
-    { pitLap: 42, compound: 'HARD' },
+    { pitLap: 22, compound: 'HARD' },
   ]);
 
   // Simulation state
@@ -98,8 +97,17 @@ const PitStrategySimulator: React.FC = () => {
         return [lap, s.comp] as [number, string];
       });
     }
-    return customStints.map(s => [s.pitLap, s.compound] as [number, string]);
-  }, [mode, selectedPreset, customStints]);
+    
+    // Custom builder
+    const arr: [number, string][] = [];
+    let currentComp = startingCompound;
+    for (const stop of customStints) {
+      arr.push([stop.pitLap, currentComp]);
+      currentComp = stop.compound;
+    }
+    arr.push([totalLaps, currentComp]);
+    return arr;
+  }, [mode, selectedPreset, customStints, startingCompound, totalLaps]);
 
   // Monte Carlo distribution (local fallback)
   const monteCarloData = useMemo(() => {
@@ -181,11 +189,19 @@ const PitStrategySimulator: React.FC = () => {
     : (() => {
         const stints: { comp: string; laps: number }[] = [];
         let prevLap = 0;
-        for (const s of customStints) {
-          stints.push({ comp: s.compound, laps: s.pitLap - prevLap });
-          prevLap = s.pitLap;
+        let currentComp = startingCompound;
+        
+        for (const stop of customStints) {
+          if (stop.pitLap > prevLap) {
+            stints.push({ comp: currentComp, laps: stop.pitLap - prevLap });
+          }
+          prevLap = Math.max(prevLap, stop.pitLap);
+          currentComp = stop.compound;
         }
-        if (prevLap < totalLaps) stints.push({ comp: customStints[customStints.length - 1]?.compound || 'HARD', laps: totalLaps - prevLap });
+        
+        if (prevLap < totalLaps) {
+          stints.push({ comp: currentComp, laps: totalLaps - prevLap });
+        }
         return stints;
       })();
 
@@ -317,10 +333,24 @@ const PitStrategySimulator: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3">
+              {/* Starting Tires */}
+              <div className="flex items-center gap-3 p-3 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: (COLORS.tires as any)[startingCompound] }} />
+                <span className="text-xs font-bold text-gray-400 uppercase w-24">Starting Tires</span>
+                <select
+                  value={startingCompound}
+                  onChange={e => setStartingCompound(e.target.value as TireCompound)}
+                  className="px-3 py-1 rounded-lg border text-sm font-bold bg-transparent ml-auto"
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
+                >
+                  {COMPOUNDS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
               {customStints.map((stint, idx) => (
                 <div key={idx} className="flex items-center gap-3 p-3 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: (COLORS.tires as any)[stint.compound] }} />
-                  <span className="text-xs font-bold text-gray-400 uppercase w-16">Stop {idx + 1}</span>
+                  <span className="text-xs font-bold text-gray-400 uppercase w-16 whitespace-nowrap">Pit {idx + 1}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-gray-500">Lap</span>
                     <input

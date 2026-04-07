@@ -18,7 +18,7 @@ import {
   Gauge, Users, Compass, BarChart3, Shield, Activity,
   Cpu, Map, Wifi, WifiOff, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { useBackendStatus } from './hooks/useApi';
+import { useBackendStatus, useRaces2024 } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
 import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
 import { logger } from './services/logger';
@@ -121,8 +121,30 @@ class ViewErrorBoundary extends React.Component<
  */
 const App: React.FC = () => {
   const { online, latency } = useBackendStatus();
-  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapsed } = useAppStore();
+  const {
+    activeRaceRound,
+    backgroundCircuitId,
+    sidebarOpen,
+    setSidebarOpen,
+    sidebarCollapsed,
+    toggleSidebarCollapsed
+  } = useAppStore();
+  const { data: races } = useRaces2024();
   const location = useLocation();
+
+  /** 
+   * Determine the current circuit ID for the background simulation.
+   * Priority:
+   * 1. Explicit background override (from Track Explorer)
+   * 2. Active race round mapping
+   * 3. Default fallback
+   */
+  const currentCircuitId = React.useMemo(() => {
+    if (backgroundCircuitId) return backgroundCircuitId;
+    if (!races) return 'bahrain';
+    const currentRace = races.find((r) => r.round === activeRaceRound);
+    return currentRace?.circuit?.id || 'bahrain';
+  }, [races, activeRaceRound, backgroundCircuitId]);
 
   /** Log route transitions (dev only). */
   React.useEffect(() => {
@@ -276,7 +298,7 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-24 lg:pt-0 lg:pb-0">
-        <DynamicSimulationBackground />
+        <DynamicSimulationBackground key={currentCircuitId} circuitId={currentCircuitId} />
         <div className="relative z-10 h-full flex flex-col overflow-y-auto scrollbar-hide">
           <ViewErrorBoundary>
             <React.Suspense fallback={<ViewLoader />}>

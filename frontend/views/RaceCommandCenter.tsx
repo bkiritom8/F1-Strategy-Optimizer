@@ -271,7 +271,17 @@ const RaceCommandCenter: React.FC = () => {
   const { online } = useBackendStatus();
   const { data: races } = useRaces2024();
 
-  const { activeRaceRound, setActiveRaceRound, setSelectedDriverId: setStoreDriverId } = useAppStore();
+  const { 
+    activeRaceRound, 
+    setActiveRaceRound, 
+    setBackgroundCircuitId,
+    setSelectedDriverId: setStoreDriverId 
+  } = useAppStore();
+
+  // Reset background override to follow the active race round when in this view
+  useEffect(() => {
+    setBackgroundCircuitId(null);
+  }, [setBackgroundCircuitId]);
   const [selectedRaceId, setSelectedRaceId] = useState<number | null>(activeRaceRound || null);
 
   // Predictive ML Metrics
@@ -340,7 +350,7 @@ const RaceCommandCenter: React.FC = () => {
                 gap_to_leader: live.gap_to_leader ?? t.gap_to_leader,
                 gap_to_ahead: live.gap_to_ahead ?? t.gap_to_ahead,
                 current_lap_time: live.lap_time_ms ? live.lap_time_ms / 1000 : t.current_lap_time,
-                tire_compound: live.tire_compound ?? t.tire_compound,
+                tire_compound: (live.tire_compound as any) ?? t.tire_compound,
                 tire_age_laps: live.tire_age_laps ?? t.tire_age_laps,
                 fuel_remaining_kg: live.fuel_remaining_kg ?? t.fuel_remaining_kg,
               };

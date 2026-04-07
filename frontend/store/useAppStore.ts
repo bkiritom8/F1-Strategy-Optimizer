@@ -16,9 +16,11 @@ interface AppState {
   activeRaceId: string;
   activeRaceRound: number;
   activeLap: number;
+  backgroundCircuitId: string | null;
   setActiveRace: (raceId: string, round?: number, lap?: number) => void;
   setActiveRaceRound: (round: number) => void;
   setActiveLap: (lap: number) => void;
+  setBackgroundCircuitId: (id: string | null) => void;
 
   // Sidebar state (mobile & desktop collapse)
   sidebarOpen: boolean;
@@ -35,11 +37,13 @@ export const useAppStore = create<AppState>((set) => ({
   activeRaceId: '2024_1',
   activeRaceRound: 1,
   activeLap: 1,
+  backgroundCircuitId: null,
   setActiveRace: (raceId, round, lap) =>
     set({ activeRaceId: raceId, activeRaceRound: round ?? 1, activeLap: lap ?? 1 }),
   setActiveRaceRound: (round) =>
     set({ activeRaceRound: round, activeRaceId: `2024_${round}` }),
   setActiveLap: (lap) => set({ activeLap: lap }),
+  setBackgroundCircuitId: (id) => set({ backgroundCircuitId: id }),
 
   sidebarOpen: false,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
