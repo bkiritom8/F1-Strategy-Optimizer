@@ -140,15 +140,21 @@ class GeminiClient:
         """Initialize Vertex AI with config project and region."""
         if self._initialized:
             return
-        
-        logger.info("Initializing Vertex AI with Project ID: %s, Region: %s", 
-                    self._config.PROJECT_ID, self._config.REGION)
-        
+
+        logger.info(
+            "Initializing Vertex AI with Project ID: %s, Region: %s",
+            self._config.PROJECT_ID,
+            self._config.REGION,
+        )
+
         try:
             vertexai.init(project=self._config.PROJECT_ID, location=self._config.REGION)
             self._model = GenerativeModel(self._config.LLM_MODEL)
             self._initialized = True
-            logger.info("Vertex AI successfully initialized with model: %s", self._config.LLM_MODEL)
+            logger.info(
+                "Vertex AI successfully initialized with model: %s",
+                self._config.LLM_MODEL,
+            )
         except Exception as e:
             logger.error("Failed to initialize Vertex AI: %s", str(e), exc_info=True)
             raise RuntimeError(f"Vertex AI initialization failed: {e}") from e
@@ -229,7 +235,7 @@ class GeminiClient:
             context_docs=context_docs,
             structured_inputs=structured_inputs,
         )
-        
+
         try:
             logger.info("Sending generation request to Gemini...")
             response = self._model.generate_content(  # type: ignore[union-attr]
@@ -239,8 +245,11 @@ class GeminiClient:
                     "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
                 },
             )
-            logger.info("Received response from Gemini. Candidates: %d", len(response.candidates) if response.candidates else 0)
-            
+            logger.info(
+                "Received response from Gemini. Candidates: %d",
+                len(response.candidates) if response.candidates else 0,
+            )
+
             # Safely extract text — response.text raises on MAX_TOKENS finish_reason
             # in newer Vertex AI SDK versions; extract from candidates directly instead.
             if response.candidates:
@@ -248,7 +257,7 @@ class GeminiClient:
                 if parts:
                     return "".join(p.text for p in parts if hasattr(p, "text"))
             return response.text  # type: ignore[return-value]
-            
+
         except Exception as e:
             logger.error("Gemini generation failed: %s", str(e), exc_info=True)
             return f"Error: The AI strategist is currently unavailable due to a connection issue: {str(e)}"
