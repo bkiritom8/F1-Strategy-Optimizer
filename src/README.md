@@ -86,4 +86,4 @@ Cloud Build builds `api:latest` automatically on every push to `pipeline`.
 
 ---
 
-**Status**: Complete — deployed on Cloud Run `f1-strategy-api-dev`
+**Status**: Complete — deployed on Cloud Run `f1-strategy-api-dev` | **Last Updated**: 2026-04-08

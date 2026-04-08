@@ -60,4 +60,4 @@ terraform apply -var-file=dev.tfvars
 
 ---
 
-**Project**: `f1optimizer` | **Region**: `us-central1` | **Budget cap**: $70/month
+**Project**: `f1optimizer` | **Region**: `us-central1` | **Budget cap**: $70/month | **Last Updated**: 2026-04-08

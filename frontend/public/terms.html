@@ -17,7 +17,7 @@
             color: rgba(255, 255, 255, 0.9);
             font-family: 'Inter', sans-serif;
             margin: 0;
-            line-height: 1.6;
+            line-height: 1.7;
         }
         .container {
             max-width: 800px;
@@ -31,17 +31,33 @@
             font-style: italic;
             letter-spacing: -0.02em;
         }
-        h1 { font-size: 3rem; font-weight: 900; margin-bottom: 2rem; }
-        h2 { font-size: 1.5rem; margin-top: 3rem; color: var(--red); }
-        p { margin-bottom: 1.5rem; color: rgba(255, 255, 255, 0.7); }
+        h1 { font-size: 3rem; font-weight: 900; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.25rem; margin-top: 2.5rem; color: var(--red); }
+        h3 { font-size: 1rem; margin-top: 1.5rem; color: rgba(255,255,255,0.8); text-transform: none; font-style: normal; }
+        p, li { margin-bottom: 1rem; color: rgba(255, 255, 255, 0.7); }
+        ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.5rem; }
         .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
-            border: 1px border var(--border);
+            border: 1px solid var(--border);
             padding: 3rem;
             border-radius: 2rem;
             border-left: 4px solid var(--red);
         }
+        .meta {
+            color: rgba(255,255,255,0.4);
+            font-size: 0.875rem;
+            margin-bottom: 2rem;
+        }
+        .highlight-box {
+            background: rgba(220, 38, 38, 0.08);
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            border-radius: 0.75rem;
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .highlight-box p { margin-bottom: 0; }
         footer {
             margin-top: 5rem;
             padding-top: 2rem;
@@ -50,32 +66,204 @@
             font-size: 0.8rem;
             color: rgba(255, 255, 255, 0.4);
         }
+        footer a { color: rgba(255,255,255,0.5); text-decoration: none; }
+        footer a:hover { color: var(--red); }
         a { color: var(--red); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+            font-size: 0.875rem;
+        }
+        .nav-links a { color: rgba(255,255,255,0.5); }
+        .nav-links a:hover { color: var(--red); }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/privacy-policy.html">Privacy Policy</a>
+            <a href="/cookie-policy.html">Cookie Policy</a>
+        </div>
+
         <div class="glass-card">
             <h1>Terms of Service</h1>
-            <p>Last Updated: April 2026</p>
+            <p class="meta">Last Updated: 8 April 2026 &mdash; Version 2.0</p>
 
-            <h2>1. Acceptance of Terms</h2>
-            <p>By accessing Apex Intelligence, you agree to be bound by these Terms of Service. If you do not agree to all terms, you must cease use of the platform immediately.</p>
+            <div class="highlight-box">
+                <p>Please read these Terms of Service carefully before using Apex Intelligence. By accessing or using our platform, you confirm that you have read, understood, and agree to be bound by these Terms. If you do not agree, you must stop using the platform immediately.</p>
+            </div>
 
-            <h2>2. Intellectual Property</h2>
-            <p>The simulation engines, UI designs, and racing algorithms provided on this platform are the exclusive property of Apex Strategy Labs. Any unauthorized reproduction or reverse engineering is strictly prohibited.</p>
+            <!-- ─── 1. DEFINITIONS ─────────────────────────────────────────────── -->
+            <h2>1. Definitions</h2>
+            <p>In these Terms of Service:</p>
+            <ul>
+                <li><strong>"Platform"</strong> means the Apex Intelligence website, web application, APIs, and all associated services operated by Apex Strategy Labs.</li>
+                <li><strong>"We", "Us", "Our"</strong> means Apex Strategy Labs, the data controller and operator of the Platform.</li>
+                <li><strong>"You", "User"</strong> means any individual or entity that accesses or uses the Platform.</li>
+                <li><strong>"Content"</strong> means all data, text, graphics, simulation outputs, models, and algorithms provided through the Platform.</li>
+                <li><strong>"Personal Data"</strong> has the meaning given in the UK GDPR / EU GDPR — any information relating to an identified or identifiable natural person.</li>
+                <li><strong>"GDPR"</strong> means Regulation (EU) 2016/679 of the European Parliament and of the Council and, where applicable, the UK GDPR as retained in UK law.</li>
+            </ul>
 
-            <h2>3. F1 Data Disclaimer</h2>
-            <p>Apex Intelligence is an independent platform. We utilize official F1 historical data for simulation purposes under fair use. We are not officially affiliated with Formula 1 or any individual racing teams.</p>
+            <!-- ─── 2. ACCEPTANCE ──────────────────────────────────────────────── -->
+            <h2>2. Acceptance of Terms</h2>
+            <p>By creating an account, clicking "I Agree", or otherwise accessing the Platform, you enter into a legally binding agreement with Apex Strategy Labs. These Terms apply to all visitors, registered users, and any other persons who access the Platform.</p>
+            <p>You must be at least 16 years of age to use the Platform. By agreeing to these Terms, you represent and warrant that you meet this requirement. If you are under 16, you must not use the Platform.</p>
 
-            <h2>4. Limitation of Liability</h2>
-            <p>Our strategy computations are based on complex probabilistic models. No guarantee of real-world outcome accuracy is provided. We shall not be held liable for any decisions made based on platform simulations.</p>
+            <!-- ─── 3. DESCRIPTION OF SERVICE ─────────────────────────────────── -->
+            <h2>3. Description of Service</h2>
+            <p>Apex Intelligence is an independent F1 race strategy analytics and simulation platform. It provides:</p>
+            <ul>
+                <li>Real-time race strategy recommendations powered by machine learning models.</li>
+                <li>Historical F1 data analysis covering seasons from 1950 to 2026.</li>
+                <li>Monte Carlo race simulation and probabilistic pit stop optimisation.</li>
+                <li>Driver performance analytics and team-level insights.</li>
+            </ul>
+            <p>The Platform is provided for informational, educational, and entertainment purposes only. It is not designed or intended for use in actual motorsport operations or for any other safety-critical purpose.</p>
 
-            <h2>5. Account Termination</h2>
-            <p>We reserve the right to suspend or terminate access for any user found to be disrupting platform stability or violating security protocols.</p>
+            <!-- ─── 4. USER ACCOUNTS ───────────────────────────────────────────── -->
+            <h2>4. User Accounts and Registration</h2>
+            <p>Certain features of the Platform require you to register for an account. You agree to:</p>
+            <ul>
+                <li>Provide accurate, current, and complete information during registration.</li>
+                <li>Maintain the security of your password and account credentials.</li>
+                <li>Notify us immediately at <a href="mailto:security@apex-f1.com">security@apex-f1.com</a> of any unauthorised use of your account.</li>
+                <li>Accept responsibility for all activities that occur under your account.</li>
+            </ul>
+            <p>We reserve the right to suspend or terminate accounts that provide false information or violate these Terms.</p>
+
+            <!-- ─── 5. ACCEPTABLE USE ───────────────────────────────────────────── -->
+            <h2>5. Acceptable Use</h2>
+            <p>You agree not to use the Platform to:</p>
+            <ul>
+                <li>Violate any applicable law or regulation, including the GDPR and any applicable data protection legislation.</li>
+                <li>Transmit any material that is unlawful, harmful, threatening, defamatory, or otherwise objectionable.</li>
+                <li>Attempt to gain unauthorised access to any part of the Platform, its servers, or connected systems.</li>
+                <li>Reverse engineer, decompile, disassemble, or otherwise attempt to derive the source code of any proprietary algorithm or model.</li>
+                <li>Scrape, crawl, or systematically extract data from the Platform without our express written consent.</li>
+                <li>Introduce viruses, malware, or any other harmful code.</li>
+                <li>Use the Platform in any way that could damage, disable, overburden, or impair its operation.</li>
+                <li>Reproduce, resell, or commercially exploit any Content without our prior written permission.</li>
+            </ul>
+
+            <!-- ─── 6. INTELLECTUAL PROPERTY ──────────────────────────────────── -->
+            <h2>6. Intellectual Property</h2>
+            <p>All intellectual property rights in the Platform and its Content — including but not limited to simulation engines, machine learning models, UI designs, racing algorithms, and branding — are owned by or licensed to Apex Strategy Labs. Nothing in these Terms transfers any intellectual property rights to you.</p>
+            <p>You are granted a limited, non-exclusive, non-transferable, revocable licence to access and use the Platform solely for your personal, non-commercial purposes in accordance with these Terms.</p>
+            <p>Apex Strategy Labs is an independent platform. We utilise publicly available F1 historical data for simulation purposes. We are not affiliated with, endorsed by, or officially connected to Formula 1, the FIA, any Formula 1 team, or any related entity. All Formula 1-related trademarks are the property of their respective owners.</p>
+
+            <!-- ─── 7. DATA PROTECTION & GDPR ──────────────────────────────────── -->
+            <h2>7. Data Protection and Privacy (GDPR)</h2>
+
+            <h3>7.1 Data Controller</h3>
+            <p>Apex Strategy Labs acts as the <strong>Data Controller</strong> for Personal Data processed through the Platform. Our Data Protection Officer (DPO) can be contacted at <a href="mailto:privacy@apex-f1.com">privacy@apex-f1.com</a>.</p>
+
+            <h3>7.2 Lawful Bases for Processing</h3>
+            <p>We process your Personal Data under the following lawful bases as defined in Article 6 of the GDPR:</p>
+            <ul>
+                <li><strong>Contract (Art. 6(1)(b)):</strong> Processing necessary to provide the services you have requested, including account management and simulation delivery.</li>
+                <li><strong>Legitimate Interests (Art. 6(1)(f)):</strong> Processing for platform security, fraud prevention, and analytics to improve our services, where these interests are not overridden by your rights.</li>
+                <li><strong>Consent (Art. 6(1)(a)):</strong> Processing for non-essential cookies and marketing communications, where you have given explicit consent. You may withdraw consent at any time without detriment.</li>
+                <li><strong>Legal Obligation (Art. 6(1)(c)):</strong> Processing required to comply with applicable law.</li>
+            </ul>
+
+            <h3>7.3 Categories of Personal Data Collected</h3>
+            <ul>
+                <li><strong>Identity Data:</strong> Email address and display name used for authentication.</li>
+                <li><strong>Technical Data:</strong> IP address, browser type, device identifiers, and access logs.</li>
+                <li><strong>Usage Data:</strong> Simulation parameters, strategy selections, and feature interactions.</li>
+                <li><strong>Cookie Data:</strong> Session tokens and preference cookies (see our <a href="/cookie-policy.html">Cookie Policy</a>).</li>
+            </ul>
+
+            <h3>7.4 Data Retention</h3>
+            <p>We retain Personal Data only for as long as necessary for the purposes described in our <a href="/privacy-policy.html">Privacy Policy</a>. Account data is retained for the duration of your account plus 12 months after closure. Technical logs are retained for 90 days. You may request earlier deletion of your data at any time (see Section 7.5).</p>
+
+            <h3>7.5 Your Rights Under the GDPR</h3>
+            <p>As a data subject, you have the following rights under the GDPR, which you may exercise free of charge by contacting our DPO at <a href="mailto:privacy@apex-f1.com">privacy@apex-f1.com</a>:</p>
+            <ul>
+                <li><strong>Right of Access (Art. 15):</strong> Obtain a copy of the Personal Data we hold about you.</li>
+                <li><strong>Right to Rectification (Art. 16):</strong> Request correction of inaccurate or incomplete Personal Data.</li>
+                <li><strong>Right to Erasure / "Right to be Forgotten" (Art. 17):</strong> Request deletion of your Personal Data where it is no longer necessary for the purposes for which it was collected, or where you withdraw consent.</li>
+                <li><strong>Right to Restriction of Processing (Art. 18):</strong> Request that we restrict processing of your Personal Data in certain circumstances.</li>
+                <li><strong>Right to Data Portability (Art. 20):</strong> Receive your Personal Data in a structured, machine-readable format and transmit it to another controller.</li>
+                <li><strong>Right to Object (Art. 21):</strong> Object to processing based on legitimate interests or for direct marketing purposes.</li>
+                <li><strong>Rights related to automated decision-making (Art. 22):</strong> You have the right not to be subject to decisions based solely on automated processing that produce significant legal or similarly significant effects on you.</li>
+            </ul>
+            <p>We will respond to all valid requests within <strong>30 days</strong>. In complex cases we may extend this period by a further two months, of which you will be notified. If you believe your rights have been infringed, you have the right to lodge a complaint with a supervisory authority. In the UK, this is the <strong>Information Commissioner's Office (ICO)</strong> at <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer">ico.org.uk</a>. In the EU, you may contact the supervisory authority in your Member State of residence.</p>
+
+            <h3>7.6 International Data Transfers</h3>
+            <p>Your data is processed primarily within the European Economic Area (EEA) and the United Kingdom. Where we transfer Personal Data to processors located outside the EEA/UK (for example, cloud infrastructure providers), we ensure that adequate safeguards are in place in accordance with Chapter V of the GDPR, including Standard Contractual Clauses (SCCs) approved by the European Commission or the UK International Data Transfer Agreement (IDTA) as applicable.</p>
+
+            <h3>7.7 Cookies and Consent</h3>
+            <p>We use cookies and similar technologies as described in our <a href="/cookie-policy.html">Cookie Policy</a>. Non-essential cookies (analytics, personalisation) require your explicit consent, which you can manage via the Privacy Protocols panel accessible on the Platform. You can withdraw consent at any time by updating your preferences.</p>
+
+            <h3>7.8 Third-Party Data Processors</h3>
+            <p>We engage third-party processors (including Google Cloud Platform for infrastructure, Firebase for hosting, and authentication providers) under Data Processing Agreements that comply with Article 28 of the GDPR. A list of current sub-processors is available on request.</p>
+
+            <!-- ─── 8. SIMULATION DISCLAIMER ───────────────────────────────────── -->
+            <h2>8. Simulation Disclaimer and No Warranty</h2>
+            <p>Strategy recommendations, pit window predictions, and race outcome probabilities generated by the Platform are derived from probabilistic machine learning models trained on historical data. They are inherently uncertain and may not reflect real-world outcomes.</p>
+            <div class="highlight-box">
+                <p><strong>The Platform is provided "as is" and "as available" without warranties of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement.</strong> We do not guarantee the accuracy, completeness, or timeliness of any simulation output.</p>
+            </div>
+
+            <!-- ─── 9. LIMITATION OF LIABILITY ────────────────────────────────── -->
+            <h2>9. Limitation of Liability</h2>
+            <p>To the fullest extent permitted by applicable law, Apex Strategy Labs shall not be liable for:</p>
+            <ul>
+                <li>Any indirect, incidental, special, consequential, or punitive damages.</li>
+                <li>Any loss of data, revenue, profit, or business opportunity.</li>
+                <li>Any decisions made in reliance on simulation outputs or strategy recommendations.</li>
+                <li>Any unavailability of the Platform due to maintenance, network issues, or force majeure events.</li>
+            </ul>
+            <p>Where liability cannot be excluded by law, our total aggregate liability to you arising out of or in connection with these Terms or use of the Platform shall not exceed the greater of (a) the fees paid by you in the 12 months preceding the claim, or (b) £50 GBP.</p>
+            <p>Nothing in these Terms excludes or limits liability for death or personal injury caused by negligence, fraud, or any other liability that cannot be limited by law.</p>
+
+            <!-- ─── 10. INDEMNIFICATION ────────────────────────────────────────── -->
+            <h2>10. Indemnification</h2>
+            <p>You agree to indemnify, defend, and hold harmless Apex Strategy Labs, its officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, and expenses (including reasonable legal fees) arising out of or in any way connected with your access to or use of the Platform, your violation of these Terms, or your infringement of any third-party rights.</p>
+
+            <!-- ─── 11. THIRD-PARTY LINKS ──────────────────────────────────────── -->
+            <h2>11. Third-Party Links and Services</h2>
+            <p>The Platform may contain links to third-party websites or services. These are provided for convenience only. We have no control over the content, privacy practices, or terms of third-party sites and accept no responsibility for them. Your interactions with third-party sites are governed by their respective terms and privacy policies.</p>
+
+            <!-- ─── 12. TERMINATION ────────────────────────────────────────────── -->
+            <h2>12. Suspension and Termination</h2>
+            <p>We reserve the right to suspend or permanently terminate your access to the Platform at our discretion, with or without notice, if we reasonably believe that you have violated these Terms, engaged in fraudulent or unlawful activity, or threatened the security or integrity of the Platform.</p>
+            <p>You may close your account at any time by contacting us at <a href="mailto:support@apex-f1.com">support@apex-f1.com</a>. Upon closure, we will process your data deletion request in accordance with Section 7.4 and our Privacy Policy.</p>
+            <p>Sections 6, 7, 8, 9, 10, and 14 of these Terms shall survive termination.</p>
+
+            <!-- ─── 13. MODIFICATIONS ──────────────────────────────────────────── -->
+            <h2>13. Changes to These Terms</h2>
+            <p>We may update these Terms of Service at any time. Where changes are material, we will notify registered users by email at least <strong>14 days</strong> before the changes take effect. Continued use of the Platform after the effective date of updated Terms constitutes your acceptance of those changes. If you do not agree to the updated Terms, you must stop using the Platform and may close your account.</p>
+            <p>The current version of these Terms is always accessible at <a href="/terms.html">apex-f1.com/terms</a>. The "Last Updated" date at the top of this page indicates when these Terms were most recently revised.</p>
+
+            <!-- ─── 14. GOVERNING LAW ───────────────────────────────────────────── -->
+            <h2>14. Governing Law and Dispute Resolution</h2>
+            <p>These Terms and any dispute or claim arising from them shall be governed by and construed in accordance with the laws of <strong>England and Wales</strong>. The courts of England and Wales shall have exclusive jurisdiction to settle any dispute arising out of or in connection with these Terms, subject to any mandatory consumer protection rights you may have under the law of your country of residence.</p>
+            <p>If you are located in the European Union, nothing in these Terms affects your rights to bring proceedings before the courts of your Member State of habitual residence.</p>
+            <p>We encourage you to contact us first at <a href="mailto:support@apex-f1.com">support@apex-f1.com</a> to resolve any dispute informally before commencing legal proceedings.</p>
+
+            <!-- ─── 15. CONTACT ────────────────────────────────────────────────── -->
+            <h2>15. Contact Information</h2>
+            <p>If you have any questions about these Terms, please contact us:</p>
+            <ul>
+                <li><strong>General enquiries:</strong> <a href="mailto:support@apex-f1.com">support@apex-f1.com</a></li>
+                <li><strong>Data protection / privacy:</strong> <a href="mailto:privacy@apex-f1.com">privacy@apex-f1.com</a></li>
+                <li><strong>Security issues:</strong> <a href="mailto:security@apex-f1.com">security@apex-f1.com</a></li>
+            </ul>
         </div>
+
         <footer>
-            &copy; 2026 Apex Strategy Labs. High Performance Intelligence.
+            <p>
+                <a href="/privacy-policy.html">Privacy Policy</a> &nbsp;&bull;&nbsp;
+                <a href="/cookie-policy.html">Cookie Policy</a> &nbsp;&bull;&nbsp;
+                <a href="/terms.html">Terms of Service</a>
+            </p>
+            <p>&copy; 2026 Apex Strategy Labs. High Performance Intelligence.</p>
         </footer>
     </div>
 </body>

@@ -49,6 +49,16 @@ python pipeline/scripts/build_car_performance.py \
   --output frontend/public/data/car_performance.json
 ```
 
+## Legal Pages
+
+Served as static HTML from `public/`:
+
+| File | Description |
+|---|---|
+| `public/terms.html` | Terms of Service — GDPR-compliant (v2.0, April 2026) |
+| `public/privacy-policy.html` | Privacy Policy — GDPR & CCPA, data controller, subject rights |
+| `public/cookie-policy.html` | Cookie Policy — consent categories and management |
+
 ## Development
 
 ### Prerequisites
@@ -86,4 +96,4 @@ firebase deploy --only hosting
 
 ---
 
-**Status**: Complete — deployed on Firebase Hosting | **Build**: Vite 6 + React 19 + Tailwind + Glassmorphism
+**Status**: Complete — deployed on Firebase Hosting | **Build**: Vite 6 + React 19 + Tailwind + Glassmorphism | **Last Updated**: 2026-04-08

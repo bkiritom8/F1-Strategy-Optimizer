@@ -29,3 +29,7 @@ Technical architecture, setup guides, ML handoffs, and operational references fo
 - **RAG system**: `rag.md` → `../rag/README.md`
 
 *(For the project-wide architecture index, see the root `README.md`.)*
+
+---
+
+**Last Updated**: 2026-04-08
