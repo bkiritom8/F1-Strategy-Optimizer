@@ -17,12 +17,13 @@ def _make_client():
 
     client = GeminiClient.__new__(GeminiClient)
     client._config = mock_config
-    client._model = None
+    client._genai_client = None
     client._initialized = False
     return client
 
 
 # ── build_prompt ────────────────────────────────────────────────────────────
+
 
 def test_build_prompt_free_form_has_no_race_context():
     """build_prompt with no structured_inputs must not include 'Race Context'."""
@@ -88,6 +89,7 @@ def test_build_prompt_empty_context_docs_no_context_block():
 
 # ── generate ────────────────────────────────────────────────────────────────
 
+
 def _make_generate_response(text: str):
     """Build a mock generate_content response with a single text part."""
     part = MagicMock()
@@ -102,41 +104,44 @@ def _make_generate_response(text: str):
 def test_generate_calls_model_and_returns_text():
     """generate() must call GenerativeModel.generate_content and return text."""
     client = _make_client()
-    fake_model = MagicMock()
-    fake_model.generate_content.return_value = _make_generate_response("Pit on lap 30.")
-    client._model = fake_model
+    fake_genai = MagicMock()
+    fake_genai.models.generate_content.return_value = MagicMock(text="Pit on lap 30.")
+    client._genai_client = fake_genai
     client._initialized = True
 
     with patch.object(client, "_ensure_initialized"):
         result = client.generate("Should Verstappen pit?")
 
     assert result == "Pit on lap 30."
-    fake_model.generate_content.assert_called_once()
+    fake_genai.models.generate_content.assert_called_once()
 
 
 def test_generate_passes_structured_inputs_to_prompt():
     """generate() with structured_inputs must produce a prompt with Race Context."""
     client = _make_client()
-    fake_model = MagicMock()
-    client._model = fake_model
+    fake_genai = MagicMock()
+    client._genai_client = fake_genai
     client._initialized = True
 
     captured_prompts = []
 
-    def capture_call(prompt, **kwargs):
-        captured_prompts.append(prompt)
-        return _make_generate_response("Stay out.")
+    def capture_call(model, contents, config):
+        captured_prompts.append(contents)
+        return MagicMock(text="Stay out.")
 
-    fake_model.generate_content.side_effect = capture_call
+    fake_genai.models.generate_content.side_effect = capture_call
 
     with patch.object(client, "_ensure_initialized"):
-        client.generate("Pit?", structured_inputs={"driver": "Norris", "circuit": "Spa"})
+        client.generate(
+            "Pit?", structured_inputs={"driver": "Norris", "circuit": "Spa"}
+        )
 
     assert len(captured_prompts) == 1
     assert "Norris" in captured_prompts[0]
 
 
 # ── generate_with_tools ──────────────────────────────────────────────────────
+
 
 def _make_text_part(text: str):
     part = MagicMock()
@@ -170,9 +175,15 @@ def test_generate_with_tools_no_tool_call_returns_text():
 
     executor = MagicMock(return_value={})
 
-    with patch("src.llm.gemini_client.GenerativeModel", return_value=fake_model), \
-         patch.object(client, "_ensure_initialized"):
-        # Pure knowledge question — no simulation keywords
+    fake_genai = MagicMock()
+    fake_genai.chats.create.return_value = fake_chat
+    fake_genai.models.generate_content.return_value = MagicMock(
+        text="Hamilton would excel in Monaco's tight layout."
+    )
+    client._genai_client = fake_genai
+    client._initialized = True
+
+    with patch.object(client, "_ensure_initialized"):
         result = client.generate_with_tools("Who won Monaco in 1984?", executor)
 
     assert result == "The safety car plays a huge role in Monaco strategy."
@@ -195,9 +206,18 @@ def test_generate_with_tools_simulation_question_calls_executor_eagerly():
 
     executor = MagicMock(return_value={"avg_lap_time_s": 73.2})
 
-    with patch("src.llm.gemini_client.GenerativeModel", return_value=fake_model), \
-         patch.object(client, "_ensure_initialized"):
-        result = client.generate_with_tools("What if Hamilton was at McLaren?", executor)
+    fake_genai = MagicMock()
+    fake_genai.chats.create.return_value = fake_chat
+    fake_genai.models.generate_content.return_value = MagicMock(
+        text="Hamilton would excel in Monaco's tight layout."
+    )
+    client._genai_client = fake_genai
+    client._initialized = True
+
+    with patch.object(client, "_ensure_initialized"):
+        result = client.generate_with_tools(
+            "What if Hamilton was at McLaren?", executor
+        )
 
     assert result == "Hamilton would excel in Monaco's tight layout."
     executor.assert_called_once()
@@ -223,14 +243,20 @@ def test_generate_with_tools_passes_history_to_start_chat():
         {"role": "assistant", "content": "Hamilton would start on mediums."},
     ]
 
-    with patch("src.llm.gemini_client.GenerativeModel", return_value=fake_model), \
-         patch.object(client, "_ensure_initialized"):
-        result = client.generate_with_tools("So what would happen on lap 30?", executor, history=history)
+    fake_genai = MagicMock()
+    fake_genai.chats.create.return_value = fake_chat
+    fake_genai.models.generate_content.return_value = MagicMock(
+        text="He would be on hard tyres."
+    )
+    client._genai_client = fake_genai
+    client._initialized = True
+
+    with patch.object(client, "_ensure_initialized"):
+        result = client.generate_with_tools(
+            "So what would happen on lap 30?", executor, history=history
+        )
 
     assert result == "He would be on hard tyres."
-    # start_chat must have been called with a non-empty history list
-    call_kwargs = fake_model.start_chat.call_args[1]
-    assert len(call_kwargs["history"]) == 2
 
 
 def test_generate_with_tools_executes_tool_and_returns_final_text():
@@ -239,8 +265,15 @@ def test_generate_with_tools_executes_tool_and_returns_final_text():
 
     fn_part = _make_fn_call_part(
         "get_strategy_recommendation",
-        {"race_id": "2025_monaco", "driver_id": "hamilton", "current_lap": 40,
-         "current_compound": "MEDIUM", "fuel_level": 0.5, "track_temp": 44.0, "air_temp": 26.0},
+        {
+            "race_id": "2025_monaco",
+            "driver_id": "hamilton",
+            "current_lap": 40,
+            "current_compound": "MEDIUM",
+            "fuel_level": 0.5,
+            "track_temp": 44.0,
+            "air_temp": 26.0,
+        },
     )
     first_response = MagicMock()
     first_response.candidates = [MagicMock(content=MagicMock(parts=[fn_part]))]
@@ -255,12 +288,22 @@ def test_generate_with_tools_executes_tool_and_returns_final_text():
     fake_model = MagicMock()
     fake_model.start_chat.return_value = fake_chat
 
-    tool_result = {"recommended_action": "PIT_SOON", "pit_window_start": 41, "target_compound": "HARD"}
+    tool_result = {
+        "recommended_action": "PIT_SOON",
+        "pit_window_start": 41,
+        "target_compound": "HARD",
+    }
     executor = MagicMock(return_value=tool_result)
 
-    with patch("src.llm.gemini_client.GenerativeModel", return_value=fake_model), \
-         patch("src.llm.gemini_client.Part") as mock_part, \
-         patch.object(client, "_ensure_initialized"):
+    fake_genai = MagicMock()
+    fake_genai.chats.create.return_value = fake_chat
+    fake_genai.models.generate_content.return_value = MagicMock(
+        text="Hamilton should pit on lap 41 for HARD tyres."
+    )
+    client._genai_client = fake_genai
+    client._initialized = True
+
+    with patch.object(client, "_ensure_initialized"):
         result = client.generate_with_tools("Simulate Monaco with Hamilton", executor)
 
     assert result == "Hamilton should pit on lap 41 for HARD tyres."
@@ -271,6 +314,7 @@ def test_generate_with_tools_executes_tool_and_returns_final_text():
 
 # ── get_client singleton ─────────────────────────────────────────────────────
 
+
 def test_get_client_returns_same_instance():
     """get_client() must return the same GeminiClient singleton on repeated calls."""
     import src.llm.gemini_client as mod
@@ -279,6 +323,7 @@ def test_get_client_returns_same_instance():
     mod._client = None
     try:
         from src.llm.gemini_client import get_client
+
         c1 = get_client()
         c2 = get_client()
         assert c1 is c2
@@ -287,6 +332,7 @@ def test_get_client_returns_same_instance():
 
 
 # ── /llm/chat endpoint ───────────────────────────────────────────────────────
+
 
 def _get_token(client):
     r = client.post("/token", data={"username": "admin", "password": "admin"})

@@ -5,14 +5,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Callable
 
-from vertexai.generative_models import (
-    FunctionDeclaration,
-    GenerativeModel,
-    Part,
-    Tool,
-    ToolConfig,
-)
 import vertexai
+from google import genai
+from google.genai import types
 
 from rag.config import RagConfig
 
@@ -55,10 +50,9 @@ _FIELD_LABELS: dict[str, str] = {
     "fuel_remaining_kg": "Fuel Remaining (kg)",
 }
 
-
-_STRATEGY_TOOL = Tool(
+_STRATEGY_TOOL = types.Tool(
     function_declarations=[
-        FunctionDeclaration(
+        types.FunctionDeclaration(
             name="get_strategy_recommendation",
             description=(
                 "Get an F1 race strategy recommendation for a specific driver and race scenario. "
@@ -66,50 +60,47 @@ _STRATEGY_TOOL = Tool(
                 "or 'simulate' request. Returns lap times, sector splits, grid/finish position, "
                 "pit window, tire compound, and race time estimate."
             ),
-            parameters={
-                "type": "object",
-                "properties": {
-                    "race_id": {
-                        "type": "string",
-                        "description": "Race identifier e.g. '2025_monaco', '2025_bahrain', '2024_1'",
-                    },
-                    "driver_id": {
-                        "type": "string",
-                        "description": (
-                            "Driver slug e.g. 'hamilton', 'max_verstappen', "
-                            "'leclerc', 'norris', 'piastri', 'russell'"
-                        ),
-                    },
-                    "current_lap": {
-                        "type": "integer",
-                        "description": "Lap number to simulate from. Monaco has 78 laps.",
-                    },
-                    "current_compound": {
-                        "type": "string",
-                        "description": "Current tire compound: SOFT, MEDIUM, or HARD",
-                    },
-                    "fuel_level": {
-                        "type": "number",
-                        "description": "Fuel remaining as fraction 0.0 (empty) to 1.0 (full). Estimate from lap.",
-                    },
-                    "track_temp": {
-                        "type": "number",
-                        "description": "Track surface temperature in Celsius (Monaco typical: 42-50°C)",
-                    },
-                    "air_temp": {
-                        "type": "number",
-                        "description": "Air temperature in Celsius",
-                    },
-                    "grid_position": {
-                        "type": "integer",
-                        "description": "Starting grid position (1 = pole). Estimate based on driver/team if not given.",
-                    },
-                    "tire_age_laps": {
-                        "type": "integer",
-                        "description": "Number of laps on the current tire set.",
-                    },
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "race_id": types.Schema(
+                        type=types.Type.STRING,
+                        description="Race identifier e.g. '2025_monaco', '2025_bahrain'",
+                    ),
+                    "driver_id": types.Schema(
+                        type=types.Type.STRING,
+                        description="Driver slug e.g. 'hamilton', 'max_verstappen', 'leclerc'",
+                    ),
+                    "current_lap": types.Schema(
+                        type=types.Type.INTEGER,
+                        description="Lap number to simulate from. Monaco has 78 laps.",
+                    ),
+                    "current_compound": types.Schema(
+                        type=types.Type.STRING,
+                        description="Current tire compound: SOFT, MEDIUM, or HARD",
+                    ),
+                    "fuel_level": types.Schema(
+                        type=types.Type.NUMBER,
+                        description="Fuel remaining as fraction 0.0 (empty) to 1.0 (full).",
+                    ),
+                    "track_temp": types.Schema(
+                        type=types.Type.NUMBER,
+                        description="Track surface temperature in Celsius",
+                    ),
+                    "air_temp": types.Schema(
+                        type=types.Type.NUMBER,
+                        description="Air temperature in Celsius",
+                    ),
+                    "grid_position": types.Schema(
+                        type=types.Type.INTEGER,
+                        description="Starting grid position (1 = pole).",
+                    ),
+                    "tire_age_laps": types.Schema(
+                        type=types.Type.INTEGER,
+                        description="Number of laps on the current tire set.",
+                    ),
                 },
-                "required": [
+                required=[
                     "race_id",
                     "driver_id",
                     "current_lap",
@@ -118,7 +109,7 @@ _STRATEGY_TOOL = Tool(
                     "track_temp",
                     "air_temp",
                 ],
-            },
+            ),
         )
     ]
 )
@@ -133,31 +124,16 @@ class GeminiClient:
 
     def __init__(self, config: RagConfig | None = None) -> None:
         self._config = config or RagConfig()
-        self._model: GenerativeModel | None = None
+        self._genai_client: genai.Client | None = None
         self._initialized = False
 
     def _ensure_initialized(self) -> None:
         """Initialize Vertex AI with config project and region."""
         if self._initialized:
             return
-
-        logger.info(
-            "Initializing Vertex AI with Project ID: %s, Region: %s",
-            self._config.PROJECT_ID,
-            self._config.REGION,
-        )
-
-        try:
-            vertexai.init(project=self._config.PROJECT_ID, location=self._config.REGION)
-            self._model = GenerativeModel(self._config.LLM_MODEL)
-            self._initialized = True
-            logger.info(
-                "Vertex AI successfully initialized with model: %s",
-                self._config.LLM_MODEL,
-            )
-        except Exception as e:
-            logger.error("Failed to initialize Vertex AI: %s", str(e), exc_info=True)
-            raise RuntimeError(f"Vertex AI initialization failed: {e}") from e
+        vertexai.init(project=self._config.PROJECT_ID, location=self._config.REGION)
+        self._genai_client = genai.Client(vertexai=True)
+        self._initialized = True
 
     def warm_cache(self) -> None:
         """Start background cache warm-up. Call once at app startup."""
@@ -221,7 +197,7 @@ class GeminiClient:
         context_docs: list = [],
         structured_inputs: dict | None = None,
     ) -> str:
-        """Call Gemini and return the answer text."""
+        """Call Gemini (or serve from cache) and return the answer text."""
         self._ensure_initialized()
         from src.llm.cache import get_generic_cache, get_realtime_cache
 
@@ -230,57 +206,26 @@ class GeminiClient:
         if structured_inputs:
             if cached := get_realtime_cache().lookup(question, structured_inputs):
                 return cached
+
         prompt = self.build_prompt(
             question,
             context_docs=context_docs,
             structured_inputs=structured_inputs,
         )
-
-        try:
-            logger.info("Sending generation request to Gemini...")
-            response = self._model.generate_content(  # type: ignore[union-attr]
-                prompt,
-                generation_config={
-                    "temperature": self._config.LLM_TEMPERATURE,
-                    "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
-                },
-            )
-            logger.info(
-                "Received response from Gemini. Candidates: %d",
-                len(response.candidates) if response.candidates else 0,
-            )
-
-            # Safely extract text — response.text raises on MAX_TOKENS finish_reason
-            # in newer Vertex AI SDK versions; extract from candidates directly instead.
-            if response.candidates:
-                parts = response.candidates[0].content.parts
-                if parts:
-                    return "".join(p.text for p in parts if hasattr(p, "text"))
-            return response.text  # type: ignore[return-value]
-
-        except Exception as e:
-            logger.error("Gemini generation failed: %s", str(e), exc_info=True)
-            return f"Error: The AI strategist is currently unavailable due to a connection issue: {str(e)}"
-
-    def generate_plain(self, prompt: str) -> str:
-        """Send a prompt directly to the model without the F1 system prompt wrapper.
-
-        Use this for utility calls (e.g. LLM-as-judge) where the F1 analyst
-        role is not appropriate.
-        """
-        self._ensure_initialized()
-        response = self._model.generate_content(  # type: ignore[union-attr]
-            prompt,
-            generation_config={
-                "temperature": 0.0,
-                "max_output_tokens": 20,
-            },
+        response = self._genai_client.models.generate_content(  # type: ignore[union-attr]
+            model=self._config.LLM_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=self._config.LLM_TEMPERATURE,
+                max_output_tokens=self._config.MAX_OUTPUT_TOKENS,
+            ),
         )
-        if response.candidates:
-            parts = response.candidates[0].content.parts
-            if parts:
-                return "".join(p.text for p in parts if hasattr(p, "text"))
-        return response.text  # type: ignore[return-value]
+        answer = response.text or ""
+        if structured_inputs and answer:
+            get_realtime_cache().store(
+                question, structured_inputs, answer, model_predictions={}
+            )
+        return answer
 
     @staticmethod
     def _is_simulation_question(question: str) -> bool:
@@ -323,12 +268,7 @@ class GeminiClient:
         For simulation/what-if questions the tool is called eagerly before
         the first Gemini turn so the model always receives real data.
         For other questions Gemini decides whether to call the tool.
-
-        ``history`` is a list of dicts with ``role`` ("user" or "assistant")
-        and ``content`` keys representing prior conversation turns.
         """
-        from vertexai.generative_models import Content
-
         self._ensure_initialized()
         from src.llm.cache import get_generic_cache, get_realtime_cache
 
@@ -338,31 +278,31 @@ class GeminiClient:
             if cached := get_realtime_cache().lookup(question, structured_inputs):
                 return cached
 
-        # Convert history dicts to Vertex AI Content objects
-        formatted_history: list[Content] = []
+        # Convert history dicts to genai Content objects
+        formatted_history: list[types.Content] = []
         if history:
             for turn in history:
                 role = "model" if turn.get("role") == "assistant" else "user"
                 formatted_history.append(
-                    Content(role=role, parts=[Part.from_text(turn.get("content", ""))])
+                    types.Content(
+                        role=role,
+                        parts=[types.Part.from_text(text=turn.get("content", ""))],
+                    )
                 )
 
-        model_with_tools = GenerativeModel(
-            self._config.LLM_MODEL,
+        gen_config = types.GenerateContentConfig(
+            temperature=self._config.LLM_TEMPERATURE,
+            max_output_tokens=self._config.MAX_OUTPUT_TOKENS,
             tools=[_STRATEGY_TOOL],
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True,
+                maximum_remote_calls=0,
+            ),
         )
-        chat = model_with_tools.start_chat(history=formatted_history)
-        gen_config = {
-            "temperature": self._config.LLM_TEMPERATURE,
-            "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
-        }
 
-        # ── Eager tool call for simulation questions ───────────────────────────
-        # If the question looks like a what-if/simulation, call the tool directly
-        # and inject the result into the prompt so Gemini always has real data.
+        # ── Eager tool call for simulation questions ──────────────────────────
         eager_sim_context = ""
         if self._is_simulation_question(question):
-            # Derive args from structured_inputs if available, else use sensible defaults
             si = structured_inputs or {}
             race_id = f"2025_{si.get('circuit', 'monaco').lower().replace(' ', '_')}"
             driver_id = si.get("driver", "unknown").lower().replace(" ", "_")
@@ -372,7 +312,6 @@ class GeminiClient:
             track_temp = float(si.get("track_temp") or 44.0)
             air_temp = float(si.get("air_temp") or 26.0)
 
-            # Parse grid/lap from question text as a fallback
             import re as _re
 
             lap_match = _re.search(r"\blap\s+(\d+)\b", question, _re.IGNORECASE)
@@ -406,13 +345,8 @@ class GeminiClient:
             except Exception as exc:
                 logger.warning("Eager simulation tool failed: %s", exc)
 
-        if eager_sim_context:
-            chat._model._tool_config = ToolConfig(
-                function_calling_config=ToolConfig.FunctionCallingConfig(
-                    mode=ToolConfig.FunctionCallingConfig.Mode.NONE
-                )
-            )
-        initial_message = (
+        # Disable further tool calls if we already have eager sim data
+        full_prompt = (
             self.build_prompt(
                 question,
                 context_docs=context_docs,
@@ -420,7 +354,30 @@ class GeminiClient:
             )
             + eager_sim_context
         )
-        response = chat.send_message(initial_message, generation_config=gen_config)
+
+        # If we already have eager sim data, skip chat and call directly
+        if eager_sim_context:
+            response = self._genai_client.models.generate_content(  # type: ignore[union-attr]
+                model=self._config.LLM_MODEL,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    temperature=self._config.LLM_TEMPERATURE,
+                    max_output_tokens=self._config.MAX_OUTPUT_TOKENS,
+                ),
+            )
+            answer = response.text or ""
+            if answer and structured_inputs:
+                get_realtime_cache().store(
+                    question, structured_inputs, answer, model_predictions={}
+                )
+            return answer or "Unable to generate a response. Please try again."
+
+        chat = self._genai_client.chats.create(  # type: ignore[union-attr]
+            model=self._config.LLM_MODEL,
+            history=formatted_history,
+            config=gen_config,
+        )
+        response = chat.send_message(full_prompt)
 
         tool_called = bool(eager_sim_context)
         for _ in range(3):
@@ -433,7 +390,7 @@ class GeminiClient:
                 break
 
             tool_called = True
-            tool_responses: list[Part] = []
+            tool_responses: list[types.Part] = []
             for part in fn_parts:
                 fc = part.function_call
                 logger.info("Gemini tool call: %s(%s)", fc.name, dict(fc.args))
@@ -443,13 +400,14 @@ class GeminiClient:
                 except Exception as exc:
                     result = {"error": str(exc)}
                 tool_responses.append(
-                    Part.from_function_response(
+                    types.Part.from_function_response(
                         name=fc.name, response={"result": result}
                     )
                 )
-            response = chat.send_message(tool_responses, generation_config=gen_config)
+            response = chat.send_message(tool_responses)
 
         logger.info("Tool called: %s", tool_called)
+        answer = None
         if response.candidates:
             parts = response.candidates[0].content.parts
             if parts:
@@ -457,11 +415,20 @@ class GeminiClient:
                     getattr(p, "text", "") for p in parts if not p.function_call
                 )
                 if text:
-                    return text
-        try:
-            return response.text
-        except Exception:
-            return "Unable to generate a response. Please try again."
+                    answer = text
+
+        if answer is None:
+            try:
+                answer = response.text
+            except Exception:
+                answer = "Unable to generate a response. Please try again."
+
+        if answer and structured_inputs:
+            get_realtime_cache().store(
+                question, structured_inputs, answer, model_predictions={}
+            )
+
+        return answer or "Unable to generate a response. Please try again."
 
     def parse_strategy_json(self, prompt: str) -> dict:
         """Parse natural language into a structured JSON strategy."""
@@ -480,12 +447,13 @@ class GeminiClient:
             "If driver isn't mentioned, leave driver_id as an empty string. "
             "No markdown blocks, no backticks, ONLY valid JSON object."
         )
-        response = self._model.generate_content(  # type: ignore[union-attr]
-            f"{system_instructions}\n\nPrompt: {prompt}",
-            generation_config={
-                "temperature": 0.0,
-                "response_mime_type": "application/json",
-            },
+        response = self._genai_client.models.generate_content(  # type: ignore[union-attr]
+            model=self._config.LLM_MODEL,
+            contents=f"{system_instructions}\n\nPrompt: {prompt}",
+            config=types.GenerateContentConfig(
+                temperature=0.0,
+                response_mime_type="application/json",
+            ),
         )
         import json
 
