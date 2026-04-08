@@ -112,6 +112,13 @@ def _audit(event: str, username: str, **extra: Any) -> None:
 class UserStore:
     """Firestore-backed user store. All mutating operations are transactional."""
 
+    # ── Database Access ───────────────────────────────────────────────────────
+    
+    @property
+    def db(self) -> Any:
+        """Access the Firestore client instance."""
+        return _firestore()
+
     # ── Write operations ──────────────────────────────────────────────────────
 
     def register(
