@@ -74,7 +74,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # connect-src must include wss: so browsers allow WebSocket connections
         # from the Vercel frontend to this Cloud Run backend.
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; connect-src 'self' wss: https:"
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' data: https://fonts.gstatic.com https://r2cdn.perplexity.ai; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' wss: https:;"
         )
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = (

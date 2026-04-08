@@ -48,7 +48,15 @@ class TestSecurityHeadersMiddleware:
 
     def test_csp_header(self, client):
         r = client.get("/ping")
-        assert r.headers["Content-Security-Policy"] == "default-src 'self'; connect-src 'self' wss: https:"
+        expected_csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' data: https://fonts.gstatic.com https://r2cdn.perplexity.ai; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' wss: https:;"
+        )
+        assert r.headers["Content-Security-Policy"] == expected_csp
 
     def test_referrer_policy(self, client):
         r = client.get("/ping")

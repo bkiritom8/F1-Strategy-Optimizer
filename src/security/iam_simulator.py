@@ -131,43 +131,49 @@ class IAMSimulator:
     """Simulate IAM/RBAC for local development"""
 
     def __init__(self):
-        # In-memory user database
-        self.users: Dict[str, Dict] = {
-            "admin": {
-                "username": "admin",
-                "email": "admin@f1optimizer.local",
-                "full_name": "Admin User",
-                "hashed_password": self._hash_password("admin"),
-                "roles": [Role.ADMIN],
-                "disabled": False,
-            },
-            "data_engineer": {
-                "username": "data_engineer",
-                "email": "de@f1optimizer.local",
-                "full_name": "Data Engineer",
-                "hashed_password": self._hash_password("password"),
-                "roles": [Role.DATA_ENGINEER],
-                "disabled": False,
-            },
-            "ml_engineer": {
-                "username": "ml_engineer",
-                "email": "ml@f1optimizer.local",
-                "full_name": "ML Engineer",
-                "hashed_password": self._hash_password("password"),
-                "roles": [Role.ML_ENGINEER],
-                "disabled": False,
-            },
-            "viewer": {
-                "username": "viewer",
-                "email": "viewer@f1optimizer.local",
-                "full_name": "Data Viewer",
-                "hashed_password": self._hash_password("password"),
-                "roles": [Role.DATA_VIEWER],
-                "disabled": False,
-            },
-        }
+        # In-memory user database — only populated with defaults in local/test environments
+        self.users: Dict[str, Dict] = {}
 
-        logger.info("IAM Simulator initialized with sample users")
+        if os.environ.get("ENV", "local") == "local":
+            self.users = {
+                "admin": {
+                    "username": "admin",
+                    "email": "admin@f1optimizer.local",
+                    "full_name": "Admin User",
+                    "hashed_password": self._hash_password("admin"),
+                    "roles": [Role.ADMIN],
+                    "disabled": False,
+                },
+                "data_engineer": {
+                    "username": "data_engineer",
+                    "email": "de@f1optimizer.local",
+                    "full_name": "Data Engineer",
+                    "hashed_password": self._hash_password("password"),
+                    "roles": [Role.DATA_ENGINEER],
+                    "disabled": False,
+                },
+                "ml_engineer": {
+                    "username": "ml_engineer",
+                    "email": "ml@f1optimizer.local",
+                    "full_name": "ML Engineer",
+                    "hashed_password": self._hash_password("password"),
+                    "roles": [Role.ML_ENGINEER],
+                    "disabled": False,
+                },
+                "viewer": {
+                    "username": "viewer",
+                    "email": "viewer@f1optimizer.local",
+                    "full_name": "Data Viewer",
+                    "hashed_password": self._hash_password("password"),
+                    "roles": [Role.DATA_VIEWER],
+                    "disabled": False,
+                },
+            }
+            logger.info("IAM Simulator initialized with sample users (LOCAL MODE)")
+        else:
+            logger.info(
+                "IAM Simulator initialized (PRODUCTION MODE) — No default users."
+            )
 
     def _hash_password(self, password: str) -> str:
         """Hash password"""

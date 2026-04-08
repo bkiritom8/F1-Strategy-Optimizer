@@ -43,7 +43,7 @@ async def seed_admin(body: SeedRequest):
     password = secrets.token_urlsafe(16)
     user_store.register(
         username="admin",
-        email="bhargavsp01@gmail.com",
+        email="ajithsri3103@gmail.com",
         full_name="F1 Admin",
         password=password,
         role="roles/admin",

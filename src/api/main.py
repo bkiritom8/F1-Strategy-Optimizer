@@ -174,7 +174,7 @@ _ALLOWED_ORIGINS_DEFAULT = (
     "http://localhost:3000,"
     "http://localhost:3001,"
     "http://localhost:8080,"
-    "https://apex-intelligence.vercel.app"
+    "https://f1optimizer.web.app"
 )
 ALLOWED_ORIGINS = [
     o.strip()
