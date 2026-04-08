@@ -8,7 +8,9 @@ returns a dict of human-readable predictions for LLM prompt enrichment.
 from __future__ import annotations
 
 import io
+import json
 import logging
+import os
 from typing import Any
 
 import joblib
@@ -17,15 +19,20 @@ from google.cloud import storage
 
 logger = logging.getLogger(__name__)
 
-_BUCKET = "f1optimizer-models"
-_PATHS: dict[str, str] = {
-    "tire_degradation": "tire_degradation/model.pkl",
-    "driving_style": "driving_style/model.pkl",
-    "safety_car": "safety_car/model.pkl",
-    "pit_window": "pit_window/model.pkl",
-    "overtake_prob": "overtake_prob/model.pkl",
-    "race_outcome": "race_outcome/model.pkl",
-}
+# Single source of truth for model artifacts
+MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "../../ml/models_manifest.json")
+
+def _load_manifest() -> dict:
+    try:
+        with open(MANIFEST_PATH, "r") as f:
+            return json.load(f)
+    except Exception as exc:
+        logger.error("model_bridge: could not load manifest from %s: %s", MANIFEST_PATH, exc)
+        return {"bucket": "f1optimizer-models", "models": {}}
+
+_MANIFEST = _load_manifest()
+_BUCKET = _MANIFEST.get("bucket", "f1optimizer-models")
+_PATHS = {name: meta["path"] for name, meta in _MANIFEST.get("models", {}).items()}
 
 _bundles: dict[str, Any] = {}
 _attempted: set[str] = set()
@@ -37,17 +44,23 @@ def _load(name: str) -> Any | None:
     if name in _attempted:
         return None
     _attempted.add(name)
+    
+    path = _PATHS.get(name)
+    if not path:
+        logger.warning("model_bridge: no path found for %s in manifest", name)
+        return None
+        
     try:
         buf = io.BytesIO()
         storage.Client(project="f1optimizer").bucket(_BUCKET).blob(
-            _PATHS[name]
+            path
         ).download_to_file(buf)
         buf.seek(0)
         _bundles[name] = joblib.load(buf)
-        logger.info("model_bridge: loaded %s", name)
+        logger.info("model_bridge: loaded %s from %s", name, path)
         return _bundles[name]
     except Exception as exc:
-        logger.warning("model_bridge: could not load %s: %s", name, exc)
+        logger.warning("model_bridge: could not load %s from %s: %s", name, path, exc)
         return None
 
 

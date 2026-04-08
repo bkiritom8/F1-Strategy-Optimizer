@@ -1,0 +1,43 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-04-08T04:16:00Z",
+  "bucket": "f1optimizer-models",
+  "project_id": "f1optimizer",
+  "models": {
+    "tire_degradation": {
+      "path": "tire_degradation/model.pkl",
+      "version": "latest",
+      "description": "LGBM + XGB ensemble predicting lap time delta from tire wear"
+    },
+    "driving_style": {
+      "path": "driving_style/model.pkl",
+      "version": "latest",
+      "description": "Classifier for PUSH/BALANCE/NEUTRAL strategy"
+    },
+    "safety_car": {
+      "path": "safety_car/model.pkl",
+      "version": "latest",
+      "description": "Safety Car probability lookup based on historic circuit data"
+    },
+    "pit_window": {
+      "path": "pit_window/model.pkl",
+      "version": "latest",
+      "description": "Predicts optimal lap for the next pit stop"
+    },
+    "overtake_prob": {
+      "path": "overtake_prob/model.pkl",
+      "version": "latest",
+      "description": "Probability of a successful overtake attempt"
+    },
+    "race_outcome": {
+      "path": "race_outcome/model.pkl",
+      "version": "latest",
+      "description": "Predicts podium/points/outside finish probability"
+    },
+    "strategy_predictor": {
+      "path": "strategy_predictor/latest/model.pkl",
+      "version": "latest",
+      "description": "Master strategy model for race classification"
+    }
+  }
+}

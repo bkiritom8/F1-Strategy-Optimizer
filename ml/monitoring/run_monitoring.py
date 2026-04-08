@@ -26,6 +26,14 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import os
+import io
+import json
+from google.cloud import storage
+
+# GCP Constants
+PROJECT_ID = os.environ.get("PROJECT_ID", "f1optimizer")
+MODELS_BUCKET = os.environ.get("MODELS_BUCKET", "f1optimizer-models")
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("run_monitoring")
@@ -198,10 +206,46 @@ def _run_accuracy_check(season: int) -> bool:
             continue
 
         try:
+            # Single source of truth for model artifacts
+            MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "../models_manifest.json")
+            def _load_manifest() -> dict:
+                try:
+                    with open(MANIFEST_PATH, "r") as f:
+                        return json.load(f)["models"]
+                except Exception as exc:
+                    logger.error("Error loading manifest: %s", exc)
+                    # Fallback to hardcoded list if manifest is missing
+                    return {m: {"path": f"{m}/model.pkl"} for m in MODEL_CONFIG.keys()}
+
+            _MANIFEST_MODELS = _load_manifest()
+
+            def _download_bundle(name: str):
+                client = storage.Client(project=PROJECT_ID)
+                bucket = client.bucket(MODELS_BUCKET)
+                
+                meta = _MANIFEST_MODELS.get(name)
+                if not meta:
+                    logger.warning("No path for %s in manifest", name)
+                    return None
+                    
+                blob_path = meta["path"]
+                blob = bucket.blob(blob_path)
+                if not blob.exists():
+                    logger.error("%s: bundle not found at gs://%s/%s", name, MODELS_BUCKET, blob_path)
+                    return None
+                
+                buf = io.BytesIO()
+                blob.download_to_file(buf)
+                buf.seek(0)
+                return joblib.load(buf)
+
             with patch("ml.models.base_model.cloud_logging.Client"), patch(
                 "ml.models.base_model.pubsub_v1.PublisherClient"
             ), patch("ml.models.base_model.storage.Client"):
-                bundle = joblib.load(f"models/{model_name}.pkl")
+                bundle = _download_bundle(model_name)
+
+            if bundle is None:
+                continue
 
             if hasattr(bundle, "evaluate"):
                 current_metrics = bundle.evaluate(season_df)
