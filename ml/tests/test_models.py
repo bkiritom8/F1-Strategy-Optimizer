@@ -15,10 +15,36 @@ import pandas as pd
 import pytest
 
 MODELS_DIR = "models"
+MODELS_BUCKET = "f1optimizer-models"
+PROJECT_ID = "f1optimizer"
 FEATURES_URI = "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet"
-RACE_RESULTS_URI = (
-    "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet"
-)
+RACE_RESULTS_URI = "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet"
+
+def _load_bundle(name: str):
+    local_path = os.path.join(MODELS_DIR, f"{name}.pkl")
+    if os.path.exists(local_path):
+        return joblib.load(local_path)
+    
+    # Fallback to GCS for CI
+    from google.cloud import storage
+    import io
+    
+    client = storage.Client(project=PROJECT_ID)
+    bucket = client.bucket(MODELS_BUCKET)
+    # Match model_bridge.py / strategy predictor paths
+    if name == "strategy_predictor":
+        blob_path = "strategy_predictor/latest/model.pkl"
+    else:
+        blob_path = f"{name}/model.pkl"
+    
+    blob = bucket.blob(blob_path)
+    if not blob.exists():
+        pytest.fail(f"Bundle {name} not found locally or at gs://{MODELS_BUCKET}/{blob_path}")
+        
+    buf = io.BytesIO()
+    blob.download_to_file(buf)
+    buf.seek(0)
+    return joblib.load(buf)
 
 
 @pytest.fixture(scope="module")
@@ -27,7 +53,7 @@ def real_laps():
     slice_df = df[(df["season"] == 2022) & (df["round"] == 1)].reset_index(drop=True)
     # driver_encoded is created by the training script but not saved to parquet
     # encode using the bundle's encoder
-    bundle = joblib.load(os.path.join(MODELS_DIR, "overtake_prob.pkl"))
+    bundle = _load_bundle("overtake_prob")
     le = bundle["driver_encoder"]
     known = set(le.classes_)
     slice_df["driver_encoded"] = slice_df["Driver"].apply(
@@ -63,7 +89,7 @@ class TestTireDegradationModel:
         from ml.models.tire_degradation_model import TireDegradationModel
 
         m = TireDegradationModel()
-        m._bundle = joblib.load(os.path.join(MODELS_DIR, "tire_degradation.pkl"))
+        m._bundle = _load_bundle("tire_degradation")
         return m
 
     def test_loads_without_error(self, model):
@@ -103,7 +129,7 @@ class TestDrivingStyleModel:
         from ml.models.driving_style_model import DrivingStyleModel
 
         m = DrivingStyleModel()
-        m._bundle = joblib.load(os.path.join(MODELS_DIR, "driving_style.pkl"))
+        m._bundle = _load_bundle("driving_style")
         return m
 
     def test_loads_without_error(self, model):
@@ -142,7 +168,7 @@ class TestSafetyCarModel:
         from ml.models.safety_car_model import SafetyCarModel
 
         m = SafetyCarModel()
-        m._bundle = joblib.load(os.path.join(MODELS_DIR, "safety_car.pkl"))
+        m._bundle = _load_bundle("safety_car")
         return m
 
     def test_loads_without_error(self, model):
@@ -184,7 +210,7 @@ class TestPitWindowModel:
         from ml.models.pit_window_model import PitWindowModel
 
         m = PitWindowModel()
-        m._bundle = joblib.load(os.path.join(MODELS_DIR, "pit_window.pkl"))
+        m._bundle = _load_bundle("pit_window")
         return m
 
     def test_loads_without_error(self, model):
@@ -218,7 +244,7 @@ class TestOvertakeProbModel:
         from ml.models.overtake_prob_model import OvertakeProbModel
 
         m = OvertakeProbModel()
-        m._bundle = joblib.load(os.path.join(MODELS_DIR, "overtake_prob.pkl"))
+        m._bundle = _load_bundle("overtake_prob")
         return m
 
     def test_loads_without_error(self, model):
@@ -257,7 +283,7 @@ class TestRaceOutcomeModel:
         from ml.models.race_outcome_model import RaceOutcomeModel
 
         m = RaceOutcomeModel()
-        m._bundle = joblib.load(os.path.join(MODELS_DIR, "race_outcome.pkl"))
+        m._bundle = _load_bundle("race_outcome")
         return m
 
     def test_loads_without_error(self, model):
