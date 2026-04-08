@@ -207,7 +207,10 @@ def _run_accuracy_check(season: int) -> bool:
 
         try:
             # Single source of truth for model artifacts
-            MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "../models_manifest.json")
+            MANIFEST_PATH = os.path.join(
+                os.path.dirname(__file__), "../models_manifest.json"
+            )
+
             def _load_manifest() -> dict:
                 try:
                     with open(MANIFEST_PATH, "r") as f:
@@ -222,18 +225,23 @@ def _run_accuracy_check(season: int) -> bool:
             def _download_bundle(name: str):
                 client = storage.Client(project=PROJECT_ID)
                 bucket = client.bucket(MODELS_BUCKET)
-                
+
                 meta = _MANIFEST_MODELS.get(name)
                 if not meta:
                     logger.warning("No path for %s in manifest", name)
                     return None
-                    
+
                 blob_path = meta["path"]
                 blob = bucket.blob(blob_path)
                 if not blob.exists():
-                    logger.error("%s: bundle not found at gs://%s/%s", name, MODELS_BUCKET, blob_path)
+                    logger.error(
+                        "%s: bundle not found at gs://%s/%s",
+                        name,
+                        MODELS_BUCKET,
+                        blob_path,
+                    )
                     return None
-                
+
                 buf = io.BytesIO()
                 blob.download_to_file(buf)
                 buf.seek(0)

@@ -22,13 +22,17 @@ logger = logging.getLogger(__name__)
 # Single source of truth for model artifacts
 MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "../../ml/models_manifest.json")
 
+
 def _load_manifest() -> dict:
     try:
         with open(MANIFEST_PATH, "r") as f:
             return json.load(f)
     except Exception as exc:
-        logger.error("model_bridge: could not load manifest from %s: %s", MANIFEST_PATH, exc)
+        logger.error(
+            "model_bridge: could not load manifest from %s: %s", MANIFEST_PATH, exc
+        )
         return {"bucket": "f1optimizer-models", "models": {}}
+
 
 _MANIFEST = _load_manifest()
 _BUCKET = _MANIFEST.get("bucket", "f1optimizer-models")
@@ -44,12 +48,12 @@ def _load(name: str) -> Any | None:
     if name in _attempted:
         return None
     _attempted.add(name)
-    
+
     path = _PATHS.get(name)
     if not path:
         logger.warning("model_bridge: no path found for %s in manifest", name)
         return None
-        
+
     try:
         buf = io.BytesIO()
         storage.Client(project="f1optimizer").bucket(_BUCKET).blob(

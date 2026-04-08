@@ -18,17 +18,20 @@ MODELS_DIR = "models"
 MODELS_BUCKET = "f1optimizer-models"
 PROJECT_ID = "f1optimizer"
 FEATURES_URI = "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet"
-RACE_RESULTS_URI = "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet"
+RACE_RESULTS_URI = (
+    "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet"
+)
+
 
 def _load_bundle(name: str):
     local_path = os.path.join(MODELS_DIR, f"{name}.pkl")
     if os.path.exists(local_path):
         return joblib.load(local_path)
-    
+
     # Fallback to GCS for CI
     from google.cloud import storage
     import io
-    
+
     client = storage.Client(project=PROJECT_ID)
     bucket = client.bucket(MODELS_BUCKET)
     # Match model_bridge.py / strategy predictor paths
@@ -36,11 +39,13 @@ def _load_bundle(name: str):
         blob_path = "strategy_predictor/latest/model.pkl"
     else:
         blob_path = f"{name}/model.pkl"
-    
+
     blob = bucket.blob(blob_path)
     if not blob.exists():
-        pytest.fail(f"Bundle {name} not found locally or at gs://{MODELS_BUCKET}/{blob_path}")
-        
+        pytest.fail(
+            f"Bundle {name} not found locally or at gs://{MODELS_BUCKET}/{blob_path}"
+        )
+
     buf = io.BytesIO()
     blob.download_to_file(buf)
     buf.seek(0)
