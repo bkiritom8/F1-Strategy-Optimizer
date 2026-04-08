@@ -105,13 +105,13 @@ class TurboQuantCodec:
     def encode(self, vec: list[float]) -> TurboQuantVector:
         """Compress a 768-dim L2-normalised embedding into a TurboQuantVector."""
         k = np.array(vec, dtype=np.float32)
-        k_tilde = self._rotation() @ k  # (768,) rotated
+        k_tilde = np.dot(self._rotation(), k)  # (768,) rotated
         codes: np.ndarray = np.digitize(k_tilde, BOUNDARIES).astype(
             np.uint8
         )  # (768,) 0-7
         y_hat = CENTROIDS[codes]  # (768,) decoded approximation
         r = k_tilde - y_hat  # (768,) quantisation residual
-        proj = self._qjl() @ r  # (768,) QJL projections
+        proj = np.dot(self._qjl(), r)  # (768,) QJL projections
         raw_bits = (proj >= 0).astype(np.uint8)  # 1 = positive, 0 = negative
         qjl_signs = np.packbits(raw_bits)  # (96,) packed
         return TurboQuantVector(codes=codes, qjl_signs=qjl_signs)
@@ -123,13 +123,13 @@ class TurboQuantCodec:
         in a lookup loop (O(n·d²) → O(d²) + O(n·d)).
         """
         q = np.array(query, dtype=np.float32)
-        return self._rotation() @ q  # (768,) float32
+        return np.dot(self._rotation(), q)  # (768,) float32
 
     def score(self, q_prepared: np.ndarray, compressed: TurboQuantVector) -> float:
         """Estimate cosine similarity given a pre-rotated query and a compressed key."""
         y_hat = CENTROIDS[compressed.codes]  # (768,)
         s1 = float(np.dot(q_prepared, y_hat))  # MSE component
-        proj = self._qjl() @ q_prepared  # (768,) query projections
+        proj = np.dot(self._qjl(), q_prepared)  # (768,) query projections
         z = np.unpackbits(compressed.qjl_signs).astype(np.float32) * 2 - 1  # (768,) ±1
         s2 = float((math.pi / (2.0 * _DIM)) * np.dot(proj, z))  # QJL correction
         return s1 + s2

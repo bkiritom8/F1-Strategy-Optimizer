@@ -1,0 +1,35 @@
+.gcloudignore
+.git
+.gitignore
+
+# Python
+.venv
+__pycache__
+*.pyc
+*.pyo
+.mypy_cache
+.pytest_cache
+*.egg-info
+dist/
+build/
+
+# Frontend
+frontend/node_modules
+frontend/.next
+frontend/dist
+frontend/build
+
+# Terraform
+infra/terraform/.terraform
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.backup
+
+# Data / models (live in GCS, not needed for build)
+data/
+models/
+Data-Pipeline/
+
+# Misc
+.env
+*.log
+pipeline/

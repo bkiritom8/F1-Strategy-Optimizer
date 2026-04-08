@@ -48,7 +48,9 @@ class RagConfig(BaseSettings):
     EMBEDDING_BATCH_SIZE: int = 250
     EMBEDDING_BATCH_SLEEP_SECONDS: float = 1.0
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    model_config = SettingsConfigDict(
+        env_file=".env", case_sensitive=True, extra="ignore"
+    )
 
     @property
     def is_configured(self) -> bool:
