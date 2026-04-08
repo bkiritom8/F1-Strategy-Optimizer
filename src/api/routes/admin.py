@@ -4,6 +4,8 @@ Provides operational insights pulling from Google Cloud Logging and Monitoring.
 """
 
 import logging
+import os
+import secrets
 import psutil
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -11,10 +13,43 @@ from typing import List, Dict, Any
 
 from src.security.https_middleware import get_current_user
 from src.security.iam_simulator import iam_simulator, User, Permission
+from src.security.user_store import user_store
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+class SeedRequest(BaseModel):
+    secret: str
+
+
+@router.post("/seed")
+async def seed_admin(body: SeedRequest):
+    """One-time route to create the initial admin account in Firestore."""
+    expected = os.environ.get("SEED_SECRET", "")
+    if not expected or not secrets.compare_digest(body.secret, expected):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid seed secret.")
+
+    # Idempotency — return early if admin already exists
+    existing = user_store.get("admin")
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Admin account already exists.")
+
+    password = secrets.token_urlsafe(16)
+    user_store.register(
+        username="admin",
+        email="bhargavsp01@gmail.com",
+        full_name="F1 Admin",
+        password=password,
+        role="roles/admin",
+        gdpr_consent=True,
+    )
+    # Mark email as verified so login works immediately
+    user_store._firestore().collection("users").document("admin").update({"email_verified": True, "verification_token": None})
+
+    logger.info("Admin account seeded successfully.")
+    return {"username": "admin", "password": password, "note": "Save these credentials — this endpoint will return 409 on future calls."}
 
 
 @router.get("/gcp_metrics")
