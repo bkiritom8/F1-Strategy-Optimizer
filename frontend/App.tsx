@@ -25,6 +25,7 @@ import {
 import { useRaces2024 } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
 import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
+import CookieConsent from './components/CookieConsent';
 import { logger } from './services/logger';
 
 // Lazy-load views for code splitting
@@ -168,28 +169,30 @@ const App: React.FC = () => {
     return () => window.removeEventListener('auth:expired', handleAuthExpired);
   }, [navigate]);
 
-  // Render verify-email page standalone — no sidebar, no nav wrapper
-  if (location.pathname === '/verify-email') {
-    return (
+  // Standalone Layout Wrapper for public pages (Landing, Verify Email)
+  const renderPublicPage = (children: React.ReactNode) => (
+    <div className="min-h-screen bg-black text-white font-sans">
       <ViewErrorBoundary>
-        <React.Suspense fallback={null}>
-          <VerifyEmailPage onGoToLogin={() => navigate('/')} />
+        <React.Suspense fallback={<ViewLoader />}>
+          {children}
         </React.Suspense>
       </ViewErrorBoundary>
+      <CookieConsent />
+    </div>
+  );
+
+  if (location.pathname === '/verify-email') {
+    return renderPublicPage(
+      <VerifyEmailPage onGoToLogin={() => navigate('/')} />
     );
   }
 
-  // Render landing page standalone - no sidebar, no nav wrapper
   if (location.pathname === '/') {
-    return (
-      <ViewErrorBoundary>
-        <React.Suspense fallback={null}>
-          <LandingPage
-            onLoginSuccess={() => navigate('/race')}
-            onAdminLogin={() => navigate('/admin')}
-          />
-        </React.Suspense>
-      </ViewErrorBoundary>
+    return renderPublicPage(
+      <LandingPage
+        onLoginSuccess={() => navigate('/race')}
+        onAdminLogin={() => navigate('/admin')}
+      />
     );
   }
 
@@ -337,21 +340,59 @@ const App: React.FC = () => {
       <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-24 lg:pt-0 lg:pb-0">
         <DynamicSimulationBackground key={currentCircuitId} circuitId={currentCircuitId} />
         <div className="relative z-10 h-full flex flex-col overflow-y-auto scrollbar-hide">
-          <ViewErrorBoundary>
-            <React.Suspense fallback={<ViewLoader />}>
-              <Routes>
-                <Route path="/race"     element={<RaceCommandCenter />} />
-                <Route path="/drivers"  element={<DriverProfiles />} />
-                <Route path="/strategy" element={<StrategyHub />} />
-                <Route path="/circuits" element={<TrackExplorer />} />
-                <Route path="/analysis" element={<LapByLapAnalysis />} />
-                <Route path="/admin"    element={<AdminPage />} />
-                <Route path="*"         element={<Navigate to="/race" replace />} />
-              </Routes>
-            </React.Suspense>
-          </ViewErrorBoundary>
+          <div className="flex-1">
+            <ViewErrorBoundary>
+              <React.Suspense fallback={<ViewLoader />}>
+                <Routes>
+                  <Route path="/race"     element={<RaceCommandCenter />} />
+                  <Route path="/drivers"  element={<DriverProfiles />} />
+                  <Route path="/strategy" element={<StrategyHub />} />
+                  <Route path="/circuits" element={<TrackExplorer />} />
+                  <Route path="/analysis" element={<LapByLapAnalysis />} />
+                  <Route path="/admin"    element={<AdminPage />} />
+                  <Route path="*"         element={<Navigate to="/race" replace />} />
+                </Routes>
+              </React.Suspense>
+            </ViewErrorBoundary>
+          </div>
+
+          {/* Global Legal Footer for Auth Views */}
+          <footer className="py-8 px-6 border-t border-white/5 bg-black/40 backdrop-blur-md">
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-2 opacity-40">
+                <Cpu className="w-4 h-4 text-red-600" />
+                <span className="text-[10px] font-black uppercase tracking-widest italic">{APP_NAME}</span>
+              </div>
+              
+              <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
+                {[
+                  { label: 'Privacy Policy', href: '/privacy-policy.html' },
+                  { label: 'Cookie Policy',  href: '/cookie-policy.html' },
+                  { label: 'Terms',          href: '/terms.html' },
+                  { label: 'Sitemap',        href: '/sitemap.xml' }
+                ].map(link => (
+                  <a 
+                    key={link.label} 
+                    href={link.href} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+
+              <p className="text-[9px] text-white/20 uppercase font-bold tracking-[0.2em]">
+                &copy; {new Date().getFullYear()} APEX STRATEGY LABS
+              </p>
+            </div>
+          </footer>
         </div>
       </main>
+
+      {/* Global Cookie Consent System */}
+      <CookieConsent />
 
       {/* Mobile Bottom Navigation Bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t border-white/[0.07] flex items-stretch h-16 safe-area-inset-bottom" style={{ background: 'rgba(0,0,0,0.55)' }}>
