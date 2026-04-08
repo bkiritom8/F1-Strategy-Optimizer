@@ -20,7 +20,7 @@ import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'reac
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gauge, Users, Compass, BarChart3, Activity,
-  Cpu, Map, ChevronLeft, ChevronRight
+  Cpu, Map, ChevronLeft, ChevronRight, LogOut
 } from 'lucide-react';
 import { useRaces2024 } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
@@ -131,6 +131,7 @@ const App: React.FC = () => {
     sidebarCollapsed,
     toggleSidebarCollapsed,
     isAdmin,
+    logout,
   } = useAppStore();
   const { data: races } = useRaces2024();
   const location  = useLocation();
@@ -199,7 +200,7 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden font-sans">
       {/* Mobile Top Header (hidden on lg+) */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 backdrop-blur-xl border-b border-white/[0.07] z-50 flex items-center px-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 backdrop-blur-xl border-b border-white/[0.07] z-50 flex items-center justify-between px-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
         <button
           onClick={() => navigate('/')}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -209,6 +210,16 @@ const App: React.FC = () => {
             <Cpu className="w-4 h-4 text-white" />
           </div>
           <span className="font-display font-black tracking-tighter text-lg italic">{APP_NAME}</span>
+        </button>
+        <button
+          onClick={() => {
+            logout();
+            navigate('/');
+          }}
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+          aria-label="Sign Out"
+        >
+          <LogOut className="w-4 h-4" />
         </button>
       </div>
 
@@ -326,6 +337,24 @@ const App: React.FC = () => {
             </NavLink>
           </div>
         )}
+        {/* Logout button */}
+        <div className="px-4 pb-4">
+          <button
+            onClick={() => {
+              logout();
+              navigate('/');
+            }}
+            title={sidebarCollapsed ? 'Sign Out' : undefined}
+            className={`w-full flex items-center gap-3 rounded-xl transition-all duration-300 border ${
+              sidebarCollapsed ? 'justify-center p-3' : 'px-4 py-3'
+            } border-red-500/30 text-red-500/70 hover:bg-red-500/10 hover:text-red-400`}
+          >
+            <LogOut className={`shrink-0 ${sidebarCollapsed ? 'w-5 h-5' : 'w-4 h-4'}`} />
+            {!sidebarCollapsed && (
+              <span className="text-xs font-bold uppercase tracking-widest">Sign Out</span>
+            )}
+          </button>
+        </div>
       </motion.aside>
 
       {/* Mobile Overlay */}
@@ -369,7 +398,9 @@ const App: React.FC = () => {
                   { label: 'Privacy Policy', href: '/privacy-policy.html' },
                   { label: 'Cookie Policy',  href: '/cookie-policy.html' },
                   { label: 'Terms',          href: '/terms.html' },
-                  { label: 'Sitemap',        href: '/sitemap.xml' }
+                  { label: 'Sitemap',        href: '/sitemap.xml' },
+                  { label: 'Docs',           href: '/docs.html' },
+                  { label: 'Contact',        href: '/contact.html' },
                 ].map(link => (
                   <a 
                     key={link.label} 
@@ -381,6 +412,20 @@ const App: React.FC = () => {
                     {link.label}
                   </a>
                 ))}
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+                <button 
+                  onClick={() => window.dispatchEvent(new CustomEvent('apex:open_cookie_settings'))}
+                  className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors"
+                >
+                  Manage cookies
+                </button>
+                <button 
+                  className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors"
+                >
+                  Do not share my personal information
+                </button>
               </div>
 
               <p className="text-[9px] text-white/20 uppercase font-bold tracking-[0.2em]">

@@ -31,6 +31,16 @@ const CookieConsent: React.FC = () => {
     }
   }, []);
 
+  // Handle manual trigger from Footer
+  useEffect(() => {
+    const handleOpen = () => {
+      setIsVisible(true);
+      setShowPreferences(true); // Open directly to preferences
+    };
+    window.addEventListener('apex:open_cookie_settings', handleOpen);
+    return () => window.removeEventListener('apex:open_cookie_settings', handleOpen);
+  }, []);
+
   const handleAcceptAll = () => {
     const allOn = { necessary: true, analytics: true, marketing: true };
     applyConsent(allOn);

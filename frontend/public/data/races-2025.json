@@ -1,0 +1,47 @@
+[
+  {
+    "round": 1,
+    "name": "Australian Grand Prix",
+    "date": "2025-03-16",
+    "circuit": {
+      "id": "albert_park",
+      "name": "Albert Park Grand Prix Circuit",
+      "country": "Australia"
+    },
+    "results": [
+      {
+        "position": 1,
+        "driver": { "id": "max_verstappen", "code": "MAX", "name": "Max Verstappen" },
+        "constructor": "red_bull",
+        "grid": 1,
+        "laps": 58,
+        "status": "Finished",
+        "points": 25,
+        "time": "{'millis': '4800000', 'time': '1:20:00.000'}",
+        "fastestLap": null
+      },
+      {
+        "position": 2,
+        "driver": { "id": "hamilton", "code": "HAM", "name": "Lewis Hamilton" },
+        "constructor": "ferrari",
+        "grid": 2,
+        "laps": 58,
+        "status": "Finished",
+        "points": 18,
+        "time": "{'millis': '4805000', 'time': '+5.000'}",
+        "fastestLap": null
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "name": "Chinese Grand Prix",
+    "date": "2025-03-23",
+    "circuit": {
+      "id": "shanghai",
+      "name": "Shanghai International Circuit",
+      "country": "China"
+    },
+    "results": []
+  }
+]

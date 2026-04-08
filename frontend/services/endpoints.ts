@@ -242,6 +242,21 @@ async function fetchStatic<T>(filename: string): Promise<T> {
 // ─── Endpoint functions ─────────────────────────────────────────────────────
 
 /**
+ * Send a chat message to the AI Strategist.
+ */
+export async function chatWithStrategist(
+  question: string,
+  history: { role: string; content: string }[] = [],
+  raceInputs?: any
+): Promise<ChatResponse & { cache_hit?: boolean }> {
+  logger.info(`[endpoints] chatWithStrategist: ${question.slice(0, 30)}...`);
+  return apiFetch<ChatResponse & { cache_hit?: boolean }>('/api/v1/llm/chat', {
+    method: 'POST',
+    body: JSON.stringify({ question, history, race_inputs: raceInputs }),
+  });
+}
+
+/**
  * Maps a static drivers.json entry to a DriverProfile.
  */
 function _staticDriverToProfile(d: any): DriverProfile {

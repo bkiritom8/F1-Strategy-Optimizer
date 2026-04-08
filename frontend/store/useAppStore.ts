@@ -90,6 +90,10 @@ interface AppState {
   selectedDriverId: string;
   setSelectedDriverId: (id: string) => void;
 
+  // ── Season selection ────────────────────────────────────────────────────────
+  selectedSeason: 2024 | 2025 | 2026;
+  setSelectedSeason: (season: 2024 | 2025 | 2026) => void;
+
   // ── Active race context ───────────────────────────────────────────────────
   activeRaceId:      string;
   activeRaceRound:   number;
@@ -106,6 +110,10 @@ interface AppState {
   toggleSidebar:    () => void;
   sidebarCollapsed: boolean;
   toggleSidebarCollapsed: () => void;
+
+  // ── Greeting Logic ────────────────────────────────────────────────────────
+  isReturningUser: boolean;
+  setHasVisited: () => void;
 }
 
 // ─── Store creation ──────────────────────────────────────────────────────────
@@ -153,6 +161,10 @@ export const useAppStore = create<AppState>((set) => ({
   selectedDriverId:    'max_verstappen',
   setSelectedDriverId: (id) => set({ selectedDriverId: id }),
 
+  // ── Season selection ───────────────────────────────────────────────────────
+  selectedSeason: 2026,
+  setSelectedSeason: (season) => set({ selectedSeason: season }),
+
   // ── Race context ───────────────────────────────────────────────────────────
   activeRaceId:     '2024_1',
   activeRaceRound:  1,
@@ -161,7 +173,7 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveRace: (raceId, round, lap) =>
     set({ activeRaceId: raceId, activeRaceRound: round ?? 1, activeLap: lap ?? 1 }),
   setActiveRaceRound: (round) =>
-    set({ activeRaceRound: round, activeRaceId: `2024_${round}` }),
+    set((s) => ({ activeRaceRound: round, activeRaceId: `${s.selectedSeason}_${round}` })),
   setActiveLap: (lap) => set({ activeLap: lap }),
   setBackgroundCircuitId: (id) => set({ backgroundCircuitId: id }),
 
@@ -171,6 +183,13 @@ export const useAppStore = create<AppState>((set) => ({
   toggleSidebar:   () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   sidebarCollapsed: false,
   toggleSidebarCollapsed: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+
+  // ── Greeting Logic ────────────────────────────────────────────────────────
+  isReturningUser: document.cookie.includes('apex_returning_user=true'),
+  setHasVisited: () => {
+    document.cookie = 'apex_returning_user=true; path=/; max-age=31536000; SameSite=Lax';
+    set({ isReturningUser: true });
+  },
 }));
 
 // ─── Internal helpers ────────────────────────────────────────────────────────

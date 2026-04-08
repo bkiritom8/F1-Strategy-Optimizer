@@ -17,8 +17,7 @@ import {
   Plus, X, Play, Loader2, Trophy, Timer, TrendingUp,
   Send, User, Bot, Sparkles, Zap, Flag,
 } from 'lucide-react';
-import { simulateStrategy } from '../services/endpoints';
-import { apiFetch } from '../services/client';
+import { simulateStrategy, chatWithStrategist } from '../services/endpoints';
 import type { TireCompound } from '../types';
 import RaceSimulation from '../components/RaceSimulation';
 
@@ -242,10 +241,11 @@ const StrategyHub: React.FC = () => {
     setChatLoading(true);
     try {
       const history = chatMessages.slice(1).map(m => ({ role: m.role, content: m.content }));
-      const res = await apiFetch<{ answer: string; latency_ms: number; model: string; cache_hit: boolean }>(
-        '/llm/chat',
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, history }) },
-      );
+      const res = await chatWithStrategist(question, history, {
+        circuit: selectedTrackId,
+        driver: selectedDriverId,
+        tire_compound: startingTire,
+      });
       setChatMessages(prev => [
         ...prev,
         { role: 'assistant', content: res.answer, model: res.model, cache_hit: res.cache_hit, latency_ms: res.latency_ms },

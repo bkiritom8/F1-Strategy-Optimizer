@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { requestOtp, resendVerification } from '../services/authService';
+import Footer from '../components/Footer';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -121,7 +122,7 @@ const STRENGTH_COLOR = ['', '#ff4d4d', '#ffa64d', '#f1c40f', '#00e676'];
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
-  const { loginAsync, loginWithOtpAsync, authLoading } = useAppStore();
+  const { loginAsync, loginWithOtpAsync, authLoading, isReturningUser, setHasVisited, isAdmin } = useAppStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
@@ -138,6 +139,8 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
   const [successMsg, setSuccessMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  // isReturning is now derived directly from store in the component body
+  // or we can just use isReturningUser from the hook destructuring.
 
   // Form States
   const [username, setUsername] = useState('');
@@ -190,12 +193,11 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
       setResendEmail(username);
       return;
     }
-    if (!result.ok) {
-      setError(result.errorMsg ?? 'Invalid credentials.');
-      return;
+    if (result.ok) {
+      if (!isReturningUser) setHasVisited();
+      if (useAppStore.getState().isAdmin) onAdminLogin();
+      else onLoginSuccess();
     }
-    if (useAppStore.getState().isAdmin) onAdminLogin();
-    else onLoginSuccess();
   };
 
   const handleRequestOtp = async (e: React.FormEvent) => {
@@ -215,9 +217,11 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
     setError(''); setSubmitting(true);
     const result = await loginWithOtpAsync(email, otpCode);
     setSubmitting(false);
-    if (!result.ok) { setError(result.errorMsg ?? 'Verification failed.'); return; }
-    if (useAppStore.getState().isAdmin) onAdminLogin();
-    else onLoginSuccess();
+    if (result.ok) {
+      if (!isReturningUser) setHasVisited();
+      if (useAppStore.getState().isAdmin) onAdminLogin();
+      else onLoginSuccess();
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -503,8 +507,14 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
           className="w-full max-w-xl glass-morphism-dark p-8 md:p-12 rounded-[2.5rem] shadow-2xl relative z-20"
         >
           <div className="text-center mb-10">
-            <h2 className="text-2xl font-display font-black italic tracking-tighter uppercase mb-2">Platform Access</h2>
-            <p className="text-white/40 text-sm">Secure authorization required for intelligence protocols.</p>
+            <h2 className="text-2xl font-display font-black italic tracking-tighter uppercase mb-2">
+              {isReturningUser ? 'Welcome Back, Strategist' : 'Login for the 1st time'}
+            </h2>
+            <p className="text-white/40 text-sm">
+              {isReturningUser 
+                ? 'Your session intelligence is ready for re-initialization.' 
+                : 'Initialize your connection for the 1st time to authorize your terminal.'}
+            </p>
           </div>
 
           <div className="flex p-1 bg-white/5 rounded-2xl mb-8 border border-white/5">
@@ -666,37 +676,7 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
         </motion.div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="py-12 px-6 lg:px-24 border-t border-white/5 text-center bg-[#050505]">
-        <div className="flex items-center justify-center gap-2 mb-6 opacity-50">
-          <Cpu className="w-4 h-4 text-red-500" />
-          <span className="text-[10px] font-black uppercase tracking-tighter italic">Apex Intelligence</span>
-        </div>
-        
-        <div className="flex flex-wrap justify-center gap-x-8 gap-y-4 mb-8">
-          {[
-            { label: 'Privacy Policy', href: '/privacy-policy.html' },
-            { label: 'Cookie Policy',  href: '/cookie-policy.html' },
-            { label: 'Terms of Service', href: '/terms.html' },
-            { label: 'Sitemap', href: '/sitemap.xml' }
-          ].map(link => (
-            <a 
-              key={link.label} 
-              href={link.href} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-
-        <p className="text-[10px] text-white/20 uppercase font-bold tracking-[0.3em] max-w-2xl mx-auto leading-relaxed">
-          &copy; {new Date().getFullYear()} Apex Strategy Labs. All rights reserved. 
-          <br className="sm:hidden" /> Developed for High-Performance Simulation.
-        </p>
-      </footer>
+      <Footer />
       {/* ── DATA SPECS MODAL ── */}
       <AnimatePresence>
         {showDataSpecs && (

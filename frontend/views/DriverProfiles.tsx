@@ -148,9 +148,25 @@ const DriverProfiles: React.FC = () => {
     drivers.forEach(d => {
       if (d.nationality) counts[d.nationality] = (counts[d.nationality] || 0) + 1;
     });
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
+    
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const mainGroups: { name: string; value: number }[] = [];
+    let otherCount = 0;
+    
+    // Group nationalities with fewer than 3 drivers to avoid chart congestion
+    entries.forEach(([name, value]) => {
+      if (value >= 3) {
+        mainGroups.push({ name, value });
+      } else {
+        otherCount += value;
+      }
+    });
+    
+    if (otherCount > 0) {
+      mainGroups.push({ name: 'Others', value: otherCount });
+    }
+    
+    return mainGroups;
   }, [drivers]);
 
   // Summary stats
@@ -468,34 +484,73 @@ const DriverProfiles: React.FC = () => {
       </div>
 
       {/* Nationality Breakdown */}
-      <div className="rounded-2xl p-6 border shadow-2xl" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-        <h3 className="text-xs font-display font-bold uppercase tracking-widest text-white/40 mb-6 px-2">
-          Driver Nationalities ({activeYear} Season)
-        </h3>
-        <div className="h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={nationalityData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-              >
-                {nationalityData.map((_, index) => {
-                  const colorKeys = Object.keys(TEAM_COLORS);
-                  const color = TEAM_COLORS[colorKeys[index % colorKeys.length]] || '#e10600';
-                  return <Cell key={`cell-${index}`} fill={color} />;
-                })}
-              </Pie>
-              <Tooltip
-                contentStyle={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)' }}
-                itemStyle={{ color: 'var(--text-primary)' }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+      <div className="rounded-2xl p-8 border shadow-2xl relative overflow-hidden" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-xs font-display font-bold uppercase tracking-widest text-white/40 px-2">
+            Driver Nationalities ({activeYear} Season)
+          </h3>
+          <div className="text-[10px] text-white/20 font-mono italic">Grouped (n &gt; 1)</div>
+        </div>
+        
+        <div className="flex flex-col md:flex-row items-center gap-12">
+          {/* Donut Chart */}
+          <div className="h-[280px] w-full md:w-1/2 relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={nationalityData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={4}
+                  stroke="none"
+                >
+                  {nationalityData.map((entry, index) => {
+                    const colors = ['#E10600', '#2563EB', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B'];
+                    const color = entry.name === 'Others' ? '#334155' : colors[index % colors.length];
+                    return <Cell key={`cell-${index}`} fill={color} />;
+                  })}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(10, 10, 10, 0.95)', 
+                    border: '1px solid rgba(255,255,255,0.1)', 
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+                  }}
+                  itemStyle={{ color: '#fff' }}
+                  cursor={{ fill: 'transparent' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            {/* Center Text */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+              <div className="text-2xl font-display font-black italic">{nationalityData.length}</div>
+              <div className="text-[8px] uppercase tracking-widest text-white/40">Regions</div>
+            </div>
+          </div>
+
+          {/* Legend Grid */}
+          <div className="w-full md:w-1/2 grid grid-cols-2 gap-y-3 gap-x-6">
+            {nationalityData.map((entry, index) => {
+              const colors = ['#E10600', '#2563EB', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B'];
+              const color = entry.name === 'Others' ? '#334155' : colors[index % colors.length];
+              return (
+                <div key={entry.name} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                    <span className="text-[10px] font-bold uppercase tracking-tight text-white/60">{entry.name}</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-white/40 font-bold">{entry.value}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

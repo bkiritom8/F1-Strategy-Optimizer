@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy | Apex Intelligence</title>
+    <title>Documentation | Apex Intelligence</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -34,6 +34,9 @@
         h1 { font-size: 3rem; font-weight: 900; margin-bottom: 2rem; }
         h2 { font-size: 1.5rem; margin-top: 3rem; color: var(--red); }
         p { margin-bottom: 1.5rem; color: rgba(255, 255, 255, 0.7); }
+        ul { list-style: none; padding-left: 0; }
+        li { margin-bottom: 1rem; color: rgba(255, 255, 255, 0.7); position: relative; padding-left: 1.5rem; }
+        li::before { content: '→'; position: absolute; left: 0; color: var(--red); font-weight: bold; }
         .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
@@ -42,6 +45,14 @@
             border-radius: 2rem;
             border-left: 4px solid var(--red);
         }
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+            font-size: 0.875rem;
+        }
+        .nav-links a { color: rgba(255,255,255,0.5); text-decoration: none; }
+        .nav-links a:hover { color: var(--red); }
         footer {
             margin-top: 5rem;
             padding-top: 2rem;
@@ -56,37 +67,21 @@
 </head>
 <body>
     <div class="container">
+        <div class="nav-links">
+            <a href="/">Home</a>
+        </div>
         <div class="glass-card">
-            <h1>Privacy Policy</h1>
+            <h1>Platform Documentation</h1>
             <p>Last Updated: April 2026</p>
 
-            <h2>1. Introduction</h2>
-            <p>Welcome to Apex Intelligence ("we," "our," or "us"). We are committed to protecting your personal data and your privacy. This Privacy Policy describes how we collect, use, and share your personal information when you use our F1 Strategy Optimizer platform.</p>
+            <h2>1. Race Command Center</h2>
+            <p>The Race Command Center is your telemetry hub. It provides live updates from the track, integrating weather data, track temperature, and individual car metrics like RPM and ERS deployment.</p>
 
-            <h2>2. Data Collection (GDPR & CCPA)</h2>
-            <p>Under the General Data Protection Regulation (GDPR) and the California Consumer Privacy Act (CCPA), we act as a Data Controller. We collect:</p>
-            <ul>
-                <li><strong>Identity Data:</strong> Email address for account authentication.</li>
-                <li><strong>Technical Data:</strong> IP address, browser type, and device information.</li>
-                <li><strong>Telemetry Data:</strong> Simulation parameters and strategy selections.</li>
-            </ul>
+            <h2>2. Strategy Hub & AI Strategist</h2>
+            <p>Our Strategy Hub utilizes an advanced LLM and Monte Carlo simulation to plot optimal pit windows, tire deg expectations, and undercut vulnerabilities. Chat with the AI Strategist to explore "what-if" scenarios.</p>
 
-            <h2>3. How We Use Your Data</h2>
-            <p>We use your data strictly to:</p>
-            <ul>
-                <li>Provide and maintain our simulation services.</li>
-                <li>Verify your identity and prevent unauthorized access.</li>
-                <li>Analyze system performance to optimize racing algorithms.</li>
-            </ul>
-
-            <h2>4. Cookie Consent</h2>
-            <p>We use a granular cookie consent system. You may choose to enable or disable non-essential cookies at any time via the "Privacy Protocols" dashboard on our landing page.</p>
-
-            <h2>5. Your Rights</h2>
-            <p>You have the right to access, rectify, or delete your personal data. To exercise these rights or for any privacy-related inquiries, please contact our Data Protection Officer at <strong>privacy@apex-f1.com</strong>.</p>
-
-            <h2>6. Jurisdiction</h2>
-            <p>This policy is governed by the laws of the United Kingdom and the European Union for GDPR compliance, and the State of Delaware for CCPA compliance.</p>
+            <h2>3. Circuit Directory</h2>
+            <p>Access precise layouts for every track on the 2026 Formula 1 calendar, combined with historical corner speed data, overtaking difficulty, and historical safety car probabilities.</p>
         </div>
         <footer>
             <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem; margin-bottom: 1.5rem;">

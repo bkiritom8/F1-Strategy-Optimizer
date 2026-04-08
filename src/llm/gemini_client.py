@@ -137,11 +137,21 @@ class GeminiClient:
         self._initialized = False
 
     def _ensure_initialized(self) -> None:
+        """Initialize Vertex AI with config project and region."""
         if self._initialized:
             return
-        vertexai.init(project=self._config.PROJECT_ID, location=self._config.REGION)
-        self._model = GenerativeModel(self._config.LLM_MODEL)
-        self._initialized = True
+        
+        logger.info("Initializing Vertex AI with Project ID: %s, Region: %s", 
+                    self._config.PROJECT_ID, self._config.REGION)
+        
+        try:
+            vertexai.init(project=self._config.PROJECT_ID, location=self._config.REGION)
+            self._model = GenerativeModel(self._config.LLM_MODEL)
+            self._initialized = True
+            logger.info("Vertex AI successfully initialized with model: %s", self._config.LLM_MODEL)
+        except Exception as e:
+            logger.error("Failed to initialize Vertex AI: %s", str(e), exc_info=True)
+            raise RuntimeError(f"Vertex AI initialization failed: {e}") from e
 
     def warm_cache(self) -> None:
         """Start background cache warm-up. Call once at app startup."""
@@ -219,20 +229,29 @@ class GeminiClient:
             context_docs=context_docs,
             structured_inputs=structured_inputs,
         )
-        response = self._model.generate_content(  # type: ignore[union-attr]
-            prompt,
-            generation_config={
-                "temperature": self._config.LLM_TEMPERATURE,
-                "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
-            },
-        )
-        # Safely extract text — response.text raises on MAX_TOKENS finish_reason
-        # in newer Vertex AI SDK versions; extract from candidates directly instead.
-        if response.candidates:
-            parts = response.candidates[0].content.parts
-            if parts:
-                return "".join(p.text for p in parts if hasattr(p, "text"))
-        return response.text  # type: ignore[return-value]
+        
+        try:
+            logger.info("Sending generation request to Gemini...")
+            response = self._model.generate_content(  # type: ignore[union-attr]
+                prompt,
+                generation_config={
+                    "temperature": self._config.LLM_TEMPERATURE,
+                    "max_output_tokens": self._config.MAX_OUTPUT_TOKENS,
+                },
+            )
+            logger.info("Received response from Gemini. Candidates: %d", len(response.candidates) if response.candidates else 0)
+            
+            # Safely extract text — response.text raises on MAX_TOKENS finish_reason
+            # in newer Vertex AI SDK versions; extract from candidates directly instead.
+            if response.candidates:
+                parts = response.candidates[0].content.parts
+                if parts:
+                    return "".join(p.text for p in parts if hasattr(p, "text"))
+            return response.text  # type: ignore[return-value]
+            
+        except Exception as e:
+            logger.error("Gemini generation failed: %s", str(e), exc_info=True)
+            return f"Error: The AI strategist is currently unavailable due to a connection issue: {str(e)}"
 
     def generate_plain(self, prompt: str) -> str:
         """Send a prompt directly to the model without the F1 system prompt wrapper.
