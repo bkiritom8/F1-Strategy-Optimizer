@@ -13,7 +13,7 @@ from typing import List, Dict, Any
 
 from src.security.https_middleware import get_current_user
 from src.security.iam_simulator import iam_simulator, User, Permission
-from src.security.user_store import user_store
+from src.security.user_store import user_store, _firestore
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ async def seed_admin(body: SeedRequest):
         gdpr_consent=True,
     )
     # Mark email as verified so login works immediately
-    user_store.db.collection("users").document("admin").update(
+    _firestore().collection("users").document("admin").update(
         {"email_verified": True, "verification_token": None}
     )
 
