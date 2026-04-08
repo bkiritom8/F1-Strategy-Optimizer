@@ -18,6 +18,7 @@ from src.api.routes.llm import router as llm_router
 from src.api.routes.admin import router as admin_router
 from src.api.routes.simulate import router as simulate_router
 from src.api.routes.simulation import router as simulation_router
+from src.api.routes.users import router as users_router
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -1094,6 +1095,7 @@ app.include_router(v1)
 app.include_router(rag_router)
 app.include_router(llm_router)
 app.include_router(admin_router)
+app.include_router(users_router)
 app.include_router(simulate_router, prefix="/api/v1")
 app.include_router(simulation_router)
 
