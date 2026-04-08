@@ -108,6 +108,21 @@ steps:
           docker push $$REPO:$COMMIT_SHA
         fi
 
+  # ── Deploy API image to Cloud Run ────────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "deploy-api"
+    waitFor: ["build-push-api"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        gcloud run deploy f1-strategy-api-dev \
+          --image=us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api:$COMMIT_SHA \
+          --region=us-central1 \
+          --project=f1optimizer \
+          --quiet
+        echo "Deployed api:$COMMIT_SHA to Cloud Run"
+
   # ── Train all ML models on Vertex AI (only if ml/training|features|preprocessing changed) ──
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
     id: "train-models"
