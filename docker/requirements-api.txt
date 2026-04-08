@@ -52,3 +52,4 @@ langchain==0.2.16
 langchain-core==0.2.40
 langchain-google-vertexai==1.0.6
 pyarrow==15.0.2
+gymnasium==1.2.3
