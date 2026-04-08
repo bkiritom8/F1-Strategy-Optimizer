@@ -271,7 +271,7 @@ steps:
             --include-tags --sort-by="~CREATE_TIME" \
             --filter="tags!=latest" \
             --format="value(DIGEST)" \
-            --project=f1optimizer 2>/dev/null | tail -n +6)
+            --project=f1optimizer 2>/dev/null | tail -n +3)
           for DIGEST in $$DIGESTS; do
             echo "Deleting $$REPO@$$DIGEST"
             gcloud artifacts docker images delete "$$REPO@$$DIGEST" \
