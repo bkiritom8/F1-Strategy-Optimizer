@@ -9,6 +9,7 @@ import pytest
 logger = logging.getLogger(__name__)
 
 # Module-level state shared between fixtures and the sessionfinish hook.
+# NOTE: Not safe for pytest-xdist parallel workers — each worker has its own process.
 _session_results: list[dict] = []
 _run_id: str = ""
 
@@ -16,6 +17,7 @@ _run_id: str = ""
 def pytest_configure(config: pytest.Config) -> None:
     """Set the run_id once at session start."""
     global _run_id
+    _session_results.clear()
     _run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
 
