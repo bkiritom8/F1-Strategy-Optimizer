@@ -45,5 +45,10 @@ curl -X POST https://<YOUR_CLOUDRUN_URL>/api/v1/admin/seed \
 - **Error Monitoring**: Check GCP Logging with filter `severity >= ERROR`.
 - **Backend Admin Panel**: Log in as `admin` at `/admin` to see live CPU/Memory metrics and Gemini API quotas.
 
+## 5. Maintenance Notes
+
+- **Backend Dependencies**: `requirements-f1.txt` has been standardized to `requirements.txt` for automatic detection by GCP Cloud Build and Cloud Run.
+- **Source of Truth**: The `pipeline` branch is the production source. All deployments should be triggered from this branch.
+
 ---
 *Maintained by Antigravity AI*
