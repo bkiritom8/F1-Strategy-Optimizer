@@ -44,6 +44,9 @@ router = APIRouter(tags=["users"])
 # Valid roles a self-registered user can request
 _ALLOWED_SELF_REGISTER_ROLES = {Role.API_USER, Role.DATA_VIEWER}
 
+# Usernames reserved for built-in service accounts
+_RESERVED_USERNAMES = {"admin", "data_engineer", "ml_engineer", "viewer"}
+
 
 # ── Request / response models ─────────────────────────────────────────────────
 
@@ -158,6 +161,9 @@ async def register(
       the email link is clicked (`POST /users/verify-email`).
     - Self-registration is limited to roles: `roles/apiUser`, `roles/dataViewer`.
     """
+    if request.username.lower() in _RESERVED_USERNAMES:
+        raise HTTPException(status_code=400, detail="That username is reserved.")
+
     role = _role_from_str(request.role)
     if role not in _ALLOWED_SELF_REGISTER_ROLES:
         raise HTTPException(
