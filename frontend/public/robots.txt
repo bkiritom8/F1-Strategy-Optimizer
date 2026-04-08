@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /verify-email
+
+Sitemap: https://apex-f1.com/sitemap.xml
