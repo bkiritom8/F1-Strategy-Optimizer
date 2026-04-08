@@ -48,7 +48,7 @@ class TestSecurityHeadersMiddleware:
 
     def test_csp_header(self, client):
         r = client.get("/ping")
-        assert r.headers["Content-Security-Policy"] == "default-src 'self'"
+        assert r.headers["Content-Security-Policy"] == "default-src 'self'; connect-src 'self' wss: https:"
 
     def test_referrer_policy(self, client):
         r = client.get("/ping")
