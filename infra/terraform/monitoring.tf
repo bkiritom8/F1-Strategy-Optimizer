@@ -21,7 +21,7 @@ resource "google_monitoring_alert_policy" "api_error_rate" {
     }
   }
 
-  notification_channels = []
+  notification_channels = local.all_notification_channels
 
   alert_strategy {
     auto_close = "1800s"
@@ -50,7 +50,7 @@ resource "google_monitoring_alert_policy" "api_instance_count" {
     }
   }
 
-  notification_channels = []
+  notification_channels = local.all_notification_channels
 
   alert_strategy {
     auto_close = "1800s"
@@ -79,7 +79,7 @@ resource "google_monitoring_alert_policy" "api_latency_p99" {
     }
   }
 
-  notification_channels = []
+  notification_channels = local.all_notification_channels
 
   alert_strategy {
     auto_close = "1800s"

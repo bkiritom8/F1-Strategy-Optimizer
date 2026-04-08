@@ -51,6 +51,7 @@ variable "api_cpu_target_utilization" {
 variable "alert_emails" {
   description = "List of email addresses to receive monitoring alerts. Add all GCP project members here — one notification channel is created per address."
   type        = list(string)
+  default     = ["ajithsri3103@gmail.com"]
 }
 
 variable "enable_apis" {
