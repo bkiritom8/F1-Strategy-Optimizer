@@ -29,12 +29,16 @@ async def seed_admin(body: SeedRequest):
     """One-time route to create the initial admin account in Firestore."""
     expected = os.environ.get("SEED_SECRET", "")
     if not expected or not secrets.compare_digest(body.secret, expected):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid seed secret.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid seed secret."
+        )
 
     # Idempotency — return early if admin already exists
     existing = user_store.get("admin")
     if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Admin account already exists.")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Admin account already exists."
+        )
 
     password = secrets.token_urlsafe(16)
     user_store.register(
@@ -46,10 +50,16 @@ async def seed_admin(body: SeedRequest):
         gdpr_consent=True,
     )
     # Mark email as verified so login works immediately
-    user_store._firestore().collection("users").document("admin").update({"email_verified": True, "verification_token": None})
+    user_store._firestore().collection("users").document("admin").update(
+        {"email_verified": True, "verification_token": None}
+    )
 
     logger.info("Admin account seeded successfully.")
-    return {"username": "admin", "password": password, "note": "Save these credentials — this endpoint will return 409 on future calls."}
+    return {
+        "username": "admin",
+        "password": password,
+        "note": "Save these credentials — this endpoint will return 409 on future calls.",
+    }
 
 
 @router.get("/gcp_metrics")

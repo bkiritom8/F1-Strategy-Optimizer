@@ -10,6 +10,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
+from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 from src.api.routes.rag import router as rag_router
@@ -55,6 +56,104 @@ REQUEST_DURATION = Histogram(
 )
 PREDICTION_COUNT = Counter("api_predictions_total", "Total predictions made", ["model"])
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    global _strategy_model, _models_loaded_from_gcs, _model_loaded_at
+    logger.info("F1 Strategy Optimizer API starting in %s environment", ENV)
+    logger.info("HTTPS enabled: %s", ENABLE_HTTPS)
+    logger.info("IAM enabled: %s", ENABLE_IAM)
+
+    async def _load_model():
+        global _strategy_model, _models_loaded_from_gcs, _model_loaded_at
+        try:
+            from google.cloud import storage
+            import io
+            import joblib
+
+            def _download():
+                gcs_client = storage.Client()
+                bucket = gcs_client.bucket("f1optimizer-models")
+                blob = bucket.blob("strategy_predictor/latest/model.pkl")
+                if not blob.exists():
+                    logger.error(
+                        "No ML model found at strategy_predictor/latest/model.pkl"
+                    )
+                    return None
+                buf = io.BytesIO()
+                blob.download_to_file(buf)
+                buf.seek(0)
+                return joblib.load(buf)
+
+            model = await asyncio.wait_for(
+                asyncio.to_thread(_download),
+                timeout=60.0,
+            )
+            if model is not None:
+                _strategy_model = model
+                _models_loaded_from_gcs = True
+                _model_loaded_at = datetime.utcnow().isoformat()
+                logger.info(
+                    "ML model loaded from GCS: strategy_predictor/latest/model.pkl"
+                )
+        except asyncio.TimeoutError:
+            logger.error("Model load timed out after 60s — using rule-based fallback")
+        except Exception as e:
+            logger.error("Model load failed — using rule-based fallback: %s", e)
+
+    # Start model loading in background
+    load_task = asyncio.create_task(_load_model())
+    logger.info("Model load started in background")
+
+    # Pre-load all 6 ML model bridge bundles from GCS so the first chat
+    # request doesn't pay the 3-8s cold-load penalty.
+    async def _preload_model_bridge():
+        try:
+            from src.llm.model_bridge import _load, _PATHS
+
+            def _download_all():
+                for name in _PATHS:
+                    _load(name)
+
+            await asyncio.to_thread(_download_all)
+            logger.info("model_bridge: all 6 bundles pre-loaded at startup")
+        except Exception as exc:
+            logger.warning("model_bridge pre-load failed (non-fatal): %s", exc)
+
+    bridge_task = asyncio.create_task(_preload_model_bridge())
+
+    # Warm the generic LLM cache in the background so common F1 questions
+    # are served instantly without hitting the Gemini API.
+    async def _warm_generic_cache():
+        try:
+            from src.llm.cache import get_generic_cache
+            from src.llm.gemini_client import get_client
+            from rag.config import RagConfig
+
+            cfg = RagConfig()
+            cache = get_generic_cache()
+            client = get_client()
+            await asyncio.to_thread(cache.warm, client, cfg.PROJECT_ID, cfg.REGION)
+            logger.info("GenericCache warming started in background")
+        except Exception as exc:
+            logger.warning("GenericCache warm failed (non-fatal): %s", exc)
+
+    cache_task = asyncio.create_task(_warm_generic_cache())
+
+    yield
+
+    # Clean up background tasks if still running on shutdown
+    for task in [load_task, bridge_task, cache_task]:
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+    logger.info("F1 Strategy Optimizer API shutting down")
+
+
 # Initialize FastAPI
 app = FastAPI(
     title="F1 Strategy Optimizer API",
@@ -62,6 +161,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Get configuration from environment
@@ -406,91 +506,6 @@ async def general_exception_handler(request, exc):
     logger.error(f"Unhandled exception: {exc}")
 
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
-
-
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    """Initialize on startup — load ML models from GCS in a background thread."""
-    global _strategy_model, _models_loaded_from_gcs, _model_loaded_at
-    logger.info("F1 Strategy Optimizer API starting in %s environment", ENV)
-    logger.info("HTTPS enabled: %s", ENABLE_HTTPS)
-    logger.info("IAM enabled: %s", ENABLE_IAM)
-
-    async def _load_model():
-        global _strategy_model, _models_loaded_from_gcs, _model_loaded_at
-        try:
-            from google.cloud import storage
-            import io
-            import joblib
-
-            def _download():
-                gcs_client = storage.Client()
-                bucket = gcs_client.bucket("f1optimizer-models")
-                blob = bucket.blob("strategy_predictor/latest/model.pkl")
-                if not blob.exists():
-                    logger.error(
-                        "No ML model found at strategy_predictor/latest/model.pkl"
-                    )
-                    return None
-                buf = io.BytesIO()
-                blob.download_to_file(buf)
-                buf.seek(0)
-                return joblib.load(buf)
-
-            model = await asyncio.wait_for(
-                asyncio.to_thread(_download),
-                timeout=60.0,
-            )
-            if model is not None:
-                _strategy_model = model
-                _models_loaded_from_gcs = True
-                _model_loaded_at = datetime.utcnow().isoformat()
-                logger.info(
-                    "ML model loaded from GCS: strategy_predictor/latest/model.pkl"
-                )
-        except asyncio.TimeoutError:
-            logger.error("Model load timed out after 60s — using rule-based fallback")
-        except Exception as e:
-            logger.error("Model load failed — using rule-based fallback: %s", e)
-
-    asyncio.create_task(_load_model())
-    logger.info("Model load started in background")
-
-    # Pre-load all 6 ML model bridge bundles from GCS so the first chat
-    # request doesn't pay the 3-8s cold-load penalty.
-    async def _preload_model_bridge():
-        try:
-            from src.llm.model_bridge import _load, _PATHS
-
-            def _download_all():
-                for name in _PATHS:
-                    _load(name)
-
-            await asyncio.to_thread(_download_all)
-            logger.info("model_bridge: all 6 bundles pre-loaded at startup")
-        except Exception as exc:
-            logger.warning("model_bridge pre-load failed (non-fatal): %s", exc)
-
-    asyncio.create_task(_preload_model_bridge())
-
-    # Warm the generic LLM cache in the background so common F1 questions
-    # are served instantly without hitting the Gemini API.
-    async def _warm_generic_cache():
-        try:
-            from src.llm.cache import get_generic_cache
-            from src.llm.gemini_client import get_client
-            from rag.config import RagConfig
-
-            cfg = RagConfig()
-            cache = get_generic_cache()
-            client = get_client()
-            await asyncio.to_thread(cache.warm, client, cfg.PROJECT_ID, cfg.REGION)
-            logger.info("GenericCache warming started in background")
-        except Exception as exc:
-            logger.warning("GenericCache warm failed (non-fatal): %s", exc)
-
-    asyncio.create_task(_warm_generic_cache())
 
 
 # ── /api/v1 router ─────────────────────────────────────────────────────────
