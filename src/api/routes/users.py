@@ -247,8 +247,8 @@ async def resend_verification(
     Only works if the account exists and is not yet verified.
     Always returns 200 to avoid leaking whether an email is registered.
     """
-    record = user_store.get_by_email(str(request.email))
-    if record and not record.get("email_verified", False):
+    record = user_store.get_unverified_by_email(str(request.email))
+    if record:
         token = user_store.regenerate_verification_token(record["username"])
         background_tasks.add_task(
             send_verification_email, str(request.email), record["username"], token

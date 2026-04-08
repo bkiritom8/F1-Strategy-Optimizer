@@ -297,6 +297,19 @@ class UserStore:
         docs = list(results)
         return docs[0].to_dict() if docs else None
 
+    def get_unverified_by_email(self, email: str) -> dict | None:
+        """Return the first unverified account for a given email address."""
+        results = (
+            _firestore()
+            .collection(_USERS)
+            .where("email", "==", email)
+            .where("email_verified", "==", False)
+            .limit(1)
+            .stream()
+        )
+        docs = list(results)
+        return docs[0].to_dict() if docs else None
+
     def regenerate_verification_token(self, username: str) -> str:
         """Issue a fresh verification token (for resend). Returns the new token."""
         token = secrets.token_urlsafe(32)
