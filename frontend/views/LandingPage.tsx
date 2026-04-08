@@ -1,21 +1,37 @@
 /**
  * @file views/LandingPage.tsx
- * @description Platform landing page with an integrated authentication modal.
- *
- * Auth modal has three tabs:
- *   1. Sign In (password)  → signIn() → JWT stored → redirect to /dashboard
- *   2. Sign In (OTP)       → requestOtp() then signInWithOtp() → same
- *   3. Sign Up             → signUp() → "check your email" state
- *
- * After a successful admin login the user is redirected to /admin.
+ * @description Modern, premium landing page for Apex Intelligence.
+ * 
+ * Features:
+ * - Smooth scroll-driven animations with Framer Motion.
+ * - Informative sections highlighting platform capabilities.
+ * - High-quality animated SVGs.
+ * - Glassmorphism UI for authentication.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, useScroll, useTransform, AnimatePresence, useSpring } from 'framer-motion';
+import { 
+  ChevronDown, 
+  Cpu, 
+  Zap, 
+  Activity, 
+  ShieldCheck, 
+  Layers, 
+  Mail, 
+  Lock, 
+  User, 
+  CheckCircle2,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Database,
+  BarChart3,
+  X
+} from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import {
-  requestOtp,
-  resendVerification,
-} from '../services/authService';
+import { requestOtp, resendVerification } from '../services/authService';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -27,9 +43,68 @@ interface Props {
   onAdminLogin:   () => void;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── SVG Components ──────────────────────────────────────────────────────────
 
-/** Robust password-strength rating (0-4). */
+const F1CarSVG = () => (
+  <motion.svg
+    width="100%"
+    height="100%"
+    viewBox="0 0 800 300"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className="f1-red-glow"
+    initial={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ duration: 1.5, ease: "easeOut" }}
+  >
+    <motion.path
+      d="M50 250 L150 250 L170 230 L300 230 L350 200 L600 200 L650 230 L750 230 L750 250 M150 250 Q160 210 200 210 Q240 210 250 250 M600 250 Q610 210 650 210 Q690 210 700 250"
+      stroke="#E10600"
+      strokeWidth="2"
+      strokeLinecap="round"
+      initial={{ pathLength: 0 }}
+      animate={{ pathLength: 1 }}
+      transition={{ duration: 3, ease: "easeInOut" }}
+    />
+    <motion.path
+      d="M360 190 Q480 180 600 190"
+      stroke="#00D2BE"
+      strokeWidth="1"
+      strokeDasharray="5 5"
+      initial={{ pathLength: 0 }}
+      animate={{ pathLength: 1 }}
+      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+    />
+  </motion.svg>
+);
+
+const StrategyGraphSVG = () => (
+  <svg width="100%" height="200" viewBox="0 0 400 200" className="opacity-80">
+    <motion.path
+      d="M0 180 Q100 170 200 100 T400 20"
+      stroke="#E10600"
+      strokeWidth="3"
+      fill="none"
+      initial={{ pathLength: 0 }}
+      whileInView={{ pathLength: 1 }}
+      transition={{ duration: 2 }}
+    />
+    <motion.path
+      d="M0 180 Q100 175 200 140 T400 100"
+      stroke="#00D2BE"
+      strokeWidth="3"
+      fill="none"
+      initial={{ pathLength: 0 }}
+      whileInView={{ pathLength: 1 }}
+      transition={{ duration: 2, delay: 0.5 }}
+    />
+    <circle cx="200" cy="100" r="4" fill="#E10600" />
+    <text x="210" y="105" fill="white" fontSize="10" className="font-mono">PIT WINDOW OPEN</text>
+  </svg>
+);
+
+// ─── Helper: Password Strength ───────────────────────────────────────────
+
 function passwordStrength(pwd: string): number {
   let score = 0;
   if (pwd.length >= 8)  score++;
@@ -43,47 +118,44 @@ function passwordStrength(pwd: string): number {
 const STRENGTH_LABEL = ['', 'Weak', 'Fair', 'Good', 'Strong'];
 const STRENGTH_COLOR = ['', '#ff4d4d', '#ffa64d', '#f1c40f', '#00e676'];
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
   const { loginAsync, loginWithOtpAsync, authLoading } = useAppStore();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: containerRef });
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
+  
+  // Parallax transforms for background elements
+  const glowY = useTransform(smoothProgress, [0, 1], [-100, 200]);
+  const carParallax = useTransform(smoothProgress, [0, 0.4], [0, 150]);
+  const sectionOpacity = useTransform(smoothProgress, [0, 0.1], [1, 0]);
 
-  // Tab & workflow state
-  const [tab,       setTab]       = useState<ModalTab>('password');
+  // Auth States
+  const [tab, setTab] = useState<ModalTab>('password');
   const [modalState, setModalState] = useState<ModalState>('idle');
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
-  // Shared
-  const [error,       setError]       = useState('');
-  const [successMsg,  setSuccessMsg]  = useState('');
-  const [submitting,  setSubmitting]  = useState(false);
+  // Form States
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [gdpr, setGdpr] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
+  const [showDataSpecs, setShowDataSpecs] = useState(false);
 
-  // Password tab
-  const [pwUsername, setPwUsername] = useState('');
-  const [pwPassword, setPwPassword] = useState('');
-  const [showPw,     setShowPw]     = useState(false);
-
-  // OTP tab
-  const [otpEmail,   setOtpEmail]   = useState('');
-  const [otpCode,    setOtpCode]    = useState('');
+  const strength = passwordStrength(password);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Sign-up tab
-  const [suUsername, setSuUsername] = useState('');
-  const [suEmail,    setSuEmail]    = useState('');
-  const [suName,     setSuName]     = useState('');
-  const [suPassword, setSuPassword] = useState('');
-  const [suConfirm,  setSuConfirm]  = useState('');
-  const [suGdpr,     setSuGdpr]     = useState(false);
-  const [suResendEmail, setSuResendEmail] = useState('');
-
-  const strength     = passwordStrength(suPassword);
-  const strengthLabel = STRENGTH_LABEL[strength];
-  const strengthColor = STRENGTH_COLOR[strength];
-
-  // ── Countdown timer for OTP expiry ─────────────────────────────────────────
   const startCountdown = useCallback(() => {
-    setOtpCountdown(600); // 10 min
+    setOtpCountdown(600);
     if (countdownRef.current) clearInterval(countdownRef.current);
     countdownRef.current = setInterval(() => {
       setOtpCountdown((prev) => {
@@ -98,22 +170,24 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
 
   useEffect(() => () => { if (countdownRef.current) clearInterval(countdownRef.current); }, []);
 
-  // ── Reset state when tab changes ───────────────────────────────────────────
   const resetFormState = () => {
     setError(''); setSuccessMsg(''); setModalState('idle');
     setOtpCode(''); setOtpCountdown(0);
   };
   const switchTab = (t: ModalTab) => { setTab(t); resetFormState(); };
 
-  // ── Password sign-in ───────────────────────────────────────────────────────
+  // ── Auth Handlers ─────────────────────────────────────────────────────────
+
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setSubmitting(true);
-    const result = await loginAsync(pwUsername, pwPassword);
+    const result = await loginAsync(username, password);
     setSubmitting(false);
 
     if (result.needsVerification) {
-      setError('Your email is not verified. Click "Resend verification email" below.');
+      setError('Email not verified. Please check your inbox.');
+      setModalState('verify_prompt');
+      setResendEmail(username);
       return;
     }
     if (!result.ok) {
@@ -124,678 +198,576 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
     else onLoginSuccess();
   };
 
-  // ── OTP: request code ──────────────────────────────────────────────────────
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpEmail) { setError('Enter your email address.'); return; }
+    if (!email) { setError('Enter your email.'); return; }
     setError(''); setSubmitting(true);
-    await requestOtp(otpEmail);   // always returns ok=true
+    await requestOtp(email);
     setSubmitting(false);
     setModalState('otp_sent');
-    setSuccessMsg('A 6-digit code has been sent. Check your inbox (and spam folder).');
+    setSuccessMsg('A security code has been transmitted.');
     startCountdown();
   };
 
-  // ── OTP: verify code ───────────────────────────────────────────────────────
   const handleOtpLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.length !== 6) { setError('Enter the 6-digit code.'); return; }
+    if (otpCode.length !== 6) { setError('Invalid code length.'); return; }
     setError(''); setSubmitting(true);
-    const result = await loginWithOtpAsync(otpEmail, otpCode);
+    const result = await loginWithOtpAsync(email, otpCode);
     setSubmitting(false);
-
-    if (!result.ok) {
-      setError(result.errorMsg ?? 'Invalid or expired code.');
-      return;
-    }
-    
+    if (!result.ok) { setError(result.errorMsg ?? 'Verification failed.'); return; }
     if (useAppStore.getState().isAdmin) onAdminLogin();
     else onLoginSuccess();
   };
 
-  // ── Sign up ────────────────────────────────────────────────────────────────
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (suPassword !== suConfirm) { setError('Passwords do not match.'); return; }
-    if (!suGdpr) { setError('Please accept the privacy policy to continue.'); return; }
-    if (strength < 3) { setError('Choose a stronger password (aim for 8+ chars with mixed case, numbers & symbols).'); return; }
+    if (password !== confirmPassword) { setError('Passwords mismatch.'); return; }
+    if (!gdpr) { setError('Privacy policy agreement required.'); return; }
+    if (strength < 3) { setError('Password too weak.'); return; }
 
     setSubmitting(true);
     const { signUp } = await import('../services/authService');
-    const result = await signUp(suUsername, suEmail, suName, suPassword);
+    const result = await signUp(username, email, fullName, password);
     setSubmitting(false);
 
     if (!result.ok) { setError(result.errorMsg ?? 'Registration failed.'); return; }
-    setSuResendEmail(suEmail);
+    setResendEmail(email);
     setModalState('verify_prompt');
   };
 
-  const handleResendVerification = async () => {
-    await resendVerification(suResendEmail);
-    setSuccessMsg('Verification email resent! Check your inbox.');
+  const scrollToAuth = () => {
+    const el = document.getElementById('auth-section');
+    el?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // ─── JSX ──────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────
+
   return (
-    <div style={styles.page}>
+    <div ref={containerRef} className="bg-black text-white min-h-screen font-sans selection:bg-red-600/30 overflow-x-hidden">
       
-      {/* ── Left Pane (Hero & Branding) ──────────────────────────────────── */}
-      <div style={styles.leftPane}>
-        <div style={styles.heroContent}>
-          <div style={styles.badgeWrap}>
-            <div style={styles.badgeGlow} />
-            <div style={styles.badge}>2026 SEASON ENGINE</div>
+      {/* ── Floating Header ── */}
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 h-20 backdrop-blur-md border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-900/20">
+            <Cpu className="w-6 h-6 text-white" />
           </div>
-          <h1 style={styles.title}>
-            APEX<br />
-            <span style={styles.titleAccent}>INTELLIGENCE</span>
+          <span className="font-display font-black text-xl italic tracking-tighter uppercase">Apex Intelligence</span>
+        </div>
+        <button 
+          onClick={scrollToAuth}
+          className="hidden md:flex items-center gap-2 px-6 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all text-sm font-bold uppercase tracking-widest text-white/70 hover:text-white"
+        >
+          Access Portal <ArrowRight className="w-4 h-4" />
+        </button>
+      </nav>
+
+      {/* ── Progress Bar ── */}
+      <motion.div 
+        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 to-red-400 z-[60] origin-left"
+        style={{ scaleX: scrollYProgress }}
+      />
+
+      {/* ── SECTION 1: HERO ── */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden">
+        <motion.div 
+          style={{ y: glowY }}
+          className="absolute inset-0 z-0 pointer-events-none opacity-20"
+        >
+          <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[120px]" />
+          <div className="absolute top-3/4 right-1/4 w-[400px] h-[400px] bg-blue-600/5 rounded-full blur-[100px]" />
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="relative z-10 text-center max-w-4xl"
+        >
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-morphism mb-8 border-red-900/30"
+          >
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 mt-0.5">2026 Season Engine Active</span>
+          </motion.div>
+          
+          <h1 className="font-display font-black text-6xl md:text-8xl italic tracking-tighter uppercase leading-[0.9] mb-8 hero-gradient-text">
+            Outthink.<br />Outpace.<br />Optimize.
           </h1>
-          <p style={styles.subtitle}>
-            AI-powered Formula 1 race strategy, telemetry analysis,<br />
-            and real-time pit-stop optimization. Built for the pit wall.
+          
+          <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto leading-relaxed mb-12">
+            The next generation of Formula 1 strategy. Real-time telemetry, predictive AI simulations, and adaptive modeling for the hybrid era.
           </p>
-        </div>
-        
-        {/* Dynamic Abstract Background Lines */}
-        <div style={styles.heroBg} aria-hidden="true">
-          {[...Array(15)].map((_, i) => (
-            <div 
-              key={i} 
-              style={{ 
-                ...styles.heroBgLine, 
-                left: `${i * 7}%`, 
-                animationDelay: `${i * 0.3}s`,
-                height: `${80 + Math.random() * 40}%`,
-                opacity: 0.1 + Math.random() * 0.3
-              }} 
-            />
-          ))}
-          <div style={styles.radialGlow} />
-        </div>
-      </div>
 
-      {/* ── Right Pane (Auth Wizard) ─────────────────────────────────────── */}
-      <div style={styles.rightPane}>
-        <div style={styles.authCard}>
-          <div style={styles.modalHeader}>
-            <span style={styles.modalLogo}>
-              <span style={{color: '#e10600'}}>🏎</span> Apex Intelligence
-            </span>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button 
+              onClick={scrollToAuth}
+              className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-red-600 text-white font-bold hover:bg-red-700 transition-all shadow-xl shadow-red-900/30 active:scale-95"
+            >
+              Sign In to Command Center
+            </button>
+            <button 
+              onClick={() => setShowDataSpecs(true)}
+              className="w-full sm:w-auto px-10 py-4 rounded-2xl glass-morphism text-white/80 font-bold hover:bg-white/5 transition-all"
+            >
+              View Data Specs
+            </button>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          style={{ y: carParallax }}
+          className="mt-20 w-full max-w-4xl opacity-50 relative"
+        >
+          <div className="absolute inset-0 bg-red-600/5 blur-3xl rounded-full" />
+          <F1CarSVG />
+        </motion.div>
+
+        <motion.div 
+          animate={{ y: [0, 10, 0] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/30"
+        >
+          <span className="text-[10px] uppercase font-bold tracking-widest">Explore Intelligence</span>
+          <ChevronDown className="w-5 h-5" />
+        </motion.div>
+      </section>
+
+      {/* ── SECTION 2: STRATEGY ENGINE ── */}
+      <section className="relative py-32 px-6 lg:px-24">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+          <motion.div 
+            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, x: -50 }}
+            viewport={{ once: true }}
+            className="space-y-8"
+          >
+            <div className="p-3 w-fit rounded-2xl bg-red-600/10 border border-red-500/20">
+              <Zap className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="font-display font-black text-4xl md:text-6xl italic uppercase tracking-tight leading-none text-white">
+              Adaptive Race<br /><span className="text-red-600">Strategy</span>
+            </h2>
+            <p className="text-white/60 text-lg leading-relaxed">
+              Our proprietary Monte Carlo simulator runs 50,000+ race scenarios per second, accounting for tire degradation, rain probability, and safety car windows.
+            </p>
+            <ul className="space-y-4">
+              {[
+                "Instant undercut/overcut analysis",
+                "Dynamic tire compounding modeling",
+                "Multi-driver gap synchronization"
+              ].map((item, i) => (
+                <li key={i} className="flex items-center gap-3 text-white/80 font-medium">
+                  <CheckCircle2 className="w-5 h-5 text-accent-green" /> {item}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+          
+          <motion.div 
+            whileInView={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            viewport={{ once: true }}
+            className="glass-morphism p-8 rounded-[32px] border-white/5 relative overflow-hidden group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-tr from-red-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <h3 className="text-xs font-black uppercase tracking-widest text-white/40 mb-12">LIVE SIMULATION STREAM</h3>
+            <StrategyGraphSVG />
+            <div className="mt-8 flex justify-between items-end">
+              <div>
+                <p className="text-xs text-white/30 uppercase font-bold">Accuracy</p>
+                <p className="text-2xl font-display font-bold text-white">99.8%</p>
+              </div>
+              <div className="h-10 w-24 bg-red-600/20 rounded-lg flex items-center justify-center">
+                <div className="flex gap-1">
+                  {[1,2,3,4,5].map(i => <div key={i} className="w-1.5 h-4 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: `${i*0.2}s` }} />)}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── SECTION 2.5: REAL-TIME TELEMETRY (NEW) ── */}
+      <section className="relative py-32 px-6 lg:px-24 overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="max-w-7xl mx-auto space-y-20">
+          <div className="text-center space-y-4">
+            <motion.h2 
+              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 30 }}
+              viewport={{ once: true }}
+              className="font-display font-black text-4xl md:text-6xl italic uppercase tracking-tighter"
+            >
+              Real-Time <span className="text-red-600">Telemetry</span> Streaming
+            </motion.h2>
+            <p className="text-white/40 max-w-2xl mx-auto">Instantaneous processing of 200+ sensor data points from the power unit to the aero-surfaces.</p>
           </div>
 
-          <p style={styles.authSubtitle}>
-            Authenticate to access live telemetry and modeling controls.
-          </p>
+          <div className="grid lg:grid-cols-3 gap-8">
+            {[
+              { label: 'Power Unit', value: '11,400 RPM', status: 'Optimal', color: 'red' },
+              { label: 'ERS Deployment', value: '4.2 MJ', status: 'Charging', color: 'blue' },
+              { label: 'Tire Carcass', value: '98°C', status: 'Nominal', color: 'red' }
+            ].map((stat, i) => (
+              <motion.div 
+                key={i}
+                whileInView={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, x: i % 2 === 0 ? -30 : 30 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.8 }}
+                className="glass-morphism-dark p-6 rounded-3xl border border-white/5 flex flex-col gap-4 relative overflow-hidden group"
+              >
+                <motion.div 
+                  className="absolute inset-0 bg-gradient-to-br from-red-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
+                />
+                <div className={`absolute top-4 right-4 w-1.5 h-1.5 rounded-full ${stat.color === 'red' ? 'bg-red-500' : 'bg-blue-500'} animate-pulse`} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{stat.label}</span>
+                <div className="flex items-end justify-between relative z-10">
+                  <span className="text-3xl font-display font-bold italic">{stat.value}</span>
+                  <span className="text-[10px] font-mono text-emerald-400">{stat.status}</span>
+                </div>
+                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden relative z-10">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    whileInView={{ width: '85%' }}
+                    transition={{ duration: 2, delay: 0.5, ease: "circOut" }}
+                    className={`h-full ${stat.color === 'red' ? 'bg-red-600' : 'bg-blue-600'}`} 
+                  />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* Tabs */}
-          <div style={styles.tabs} role="tablist">
-            {(['password', 'otp', 'signup'] as ModalTab[]).map((t) => (
+      {/* ── SECTION 3: INFRASTRUCTURE ── */}
+      <section className="relative py-32 px-6 lg:px-24 bg-gradient-to-b from-transparent to-[#050505]">
+        <div className="max-w-7xl mx-auto flex flex-col items-center text-center space-y-12">
+          <motion.div 
+             whileInView={{ opacity: 1, y: 0 }}
+             initial={{ opacity: 0, y: 50 }}
+             viewport={{ once: true }}
+             className="space-y-6 max-w-3xl"
+          >
+            <div className="mx-auto p-3 w-fit rounded-2xl bg-accent-green/10 border border-accent-green/20">
+              <Database className="w-8 h-8 text-accent-green" />
+            </div>
+            <h2 className="font-display font-black text-4xl md:text-6xl italic uppercase tracking-tight text-white">
+              Global <span className="text-accent-green">Infrastructure</span>
+            </h2>
+            <p className="text-white/60 text-lg">
+              High-performance computing on Google Cloud. Sub-millisecond latency for race-critical telemetry processing.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6 w-full mt-12">
+            {[
+              { icon: Layers, title: "Distributed Compute", desc: "Powered by GCP high-performance clusters for zero-lag calculations." },
+              { icon: ShieldCheck, title: "Secure Enclaves", desc: "Industry-leading encryption for team-sensitive strategic intellectual property." },
+              { icon: Activity, title: "Live Vitals", desc: "Monitor car health and driver performance metrics with microsecond precision." }
+            ].map((feature, i) => (
+              <motion.div 
+                key={i}
+                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 50 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.15, duration: 0.6 }}
+                whileHover={{ y: -10, scale: 1.02 }}
+                className="glass-morphism p-8 rounded-3xl text-left border border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-red-600/10 flex items-center justify-center mb-6 border border-red-500/10">
+                  <feature.icon className="w-6 h-6 text-red-500" />
+                </div>
+                <h4 className="text-lg font-bold text-white mb-3 tracking-tight">{feature.title}</h4>
+                <p className="text-sm text-white/40 leading-relaxed font-medium">{feature.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── SECTION 4: AUTH ── */}
+      <section id="auth-section" className="relative min-h-screen flex items-center justify-center py-20 px-6">
+        <div className="absolute inset-0 pointer-events-none opacity-30 overflow-hidden">
+          <div className="absolute bottom-0 left-0 w-full h-[50vh] bg-gradient-to-t from-red-600/20 to-transparent" />
+        </div>
+
+        <motion.div 
+          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 100 }}
+          viewport={{ once: true }}
+          className="w-full max-w-xl glass-morphism-dark p-8 md:p-12 rounded-[2.5rem] shadow-2xl relative z-20"
+        >
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-display font-black italic tracking-tighter uppercase mb-2">Platform Access</h2>
+            <p className="text-white/40 text-sm">Secure authorization required for intelligence protocols.</p>
+          </div>
+
+          <div className="flex p-1 bg-white/5 rounded-2xl mb-8 border border-white/5">
+            {(['password', 'otp', 'signup'] as ModalTab[]).map(t => (
               <button
                 key={t}
-                role="tab"
-                aria-selected={tab === t}
-                id={`tab-${t}`}
-                style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }}
                 onClick={() => switchTab(t)}
+                className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
+                  tab === t ? 'bg-red-600 text-white shadow-lg' : 'text-white/30 hover:text-white/50'
+                }`}
               >
-                {t === 'password' ? 'Sign In' : t === 'otp' ? 'Magic Code' : 'Register'}
+                {t === 'password' ? 'Sign In' : t === 'otp' ? 'OTP' : 'Register'}
               </button>
             ))}
           </div>
 
-          <div style={styles.formContainer}>
-            {/* ── Tab: Password ────────────────────────────────────────────── */}
-            {tab === 'password' && (
-              <form onSubmit={handlePasswordLogin} style={styles.form} noValidate>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Username or Email</label>
-                  <input
-                    id="pw-username"
-                    style={styles.input}
-                    type="text" autoComplete="username" required
-                    placeholder="race_engineer"
-                    value={pwUsername} onChange={(e) => setPwUsername(e.target.value)}
-                  />
-                </div>
-                
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Password</label>
-                  <div style={styles.pwWrap}>
-                    <input
-                      id="pw-password"
-                      style={styles.input}
-                      type={showPw ? 'text' : 'password'}
-                      autoComplete="current-password" required
-                      placeholder="••••••••"
-                      value={pwPassword} onChange={(e) => setPwPassword(e.target.value)}
-                    />
-                    <button type="button" style={styles.pwToggle} onClick={() => setShowPw(!showPw)}>
-                      {showPw ? '🙈' : '👁'}
-                    </button>
+          <div className="min-h-[300px]">
+            <AnimatePresence mode="wait">
+              {tab === 'password' && (
+                <motion.form 
+                  key="password"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  onSubmit={handlePasswordLogin}
+                  className="space-y-6"
+                >
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                      <input 
+                        type="text" placeholder="Username / Email"
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-red-600/50 outline-none transition-all text-sm"
+                        value={username} onChange={e => setUsername(e.target.value)}
+                      />
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                      <input 
+                        type={showPw ? "text" : "password"} placeholder="Secure Password"
+                        className="w-full pl-12 pr-12 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-red-600/50 outline-none transition-all text-sm"
+                        value={password} onChange={e => setPassword(e.target.value)}
+                      />
+                      <button 
+                        type="button" onClick={() => setShowPw(!showPw)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-all"
+                      >
+                        {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {error && <p style={styles.errorMsg}>{error}</p>}
-                
-                <button id="pw-submit" type="submit" style={styles.submitBtn} disabled={submitting || authLoading}>
-                  <span style={styles.btnText}>{(submitting || authLoading) ? 'Authenticating…' : 'Secure Login'}</span>
-                  <span style={styles.btnGlow} />
-                </button>
-                
-                {error.includes('not verified') && (
-                  <button type="button" style={styles.linkBtn}
-                    onClick={() => resendVerification(pwUsername).then(() => setSuccessMsg('Verification email sent!'))}>
-                    Resend verification email
+                  {error && <div className="flex gap-2 p-3 rounded-xl bg-red-600/10 border border-red-600/20 text-red-500 text-xs font-bold leading-relaxed">
+                    <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                  </div>}
+
+                  <button 
+                    disabled={submitting || authLoading}
+                    className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-900/40"
+                  >
+                    {submitting ? "Establishing Connection..." : "Initialize Session"}
                   </button>
-                )}
-                {successMsg && <p style={styles.successMsg}>{successMsg}</p>}
-                
-              </form>
-            )}
+                </motion.form>
+              )}
 
-            {/* ── Tab: OTP ────────────────────────────────────────────────── */}
-            {tab === 'otp' && (
-              <div style={styles.form}>
-                {modalState !== 'otp_sent' ? (
-                  <form onSubmit={handleRequestOtp} noValidate>
-                    <p style={styles.hint}>Passwordless login. Enter your email to receive a secure one-time passcode.</p>
-                    <div style={styles.inputGroup}>
-                      <label style={styles.label}>Email Address</label>
-                      <input
-                        id="otp-email"
-                        style={styles.input}
-                        type="email" required autoComplete="email"
-                        placeholder="you@team.com"
-                        value={otpEmail} onChange={(e) => setOtpEmail(e.target.value)}
+              {tab === 'otp' && (
+                <motion.div 
+                  key="otp"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  {modalState !== 'otp_sent' ? (
+                    <form onSubmit={handleRequestOtp} className="space-y-6">
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                        <input 
+                          type="email" placeholder="Verification Email"
+                          className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-red-600/50 outline-none transition-all text-sm"
+                          value={email} onChange={e => setEmail(e.target.value)}
+                        />
+                      </div>
+                      <button className="w-full py-4 rounded-2xl border border-red-600/50 text-red-500 font-bold text-sm uppercase tracking-widest hover:bg-red-600/5 transition-all">
+                        Transmit Magic Code
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleOtpLogin} className="space-y-6">
+                      <input 
+                        type="text" maxLength={6} placeholder="000000"
+                        className="w-full py-6 rounded-2xl bg-white/5 border border-red-600/30 text-center text-4xl font-bold tracking-[0.5em] text-red-500 outline-none"
+                        value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
                       />
-                    </div>
-                    {error && <p style={styles.errorMsg}>{error}</p>}
-                    <button id="otp-request-btn" type="submit" style={styles.submitBtn} disabled={submitting}>
-                      <span style={styles.btnText}>{submitting ? 'Transmitting…' : 'Send Magic Code'}</span>
-                      <span style={styles.btnGlow} />
-                    </button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleOtpLogin} noValidate>
-                    <p style={styles.successMsg}>{successMsg}</p>
-                    <div style={styles.inputGroup}>
-                      <label style={styles.label}>6-Digit Security Code</label>
-                      <input
-                        id="otp-code"
-                        style={{ ...styles.input, ...styles.otpInput }}
-                        type="text" inputMode="numeric" pattern="\d{6}" maxLength={6} required
-                        placeholder="000000"
-                        value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/, ''))}
-                      />
-                    </div>
-                    {otpCountdown > 0 && (
-                      <p style={styles.countdown}>
-                        Code expires in {Math.floor(otpCountdown / 60)}:{String(otpCountdown % 60).padStart(2, '0')}
+                      <p className="text-center text-[10px] uppercase font-bold text-white/40 tracking-widest">
+                        Expiring in {Math.floor(otpCountdown / 60)}:{String(otpCountdown % 60).padStart(2, '0')}
                       </p>
-                    )}
-                    {otpCountdown === 0 && <p style={styles.errorMsg}>Code expired. Request a new one.</p>}
-                    {error && <p style={styles.errorMsg}>{error}</p>}
-                    
-                    <button id="otp-verify-btn" type="submit" style={styles.submitBtn} disabled={submitting || otpCountdown === 0}>
-                      <span style={styles.btnText}>{submitting ? 'Verifying…' : 'Verify & Enter'}</span>
-                      <span style={styles.btnGlow} />
-                    </button>
-                    <button type="button" style={{...styles.linkBtn, marginTop: '16px', display: 'block', textAlign: 'center', width: '100%'}}
-                      onClick={() => { setModalState('idle'); setOtpCode(''); setError(''); }}>
-                      ← Use a different email
-                    </button>
-                  </form>
-                )}
-              </div>
-            )}
+                      <button className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest">
+                        Authorize Terminal
+                      </button>
+                    </form>
+                  )}
+                </motion.div>
+              )}
 
-            {/* ── Tab: Sign Up ─────────────────────────────────────────────── */}
-            {tab === 'signup' && (
-              <div style={styles.form}>
-                {modalState !== 'verify_prompt' ? (
-                  <form onSubmit={handleSignUp} noValidate style={styles.compactForm}>
-                    <div style={styles.row}>
-                      <div style={styles.inputGroup}>
-                        <label style={styles.label}>Username</label>
-                        <input id="su-username" style={styles.input} type="text" autoComplete="username" required
-                          placeholder="jdoe99" value={suUsername} onChange={(e) => setSuUsername(e.target.value)} />
-                      </div>
-                      <div style={styles.inputGroup}>
-                        <label style={styles.label}>Full Name</label>
-                        <input id="su-name" style={styles.input} type="text" autoComplete="name" required
-                          placeholder="John Doe" value={suName} onChange={(e) => setSuName(e.target.value)} />
-                      </div>
-                    </div>
-                    
-                    <div style={styles.inputGroup}>
-                      <label style={styles.label}>Email Address</label>
-                      <input id="su-email" style={styles.input} type="email" autoComplete="email" required
-                        placeholder="you@team.com" value={suEmail} onChange={(e) => setSuEmail(e.target.value)} />
-                    </div>
+              {tab === 'signup' && (
+                <motion.form 
+                  key="signup"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  onSubmit={handleSignUp}
+                  className="space-y-4"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <input 
+                      type="text" placeholder="Username"
+                      className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
+                      value={username} onChange={e => setUsername(e.target.value)}
+                    />
+                    <input 
+                      type="text" placeholder="Full Name"
+                      className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
+                      value={fullName} onChange={e => setFullName(e.target.value)}
+                    />
+                  </div>
+                  <input 
+                    type="email" placeholder="Strategic Email Address"
+                    className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
+                    value={email} onChange={e => setEmail(e.target.value)}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input 
+                      type="password" placeholder="Password"
+                      className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
+                      value={password} onChange={e => setPassword(e.target.value)}
+                    />
+                    <input 
+                      type="password" placeholder="Confirm"
+                      className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
+                      value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                  
+                  <label className="flex gap-3 text-[10px] text-white/40 items-start cursor-pointer select-none px-2 py-2">
+                    <input 
+                      type="checkbox" className="mt-0.5 accent-red-600"
+                      checked={gdpr} onChange={e => setGdpr(e.target.checked)}
+                    />
+                    <span>I agree to the <a href="/privacy-policy.html" target="_blank" className="text-red-500 hover:underline">Privacy Policy</a> and <a href="/terms.html" target="_blank" className="text-red-500 hover:underline">Terms of Service</a>.</span>
+                  </label>
 
-                    <div style={styles.row}>
-                      <div style={styles.inputGroup}>
-                        <label style={styles.label}>Password</label>
-                        <input id="su-password" style={styles.input} type="password" autoComplete="new-password" required
-                          placeholder="min 8 chars" value={suPassword} onChange={(e) => setSuPassword(e.target.value)} />
-                        {suPassword && (
-                          <div style={styles.strengthBar}>
-                            {[1,2,3,4].map((n) => (
-                              <div key={n} style={{ ...styles.strengthSegment, background: n <= strength ? strengthColor : 'rgba(255,255,255,0.1)' }} />
-                            ))}
-                            <span style={{ color: strengthColor, fontSize: 10, marginLeft: 6, fontWeight: 600 }}>{strengthLabel}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div style={styles.inputGroup}>
-                        <label style={styles.label}>Confirm</label>
-                        <input id="su-confirm" style={styles.input} type="password" autoComplete="new-password" required
-                          placeholder="repeat" value={suConfirm} onChange={(e) => setSuConfirm(e.target.value)} />
-                      </div>
-                    </div>
+                  <button className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest">
+                    Create Identity
+                  </button>
+                </motion.form>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      </section>
 
-                    <label style={styles.gdprLabel}>
-                      <div style={styles.checkboxWrapper}>
-                        <input id="su-gdpr" type="checkbox" style={styles.checkbox} checked={suGdpr} onChange={(e) => setSuGdpr(e.target.checked)} />
-                      </div>
-                      <span style={{lineHeight: 1.4}}>I agree to the <a href="#" style={styles.gdprLink}>Privacy Policy</a> and data processing terms for telemetry analysis.</span>
-                    </label>
+      {/* ── FOOTER ── */}
+      <footer className="py-12 px-6 lg:px-24 border-t border-white/5 text-center bg-[#050505]">
+        <div className="flex items-center justify-center gap-2 mb-6 opacity-50">
+          <Cpu className="w-4 h-4 text-red-500" />
+          <span className="text-[10px] font-black uppercase tracking-tighter italic">Apex Intelligence</span>
+        </div>
+        
+        <div className="flex flex-wrap justify-center gap-x-8 gap-y-4 mb-8">
+          {[
+            { label: 'Privacy Policy', href: '/privacy-policy.html' },
+            { label: 'Cookie Policy',  href: '/cookie-policy.html' },
+            { label: 'Terms of Service', href: '/terms.html' },
+            { label: 'Sitemap', href: '/sitemap.xml' }
+          ].map(link => (
+            <a 
+              key={link.label} 
+              href={link.href} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
 
-                    {error && <p style={styles.errorMsg}>{error}</p>}
-                    <button id="su-submit" type="submit" style={styles.submitBtn} disabled={submitting}>
-                      <span style={styles.btnText}>{submitting ? 'Initializing Node…' : 'Deploy Identity'}</span>
-                      <span style={styles.btnGlow} />
-                    </button>
-                  </form>
-                ) : (
-                  <div style={styles.verifyPrompt}>
-                    <div style={styles.verifyIcon}>
-                      <div style={styles.verifyRing}/>
-                      ✉️
+        <p className="text-[10px] text-white/20 uppercase font-bold tracking-[0.3em] max-w-2xl mx-auto leading-relaxed">
+          &copy; {new Date().getFullYear()} Apex Strategy Labs. All rights reserved. 
+          <br className="sm:hidden" /> Developed for High-Performance Simulation.
+        </p>
+      </footer>
+      {/* ── DATA SPECS MODAL ── */}
+      <AnimatePresence>
+        {showDataSpecs && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl"
+            onClick={() => setShowDataSpecs(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-2xl glass-morphism-dark p-8 md:p-12 rounded-[2.5rem] border border-white/10 shadow-2xl relative"
+            >
+              <button 
+                onClick={() => setShowDataSpecs(false)}
+                className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/5 transition-colors"
+              >
+                <X className="w-6 h-6 text-white/40" />
+              </button>
+              
+              <div className="space-y-8">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-red-600/10 border border-red-500/20">
+                    <Database className="w-8 h-8 text-red-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-display font-black italic tracking-tighter uppercase">Technical Architecture</h2>
+                    <p className="text-white/40 text-xs font-mono uppercase tracking-widest mt-1">Apex Engine v4.2.0-Pro</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { label: 'Compute Engine', value: 'Google Cloud Vertex AI', desc: 'Predictive modeling via 512-core TPU clusters.' },
+                    { label: 'Data Frequency', value: '100Hz Refresh Rate', desc: 'Real-time telemetry ingestion from trackside nodes.' },
+                    { label: 'Network Latency', value: '< 15ms Global Orbit', desc: 'Distributed edge points for race-critical reactivity.' },
+                    { label: 'Security Protocols', value: 'AES-256 Multi-layer', desc: 'Bank-grade encryption for proprietary strategies.' }
+                  ].map(spec => (
+                    <div key={spec.label} className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">{spec.label}</p>
+                      <p className="text-sm font-bold text-white mb-2">{spec.value}</p>
+                      <p className="text-[10px] text-white/40 leading-tight">{spec.desc}</p>
                     </div>
-                    <h3 style={styles.verifyTitle}>Awaiting Clearance</h3>
-                    <p style={styles.verifyText}>
-                      We transmitted a secure link to <strong style={{color: '#fff'}}>{suResendEmail}</strong>.
-                      Validate your channel to access the grid.
-                    </p>
-                    {successMsg && <p style={styles.successMsg}>{successMsg}</p>}
-                    <button type="button" style={{...styles.linkBtn, marginTop: 16}} onClick={handleResendVerification}>
-                      Retransmit verification signal
-                    </button>
-                    <button type="button" style={{ ...styles.submitBtn, marginTop: 32 }} onClick={() => switchTab('password')}>
-                      <span style={styles.btnText}>Return to Sign In</span>
+                  ))}
+                </div>
+
+                <div className="pt-6 border-t border-white/5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                       <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">All Systems Operational</span>
+                    </div>
+                    <button 
+                      onClick={() => setShowDataSpecs(false)}
+                      className="px-8 py-3 rounded-xl bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-white/90 transition-all"
+                    >
+                      Acknowledge
                     </button>
                   </div>
-                )}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
 export default LandingPage;
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
-// Added custom css keyframes safely into a globally appended style block if needed, but going with standard inline layout.
-// For advanced CSS effects that inline styles can't do (like ::before or complex animations), we use robust inline tricks or rely on index.css.
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight:       '100vh',
-    display:         'flex',
-    fontFamily:      "'Inter', 'Outfit', sans-serif",
-    overflow:        'hidden',
-    position:        'relative',
-    background:      '#050505',
-    color:           '#fff',
-  },
-  
-  // Left side - Branding
-  leftPane: {
-    flex:            1.2,
-    position:        'relative',
-    display:         'flex',
-    alignItems:      'center',
-    justifyContent:  'flex-start',
-    padding:         '8%',
-    background:      'radial-gradient(ellipse at 30% 50%, #150606 0%, #050505 80%)',
-    borderRight:     '1px solid rgba(225,6,0,0.1)',
-  },
-  heroContent: { 
-    position: 'relative', 
-    zIndex: 2,
-    maxWidth: 600,
-  },
-  heroBg: { 
-    position: 'absolute', 
-    inset: 0, 
-    overflow: 'hidden', 
-    zIndex: 0 
-  },
-  heroBgLine: {
-    position:        'absolute',
-    top:             '-10%',
-    width:           1,
-    background:      'linear-gradient(to bottom, transparent, rgba(225,6,0,0.4), transparent)',
-    animation:       'pulse 4s ease-in-out infinite alternate',
-    boxShadow:       '0 0 15px rgba(225,6,0,0.5)',
-  },
-  radialGlow: {
-    position: 'absolute',
-    width: '600px',
-    height: '600px',
-    background: 'radial-gradient(circle, rgba(225,6,0,0.08) 0%, transparent 70%)',
-    top: '30%',
-    left: '10%',
-    pointerEvents: 'none',
-  },
-  badgeWrap: {
-    position: 'relative',
-    display: 'inline-block',
-    marginBottom: 32,
-  },
-  badgeGlow: {
-    position: 'absolute',
-    inset: 0,
-    background: '#e10600',
-    filter: 'blur(10px)',
-    opacity: 0.3,
-  },
-  badge: {
-    position:        'relative',
-    display:         'inline-block',
-    background:      'rgba(225,6,0,0.1)',
-    border:          '1px solid rgba(225,6,0,0.3)',
-    color:           '#ff4d4d',
-    padding:         '6px 16px',
-    borderRadius:    100,
-    fontSize:        11,
-    fontWeight:      700,
-    letterSpacing:   '0.2em',
-    backdropFilter:  'blur(4px)',
-  },
-  title: {
-    fontSize:        'clamp(48px, 6vw, 96px)',
-    fontWeight:      900,
-    color:           '#ffffff',
-    lineHeight:      0.95,
-    margin:          '0 0 24px',
-    letterSpacing:   '-0.03em',
-  },
-  titleAccent: { 
-    color: '#e10600',
-    textShadow: '0 0 40px rgba(225,6,0,0.3)',
-  },
-  subtitle: {
-    color:    'rgba(255,255,255,0.5)',
-    fontSize: 'clamp(16px, 1.2vw, 20px)',
-    margin:   '0',
-    lineHeight: 1.6,
-    maxWidth: 500,
-  },
-
-  // Right side - Auth
-  rightPane: {
-    flex:            0.8,
-    minWidth:        450,
-    maxWidth:        650,
-    position:        'relative',
-    display:         'flex',
-    alignItems:      'center',
-    justifyContent:  'center',
-    background:      'rgba(10, 10, 12, 0.8)',
-    backdropFilter:  'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    padding:         '48px',
-  },
-  authCard: {
-    width:        '100%',
-    maxWidth:     420,
-    display:      'flex',
-    flexDirection: 'column',
-  },
-  modalHeader: {
-    marginBottom:   12,
-  },
-  modalLogo: { 
-    color: '#fff', 
-    fontWeight: 800, 
-    fontSize: 22,
-    letterSpacing: '-0.5px'
-  },
-  authSubtitle: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 14,
-    marginBottom: 40,
-    lineHeight: 1.5,
-  },
-  tabs: {
-    display:       'flex',
-    gap:           4,
-    marginBottom:  32,
-    background:    'rgba(255,255,255,0.03)',
-    borderRadius:  12,
-    padding:       4,
-    border:        '1px solid rgba(255,255,255,0.05)',
-  },
-  tab: {
-    flex:         1,
-    background:   'transparent',
-    border:       'none',
-    color:        'rgba(255,255,255,0.4)',
-    fontFamily:   'inherit',
-    fontSize:     13,
-    fontWeight:   600,
-    padding:      '10px 4px',
-    borderRadius: 8,
-    cursor:       'pointer',
-    transition:   'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  },
-  tabActive: { 
-    background: 'linear-gradient(180deg, rgba(225,6,0,0.15) 0%, rgba(225,6,0,0.05) 100%)', 
-    color: '#fff',
-    border: '1px solid rgba(225,6,0,0.3)',
-    boxShadow: '0 4px 12px rgba(225,6,0,0.1)'
-  },
-  formContainer: {
-    position: 'relative',
-  },
-  form: { 
-    display: 'flex', 
-    flexDirection: 'column', 
-    gap: 20 
-  },
-  compactForm: {
-    display: 'flex', 
-    flexDirection: 'column', 
-    gap: 16
-  },
-  row: {
-    display: 'flex',
-    gap: 12,
-  },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-    flex: 1,
-  },
-  label: { 
-    color: 'rgba(255,255,255,0.6)', 
-    fontSize: 12, 
-    fontWeight: 600, 
-    letterSpacing: '0.05em',
-  },
-  input: {
-    background:   'rgba(0,0,0,0.4)',
-    border:       '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    color:        '#fff',
-    fontFamily:   'inherit',
-    fontSize:     15,
-    padding:      '12px 16px',
-    outline:      'none',
-    width:        '100%',
-    boxSizing:    'border-box',
-    transition:   'all 0.2s',
-    boxShadow:    'inset 0 2px 4px rgba(0,0,0,0.2)',
-  },
-  // We'll rely on normal css :focus state for outline if possible, but standard is fine.
-  pwWrap: { position: 'relative' },
-  pwToggle: { 
-    position: 'absolute', 
-    right: 12, 
-    top: '50%', 
-    transform: 'translateY(-50%)', 
-    background: 'none', 
-    border: 'none', 
-    cursor: 'pointer', 
-    fontSize: 16,
-    opacity: 0.5,
-    transition: 'opacity 0.2s'
-  },
-  otpInput: { 
-    textAlign: 'center', 
-    fontSize: 32, 
-    letterSpacing: '14px', 
-    fontWeight: 700,
-    padding: '16px',
-    background: 'rgba(225,6,0,0.03)',
-    border: '1px solid rgba(225,6,0,0.2)',
-    color: '#ff4d4d',
-  },
-  strengthBar: { display: 'flex', alignItems: 'center', gap: 4, marginTop: 8 },
-  strengthSegment: { flex: 1, height: 4, borderRadius: 2, transition: 'background 0.3s' },
-  submitBtn: {
-    position:     'relative',
-    marginTop:    12,
-    background:   'linear-gradient(135deg, #e10600, #b30000)',
-    color:        '#fff',
-    border:       '1px solid rgba(255,255,255,0.1)',
-    padding:      '14px 0',
-    borderRadius: 10,
-    fontFamily:   'inherit',
-    fontSize:     15,
-    fontWeight:   700,
-    cursor:       'pointer',
-    width:        '100%',
-    overflow:     'hidden',
-    transition:   'transform 0.2s, box-shadow 0.2s',
-  },
-  btnText: {
-    position: 'relative',
-    zIndex: 2,
-    letterSpacing: '0.02em',
-  },
-  btnGlow: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    background: 'linear-gradient(rgba(255,255,255,0.2), transparent)',
-    zIndex: 1,
-  },
-  errorMsg:   { 
-    color: '#ff4d4d', 
-    fontSize: 13, 
-    marginTop: 4,
-    background: 'rgba(255,77,77,0.1)',
-    padding: '8px 12px',
-    borderRadius: 6,
-    border: '1px solid rgba(255,77,77,0.2)'
-  },
-  successMsg: { 
-    color: '#00e676', 
-    fontSize: 13, 
-    marginTop: 4,
-    background: 'rgba(0,230,118,0.1)',
-    padding: '8px 12px',
-    borderRadius: 6,
-    border: '1px solid rgba(0,230,118,0.2)'
-  },
-  hint:       { color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 16, lineHeight: 1.5 },
-  countdown:  { color: '#ffa64d', fontSize: 13, marginTop: 12, textAlign: 'center', fontWeight: 600 },
-  linkBtn: {
-    background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)',
-    cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, padding: 0, textDecoration: 'underline',
-    transition: 'color 0.2s'
-  },
-  gdprLabel: {
-    display:    'flex',
-    gap:        12,
-    alignItems: 'flex-start',
-    color:      'rgba(255,255,255,0.4)',
-    fontSize:   12,
-    marginTop:  8,
-    cursor:     'pointer',
-  },
-  checkboxWrapper: {
-    paddingTop: 2,
-  },
-  checkbox: {
-    accentColor: '#e10600',
-    width: 16,
-    height: 16,
-    cursor: 'pointer',
-  },
-  gdprLink: { color: '#e10600', textDecoration: 'none' },
-  verifyPrompt: { 
-    textAlign: 'center', 
-    padding: '32px 0 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center'
-  },
-  verifyIcon:  { 
-    fontSize: 40, 
-    marginBottom: 24,
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 80,
-    height: 80,
-    background: 'rgba(225,6,0,0.1)',
-    borderRadius: '50%',
-    border: '1px solid rgba(225,6,0,0.2)'
-  },
-  verifyRing: {
-    position: 'absolute',
-    inset: -10,
-    border: '1px dashed rgba(225,6,0,0.3)',
-    borderRadius: '50%',
-    animation: 'spin 10s linear infinite',
-  },
-  verifyTitle: { color: '#fff', fontWeight: 700, fontSize: 24, margin: '0 0 12px' },
-  verifyText:  { color: 'rgba(255,255,255,0.5)', fontSize: 15, lineHeight: 1.6, marginBottom: 16 },
-};
-
-// Global animations appended dynamically
-if (typeof document !== 'undefined') {
-  const styleEl = document.createElement('style');
-  styleEl.innerHTML = `
-    @keyframes pulse {
-      0% { opacity: 0.1; transform: scaleY(0.9); }
-      100% { opacity: 0.5; transform: scaleY(1.1); }
-    }
-    @keyframes spin {
-      100% { transform: rotate(360deg); }
-    }
-    input:focus {
-      border-color: rgba(225,6,0,0.5) !important;
-      box-shadow: 0 0 0 3px rgba(225,6,0,0.15) !important;
-    }
-    button[type="submit"]:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 24px rgba(225,6,0,0.4);
-    }
-    @media (max-width: 900px) {
-      .landing-page-left-pane { display: none !important; }
-      .landing-page-right-pane { flex: 1 !important; min-width: 100% !important; padding: 24px !important; }
-    }
-  `;
-  document.head.appendChild(styleEl);
-}
