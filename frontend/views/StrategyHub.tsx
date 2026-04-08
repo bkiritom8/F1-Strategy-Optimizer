@@ -782,7 +782,7 @@ function ChatMarkdown({ text }: { text: string }) {
       return;
     }
     // Bullet list item (*, -, •)
-    const ulMatch = line.match(/^[\*\-•]\s+(.*)/);
+    const ulMatch = line.match(/^[*\-•]\s+(.*)/);
     if (ulMatch) {
       if (listType !== 'ul') { flushList(`ul-flush-${i}`); listType = 'ul'; }
       listItems.push(ulMatch[1]);
