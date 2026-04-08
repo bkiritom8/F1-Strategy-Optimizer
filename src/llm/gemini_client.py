@@ -234,6 +234,26 @@ class GeminiClient:
                 return "".join(p.text for p in parts if hasattr(p, "text"))
         return response.text  # type: ignore[return-value]
 
+    def generate_plain(self, prompt: str) -> str:
+        """Send a prompt directly to the model without the F1 system prompt wrapper.
+
+        Use this for utility calls (e.g. LLM-as-judge) where the F1 analyst
+        role is not appropriate.
+        """
+        self._ensure_initialized()
+        response = self._model.generate_content(  # type: ignore[union-attr]
+            prompt,
+            generation_config={
+                "temperature": 0.0,
+                "max_output_tokens": 20,
+            },
+        )
+        if response.candidates:
+            parts = response.candidates[0].content.parts
+            if parts:
+                return "".join(p.text for p in parts if hasattr(p, "text"))
+        return response.text  # type: ignore[return-value]
+
     @staticmethod
     def _is_simulation_question(question: str) -> bool:
         """Return True if the question is asking for a simulation/what-if/strategy."""
