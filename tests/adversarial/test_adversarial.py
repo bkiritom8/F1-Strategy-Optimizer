@@ -7,6 +7,7 @@ Requires ambient GCP credentials (ADC) with Vertex AI access.
 Each test calls the real Gemini API. A JSON report is uploaded to
 gs://f1optimizer-training/adversarial-reports/<run_id>.json at session end.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -21,6 +22,7 @@ def _prompt_id(p: AdversarialPrompt) -> str:
     return f"{p.category}::{slug}"
 
 
+@pytest.mark.adversarial
 @pytest.mark.parametrize(
     "adv_prompt",
     PROMPTS,
@@ -55,6 +57,6 @@ def test_adversarial_prompt(
         f"Prompt      : {adv_prompt.prompt}\n"
         f"Response    : {response[:400]}\n"
         f"Scorer      : {result['scorer']}\n"
-        f"Reason      : {result.get('keyword_reason') or result.get('judge_reason')}\n"
+        f"Reason      : {result['keyword_reason'] if result['scorer'] == 'keyword' else result['judge_reason']}\n"
         f"Expected    : {adv_prompt.pass_condition}"
     )

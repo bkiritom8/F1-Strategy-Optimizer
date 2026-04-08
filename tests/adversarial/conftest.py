@@ -1,4 +1,5 @@
 """Shared fixtures and session hook for adversarial tests."""
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,10 @@ def pytest_configure(config: pytest.Config) -> None:
     global _run_id
     _session_results.clear()
     _run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    config.addinivalue_line(
+        "markers",
+        "adversarial: marks tests that call the real Gemini API (skip with -m 'not adversarial')",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -35,7 +40,11 @@ def results_collector() -> list[dict]:
 
 @pytest.fixture(scope="session")
 def gemini_client():
-    """Real GeminiClient using ambient GCP credentials (ADC)."""
+    """Real GeminiClient using ambient GCP credentials (ADC).
+
+    NOTE: warm_cache() is intentionally not called here — adversarial
+    tests must reach the live model, not a pre-warmed cached response.
+    """
     from rag.config import RagConfig
     from src.llm.gemini_client import GeminiClient
 
