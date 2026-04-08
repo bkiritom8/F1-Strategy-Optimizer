@@ -24,8 +24,7 @@ import React, {
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, StopCircle, Zap, Bot, Send, Loader2, User,
-  Flag, AlertTriangle, ChevronRight, Check, X,
-  TrendingUp, Timer, Trophy, BarChart2, Radio,
+  AlertTriangle, ChevronRight, Check, X, Radio,
 } from 'lucide-react';
 import { COLORS, TEAM_COLORS } from '../constants';
 import { apiFetch } from '../services/client';
@@ -33,16 +32,6 @@ import { API_BASE } from '../services/client';
 import TrackDisplay, { TRACK_REGISTRY } from './tracks/TrackMaps';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface DriverSetup {
-  driver_id: string;
-  display_name: string;
-  code: string;
-  start_position: number;
-  start_compound: string;
-  is_user: boolean;
-  team: string;
-}
 
 interface DriverLapState {
   driver_id: string;
@@ -814,7 +803,6 @@ const RaceSimulation: React.FC = () => {
 
   // ── WebSocket ref ────────────────────────────────────────────────────────────
   const wsRef = useRef<WebSocket | null>(null);
-  const pendingDecisionResolve = useRef<((val: {type: string; action?: number}) => void) | null>(null);
 
   // ── Cleanup ──────────────────────────────────────────────────────────────────
   const closeWs = useCallback(() => {
@@ -873,13 +861,12 @@ const RaceSimulation: React.FC = () => {
     setFinishedResult(null);
     setStatusMsg('Connecting to simulation…');
 
-    const wsBase = API_BASE.replace(/^https?:\/\//, '');
-    const wsProto = API_BASE
-      ? (API_BASE.startsWith('https://') ? 'wss' : 'ws')
-      : (window.location.protocol === 'https:' ? 'wss' : 'ws');
-    const wsUrl = API_BASE
-      ? `${wsProto}://${wsBase}/api/v1/simulation/ws`
-      : `${wsProto}://${window.location.host}/api/v1/simulation/ws`;
+    // Normalise API_BASE: strip trailing slashes, then rebuild as ws(s)://
+    // Handles both "https://backend.run.app" and "https://backend.run.app/"
+    const cleanBase = API_BASE.replace(/\/+$/, '');
+    const wsProto = (cleanBase.startsWith('https://') || window.location.protocol === 'https:') ? 'wss' : 'ws';
+    const wsHost = cleanBase ? cleanBase.replace(/^https?:\/\//, '') : window.location.host;
+    const wsUrl = `${wsProto}://${wsHost}/api/v1/simulation/ws`;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;

@@ -26,6 +26,12 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
         self.enabled = enabled
 
     async def dispatch(self, request: Request, call_next: Callable):
+        # WebSocket upgrade requests must pass through — BaseHTTPMiddleware
+        # cannot return a real response for them; attempting to do so breaks
+        # the protocol handshake silently in production.
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
         # Skip HTTPS enforcement for health checks
         if not self.enabled or request.url.path in ["/health", "/metrics"]:
             return await call_next(request)
@@ -52,6 +58,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Middleware to add security headers"""
 
     async def dispatch(self, request: Request, call_next: Callable):
+        # Pass WebSocket upgrades through without touching headers
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
         response = await call_next(request)
 
         # Add security headers
@@ -61,7 +71,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Strict-Transport-Security"] = (
             "max-age=31536000; includeSubDomains"
         )
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        # connect-src must include wss: so browsers allow WebSocket connections
+        # from the Vercel frontend to this Cloud Run backend.
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; connect-src 'self' wss: https:"
+        )
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(), camera=()"
@@ -76,6 +90,10 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB
 
     async def dispatch(self, request: Request, call_next: Callable):
+        # WebSocket upgrade — skip HTTP-level validation entirely
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
         # Check content length
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > self.MAX_CONTENT_LENGTH:
@@ -137,6 +155,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable):
         import time
 
+        # WebSocket connections are long-lived — don't rate-limit the upgrade
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
         # Get client IP
         client_ip = request.client.host if request.client else "unknown"
 
@@ -197,6 +219,10 @@ class CORSMiddleware(BaseHTTPMiddleware):
         self.allow_credentials = allow_credentials
 
     async def dispatch(self, request: Request, call_next: Callable):
+        # WebSocket upgrade — CORS is not enforced on the protocol switch itself
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
         # Handle preflight requests
         if request.method == "OPTIONS":
             response = JSONResponse(content={}, status_code=200)

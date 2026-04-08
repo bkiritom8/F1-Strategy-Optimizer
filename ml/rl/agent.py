@@ -376,6 +376,17 @@ class F1StrategyAgent:
                 bucket.blob(f"{prefix}/vec_normalize.pkl").upload_from_filename(vn_path)
                 logger.info("Saved VecNormalize stats to %s/vec_normalize.pkl", gcs_uri)
 
+    def load_local(self, dir_path: str, env: Optional[F1RaceEnv] = None) -> None:
+        """Load policy from a local directory containing policy.zip (+ optionally vec_normalize.pkl)."""
+        policy_path = os.path.join(dir_path, "policy.zip")
+        self._ppo = PPO.load(policy_path, env=env)
+        logger.info("Loaded policy from %s", policy_path)
+
+        vn_path = os.path.join(dir_path, "vec_normalize.pkl")
+        if os.path.exists(vn_path) and env is not None:
+            self._vec_normalize = VecNormalize.load(vn_path, env)
+            logger.info("Loaded VecNormalize stats from %s", vn_path)
+
     def load(self, gcs_uri: str, env: Optional[F1RaceEnv] = None) -> None:
         """
         Load policy (and optionally normalisation stats) from GCS.

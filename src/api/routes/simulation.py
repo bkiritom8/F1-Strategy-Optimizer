@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any, Optional, cast
 
 import numpy as np
@@ -127,9 +128,14 @@ def _try_load_rl_agent() -> Any:
         from ml.rl.agent import F1StrategyAgent
 
         agent = F1StrategyAgent()
-        agent.load("gs://f1optimizer-models/rl_strategy/latest")
+        local_dir = os.environ.get("RL_MODEL_DIR", "models/rl_strategy/v3")
+        if os.path.exists(os.path.join(local_dir, "policy.zip")):
+            agent.load_local(local_dir)
+            logger.info("RL agent loaded from local dir: %s", local_dir)
+        else:
+            agent.load("gs://f1optimizer-models/rl_strategy/latest")
+            logger.info("RL agent loaded from GCS for simulation")
         _rl_agent = agent
-        logger.info("RL agent loaded from GCS for simulation")
     except Exception as exc:
         logger.warning("RL agent unavailable (%s) — using heuristic fallback", exc)
     return _rl_agent
