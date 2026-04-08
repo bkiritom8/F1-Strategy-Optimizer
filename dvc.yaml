@@ -1,8 +1,0 @@
-stages:
-  build_features:
-    cmd: python ml/features/feature_pipeline.py
-    deps:
-      - data/processed/
-      - ml/features/feature_pipeline.py
-    outs:
-      - data/features/
