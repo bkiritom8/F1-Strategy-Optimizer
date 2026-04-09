@@ -187,10 +187,16 @@ def _smtp(to_email: str, subject: str, plain: str, html: str) -> None:
     msg.attach(MIMEText(plain, "plain"))
     msg.attach(MIMEText(html, "html"))
 
-    with smtplib.SMTP(host, port) as smtp:
-        smtp.ehlo()
-        if port != 465:
+    if port == 465:
+        with smtplib.SMTP_SSL(host, port) as smtp:
+            if user:
+                smtp.login(user, password)
+            smtp.sendmail(_EMAIL_FROM, [to_email], msg.as_string())
+    else:
+        with smtplib.SMTP(host, port) as smtp:
+            smtp.ehlo()
             smtp.starttls()
-        if user:
-            smtp.login(user, password)
-        smtp.sendmail(_EMAIL_FROM, [to_email], msg.as_string())
+            smtp.ehlo()
+            if user:
+                smtp.login(user, password)
+            smtp.sendmail(_EMAIL_FROM, [to_email], msg.as_string())

@@ -294,41 +294,6 @@ async def metrics():
     )
 
 
-@app.post("/token", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    """Login endpoint to get JWT token"""
-    user = iam_simulator.authenticate_user(form_data.username, form_data.password)
-
-    if not user:
-        REQUEST_COUNT.labels(method="POST", endpoint="/token", status="401").inc()
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Create access token
-    access_token = iam_simulator.create_access_token(
-        data={"sub": user.username, "roles": [r.value for r in user.roles]},
-        expires_delta=timedelta(minutes=30),
-    )
-
-    REQUEST_COUNT.labels(method="POST", endpoint="/token", status="200").inc()
-
-    _masked = user.username[:2] + "***" if len(user.username) > 2 else "***"
-    logger.info("User %s logged in successfully", _masked)
-
-    return Token(access_token=access_token, token_type="bearer")  # nosec B106
-
-
-@app.get("/users/me", response_model=User)
-async def read_users_me(current_user: User = Depends(get_current_user)):
-    """Get current user info"""
-    REQUEST_COUNT.labels(method="GET", endpoint="/users/me", status="200").inc()
-
-    return current_user
-
-
 @app.post("/strategy/recommend", response_model=StrategyRecommendation)
 async def recommend_strategy(
     request: StrategyRequest, current_user: User = Depends(get_current_user)

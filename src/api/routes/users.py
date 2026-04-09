@@ -145,6 +145,43 @@ def _to_profile(record: dict, is_admin: bool) -> UserProfile:
     )
 
 
+# ── Authentication endpoints ────────────────────────────────────────────────
+
+
+@router.post("/users/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Standard OAuth2 password flow login.
+    Accepted by the frontend's signIn method.
+    """
+    user = iam_simulator.authenticate_user(form_data.username, form_data.password)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Create access token
+    access_token = iam_simulator.create_access_token(
+        data={"sub": user.username, "roles": [r.value for r in user.roles]},
+        expires_delta=timedelta(minutes=60),
+    )
+
+    _masked = user.username[:2] + "***" if len(user.username) > 2 else "***"
+    logger.info("User %s logged in successfully via standard flow", _masked)
+
+    return Token(access_token=access_token, token_type="bearer")  # nosec B106
+
+
+@router.get("/users/me", response_model=UserProfile)
+async def get_my_profile(current_user: User = Depends(get_current_user)):
+    """Return the current user's profile info."""
+    is_admin = Role.ADMIN in current_user.roles
+    return _to_profile(user_store.get(current_user.username), is_admin)
+
+
 # ── Public endpoints ──────────────────────────────────────────────────────────
 
 
@@ -459,17 +496,16 @@ async def request_otp(request: OtpRequest, background_tasks: BackgroundTasks) ->
     Always returns 200 to avoid leaking whether an email is registered.
     The OTP is valid for 10 minutes and can only be used once.
     """
-    # Look up the user by email — silently no-op if not found.
+    otp_plain = user_store.create_otp(str(request.email))
     record = user_store.get_by_email(str(request.email))
-    if record and record.get("email_verified", False) and not record.get("disabled"):
-        otp_plain = user_store.create_otp(str(request.email))
-        username = record.get("username", "User")
-        background_tasks.add_task(
-            send_otp_email, str(request.email), username, otp_plain
-        )
+    username = record.get("username", str(request.email).split('@')[0]) if record else str(request.email).split('@')[0]
+    
+    background_tasks.add_task(
+        send_otp_email, str(request.email), username, otp_plain
+    )
     return {
         "message": (
-            "If that email is registered and verified, a sign-in code has been sent."
+            "A sign-in code has been sent."
         )
     }
 
@@ -478,9 +514,10 @@ async def request_otp(request: OtpRequest, background_tasks: BackgroundTasks) ->
 async def login_with_otp(request: OtpLoginRequest) -> Token:
     """
     Sign in using a 6-digit OTP sent to the user’s email.
+    Supports auto-registration for new users.
 
     Returns a JWT on success. Raises 401 on invalid/expired OTP or
-    unverified/disabled account.
+    disabled account.
     """
     try:
         record = user_store.verify_otp(str(request.email), request.otp)
@@ -494,13 +531,24 @@ async def login_with_otp(request: OtpLoginRequest) -> Token:
     if not record:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed.",
+            detail="Authentication failed or account disabled.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    role = _role_from_str(record.get("role", Role.API_USER.value))
+    # Resolve role — handle both enum value and key
+    role_str = record.get("role", Role.API_USER.value)
+    try:
+        role = _role_from_str(role_str)
+    except HTTPException:
+        # Fallback to API_USER if the stored role is malformed
+        role = Role.API_USER
+
     access_token = iam_simulator.create_access_token(
         data={"sub": record["username"], "roles": [role.value]},
         expires_delta=timedelta(minutes=60),
     )
+    
+    _masked = record["username"][:2] + "***" if len(record["username"]) > 2 else "***"
+    logger.info("User %s logged in successfully via OTP", _masked)
+    
     return Token(access_token=access_token, token_type="bearer")  # nosec B106

@@ -25,7 +25,7 @@ import { getStoredToken, fireAuthExpired } from './authService';
 export const API_BASE: string =
   (import.meta.env.VITE_CLOUD_RUN_URL as string) ||
   (import.meta.env.VITE_API_URL      as string) ||
-  '/api';
+  '';
 
 // ─── Core fetch wrapper ───────────────────────────────────────────────────────
 
