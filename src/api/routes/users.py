@@ -132,7 +132,20 @@ def _role_from_str(role_str: str) -> Role:
         )
 
 
-def _to_profile(record: dict, is_admin: bool) -> UserProfile:
+def _to_profile(record: dict | None, is_admin: bool) -> UserProfile:
+    if not record:
+        # Fallback for when current_user exists in IAM but not in Firestore
+        return UserProfile(
+            username="unknown",
+            email="unknown@f1optimizer.local",
+            full_name="Unknown User",
+            role=Role.API_USER.value,
+            created_at="",
+            consent_at="",
+            is_admin=is_admin,
+            email_verified=False,
+        )
+
     return UserProfile(
         username=record["username"],
         email=record["email"],
@@ -148,38 +161,53 @@ def _to_profile(record: dict, is_admin: bool) -> UserProfile:
 # ── Authentication endpoints ────────────────────────────────────────────────
 
 
+@router.post("/token", response_model=Token)
 @router.post("/users/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
     """
-    Standard OAuth2 password flow login.
-    Accepted by the frontend's signIn method.
+    Authenticate with username + password. Returns a JWT bearer token.
+    Falls back to built-in admin/service accounts if not found in user store.
+    
+    Standard path: /users/login
+    OAuth2 compatibility alias: /token
     """
-    user = iam_simulator.authenticate_user(form_data.username, form_data.password)
+    # Check user store first
+    record = user_store.authenticate(form_data.username, form_data.password)
+    if record == "unverified":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Email address not verified. "
+                "Check your inbox and click the verification link, "
+                "or POST /users/resend-verification to get a new one."
+            ),
+        )
+    if isinstance(record, dict):
+        role_str = record.get("role", Role.API_USER.value)
+        try:
+            role = _role_from_str(role_str)
+        except HTTPException:
+            role = Role.API_USER
 
+        access_token = iam_simulator.create_access_token(
+            data={"sub": record["username"], "roles": [role.value]},
+            expires_delta=timedelta(minutes=60),
+        )
+        return Token(access_token=access_token, token_type="bearer")  # nosec B106
+
+    # Fall back to built-in service accounts (admin, ml_engineer, etc.)
+    user = iam_simulator.authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    # Create access token
     access_token = iam_simulator.create_access_token(
         data={"sub": user.username, "roles": [r.value for r in user.roles]},
         expires_delta=timedelta(minutes=60),
     )
-
-    _masked = user.username[:2] + "***" if len(user.username) > 2 else "***"
-    logger.info("User %s logged in successfully via standard flow", _masked)
-
     return Token(access_token=access_token, token_type="bearer")  # nosec B106
-
-
-@router.get("/users/me", response_model=UserProfile)
-async def get_my_profile(current_user: User = Depends(get_current_user)):
-    """Return the current user's profile info."""
-    is_admin = Role.ADMIN in current_user.roles
-    return _to_profile(user_store.get(current_user.username), is_admin)
 
 
 # ── Public endpoints ──────────────────────────────────────────────────────────
@@ -228,44 +256,7 @@ async def register(
     return _to_profile(record, is_admin=False)
 
 
-@router.post("/users/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
-    """
-    Authenticate with username + password. Returns a JWT bearer token.
-    Falls back to built-in admin/service accounts if not found in user store.
-    """
-    # Check user store first
-    record = user_store.authenticate(form_data.username, form_data.password)
-    if record == "unverified":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Email address not verified. "
-                "Check your inbox and click the verification link, "
-                "or POST /users/resend-verification to get a new one."
-            ),
-        )
-    if isinstance(record, dict):
-        role = _role_from_str(record.get("role", Role.API_USER.value))
-        access_token = iam_simulator.create_access_token(
-            data={"sub": record["username"], "roles": [role.value]},
-            expires_delta=timedelta(minutes=60),
-        )
-        return Token(access_token=access_token, token_type="bearer")  # nosec B106
-
-    # Fall back to built-in service accounts (admin, ml_engineer, etc.)
-    user = iam_simulator.authenticate_user(form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token = iam_simulator.create_access_token(
-        data={"sub": user.username, "roles": [r.value for r in user.roles]},
-        expires_delta=timedelta(minutes=60),
-    )
-    return Token(access_token=access_token, token_type="bearer")  # nosec B106
+# ── Verification and Management ───────────────────────────────────────────────
 
 
 @router.post("/users/verify-email", status_code=200)

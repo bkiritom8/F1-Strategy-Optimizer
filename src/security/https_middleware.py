@@ -214,13 +214,18 @@ class CORSMiddleware(BaseHTTPMiddleware):
     """CORS middleware with configurable origins"""
 
     def __init__(
-        self, app: ASGIApp, allow_origins: list = [], allow_credentials: bool = True
+        self, app: ASGIApp, allow_origins: list | None = None, allow_credentials: bool = True
     ):
         super().__init__(app)
-        self.allow_origins = allow_origins or [
-            "http://localhost:3000",
-            "http://localhost:8080",
-        ]
+        # Use a more robust check for None vs empty list
+        if allow_origins is None:
+            self.allow_origins = [
+                "http://localhost:3000",
+                "http://localhost:8080",
+                "https://f1optimizer.web.app",
+            ]
+        else:
+            self.allow_origins = allow_origins
         self.allow_credentials = allow_credentials
 
     async def dispatch(self, request: Request, call_next: Callable):
@@ -228,7 +233,7 @@ class CORSMiddleware(BaseHTTPMiddleware):
         if request.headers.get("upgrade", "").lower() == "websocket":
             return await call_next(request)
 
-        # Handle preflight requests
+        # Handle preflight requests (OPTIONS)
         if request.method == "OPTIONS":
             response = JSONResponse(content={}, status_code=200)
         else:
@@ -236,18 +241,26 @@ class CORSMiddleware(BaseHTTPMiddleware):
 
         # Add CORS headers
         origin = request.headers.get("origin")
-        if origin and (origin in self.allow_origins or "*" in self.allow_origins):
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = str(
-                self.allow_credentials
-            ).lower()
-            response.headers["Access-Control-Allow-Methods"] = (
-                "GET, POST, PUT, DELETE, OPTIONS"
-            )
-            response.headers["Access-Control-Allow-Headers"] = (
-                "Content-Type, Authorization"
-            )
-            response.headers["Access-Control-Max-Age"] = "3600"
+        if origin:
+            # Check if origin matches allowed list or wildcard
+            is_allowed = "*" in self.allow_origins or origin in self.allow_origins
+            
+            # Subdomain/protocol flexibility check (optional, but keep it strict by default)
+            # However, we'll ensure we add the headers if it's allowed
+            if is_allowed:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = str(
+                    self.allow_credentials
+                ).lower()
+                response.headers["Access-Control-Allow-Methods"] = (
+                    "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+                )
+                response.headers["Access-Control-Allow-Headers"] = (
+                    "Content-Type, Authorization, X-Requested-With, Accept, Origin"
+                )
+                response.headers["Access-Control-Max-Age"] = "3600"
+            else:
+                logger.warning(f"CORS blocked request from origin: {origin}")
 
         return response
 

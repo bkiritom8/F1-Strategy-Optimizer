@@ -572,10 +572,18 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
                   </div>}
 
                   <button 
+                    type="submit"
                     disabled={submitting || authLoading}
-                    className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-900/40"
+                    className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-900/40 disabled:opacity-50 disabled:cursor-not-allowed group relative overflow-hidden"
                   >
-                    {submitting ? "Establishing Connection..." : "Initialize Session"}
+                    <span className={submitting || authLoading ? "opacity-0" : "opacity-100"}>
+                      Initialize Session
+                    </span>
+                    {(submitting || authLoading) && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      </div>
+                    )}
                   </button>
                 </motion.form>
               )}
@@ -597,8 +605,19 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
                           value={email} onChange={e => setEmail(e.target.value)}
                         />
                       </div>
-                      <button className="w-full py-4 rounded-2xl border border-red-600/50 text-red-500 font-bold text-sm uppercase tracking-widest hover:bg-red-600/5 transition-all">
-                        Transmit Magic Code
+                      <button 
+                        type="submit"
+                        disabled={submitting || authLoading}
+                        className="w-full py-4 rounded-2xl border border-red-600/50 text-red-500 font-bold text-sm uppercase tracking-widest hover:bg-red-600/5 transition-all disabled:opacity-50 relative overflow-hidden"
+                      >
+                        <span className={submitting || authLoading ? "opacity-0" : "opacity-100"}>
+                          Transmit Magic Code
+                        </span>
+                        {(submitting || authLoading) && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-5 h-5 border-2 border-red-600/30 border-t-red-600 rounded-full animate-spin" />
+                          </div>
+                        )}
                       </button>
                     </form>
                   ) : (
@@ -608,11 +627,31 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
                         className="w-full py-6 rounded-2xl bg-white/5 border border-red-600/30 text-center text-4xl font-bold tracking-[0.5em] text-red-500 outline-none"
                         value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
                       />
-                      <p className="text-center text-[10px] uppercase font-bold text-white/40 tracking-widest">
-                        Expiring in {Math.floor(otpCountdown / 60)}:{String(otpCountdown % 60).padStart(2, '0')}
-                      </p>
-                      <button className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest">
-                        Authorize Terminal
+                      <div className="flex justify-between items-center px-2">
+                        <p className="text-[10px] uppercase font-bold text-white/40 tracking-widest">
+                          Expiring in {Math.floor(otpCountdown / 60)}:{String(otpCountdown % 60).padStart(2, '0')}
+                        </p>
+                        <button 
+                          type="button" 
+                          onClick={() => setModalState('idle')}
+                          className="text-[10px] uppercase font-bold text-red-500 hover:text-red-400 tracking-widest"
+                        >
+                          Change Email
+                        </button>
+                      </div>
+                      <button 
+                        type="submit"
+                        disabled={submitting || authLoading}
+                        className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest relative overflow-hidden"
+                      >
+                        <span className={submitting || authLoading ? "opacity-0" : "opacity-100"}>
+                          Authorize Terminal
+                        </span>
+                        {(submitting || authLoading) && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          </div>
+                        )}
                       </button>
                     </form>
                   )}
@@ -646,16 +685,26 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
                     value={email} onChange={e => setEmail(e.target.value)}
                   />
                   <div className="grid grid-cols-2 gap-3">
-                    <input 
-                      type="password" placeholder="Password"
-                      className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
-                      value={password} onChange={e => setPassword(e.target.value)}
-                    />
-                    <input 
-                      type="password" placeholder="Confirm"
-                      className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
-                      value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                    />
+                    <div className="relative">
+                      <input 
+                        type={showPw ? "text" : "password"} placeholder="Password"
+                        className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm pr-10"
+                        value={password} onChange={e => setPassword(e.target.value)}
+                      />
+                      <button 
+                        type="button" onClick={() => setShowPw(!showPw)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-all"
+                      >
+                        {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type={showPw ? "text" : "password"} placeholder="Confirm"
+                        className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm pr-10"
+                        value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                      />
+                    </div>
                   </div>
                   
                   <label className="flex gap-3 text-[10px] text-white/40 items-start cursor-pointer select-none px-2 py-2">
@@ -666,8 +715,19 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
                     <span>I agree to the <a href="/privacy-policy.html" target="_blank" className="text-red-500 hover:underline">Privacy Policy</a> and <a href="/terms.html" target="_blank" className="text-red-500 hover:underline">Terms of Service</a>.</span>
                   </label>
 
-                  <button className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest">
-                    Create Identity
+                  <button 
+                    type="submit"
+                    disabled={submitting || authLoading}
+                    className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest disabled:opacity-50 relative overflow-hidden"
+                  >
+                    <span className={submitting || authLoading ? "opacity-0" : "opacity-100"}>
+                      Create Identity
+                    </span>
+                    {(submitting || authLoading) && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      </div>
+                    )}
                   </button>
                 </motion.form>
               )}

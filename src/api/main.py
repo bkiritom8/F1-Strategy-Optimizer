@@ -170,6 +170,7 @@ ENABLE_HTTPS = os.getenv("ENABLE_HTTPS", "false").lower() == "true"
 ENABLE_IAM = os.getenv("ENABLE_IAM", "true").lower() == "true"
 ENV = os.getenv("ENV", "local")
 
+# Define allowed origins for CORS
 _ALLOWED_ORIGINS_DEFAULT = (
     "http://localhost:3000,"
     "http://localhost:3001,"
@@ -179,8 +180,11 @@ _ALLOWED_ORIGINS_DEFAULT = (
 ALLOWED_ORIGINS = [
     o.strip()
     for o in os.getenv("ALLOWED_ORIGINS", _ALLOWED_ORIGINS_DEFAULT).split(",")
-    if o.strip()
+    if o.strip() and o.strip() != ","
 ]
+# Ensure the production domain is ALWAY present in the list to avoid locked-out UI
+if "https://f1optimizer.web.app" not in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS.append("https://f1optimizer.web.app")
 
 # ML model state — loaded once at startup
 _strategy_model = None
