@@ -11,7 +11,8 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from .iam_simulator import iam_simulator
+from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
+from .iam_simulator import iam_simulator, User
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -210,59 +211,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class CORSMiddleware(BaseHTTPMiddleware):
-    """CORS middleware with configurable origins"""
-
-    def __init__(
-        self, app: ASGIApp, allow_origins: list | None = None, allow_credentials: bool = True
-    ):
-        super().__init__(app)
-        # Use a more robust check for None vs empty list
-        if allow_origins is None:
-            self.allow_origins = [
-                "http://localhost:3000",
-                "http://localhost:8080",
-                "https://f1optimizer.web.app",
-            ]
-        else:
-            self.allow_origins = allow_origins
-        self.allow_credentials = allow_credentials
-
-    async def dispatch(self, request: Request, call_next: Callable):
-        # WebSocket upgrade — CORS is not enforced on the protocol switch itself
-        if request.headers.get("upgrade", "").lower() == "websocket":
-            return await call_next(request)
-
-        # Handle preflight requests (OPTIONS)
-        if request.method == "OPTIONS":
-            response = JSONResponse(content={}, status_code=200)
-        else:
-            response = await call_next(request)
-
-        # Add CORS headers
-        origin = request.headers.get("origin")
-        if origin:
-            # Check if origin matches allowed list or wildcard
-            is_allowed = "*" in self.allow_origins or origin in self.allow_origins
-            
-            # Subdomain/protocol flexibility check (optional, but keep it strict by default)
-            # However, we'll ensure we add the headers if it's allowed
-            if is_allowed:
-                response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = str(
-                    self.allow_credentials
-                ).lower()
-                response.headers["Access-Control-Allow-Methods"] = (
-                    "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-                )
-                response.headers["Access-Control-Allow-Headers"] = (
-                    "Content-Type, Authorization, X-Requested-With, Accept, Origin"
-                )
-                response.headers["Access-Control-Max-Age"] = "3600"
-            else:
-                logger.warning(f"CORS blocked request from origin: {origin}")
-
-        return response
+# Export standard CORSMiddleware to maintain interface compatibility
+CORSMiddleware = FastAPICORSMiddleware
 
 
 async def get_current_user(request: Request):
@@ -288,14 +238,19 @@ async def get_current_user(request: Request):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Get user from IAM simulator
+    # Get user from IAM simulator first (service accounts/admins)
     user_data = iam_simulator.users.get(token_data.username)
+
+    if not user_data:
+        # Fallback: check Firestore user_store for registered users
+        from .user_store import user_store
+
+        user_data = user_store.get(token_data.username)
+
     if not user_data or user_data.get("disabled"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or disabled",
         )
-
-    from .iam_simulator import User
 
     return User(**{k: v for k, v in user_data.items() if k != "hashed_password"})

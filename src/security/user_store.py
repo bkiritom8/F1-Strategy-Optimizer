@@ -431,28 +431,10 @@ class UserStore:
         results = db.collection(_USERS).where("email", "==", email).limit(1).stream()
         docs = list(results)
         if not docs:
-            # Auto-register user
-            base_username = email.split("@")[0]
-            username = f"{base_username}_{secrets.token_hex(4)}"
-            try:
-                profile = self.register(
-                    username=username,
-                    email=email,
-                    full_name=base_username,
-                    password=secrets.token_urlsafe(32),
-                    role="roles/apiUser",
-                    gdpr_consent=True,
-                )
-                # Auto-verify email
-                db.collection(_USERS).document(username).update(
-                    {"email_verified": True, "verification_token": None}
-                )
-                profile["email_verified"] = True
-                _audit("otp_login_auto_register", username)
-                return profile
-            except Exception as exc:
-                logger.error("OTP auto-registration failed: %s", exc)
-                return None
+            # OTP sign-in restricted to existing users
+            raise ValueError(
+                "No account found for this email. Please sign up first."
+            )
 
         profile = docs[0].to_dict()
         if profile.get("disabled"):

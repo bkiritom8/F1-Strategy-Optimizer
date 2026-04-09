@@ -277,8 +277,31 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
       <section className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden">
         <motion.div 
           style={{ y: glowY }}
-          className="absolute inset-0 z-0 pointer-events-none opacity-20"
+          className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
         >
+          {/* ── F1 RACE SCROLLING ANIMATION ── */}
+          <div className="absolute inset-0 z-0 opacity-40">
+            <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black z-10" />
+            <motion.div 
+              animate={{ x: [0, -2000] }}
+              transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+              className="flex gap-4 min-w-[4000px] h-full items-center"
+            >
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="relative w-[800px] h-full shrink-0 grayscale hover:grayscale-0 transition-all duration-1000 opacity-60">
+                   <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
+                   {/* High-speed race imagery - ideally from generate_image results */}
+                   <div className={`w-full h-full bg-cover bg-center bg-no-repeat`} 
+                        style={{ 
+                          backgroundImage: `url('https://images.unsplash.com/photo-1533130061792-64b345e4a833?q=80&w=2070&auto=format&fit=crop')`,
+                          filter: 'brightness(0.5) contrast(1.2)' 
+                        }} 
+                   />
+                </div>
+              ))}
+            </motion.div>
+          </div>
+          
           <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[120px]" />
           <div className="absolute top-3/4 right-1/4 w-[400px] h-[400px] bg-blue-600/5 rounded-full blur-[100px]" />
         </motion.div>
@@ -604,6 +627,10 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
                           className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-red-600/50 outline-none transition-all text-sm"
                           value={email} onChange={e => setEmail(e.target.value)}
                         />
+                      </div>
+                      <div className="flex gap-3 p-4 rounded-2xl bg-blue-600/5 border border-blue-600/20 text-[10px] text-blue-400 font-bold uppercase tracking-wider leading-relaxed">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>Sign-in via code is only available for registered email addresses. If you are new, please use the Signup tab first.</span>
                       </div>
                       <button 
                         type="submit"
