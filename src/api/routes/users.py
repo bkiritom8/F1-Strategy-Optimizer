@@ -167,7 +167,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
     """
     Authenticate with username + password. Returns a JWT bearer token.
     Falls back to built-in admin/service accounts if not found in user store.
-    
+
     Standard path: /users/login
     OAuth2 compatibility alias: /token
     """

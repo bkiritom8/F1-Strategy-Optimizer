@@ -37,6 +37,7 @@ redis>=5.0.0
 # GCS access (needed by feature store and API startup)
 google-cloud-storage>=2.0.0
 google-cloud-pubsub>=2.0.0
+google-cloud-firestore>=2.0.0
 gcsfs==2024.6.1
 
 # RL tests

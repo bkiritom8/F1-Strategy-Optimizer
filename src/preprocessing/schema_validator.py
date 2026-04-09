@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,8 @@ class RaceDataSchema(BaseModel):
     time: Optional[str] = None
     url: Optional[str] = None
 
-    @validator("date")
+    @field_validator("date")
+    @classmethod
     def validate_date(cls, v):
         try:
             datetime.fromisoformat(v)
@@ -45,7 +46,8 @@ class DriverDataSchema(BaseModel):
     nationality: str
     url: Optional[str] = None
 
-    @validator("dob")
+    @field_validator("dob")
+    @classmethod
     def validate_dob(cls, v):
         try:
             dob = datetime.fromisoformat(v)
@@ -83,7 +85,7 @@ def validate_dataframe(
     for idx, row in df.iterrows():
         try:
             validated = schema_class(**row.to_dict())
-            valid_records.append(validated.dict())
+            valid_records.append(validated.model_dump())
         except Exception as e:
             invalid_records.append(
                 {"index": idx, "record": row.to_dict(), "error": str(e)}

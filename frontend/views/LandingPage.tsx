@@ -197,6 +197,8 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
       if (!isReturningUser) setHasVisited();
       if (useAppStore.getState().isAdmin) onAdminLogin();
       else onLoginSuccess();
+    } else if (!result.needsVerification) {
+      setError(result.errorMsg ?? 'Login failed. Please try again.');
     }
   };
 
@@ -221,6 +223,8 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
       if (!isReturningUser) setHasVisited();
       if (useAppStore.getState().isAdmin) onAdminLogin();
       else onLoginSuccess();
+    } else {
+      setError(result.errorMsg ?? 'Invalid or expired code.');
     }
   };
 
@@ -632,6 +636,9 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
                         <AlertCircle className="w-4 h-4 shrink-0" />
                         <span>Sign-in via code is only available for registered email addresses. If you are new, please use the Signup tab first.</span>
                       </div>
+                      {error && <div className="flex gap-2 p-3 rounded-xl bg-red-600/10 border border-red-600/20 text-red-500 text-xs font-bold leading-relaxed">
+                        <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                      </div>}
                       <button 
                         type="submit"
                         disabled={submitting || authLoading}
@@ -666,6 +673,9 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
                           Change Email
                         </button>
                       </div>
+                      {error && <div className="flex gap-2 p-3 rounded-xl bg-red-600/10 border border-red-600/20 text-red-500 text-xs font-bold leading-relaxed">
+                        <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                      </div>}
                       <button 
                         type="submit"
                         disabled={submitting || authLoading}
@@ -733,6 +743,16 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin }) => {
                       />
                     </div>
                   </div>
+                  {password && (
+                    <div className="px-1 space-y-1.5">
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4].map(i => (
+                          <div key={i} className="h-1 flex-1 rounded-full transition-colors" style={{ backgroundColor: i <= strength ? STRENGTH_COLOR[strength] : 'rgba(255,255,255,0.1)' }} />
+                        ))}
+                      </div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: STRENGTH_COLOR[strength] }}>{STRENGTH_LABEL[strength]}</p>
+                    </div>
+                  )}
                   
                   <label className="flex gap-3 text-[10px] text-white/40 items-start cursor-pointer select-none px-2 py-2">
                     <input 

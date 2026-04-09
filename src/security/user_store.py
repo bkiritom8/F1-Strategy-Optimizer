@@ -432,9 +432,7 @@ class UserStore:
         docs = list(results)
         if not docs:
             # OTP sign-in restricted to existing users
-            raise ValueError(
-                "No account found for this email. Please sign up first."
-            )
+            raise ValueError("No account found for this email. Please sign up first.")
 
         profile = docs[0].to_dict()
         if profile.get("disabled"):

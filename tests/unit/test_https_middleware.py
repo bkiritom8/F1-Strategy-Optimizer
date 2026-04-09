@@ -156,21 +156,27 @@ class TestCORSMiddleware:
         assert "Access-Control-Allow-Origin" not in r.headers
 
     def test_preflight_options_returns_200(self):
-        app = _make_app((CORSMiddleware, {"allow_origins": ["http://localhost:3000"]}))
+        app = _make_app((CORSMiddleware, {"allow_origins": ["http://localhost:3000"], "allow_methods": ["*"]}))
         client = TestClient(app)
-        r = client.options("/ping", headers={"Origin": "http://localhost:3000"})
+        r = client.options("/ping", headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        })
         assert r.status_code == 200
 
     def test_wildcard_origin_allows_all(self):
         app = _make_app((CORSMiddleware, {"allow_origins": ["*"]}))
         client = TestClient(app)
         r = client.get("/ping", headers={"Origin": "http://anything.com"})
-        assert r.headers.get("Access-Control-Allow-Origin") == "http://anything.com"
+        assert r.headers.get("Access-Control-Allow-Origin") == "*"
 
     def test_cors_allow_methods_header(self):
-        app = _make_app((CORSMiddleware, {"allow_origins": ["http://localhost:3000"]}))
+        app = _make_app((CORSMiddleware, {"allow_origins": ["http://localhost:3000"], "allow_methods": ["*"]}))
         client = TestClient(app)
-        r = client.get("/ping", headers={"Origin": "http://localhost:3000"})
+        r = client.options("/ping", headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        })
         assert "GET" in r.headers.get("Access-Control-Allow-Methods", "")
 
 
