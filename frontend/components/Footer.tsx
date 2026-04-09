@@ -104,9 +104,9 @@ const Footer: React.FC = () => {
         </div>
 
         {/* Bottom bar */}
-        <div className="pt-8 border-t border-white/5 flex flex-col md:row items-center justify-between gap-6">
+        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-medium text-center md:text-left">
-            © {currentYear} Apex Intelligence Dynamics. All Data Streams Encrypted.
+            © {currentYear} Apex Strategy Labs. All Data Streams Encrypted.
           </div>
           <div className="flex items-center gap-8">
              <div className="flex items-center gap-2">

@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /verify-email
 
-Sitemap: https://apex-f1.com/sitemap.xml
+Sitemap: https://f1optimizer.web.app/sitemap.xml
