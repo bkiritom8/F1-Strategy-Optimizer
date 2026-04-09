@@ -498,16 +498,14 @@ async def request_otp(request: OtpRequest, background_tasks: BackgroundTasks) ->
     """
     otp_plain = user_store.create_otp(str(request.email))
     record = user_store.get_by_email(str(request.email))
-    username = record.get("username", str(request.email).split('@')[0]) if record else str(request.email).split('@')[0]
-    
-    background_tasks.add_task(
-        send_otp_email, str(request.email), username, otp_plain
+    username = (
+        record.get("username", str(request.email).split("@")[0])
+        if record
+        else str(request.email).split("@")[0]
     )
-    return {
-        "message": (
-            "A sign-in code has been sent."
-        )
-    }
+
+    background_tasks.add_task(send_otp_email, str(request.email), username, otp_plain)
+    return {"message": ("A sign-in code has been sent.")}
 
 
 @router.post("/users/login-otp", response_model=Token)
@@ -547,8 +545,8 @@ async def login_with_otp(request: OtpLoginRequest) -> Token:
         data={"sub": record["username"], "roles": [role.value]},
         expires_delta=timedelta(minutes=60),
     )
-    
+
     _masked = record["username"][:2] + "***" if len(record["username"]) > 2 else "***"
     logger.info("User %s logged in successfully via OTP", _masked)
-    
+
     return Token(access_token=access_token, token_type="bearer")  # nosec B106

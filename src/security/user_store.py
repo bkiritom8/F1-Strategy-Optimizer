@@ -432,7 +432,7 @@ class UserStore:
         docs = list(results)
         if not docs:
             # Auto-register user
-            base_username = email.split('@')[0]
+            base_username = email.split("@")[0]
             username = f"{base_username}_{secrets.token_hex(4)}"
             try:
                 profile = self.register(
@@ -441,24 +441,28 @@ class UserStore:
                     full_name=base_username,
                     password=secrets.token_urlsafe(32),
                     role="roles/apiUser",
-                    gdpr_consent=True
+                    gdpr_consent=True,
                 )
                 # Auto-verify email
-                db.collection(_USERS).document(username).update({"email_verified": True, "verification_token": None})
+                db.collection(_USERS).document(username).update(
+                    {"email_verified": True, "verification_token": None}
+                )
                 profile["email_verified"] = True
                 _audit("otp_login_auto_register", username)
                 return profile
             except Exception as exc:
                 logger.error("OTP auto-registration failed: %s", exc)
                 return None
-                
+
         profile = docs[0].to_dict()
         if profile.get("disabled"):
             return None
-            
+
         if not profile.get("email_verified", False):
             # Since they verified OTP, consider email verified
-            docs[0].reference.update({"email_verified": True, "verification_token": None})
+            docs[0].reference.update(
+                {"email_verified": True, "verification_token": None}
+            )
             profile["email_verified"] = True
 
         _audit("otp_login", profile.get("username", email))
