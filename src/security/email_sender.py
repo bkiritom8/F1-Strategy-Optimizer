@@ -20,9 +20,9 @@ from email.mime.text import MIMEText
 logger = logging.getLogger(__name__)
 
 _EMAIL_FROM = os.environ.get("EMAIL_FROM", "noreply@f1optimizer.app")
-_APP_BASE_URL = os.environ.get(
-    "APP_BASE_URL", "https://f1optimizer.web.app"
-).rstrip("/")
+_APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://f1optimizer.web.app").rstrip(
+    "/"
+)
 _EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "smtp").lower()
 
 
@@ -111,7 +111,7 @@ def _plain_verify(username: str, verify_url: str) -> str:
 def _html_otp(username: str, otp_code: str) -> str:
     digits = "\n".join(
         f'<td style="background:#1a1a1a;color:#ffffff;font-family:monospace;'
-        f'font-size:32px;font-weight:800;padding:16px 20px;border-radius:8px;'
+        f"font-size:32px;font-weight:800;padding:16px 20px;border-radius:8px;"
         f'text-align:center;border:1px solid #333">{d}</td>'
         for d in otp_code
     )
