@@ -20,7 +20,9 @@ from email.mime.text import MIMEText
 logger = logging.getLogger(__name__)
 
 _EMAIL_FROM = os.environ.get("EMAIL_FROM", "noreply@f1optimizer.app")
-_APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://f1optimizer.web.app").rstrip("/")
+_APP_BASE_URL = os.environ.get(
+    "APP_BASE_URL", "https://f1optimizer.web.app"
+).rstrip("/")
 _EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "smtp").lower()
 
 
