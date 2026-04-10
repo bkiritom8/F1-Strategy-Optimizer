@@ -387,12 +387,7 @@ const App: React.FC = () => {
 
           {/* Global Legal Footer for Auth Views */}
           <footer className="py-8 px-6 border-t border-white/5 bg-black/40 backdrop-blur-md">
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-2 opacity-40">
-                <Cpu className="w-4 h-4 text-red-600" />
-                <span className="text-[10px] font-black uppercase tracking-widest italic">{APP_NAME}</span>
-              </div>
-              
+            <div className="max-w-7xl mx-auto space-y-6">
               <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
                 {[
                   { label: 'Privacy Policy', href: '/privacy-policy.html' },
@@ -428,9 +423,13 @@ const App: React.FC = () => {
                 </button>
               </div>
 
-              <p className="text-[9px] text-white/20 uppercase font-bold tracking-[0.2em]">
-                &copy; {new Date().getFullYear()} APEX STRATEGY LABS
-              </p>
+              <div className="flex items-center justify-center gap-2 opacity-40">
+                <Cpu className="w-4 h-4 text-red-600" />
+                <span className="text-[10px] font-black uppercase tracking-widest italic">{APP_NAME}</span>
+                <span className="text-[9px] text-white/50 uppercase font-bold tracking-[0.2em]">
+                  &middot; &copy; {new Date().getFullYear()} Apex Strategy Labs
+                </span>
+              </div>
             </div>
           </footer>
         </div>

@@ -166,7 +166,7 @@ const ModelEngineering: React.FC = () => {
                     <span className="text-[10px] text-white/40 uppercase tracking-tight">{model.status}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-bold text-blue-400">{(model.accuracy * 100).toFixed(2)}%</span>
+                    <span className="text-xs font-bold text-blue-400">{model.accuracy != null ? (model.accuracy * 100).toFixed(2) + '%' : 'N/A'}</span>
                   </div>
                 </div>
               </button>
@@ -246,7 +246,7 @@ const ModelEngineering: React.FC = () => {
                       {[
                         { time: '14:20:01', data: 'FastF1 2024_01', metric: 'MSE: 0.042', status: 'PASS' },
                         { time: '10:15:22', data: 'FastF1 2023_22', metric: 'MSE: 0.039', status: 'PASS' },
-                        { time: '昨天', data: 'Jolpica_Historical', metric: 'Bias < 0.05', status: 'PASS' },
+                        { time: 'Yesterday', data: 'Jolpica_Historical', metric: 'Bias < 0.05', status: 'PASS' },
                       ].map((log, i) => (
                         <tr key={i} className="group hover:bg-white/5 transition-colors">
                           <td className="py-3 font-mono text-white/40 px-2">{log.time}</td>
