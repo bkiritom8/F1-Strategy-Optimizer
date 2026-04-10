@@ -20,7 +20,7 @@ from email.mime.text import MIMEText
 logger = logging.getLogger(__name__)
 
 _EMAIL_FROM = os.environ.get("EMAIL_FROM", "noreply@f1optimizer.app")
-_APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://f1optimizer.app").rstrip("/")
+_APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://f1optimizer.web.app").rstrip("/")
 _EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "smtp").lower()
 
 
@@ -30,23 +30,65 @@ _EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "smtp").lower()
 def _html_verify(username: str, verify_url: str) -> str:
     return f"""<!DOCTYPE html>
 <html>
-<body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-  <h2 style="color:#e10600">F1 Strategy Optimizer</h2>
-  <p>Hi <strong>{username}</strong>,</p>
-  <p>Thanks for registering. Click the button below to verify your email address.</p>
-  <p style="margin:32px 0">
-    <a href="{verify_url}"
-       style="background:#e10600;color:#fff;padding:12px 24px;
-              text-decoration:none;border-radius:4px;font-weight:bold">
-      Verify Email Address
-    </a>
-  </p>
-  <p style="color:#666;font-size:13px">
-    This link expires in 24 hours. If you did not create this account, ignore this email.
-  </p>
-  <p style="color:#999;font-size:12px">
-    Or copy this URL into your browser:<br>{verify_url}
-  </p>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a">
+    <tr><td align="center" style="padding:40px 16px">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#111111;border-radius:16px;border:1px solid #222;overflow:hidden">
+        <!-- Header -->
+        <tr><td style="padding:32px 40px 24px;border-bottom:1px solid #222">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td>
+                <div style="display:inline-block;background:#e10600;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-weight:900;font-size:18px;color:#fff;font-style:italic">A</div>
+              </td>
+              <td style="padding-left:12px">
+                <span style="color:#ffffff;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;font-style:italic">Apex Intelligence</span><br>
+                <span style="color:#e10600;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:3px">Race Intelligence</span>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+        <!-- Body -->
+        <tr><td style="padding:40px">
+          <p style="color:#999;font-size:13px;margin:0 0 4px;text-transform:uppercase;letter-spacing:2px;font-weight:700">Account Verification</p>
+          <p style="color:#fff;font-size:22px;font-weight:700;margin:0 0 32px">Welcome, {username}</p>
+          <p style="color:#aaa;font-size:14px;line-height:1.6;margin:0 0 32px">Thanks for registering with Apex Intelligence. Verify your email address to activate your strategist terminal.</p>
+          <!-- CTA Button -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px">
+            <tr><td align="center">
+              <a href="{verify_url}" style="display:inline-block;background:#e10600;color:#ffffff;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:2px;text-decoration:none;padding:16px 40px;border-radius:10px">Verify Email Address</a>
+            </td></tr>
+          </table>
+          <!-- Expiry Badge -->
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td align="center">
+              <div style="display:inline-block;background:rgba(225,6,0,0.1);border:1px solid rgba(225,6,0,0.3);border-radius:8px;padding:10px 20px">
+                <span style="color:#e10600;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Link expires in 24 hours</span>
+              </div>
+            </td></tr>
+          </table>
+        </td></tr>
+        <!-- Fallback URL -->
+        <tr><td style="padding:0 40px 24px">
+          <p style="color:#444;font-size:11px;line-height:1.5;margin:0;word-break:break-all">
+            If the button does not work, copy this URL into your browser:<br>
+            <span style="color:#666">{verify_url}</span>
+          </p>
+        </td></tr>
+        <!-- Security Footer -->
+        <tr><td style="padding:24px 40px;background:#0d0d0d;border-top:1px solid #222">
+          <p style="color:#555;font-size:11px;line-height:1.5;margin:0">
+            If you did not create this account, no action is needed and this email can be safely ignored.
+          </p>
+        </td></tr>
+        <!-- Brand Footer -->
+        <tr><td style="padding:20px 40px;text-align:center">
+          <p style="color:#333;font-size:9px;text-transform:uppercase;letter-spacing:3px;font-weight:700;margin:0">&copy; 2026 Apex Strategy Labs</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>"""
 
@@ -65,23 +107,66 @@ def _plain_verify(username: str, verify_url: str) -> str:
 
 
 def _html_otp(username: str, otp_code: str) -> str:
+    digits = "\n".join(
+        f'<td style="background:#1a1a1a;color:#ffffff;font-family:monospace;'
+        f'font-size:32px;font-weight:800;padding:16px 20px;border-radius:8px;'
+        f'text-align:center;border:1px solid #333">{d}</td>'
+        for d in otp_code
+    )
     return f"""<!DOCTYPE html>
 <html>
-<body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-  <h2 style="color:#e10600">F1 Strategy Optimizer</h2>
-  <p>Hi <strong>{username}</strong>,</p>
-  <p>Your one-time sign-in code is:</p>
-  <div style="margin:32px 0;text-align:center">
-    <span style="display:inline-block;background:#111;color:#fff;
-                 font-size:36px;font-weight:800;letter-spacing:12px;
-                 padding:20px 32px;border-radius:8px;border:2px solid #e10600">
-      {otp_code}
-    </span>
-  </div>
-  <p style="color:#666;font-size:13px">
-    This code expires in <strong>10 minutes</strong> and can only be used once.
-    If you did not request this code, you can safely ignore this email.
-  </p>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a">
+    <tr><td align="center" style="padding:40px 16px">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#111111;border-radius:16px;border:1px solid #222;overflow:hidden">
+        <!-- Header -->
+        <tr><td style="padding:32px 40px 24px;border-bottom:1px solid #222">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td>
+                <div style="display:inline-block;background:#e10600;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-weight:900;font-size:18px;color:#fff;font-style:italic">A</div>
+              </td>
+              <td style="padding-left:12px">
+                <span style="color:#ffffff;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;font-style:italic">Apex Intelligence</span><br>
+                <span style="color:#e10600;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:3px">Race Intelligence</span>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+        <!-- Body -->
+        <tr><td style="padding:40px">
+          <p style="color:#999;font-size:13px;margin:0 0 4px;text-transform:uppercase;letter-spacing:2px;font-weight:700">Secure Access Code</p>
+          <p style="color:#fff;font-size:22px;font-weight:700;margin:0 0 32px">Hi {username},</p>
+          <p style="color:#aaa;font-size:14px;line-height:1.6;margin:0 0 32px">Enter the following code in the Apex Intelligence terminal to authenticate your session.</p>
+          <!-- OTP Digits -->
+          <table cellpadding="0" cellspacing="8" style="margin:0 auto 32px" role="presentation">
+            <tr>
+              {digits}
+            </tr>
+          </table>
+          <!-- Expiry Badge -->
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td align="center">
+              <div style="display:inline-block;background:rgba(225,6,0,0.1);border:1px solid rgba(225,6,0,0.3);border-radius:8px;padding:10px 20px">
+                <span style="color:#e10600;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Expires in 10 minutes &bull; Single use only</span>
+              </div>
+            </td></tr>
+          </table>
+        </td></tr>
+        <!-- Security Footer -->
+        <tr><td style="padding:24px 40px;background:#0d0d0d;border-top:1px solid #222">
+          <p style="color:#555;font-size:11px;line-height:1.5;margin:0">
+            If you did not request this code, no action is needed. Never share this code with anyone.
+          </p>
+        </td></tr>
+        <!-- Brand Footer -->
+        <tr><td style="padding:20px 40px;text-align:center">
+          <p style="color:#333;font-size:9px;text-transform:uppercase;letter-spacing:3px;font-weight:700;margin:0">&copy; 2026 Apex Strategy Labs</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>"""
 
