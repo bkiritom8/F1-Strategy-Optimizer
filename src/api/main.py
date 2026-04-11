@@ -221,7 +221,18 @@ if ENABLE_HTTPS:
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestValidationMiddleware)
-app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
+app.add_middleware(
+    RateLimitMiddleware,
+    max_requests=100,
+    window_seconds=3600,  # 1 hour
+    limited_paths=frozenset(
+        {
+            "/api/v1/simulate",  # race simulator
+            "/api/v1/llm",  # AI strategist
+            "/api/v1/strategy",  # strategy hub (recommend, simulate, full-simulate)
+        }
+    ),
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -492,6 +503,8 @@ class SimulateRequest(BaseModel):
     race_id: str
     driver_id: str
     strategy: List[List]  # [[pit_lap, compound], ...]
+    start_position: int = 10
+    start_compound: str = "SOFT"
 
 
 class SimulateResponse(BaseModel):
@@ -712,34 +725,41 @@ async def simulate_strategy(
     current_user=Depends(get_current_user),
 ):
     """
-    Simulate a custom pit strategy and return predicted outcome.
+    Simulate a custom pit strategy using the local StrategySimulator.
 
     strategy: [[pit_lap, compound], ...]  e.g. [[20, "MEDIUM"], [42, "HARD"]]
-    Falls back to rule-based estimation if the race simulator is unavailable.
+    Runs a full 20-driver race with the user's pit stops forced at the specified laps.
     """
     if not iam_simulator.check_permission(current_user, Permission.ML_MODEL_READ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
         )
     try:
-        sim = _get_simulator()
-        result = sim.simulate_strategy(
-            request.race_id, request.driver_id, request.strategy
+        sim = _get_strategy_simulator()
+        strategy_override = [(int(s[0]), str(s[1])) for s in request.strategy]
+        result = await asyncio.to_thread(
+            sim.simulate_with_strategy,
+            race_id=request.race_id,
+            user_driver_id=request.driver_id,
+            strategy=strategy_override,
+            start_position=request.start_position,
+            start_compound=request.start_compound,
         )
         return SimulateResponse(
-            driver_id=result.driver_id,
-            race_id=result.race_id,
-            predicted_final_position=result.predicted_final_position,
-            predicted_total_time_s=result.predicted_total_time_s,
-            strategy=result.strategy,
-            lap_times_s=result.lap_times_s,
+            driver_id=request.driver_id,
+            race_id=request.race_id,
+            predicted_final_position=result["predicted_final_position"],
+            predicted_total_time_s=result["predicted_total_time_s"],
+            strategy=[[int(s[0]), str(s[1])] for s in request.strategy],
+            lap_times_s=result["lap_times_s"],
+            win_probability=result["win_probability"],
+            podium_probability=result["podium_probability"],
         )
     except HTTPException:
         raise
-    except Exception:
-        return _rule_based_simulate(
-            request.race_id, request.driver_id, request.strategy
-        )
+    except Exception as exc:
+        logger.error("simulate_strategy error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ── Full race simulation via StrategySimulator ──────────────────────────────

@@ -20,7 +20,7 @@ import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'reac
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gauge, Users, Compass, BarChart3, Activity,
-  Cpu, Map, ChevronLeft, ChevronRight, LogOut
+  Cpu, Map, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useRaces2024 } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
@@ -131,7 +131,6 @@ const App: React.FC = () => {
     sidebarCollapsed,
     toggleSidebarCollapsed,
     isAdmin,
-    logout,
   } = useAppStore();
   const { data: races } = useRaces2024();
   const location  = useLocation();
@@ -156,20 +155,6 @@ const App: React.FC = () => {
     logger.info(`[App] Route changed -> ${location.pathname}`);
   }, [location.pathname]);
 
-  /**
-   * Global auth:expired listener.
-   * When the API client fires this event (401/403 or missing token), redirect
-   * the user to the landing page where they can sign in again.
-   */
-  React.useEffect(() => {
-    const handleAuthExpired = () => {
-      logger.info('[App] auth:expired — redirecting to landing page');
-      navigate('/');
-    };
-    window.addEventListener('auth:expired', handleAuthExpired);
-    return () => window.removeEventListener('auth:expired', handleAuthExpired);
-  }, [navigate]);
-
   // Standalone Layout Wrapper for public pages (Landing, Verify Email)
   const renderPublicPage = (children: React.ReactNode) => (
     <div className="min-h-screen bg-black text-white font-sans">
@@ -184,13 +169,23 @@ const App: React.FC = () => {
 
   if (location.pathname === '/verify-email') {
     return renderPublicPage(
-      <VerifyEmailPage onGoToLogin={() => navigate('/')} />
+      <VerifyEmailPage onGoToLogin={() => navigate('/login')} />
     );
   }
 
   if (location.pathname === '/') {
     return renderPublicPage(
       <LandingPage
+        onLoginSuccess={() => navigate('/race')}
+        onAdminLogin={() => navigate('/admin')}
+      />
+    );
+  }
+
+  if (location.pathname === '/login') {
+    return renderPublicPage(
+      <LandingPage
+        showAuth={true}
         onLoginSuccess={() => navigate('/race')}
         onAdminLogin={() => navigate('/admin')}
       />
@@ -210,16 +205,6 @@ const App: React.FC = () => {
             <Cpu className="w-4 h-4 text-white" />
           </div>
           <span className="font-display font-black tracking-tighter text-lg italic">{APP_NAME}</span>
-        </button>
-        <button
-          onClick={() => {
-            logout();
-            navigate('/');
-          }}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
-          aria-label="Sign Out"
-        >
-          <LogOut className="w-4 h-4" />
         </button>
       </div>
 
@@ -337,24 +322,6 @@ const App: React.FC = () => {
             </NavLink>
           </div>
         )}
-        {/* Logout button */}
-        <div className="px-4 pb-4">
-          <button
-            onClick={() => {
-              logout();
-              navigate('/');
-            }}
-            title={sidebarCollapsed ? 'Sign Out' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl transition-all duration-300 border ${
-              sidebarCollapsed ? 'justify-center p-3' : 'px-4 py-3'
-            } border-red-500/30 text-red-500/70 hover:bg-red-500/10 hover:text-red-400`}
-          >
-            <LogOut className={`shrink-0 ${sidebarCollapsed ? 'w-5 h-5' : 'w-4 h-4'}`} />
-            {!sidebarCollapsed && (
-              <span className="text-xs font-bold uppercase tracking-widest">Sign Out</span>
-            )}
-          </button>
-        </div>
       </motion.aside>
 
       {/* Mobile Overlay */}
