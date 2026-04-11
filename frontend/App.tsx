@@ -184,6 +184,7 @@ const App: React.FC = () => {
     </div>
   );
 
+  if (location.pathname === '/') {
     return renderPublicPage(
       <>
         <LandingPage />
