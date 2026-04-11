@@ -7,7 +7,11 @@ import { Shield, Book, Mail, Globe, Lock, Info, ExternalLink } from 'lucide-reac
  * @description Premium, racing-themed footer with legal and compliance links.
  */
 
-const Footer: React.FC = () => {
+interface FooterProps {
+  onAdminClick?: () => void;
+}
+
+const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
   const currentYear = new Date().getFullYear();
 
   const sections = [
@@ -32,7 +36,7 @@ const Footer: React.FC = () => {
       links: [
         { label: 'Contact Strategist', href: '/contact.html', icon: Mail },
         { label: 'Manage Cookies', href: '#', icon: Info, isCookieTrigger: true },
-        { label: 'Do Not Share My Info', href: '#', icon: Lock },
+        { label: 'Administrative Entry', href: '#', icon: Lock, isAdminTrigger: true },
       ],
     },
   ];
@@ -64,13 +68,14 @@ const Footer: React.FC = () => {
               Next-generation F1 strategy optimization powered by advanced machine learning telemetry. High-stakes precision for the absolute limit.
             </p>
             <div className="flex gap-4">
-              {/* Social icons placeholder */}
-              <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:border-red-500/50 transition-colors cursor-pointer flex items-center justify-center">
-                <Globe className="w-4 h-4 text-white/60" />
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 hover:border-red-500/50 transition-colors cursor-pointer flex items-center justify-center">
-                <ExternalLink className="w-4 h-4 text-white/60" />
-              </div>
+              <a 
+                href="https://github.com/nateplusplus/F1-Strategy-Optimizer" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/50 transition-all flex items-center justify-center group"
+              >
+                <Github className="w-5 h-5 text-white/40 group-hover:text-white group-hover:scale-110 transition-all" />
+              </a>
             </div>
           </div>
 
@@ -83,11 +88,23 @@ const Footer: React.FC = () => {
               <ul className="space-y-4">
                 {section.links.map((link) => {
                   const Icon = link.icon;
+                  // @ts-ignore
+                  const isLink = link.href !== '#' || link.isCookieTrigger || link.isAdminTrigger;
+                  
+                  const handleClick = (e: React.MouseEvent) => {
+                    if (link.isCookieTrigger) handleCookieClick(e);
+                    // @ts-ignore
+                    if (link.isAdminTrigger && onAdminClick) {
+                      e.preventDefault();
+                      onAdminClick();
+                    }
+                  };
+
                   return (
                     <li key={link.label}>
                       <a
                         href={link.href}
-                        onClick={link.isCookieTrigger ? handleCookieClick : undefined}
+                        onClick={handleClick}
                         className="group flex items-center gap-3 text-sm text-white/50 hover:text-white transition-colors"
                       >
                         <div className="p-1.5 rounded-md bg-white/5 group-hover:bg-red-600/10 border border-white/5 group-hover:border-red-500/20 transition-all">

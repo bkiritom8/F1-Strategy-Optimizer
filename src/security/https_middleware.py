@@ -82,6 +82,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "img-src 'self' data: https:; "
             "connect-src 'self' wss: https:;"
         )
+        # Fix: Proper string literal and value
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(), camera=()"
@@ -167,9 +168,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Paths that count against the quota (prefix match).
         # None / empty means every path is counted.
         self.limited_paths: FrozenSet[str] = limited_paths or frozenset()
-        self.request_counts: Dict[str, Tuple[int, float]] = (
-            {}
-        )  # IP -> (count, window_start)
+        self.request_counts: Dict[str, Tuple[int, float]] = {}  # IP -> (count, window_start)
 
     def _is_limited(self, path: str) -> bool:
         """Return True if this path should be counted against the rate limit."""
@@ -244,8 +243,6 @@ async def get_current_user(request: Request) -> User:
     is present, it raises a 401 Unauthorized error. It also handles the
     mapping of legacy Firestore 'role' (string) to the modern 'roles' (list).
     """
-    from src.security.iam_simulator import Role
-
     # Skip auth for health and metrics
     if request.url.path in ["/health", "/metrics", "/docs", "/openapi.json"]:
         return User(
@@ -281,32 +278,29 @@ async def get_current_user(request: Request) -> User:
 
     # Get user from IAM simulator first (local service accounts/admins)
     user_data = iam_simulator.users.get(token_data.username)
-    
+
     if not user_data:
         # Fallback: check Firestore user_store for registered users
         from .user_store import user_store
+
         user_data = user_store.get(token_data.username)
         if user_data:
-            logger.info(
-                f"[Auth] User '{token_data.username}' found in Firestore UserStore"
-            )
-            
+            logger.info(f"[Auth] User '{token_data.username}' found in Firestore UserStore")
+
             # FIX: Map Firestore 'role' (string) to 'roles' (list[Role])
             if "role" in user_data and "roles" not in user_data:
                 role_val = user_data["role"]
                 # Handle cases where the role is just "admin" instead of "roles/admin"
                 if not str(role_val).startswith("roles/"):
                     role_val = f"roles/{role_val.lower()}"
-                
+
                 try:
                     user_data["roles"] = [Role(role_val)]
                 except ValueError:
                     logger.warning(f"[Auth] Unknown role '{role_val}' mapping to API_USER")
                     user_data["roles"] = [Role.API_USER]
         else:
-            logger.error(
-                f"[Auth] User '{token_data.username}' not found in any store"
-            )
+            logger.error(f"[Auth] User '{token_data.username}' not found in any store")
 
     if not user_data or user_data.get("disabled"):
         if user_data and user_data.get("disabled"):
@@ -317,9 +311,8 @@ async def get_current_user(request: Request) -> User:
         )
 
     # Prepare data for Pydantic model validation
-    # Filter out sensitive fields like hashed_password if present
     filtered_data = {k: v for k, v in user_data.items() if k != "hashed_password"}
-    
+
     try:
         return User(**filtered_data)
     except Exception as e:

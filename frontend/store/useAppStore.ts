@@ -2,88 +2,52 @@
  * @file store/useAppStore.ts
  * @description Global application state via Zustand.
  *
- * Auth model:
- *   - loginAsync(username, password) → calls backend /users/login → stores JWT
- *   - loginWithOtpAsync(email, otp)  → calls backend /users/login-otp → stores JWT
- *   - logout()  → clears JWT from sessionStorage + all auth state
- *
- * No credentials are stored in this module.  All auth logic lives in
- * authService.ts; the store only holds the resulting auth state.
+ * Current model:
+ *   - Open-access by default (isLoggedIn: true).
+ *   - Administrative features gated by a simple password (adminLogin).
+ *   - Persists admin status to localStorage.
  */
 
 import { create } from 'zustand';
-import {
-  signIn,
-  signInWithOtp,
-  clearStoredToken,
-  getStoredToken,
-  type AuthUser,
-} from '../services/authService';
 
-const STORAGE_KEY = 'apex_auth';
+const STORAGE_KEY = 'apex_admin_auth';
 
-// ─── Auth state persisted to localStorage ────────────────────────────────────
-// We persist only non-sensitive state: isLoggedIn, isAdmin, username.
-// The JWT itself lives in sessionStorage (cleared on browser close).
-
-interface PersistedAuth {
-  isLoggedIn: boolean;
-  isAdmin:    boolean;
-  username:   string;
-  email:      string;
+// ─── Simple Admin Persistence ────────────────────────────────────────────────
+// We only persist the admin status for convenience.
+interface AdminState {
+  isAdmin: boolean;
+  username: string;
 }
 
-function loadPersistedAuth(): PersistedAuth {
+function loadAdminState(): AdminState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as PersistedAuth;
-      // If the JWT is gone (browser closed), clear the persisted logged-in state
-      if (parsed.isLoggedIn && !getStoredToken()) {
-        return { isLoggedIn: false, isAdmin: false, username: '', email: '' };
-      }
-      return parsed;
-    }
-  } catch { /* corrupted storage */ }
-  return { isLoggedIn: false, isAdmin: false, username: '', email: '' };
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return { isAdmin: false, username: 'Race Control' };
 }
 
-function savePersistedAuth(state: PersistedAuth): void {
+function saveAdminState(state: AdminState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch { /* quota error */ }
+  } catch { /* ignore */ }
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
 
 interface AppState {
-  // ── Auth ────────────────────────────────────────────────────────────────────
-  isLoggedIn:   boolean;
-  isAdmin:      boolean;
-  username:     string;
-  email:        string;
-  /** True while an async login call is in flight. */
-  authLoading:  boolean;
-
+  // ── Auth & Admin ───────────────────────────────────────────────────────────
+  isLoggedIn: boolean;
+  isAdmin:    boolean;
+  username:   string;
+  
   /**
-   * Sign in with username + password.
-   * Returns { ok, errorMsg?, needsVerification? } from authService.
+   * Simple password-gated access for administrative features.
+   * Password: f1race@mlops
    */
-  loginAsync: (
-    username: string,
-    password: string,
-  ) => Promise<{ ok: boolean; errorMsg?: string; needsVerification?: boolean }>;
+  adminLogin: (password: string) => boolean;
 
-  /**
-   * Sign in with an emailed 6-digit OTP.
-   * Returns { ok, errorMsg? } from authService.
-   */
-  loginWithOtpAsync: (
-    email: string,
-    otp:   string,
-  ) => Promise<{ ok: boolean; errorMsg?: string }>;
-
-  /** Clears all auth state and the stored JWT. */
+  /** Reverts to standard user mode. */
   logout: () => void;
 
   // ── Selected driver (shared across Command Center / Profiles / Strategy) ───
@@ -118,43 +82,29 @@ interface AppState {
 
 // ─── Store creation ──────────────────────────────────────────────────────────
 
-const initialAuth = loadPersistedAuth();
+const initialAdmin = loadAdminState();
 
 export const useAppStore = create<AppState>((set) => ({
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  isLoggedIn:  initialAuth.isLoggedIn,
-  isAdmin:     initialAuth.isAdmin,
-  username:    initialAuth.username,
-  email:       initialAuth.email,
-  authLoading: false,
+  // ── Auth & Admin ──────────────────────────────────────────────────────────
+  // The platform is now open-access by default.
+  isLoggedIn: true,
+  isAdmin:    initialAdmin.isAdmin,
+  username:   initialAdmin.username,
 
-  loginAsync: async (username, password) => {
-    set({ authLoading: true });
-    const result = await signIn(username, password);
-    set({ authLoading: false });
-
-    if (result.ok && result.user) {
-      _applyUser(set, result.user);
+  adminLogin: (password: string) => {
+    if (password === 'f1race@mlops') {
+      const state = { isAdmin: true, username: 'F1 Admin' };
+      set(state);
+      saveAdminState(state);
+      return true;
     }
-    return { ok: result.ok, errorMsg: result.errorMsg, needsVerification: result.needsVerification };
-  },
-
-  loginWithOtpAsync: async (email, otp) => {
-    set({ authLoading: true });
-    const result = await signInWithOtp(email, otp);
-    set({ authLoading: false });
-
-    if (result.ok && result.user) {
-      _applyUser(set, result.user);
-    }
-    return { ok: result.ok, errorMsg: result.errorMsg };
+    return false;
   },
 
   logout: () => {
-    clearStoredToken();
-    const authState: PersistedAuth = { isLoggedIn: false, isAdmin: false, username: '', email: '' };
-    savePersistedAuth(authState);
-    set({ isLoggedIn: false, isAdmin: false, username: '', email: '' });
+    const state = { isAdmin: false, username: 'Race Control' };
+    set(state);
+    saveAdminState(state);
   },
 
   // ── Driver selection ───────────────────────────────────────────────────────
@@ -191,18 +141,3 @@ export const useAppStore = create<AppState>((set) => ({
     set({ isReturningUser: true });
   },
 }));
-
-// ─── Internal helpers ────────────────────────────────────────────────────────
-
-/** Apply a successful auth result to the store and persist it. */
-function _applyUser(set: any, user: AuthUser): void {
-  const isAdmin = user.is_admin || user.role === 'roles/admin';
-  const authState: PersistedAuth = {
-    isLoggedIn: true,
-    isAdmin,
-    username:   user.username,
-    email:      user.email,
-  };
-  savePersistedAuth(authState);
-  set({ isLoggedIn: true, isAdmin, username: user.username, email: user.email });
-}

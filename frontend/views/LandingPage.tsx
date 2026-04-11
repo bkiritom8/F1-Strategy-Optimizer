@@ -9,48 +9,33 @@
  * - Glassmorphism UI for authentication (admin-only via showAuth prop).
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, useScroll, useTransform, AnimatePresence, useSpring } from 'framer-motion';
 import {
-  ChevronDown,
-  Zap,
-  Activity,
-  ShieldCheck,
-  Layers,
-  Mail,
-  Lock,
-  User,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  EyeOff,
   ArrowRight,
   Database,
   BarChart3,
-  X
+  X,
+  Github,
+  Lock,
+  ShieldCheck,
+  ChevronDown,
+  Zap,
+  CheckCircle2,
+  Layers,
+  Activity
 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { motion, useScroll, useSpring, useTransform, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { requestOtp, resendVerification } from '../services/authService';
 import Footer from '../components/Footer';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-type ModalTab   = 'password' | 'otp' | 'signup';
-type ModalState = 'idle' | 'otp_sent' | 'verify_prompt' | 'success';
 
 /**
  * @interface LandingPageProps
  * @description Props for the highly animated LandingPage component.
  */
-interface Props {
-  /** Triggered after successful verification of identities. */
-  onLoginSuccess: () => void;
-  /** Specialized callback for administrative dashboard entry. */
-  onAdminLogin:   () => void;
-  /** When true, forces the administrative authentication modal to render. */
-  showAuth?: boolean;
-}
+interface Props {}
 
 // ─── SVG Components ──────────────────────────────────────────────────────────
 
@@ -58,32 +43,56 @@ const F1CarSVG = () => (
   <motion.svg
     width="100%"
     height="100%"
-    viewBox="0 0 800 300"
+    viewBox="0 0 1200 400"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    className="f1-red-glow"
+    className="f1-red-glow filter drop-shadow-[0_0_30px_rgba(225,6,0,0.2)]"
     initial={{ opacity: 0, scale: 0.9 }}
     animate={{ opacity: 1, scale: 1 }}
     transition={{ duration: 1.5, ease: "easeOut" }}
   >
+    {/* High-Fidelity Chassis Silhouette */}
     <motion.path
-      d="M50 250 L150 250 L170 230 L300 230 L350 200 L600 200 L650 230 L750 230 L750 250 M150 250 Q160 210 200 210 Q240 210 250 250 M600 250 Q610 210 650 210 Q690 210 700 250"
+      d="M100 320 L250 320 L280 290 L400 290 L450 250 L850 250 L920 290 L1100 290 L1100 320 M250 320 Q270 240 350 240 Q430 240 450 320 M850 320 Q870 240 950 240 Q1030 240 1050 320"
       stroke="#E10600"
-      strokeWidth="2"
+      strokeWidth="3"
       strokeLinecap="round"
       initial={{ pathLength: 0 }}
       animate={{ pathLength: 1 }}
       transition={{ duration: 3, ease: "easeInOut" }}
     />
+    {/* Body Lines & Aero Details */}
     <motion.path
-      d="M360 190 Q480 180 600 190"
-      stroke="#00D2BE"
+      d="M480 240 Q650 220 820 240 M500 260 L800 260 M550 280 L750 280"
+      stroke="white"
       strokeWidth="1"
-      strokeDasharray="5 5"
+      strokeOpacity="0.3"
+      initial={{ pathLength: 0 }}
+      animate={{ pathLength: 1 }}
+      transition={{ duration: 2, delay: 1 }}
+    />
+    <motion.path
+      d="M450 250 Q650 180 850 250"
+      stroke="#E10600"
+      strokeWidth="1.5"
+      fill="none"
+      strokeDasharray="10 10"
       initial={{ pathLength: 0 }}
       animate={{ pathLength: 1 }}
       transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
     />
+    {/* Dynamic Speed Lines */}
+    {[...Array(5)].map((_, i) => (
+      <motion.line
+        key={i}
+        x1="1150" y1={250 + i * 15} x2="1300" y2={250 + i * 15}
+        stroke="#00D2BE"
+        strokeWidth="1"
+        initial={{ x1: 1150, x2: 1250, opacity: 0 }}
+        animate={{ x1: [-100, 1300], x2: [0, 1400], opacity: [0, 1, 0] }}
+        transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15, ease: "linear" }}
+      />
+    ))}
   </motion.svg>
 );
 
@@ -112,232 +121,139 @@ const StrategyGraphSVG = () => (
   </svg>
 );
 
-const TelemetryBackground = () => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-    {/* Abstract Track Path */}
-    <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 1000 1000" preserveAspectRatio="none">
-      <motion.path
-        d="M -100,500 C 200,300 400,700 600,400 C 800,100 1100,500 1100,500"
-        stroke="#E10600"
-        strokeWidth="2"
-        fill="none"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 0.3 }}
-        transition={{ duration: 4, ease: "easeInOut" }}
-      />
-      <motion.path
-        d="M -100,600 C 150,450 350,850 550,550 C 750,250 1100,600 1100,600"
-        stroke="#00D2BE"
-        strokeWidth="1"
-        fill="none"
-        strokeDasharray="10 15"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 0.2 }}
-        transition={{ duration: 5, ease: "easeInOut", delay: 1 }}
-      />
-    </svg>
+const TelemetryBackground = () => {
+  const { scrollYProgress } = useScroll();
+  const smoothScroll = useSpring(scrollYProgress, { stiffness: 50, damping: 20 });
 
-    {/* Moving Data Particles */}
-    {[...Array(15)].map((_, i) => (
-      <motion.div
-        key={i}
-        initial={{ 
-          x: Math.random() * 100 + "%", 
-          y: Math.random() * 100 + "%", 
-          opacity: 0,
-          scale: 0.5
-        }}
-        animate={{ 
-          y: ["-10%", "110%"],
-          opacity: [0, 0.4, 0],
-          scale: [0.5, 1, 0.5]
-        }}
-        transition={{ 
-          duration: 10 + Math.random() * 20, 
-          repeat: Infinity, 
-          delay: Math.random() * 10,
-          ease: "linear"
-        }}
-        className="absolute w-1 h-1 bg-red-500 rounded-full blur-[1px] shadow-[0_0_8px_#E10600]"
-      />
-    ))}
+  // Each layer of the "Tunnel"
+  const layers = [
+    { id: 1, delay: 0,   scaleRange: [0.5, 10], opacityRange: [0, 0.4, 0] },
+    { id: 2, delay: 0.2, scaleRange: [0.3, 8],  opacityRange: [0, 0.3, 0] },
+    { id: 3, delay: 0.4, scaleRange: [0.1, 5],  opacityRange: [0, 0.2, 0] },
+    { id: 4, delay: 0.6, scaleRange: [0.05, 3], opacityRange: [0, 0.1, 0] },
+  ];
 
-    {/* Drifting Glow Orbs */}
-    <motion.div
-      animate={{ 
-        x: ["20%", "40%", "20%"], 
-        y: ["30%", "50%", "30%"],
-        scale: [1, 1.2, 1]
-      }}
-      transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-      className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[120px] mix-blend-screen"
-    />
-    <motion.div
-      animate={{ 
-        x: ["70%", "50%", "70%"], 
-        y: ["60%", "40%", "60%"],
-        scale: [1, 1.3, 1]
-      }}
-      transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-      className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-[100px] mix-blend-screen"
-    />
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 bg-black">
+      {/* Base Depth Grid */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(225,6,0,0.08)_0%,transparent_70%)]" />
+      
+      {/* Perspective Tunnel Layers */}
+      {layers.map((layer) => {
+        const scale = useTransform(smoothScroll, [0, 1], layer.scaleRange);
+        const opacity = useTransform(smoothScroll, [0, 0.5, 1], layer.opacityRange);
+        
+        return (
+          <motion.div
+            key={layer.id}
+            style={{ scale, opacity }}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            {/* Geometric Tech Ring */}
+            <svg className="w-[120%] h-[120%] opacity-20" viewBox="0 0 1000 1000">
+              <motion.circle
+                cx="500" cy="500" r="450"
+                stroke={layer.id % 2 === 0 ? "#E10600" : "#00D2BE"}
+                strokeWidth="0.5"
+                fill="none"
+                strokeDasharray="100 200"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 20 + layer.id * 10, repeat: Infinity, ease: "linear" }}
+              />
+              <motion.path
+                d="M500 50 L950 500 L500 950 L50  500 Z"
+                stroke="#E10600"
+                strokeWidth="0.2"
+                fill="none"
+                strokeDasharray="50 150"
+                animate={{ rotate: -360 }}
+                transition={{ duration: 30 + layer.id * 5, repeat: Infinity, ease: "linear" }}
+              />
+              {/* Floating Data Nodes */}
+              {[...Array(12)].map((_, j) => (
+                <text
+                  key={j}
+                  x={500 + 400 * Math.cos(j * Math.PI / 6)}
+                  y={500 + 400 * Math.sin(j * Math.PI / 6)}
+                  fill="white"
+                  fontSize="8"
+                  className="font-mono opacity-40 uppercase"
+                >
+                  {Math.random().toString(16).substr(2, 4)}
+                </text>
+              ))}
+            </svg>
+          </motion.div>
+        );
+      })}
 
-    {/* Scanline Effect */}
-    <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.03),rgba(0,255,230,0.01),rgba(0,0,255,0.03))] bg-[length:100%_4px,300%_100%] z-10 pointer-events-none opacity-20" />
-  </div>
-);
+      {/* Near-Field High Speed Particles (Dolly) */}
+      <div className="absolute inset-0">
+        {[...Array(60)].map((_, i) => {
+          // Each particle has its own lifecycle linked to scroll
+          const scale = useTransform(smoothScroll, [0, 1], [0.1, 15]);
+          const opacity = useTransform(smoothScroll, [0, 0.2, 0.8, 1], [0, 0.5, 0.5, 0]);
+          
+          return (
+            <motion.div
+              key={i}
+              className="absolute w-0.5 h-0.5 bg-white rounded-full"
+              style={{
+                top: `${(Math.sin(i * 13.57) * 50) + 50}%`,
+                left: `${(Math.cos(i * 13.57) * 50) + 50}%`,
+                scale,
+                opacity,
+                filter: 'blur(1px)'
+              }}
+            />
+          );
+        })}
+      </div>
 
-// ─── Helper: Password Strength ───────────────────────────────────────────
-
-function passwordStrength(pwd: string): number {
-  let score = 0;
-  if (pwd.length >= 8)  score++;
-  if (pwd.length >= 12) score++;
-  if (/[A-Z]/.test(pwd)) score++;
-  if (/[0-9]/.test(pwd)) score++;
-  if (/[^a-zA-Z0-9]/.test(pwd)) score++;
-  return Math.min(4, score);
-}
-
-const STRENGTH_LABEL = ['', 'Weak', 'Fair', 'Good', 'Strong'];
-const STRENGTH_COLOR = ['', '#ff4d4d', '#ffa64d', '#f1c40f', '#00e676'];
+      {/* Cinematic Vignette */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,black_90%)]" />
+      
+      {/* Dynamic Digital Noise */}
+      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
+    </div>
+  );
+};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin, showAuth = false }) => {
+const LandingPage: React.FC<Props> = () => {
   const navigate = useNavigate();
-  const { loginAsync, loginWithOtpAsync, authLoading, isReturningUser, setHasVisited, isAdmin } = useAppStore();
+  const { isAdmin, adminLogin, logout } = useAppStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
-  useEffect(() => {
-    console.debug('[LandingPage] Component mounted');
-    return () => console.debug('[LandingPage] Component unmounted');
-  }, []);
-
   // Parallax transforms for background elements
   const glowY = useTransform(smoothProgress, [0, 1], [-100, 200]);
   const carParallax = useTransform(smoothProgress, [0, 0.4], [0, 150]);
-  const sectionOpacity = useTransform(smoothProgress, [0, 0.1], [1, 0]);
+  
+  // Hero Section transitions
+  const heroScale = useTransform(smoothProgress, [0, 0.2], [1, 0.8]);
+  const heroOpacity = useTransform(smoothProgress, [0, 0.15], [1, 0]);
 
-  // Auth States
-  const [tab, setTab] = useState<ModalTab>('password');
-  const [modalState, setModalState] = useState<ModalState>('idle');
-  const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [showPw, setShowPw] = useState(false);
-
-  // Form States
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [gdpr, setGdpr] = useState(false);
-  const [resendEmail, setResendEmail] = useState('');
   const [showDataSpecs, setShowDataSpecs] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminError, setAdminError] = useState(false);
 
-  const strength = passwordStrength(password);
-  const [otpCountdown, setOtpCountdown] = useState(0);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startCountdown = useCallback(() => {
-    setOtpCountdown(600);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    countdownRef.current = setInterval(() => {
-      setOtpCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(countdownRef.current!);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
-
-  useEffect(() => () => { if (countdownRef.current) clearInterval(countdownRef.current); }, []);
-
-  const resetFormState = () => {
-    setError(''); setSuccessMsg(''); setModalState('idle');
-    setOtpCode(''); setOtpCountdown(0);
-  };
-  const switchTab = (t: ModalTab) => { setTab(t); resetFormState(); };
-
-  // ── Auth Handlers ─────────────────────────────────────────────────────────
-
-  const handlePasswordLogin = async (e: React.FormEvent) => {
+  const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setSubmitting(true);
-    const result = await loginAsync(username, password);
-    setSubmitting(false);
-
-    if (result.needsVerification) {
-      setError('Email not verified. Please check your inbox.');
-      setModalState('verify_prompt');
-      setResendEmail(username);
-      return;
-    }
-    if (result.ok) {
-      if (!isReturningUser) setHasVisited();
-      if (useAppStore.getState().isAdmin) onAdminLogin();
-      else onLoginSuccess();
-    } else if (!result.needsVerification) {
-      setError(result.errorMsg ?? 'Login failed. Please try again.');
-    }
-  };
-
-  const handleRequestOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) { setError('Enter your email.'); return; }
-    setError(''); setSubmitting(true);
-    await requestOtp(email);
-    setSubmitting(false);
-    setModalState('otp_sent');
-    setSuccessMsg('A security code has been transmitted.');
-    startCountdown();
-  };
-
-  const handleOtpLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpCode.length !== 6) { setError('Invalid code length.'); return; }
-    setError(''); setSubmitting(true);
-    const result = await loginWithOtpAsync(email, otpCode);
-    setSubmitting(false);
-    if (result.ok) {
-      if (!isReturningUser) setHasVisited();
-      if (useAppStore.getState().isAdmin) onAdminLogin();
-      else onLoginSuccess();
+    const success = adminLogin(adminPassword);
+    if (success) {
+      setShowAdminModal(false);
+      setAdminPassword('');
+      setAdminError(false);
+      navigate('/race');
     } else {
-      setError(result.errorMsg ?? 'Invalid or expired code.');
+      setAdminError(true);
+      setTimeout(() => setAdminError(false), 2000);
     }
   };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (password !== confirmPassword) { setError('Passwords mismatch.'); return; }
-    if (!gdpr) { setError('Privacy policy agreement required.'); return; }
-    if (strength < 3) { setError('Password too weak.'); return; }
-
-    setSubmitting(true);
-    const { signUp } = await import('../services/authService');
-    const result = await signUp(username, email, fullName, password);
-    setSubmitting(false);
-
-    if (!result.ok) { setError(result.errorMsg ?? 'Registration failed.'); return; }
-    setResendEmail(email);
-    setModalState('verify_prompt');
-  };
-
-  const scrollToAuth = () => {
-    const el = document.getElementById('auth-section');
-    el?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div ref={containerRef} className="bg-black text-white min-h-screen font-sans selection:bg-red-600/30 overflow-x-hidden">
@@ -350,12 +266,42 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin, showAuth =
           </div>
           <span className="font-display font-black text-xl italic tracking-tighter uppercase">Apex Intelligence</span>
         </div>
-        <button
-          onClick={() => navigate('/race')}
-          className="hidden md:flex items-center gap-2 px-6 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all text-sm font-bold uppercase tracking-widest text-white/70 hover:text-white"
-        >
-          Launch Platform <ArrowRight className="w-4 h-4" />
-        </button>
+        
+        <div className="flex items-center gap-4 md:gap-10">
+          <a 
+            href="https://github.com/nateplusplus/F1-Strategy-Optimizer" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-white/40 hover:text-white transition-all group"
+          >
+            <Github className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Repository</span>
+          </a>
+
+          {!isAdmin ? (
+             <button
+              onClick={() => setShowAdminModal(true)}
+              className="hidden sm:flex items-center gap-2 text-white/40 hover:text-red-500 transition-all group"
+            >
+              <Lock className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Admin Control</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => logout()}
+              className="hidden sm:flex items-center gap-2 text-red-500/60 hover:text-red-500 transition-all group"
+            >
+              <span className="text-[10px] font-black uppercase tracking-widest">Exit Admin</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => navigate('/race')}
+            className="flex items-center gap-2 px-6 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all text-sm font-bold uppercase tracking-widest text-white/70 hover:text-white"
+          >
+            Launch <ArrowRight className="w-4 h-4 ml-1" />
+          </button>
+        </div>
       </nav>
 
       {/* ── Progress Bar ── */}
@@ -374,9 +320,7 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin, showAuth =
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          style={{ scale: heroScale, opacity: heroOpacity }}
           className="relative z-10 text-center max-w-4xl"
         >
           <motion.div
@@ -585,363 +529,164 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin, showAuth =
         </div>
       </section>
 
-      {/* ── SECTION 4: AUTH (admin-only) or LAUNCH CTA ── */}
-      <section id="auth-section" className="relative min-h-[60vh] flex items-center justify-center py-20 px-6">
+      {/* ── SECTION 4: FINAL CTA ── */}
+      <section className="relative min-h-[60vh] flex items-center justify-center py-20 px-6">
         <div className="absolute inset-0 pointer-events-none opacity-30 overflow-hidden">
           <div className="absolute bottom-0 left-0 w-full h-[50vh] bg-gradient-to-t from-red-600/20 to-transparent" />
         </div>
 
-        {showAuth ? (
-          /* ── Full auth modal — only rendered on /login ── */
-          <motion.div
-            whileInView={{ opacity: 1, y: 0 }}
-            initial={{ opacity: 0, y: 100 }}
-            viewport={{ once: true }}
-            className="w-full max-w-xl glass-morphism-dark p-8 md:p-12 rounded-[2.5rem] shadow-2xl relative z-20"
-          >
-            <div className="text-center mb-10">
-              <h2 className="text-2xl font-display font-black italic tracking-tighter uppercase mb-2">
-                {isReturningUser ? 'Welcome Back, Strategist' : 'Login for the 1st time'}
-              </h2>
-              <p className="text-white/40 text-sm">
-                {isReturningUser
-                  ? 'Your session intelligence is ready for re-initialization.'
-                  : 'Initialize your connection for the 1st time to authorize your terminal.'}
-              </p>
-            </div>
-
-            <div className="flex p-1 bg-white/5 rounded-2xl mb-8 border border-white/5">
-              {(['password', 'otp', 'signup'] as ModalTab[]).map(t => (
-                <button
-                  key={t}
-                  onClick={() => switchTab(t)}
-                  className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
-                    tab === t ? 'bg-red-600 text-white shadow-lg' : 'text-white/30 hover:text-white/50'
-                  }`}
-                >
-                  {t === 'password' ? 'Sign In' : t === 'otp' ? 'OTP' : 'Register'}
-                </button>
-              ))}
-            </div>
-
-            <div className="min-h-[300px]">
-              <AnimatePresence mode="wait">
-                {tab === 'password' && (
-                  <motion.form
-                    key="password"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    onSubmit={handlePasswordLogin}
-                    className="space-y-6"
-                  >
-                    <div className="space-y-4">
-                      <div className="relative">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                        <input
-                          type="text" placeholder="Username / Email"
-                          className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-red-600/50 outline-none transition-all text-sm"
-                          value={username} onChange={e => setUsername(e.target.value)}
-                        />
-                      </div>
-                      <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                        <input
-                          type={showPw ? "text" : "password"} placeholder="Secure Password"
-                          className="w-full pl-12 pr-12 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-red-600/50 outline-none transition-all text-sm"
-                          value={password} onChange={e => setPassword(e.target.value)}
-                        />
-                        <button
-                          type="button" onClick={() => setShowPw(!showPw)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-all"
-                        >
-                          {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {error && <div className="flex gap-2 p-3 rounded-xl bg-red-600/10 border border-red-600/20 text-red-500 text-xs font-bold leading-relaxed">
-                      <AlertCircle className="w-4 h-4 shrink-0" /> {error}
-                    </div>}
-
-                    <button
-                      type="submit"
-                      disabled={submitting || authLoading}
-                      className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-900/40 disabled:opacity-50 disabled:cursor-not-allowed group relative overflow-hidden"
-                    >
-                      <span className={submitting || authLoading ? "opacity-0" : "opacity-100"}>
-                        Initialize Session
-                      </span>
-                      {(submitting || authLoading) && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        </div>
-                      )}
-                    </button>
-                  </motion.form>
-                )}
-
-                {tab === 'otp' && (
-                  <motion.div
-                    key="otp"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                  >
-                    {modalState !== 'otp_sent' ? (
-                      <form onSubmit={handleRequestOtp} className="space-y-6">
-                        <div className="relative">
-                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                          <input
-                            type="email" placeholder="Verification Email"
-                            className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-red-600/50 outline-none transition-all text-sm"
-                            value={email} onChange={e => setEmail(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex gap-3 p-4 rounded-2xl bg-blue-600/5 border border-blue-600/20 text-[10px] text-blue-400 font-bold uppercase tracking-wider leading-relaxed">
-                          <AlertCircle className="w-4 h-4 shrink-0" />
-                          <span>Sign-in via code is only available for registered email addresses. If you are new, please use the Signup tab first.</span>
-                        </div>
-                        {error && <div className="flex gap-2 p-3 rounded-xl bg-red-600/10 border border-red-600/20 text-red-500 text-xs font-bold leading-relaxed">
-                          <AlertCircle className="w-4 h-4 shrink-0" /> {error}
-                        </div>}
-                        <button
-                          type="submit"
-                          disabled={submitting || authLoading}
-                          className="w-full py-4 rounded-2xl border border-red-600/50 text-red-500 font-bold text-sm uppercase tracking-widest hover:bg-red-600/5 transition-all disabled:opacity-50 relative overflow-hidden"
-                        >
-                          <span className={submitting || authLoading ? "opacity-0" : "opacity-100"}>
-                            Transmit Magic Code
-                          </span>
-                          {(submitting || authLoading) && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-5 h-5 border-2 border-red-600/30 border-t-red-600 rounded-full animate-spin" />
-                            </div>
-                          )}
-                        </button>
-                      </form>
-                    ) : (
-                      <form onSubmit={handleOtpLogin} className="space-y-6">
-                        <input
-                          type="text" maxLength={6} placeholder="000000"
-                          className="w-full py-6 rounded-2xl bg-white/5 border border-red-600/30 text-center text-4xl font-bold tracking-[0.5em] text-red-500 outline-none"
-                          value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                        />
-                        <div className="flex justify-between items-center px-2">
-                          <p className="text-[10px] uppercase font-bold text-white/40 tracking-widest">
-                            Expiring in {Math.floor(otpCountdown / 60)}:{String(otpCountdown % 60).padStart(2, '0')}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setModalState('idle')}
-                            className="text-[10px] uppercase font-bold text-red-500 hover:text-red-400 tracking-widest"
-                          >
-                            Change Email
-                          </button>
-                        </div>
-                        {error && <div className="flex gap-2 p-3 rounded-xl bg-red-600/10 border border-red-600/20 text-red-500 text-xs font-bold leading-relaxed">
-                          <AlertCircle className="w-4 h-4 shrink-0" /> {error}
-                        </div>}
-                        <button
-                          type="submit"
-                          disabled={submitting || authLoading}
-                          className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest relative overflow-hidden"
-                        >
-                          <span className={submitting || authLoading ? "opacity-0" : "opacity-100"}>
-                            Authorize Terminal
-                          </span>
-                          {(submitting || authLoading) && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            </div>
-                          )}
-                        </button>
-                      </form>
-                    )}
-                  </motion.div>
-                )}
-
-                {tab === 'signup' && (
-                  <motion.form
-                    key="signup"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    onSubmit={handleSignUp}
-                    className="space-y-4"
-                  >
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="text" placeholder="Username"
-                        className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
-                        value={username} onChange={e => setUsername(e.target.value)}
-                      />
-                      <input
-                        type="text" placeholder="Full Name"
-                        className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
-                        value={fullName} onChange={e => setFullName(e.target.value)}
-                      />
-                    </div>
-                    <input
-                      type="email" placeholder="Strategic Email Address"
-                      className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm"
-                      value={email} onChange={e => setEmail(e.target.value)}
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="relative">
-                        <input
-                          type={showPw ? "text" : "password"} placeholder="Password"
-                          className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm pr-10"
-                          value={password} onChange={e => setPassword(e.target.value)}
-                        />
-                        <button
-                          type="button" onClick={() => setShowPw(!showPw)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-all"
-                        >
-                          {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type={showPw ? "text" : "password"} placeholder="Confirm"
-                          className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 outline-none text-sm pr-10"
-                          value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    {password && (
-                      <div className="px-1 space-y-1.5">
-                        <div className="flex gap-1">
-                          {[1, 2, 3, 4].map(i => (
-                            <div key={i} className="h-1 flex-1 rounded-full transition-colors" style={{ backgroundColor: i <= strength ? STRENGTH_COLOR[strength] : 'rgba(255,255,255,0.1)' }} />
-                          ))}
-                        </div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: STRENGTH_COLOR[strength] }}>{STRENGTH_LABEL[strength]}</p>
-                      </div>
-                    )}
-
-                    <label className="flex gap-3 text-[10px] text-white/40 items-start cursor-pointer select-none px-2 py-2">
-                      <input
-                        type="checkbox" className="mt-0.5 accent-red-600"
-                        checked={gdpr} onChange={e => setGdpr(e.target.checked)}
-                      />
-                      <span>I agree to the <a href="/privacy-policy.html" target="_blank" className="text-red-500 hover:underline">Privacy Policy</a> and <a href="/terms.html" target="_blank" className="text-red-500 hover:underline">Terms of Service</a>.</span>
-                    </label>
-
-                    <button
-                      type="submit"
-                      disabled={submitting || authLoading}
-                      className="w-full py-4 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest disabled:opacity-50 relative overflow-hidden"
-                    >
-                      <span className={submitting || authLoading ? "opacity-0" : "opacity-100"}>
-                        Create Identity
-                      </span>
-                      {(submitting || authLoading) && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        </div>
-                      )}
-                    </button>
-                  </motion.form>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-        ) : (
-          /* ── Public launch CTA — shown on / ── */
-          <motion.div
-            whileInView={{ opacity: 1, y: 0 }}
-            initial={{ opacity: 0, y: 60 }}
-            viewport={{ once: true }}
-            className="text-center max-w-2xl space-y-8 relative z-20"
-          >
-            <h2 className="font-display font-black text-4xl md:text-6xl italic uppercase tracking-tighter">
-              Ready to <span className="text-red-600">Strategize</span>?
-            </h2>
-            <p className="text-white/40 text-lg">
-              Open access — dive straight into the data.
-            </p>
+        <motion.div
+           whileInView={{ opacity: 1, scale: 1 }}
+           initial={{ opacity: 0, scale: 0.95 }}
+           viewport={{ once: true }}
+           className="relative z-10 text-center space-y-10"
+        >
+          <h2 className="font-display font-black text-5xl md:text-8xl italic uppercase tracking-tighter leading-none">
+            READY TO <span className="text-red-600">DOMINATE?</span>
+          </h2>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <button
-              onClick={() => navigate('/race')}
-              className="px-14 py-5 rounded-2xl bg-red-600 text-white font-bold text-sm uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-900/30 active:scale-95 inline-flex items-center gap-3"
+               onClick={() => navigate('/race')}
+               className="w-full sm:w-auto px-12 py-5 rounded-full bg-red-600 text-white font-black uppercase tracking-widest text-sm hover:bg-red-700 transition-all shadow-2xl shadow-red-900/40"
             >
-              Launch Command Center <ArrowRight className="w-4 h-4" />
+              Enter Command Center
             </button>
-          </motion.div>
-        )}
+            <a
+               href="https://github.com/nateplusplus/F1-Strategy-Optimizer"
+               target="_blank"
+               rel="noopener noreferrer"
+               className="w-full sm:w-auto px-12 py-5 rounded-full glass-morphism text-white font-black uppercase tracking-widest text-sm hover:bg-white/5 transition-all flex items-center justify-center gap-3"
+            >
+              <Github className="w-5 h-5" /> Repository
+            </a>
+          </div>
+        </motion.div>
       </section>
 
-      <Footer />
+      <Footer onAdminClick={() => setShowAdminModal(true)} />
 
       {/* ── DATA SPECS MODAL ── */}
       <AnimatePresence>
         {showDataSpecs && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl"
-            onClick={() => setShowDataSpecs(false)}
-          >
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
             <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              onClick={e => e.stopPropagation()}
-              className="w-full max-w-2xl glass-morphism-dark p-8 md:p-12 rounded-[2.5rem] border border-white/10 shadow-2xl relative"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDataSpecs(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl glass-morphism p-8 md:p-12 rounded-[40px] border-white/10 shadow-2xl"
             >
               <button
                 onClick={() => setShowDataSpecs(false)}
-                className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/5 transition-colors"
+                className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/10 transition-colors"
               >
-                <X className="w-6 h-6 text-white/40" />
+                <X className="w-6 h-6" />
               </button>
-
+              
               <div className="space-y-8">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-2xl bg-red-600/10 border border-red-500/20">
-                    <Database className="w-8 h-8 text-red-500" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-display font-black italic tracking-tighter uppercase">Technical Architecture</h2>
-                    <p className="text-white/40 text-xs font-mono uppercase tracking-widest mt-1">Apex Engine v4.2.0-Pro</p>
-                  </div>
+                <div>
+                  <h3 className="text-2xl font-display font-bold italic uppercase tracking-tight text-red-500 mb-4">Technical Specifications</h3>
+                  <div className="h-1 w-20 bg-red-600 rounded-full" />
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    { label: 'Compute Engine', value: 'Google Cloud Vertex AI', desc: 'Predictive modeling via 512-core TPU clusters.' },
-                    { label: 'Data Frequency', value: '100Hz Refresh Rate', desc: 'Real-time telemetry ingestion from trackside nodes.' },
-                    { label: 'Network Latency', value: '< 15ms Global Orbit', desc: 'Distributed edge points for race-critical reactivity.' },
-                    { label: 'Security Protocols', value: 'AES-256 Multi-layer', desc: 'Bank-grade encryption for proprietary strategies.' }
-                  ].map(spec => (
-                    <div key={spec.label} className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">{spec.label}</p>
-                      <p className="text-sm font-bold text-white mb-2">{spec.value}</p>
-                      <p className="text-[10px] text-white/40 leading-tight">{spec.desc}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-6 border-t border-white/5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                       <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">All Systems Operational</span>
-                    </div>
-                    <button
-                      onClick={() => setShowDataSpecs(false)}
-                      className="px-8 py-3 rounded-xl bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-white/90 transition-all"
-                    >
-                      Acknowledge
-                    </button>
+                
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-white/30">Backend Architecture</h4>
+                    <p className="text-sm text-white/70 leading-relaxed font-medium">
+                      Powered by **Python/FastAPI** and **Redis** for sub-millisecond data distribution. Predictive modeling via **Monte Carlo simulations**.
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-white/30">Frontend Core</h4>
+                    <p className="text-sm text-white/70 leading-relaxed font-medium">
+                      Built with **React 18**, **TypeScript**, and **Framer Motion** for a high-fidelity, interactive telemetry experience.
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-white/30">Data Integration</h4>
+                    <p className="text-sm text-white/70 leading-relaxed font-medium">
+                      Dynamic ingestion of **Formula 1 Historical Data** (2024-2026 Season Mapping) and real-time tire degradation sensors.
+                    </p>
                   </div>
                 </div>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
+
+      {/* ── ADMIN AUTH MODAL ── */}
+      <AnimatePresence>
+        {showAdminModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAdminModal(false)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-2xl"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm glass-morphism p-8 rounded-[32px] border-red-500/20 shadow-[0_0_50px_rgba(225,6,0,0.1)]"
+            >
+              <div className="text-center mb-8">
+                <div className="w-12 h-12 bg-red-600/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+                  <Lock className="w-6 h-6 text-red-500" />
+                </div>
+                <h3 className="text-xl font-display font-bold italic uppercase tracking-tight text-white">Administrative Access</h3>
+                <p className="text-white/40 text-xs mt-2 font-medium">Authorized Personnel Only</p>
+              </div>
+
+              <form onSubmit={handleAdminAuth} className="space-y-4">
+                <div className="relative">
+                  <input
+                    type="password"
+                    autoFocus
+                    placeholder="Security Credential"
+                    className={`w-full px-6 py-4 rounded-2xl bg-white/5 border ${adminError ? 'border-red-600 animate-shake' : 'border-white/10'} focus:border-red-600 outline-none transition-all text-sm text-center placeholder:text-white/20`}
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                  />
+                </div>
+                
+                {adminError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-red-500 text-[10px] font-black uppercase tracking-widest text-center"
+                  >
+                    Auth Failed: System Locked
+                  </motion.p>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full py-4 rounded-xl bg-red-600 text-white font-black uppercase tracking-widest text-xs hover:bg-red-700 transition-all shadow-lg shadow-red-900/40"
+                >
+                  Confirm Terminal Access
+                </button>
+              </form>
+
+              <button
+                onClick={() => setShowAdminModal(false)}
+                className="w-full mt-4 py-2 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
+              >
+                Cancel Initialization
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };

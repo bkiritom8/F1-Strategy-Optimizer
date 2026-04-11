@@ -1,18 +1,16 @@
 /**
  * @file services/client.ts
- * @description Authenticated HTTP client for the F1 Strategy backend.
+ * @description Standardized HTTP client for the F1 Strategy backend.
  *
- * Every API request passes through `apiFetch`.  It:
- *  1. Injects `Authorization: Bearer <user JWT>` from sessionStorage.
- *  2. If no token is present or it's expired → fires `auth:expired` event
- *     so the login modal appears, then throws (request is not sent).
- *  3. On 401/403 response → same `auth:expired` event + throws.
+ * This client provides a unified wrapper around `fetch` for all backend
+ * communications. It handles base URL resolution, JSON parsing, and 
+ * consistent error reporting.
  *
- * No service-account credentials are stored here.  Users must sign in via
- * the LoginModal → authService → JWT stored in sessionStorage.
+ * Authentication:
+ * - CORE platform features (Race Command, Strategy Hub) are public.
+ * - Admin features are gated by the Admin Control password.
  */
 
-import { getStoredToken, fireAuthExpired } from './authService';
 import { logger } from './logger';
 
 // ─── API base URL ─────────────────────────────────────────────────────────────
@@ -34,39 +32,35 @@ export const API_BASE: string =
  * Extended fetch options for the F1 Strategy client.
  */
 interface FetchOptions extends RequestInit {
-  /** Skip the auth header injection (used for public endpoints like /health). */
+  /** Skip the auth header injection (legacy support). */
   skipAuth?: boolean;
 }
 
 /**
- * Authenticated fetch wrapper. Automatically injects Bearer token and
- * handles 401/403 session expiration by firing global events.
+ * Robust fetch wrapper. Handles base URL resolution and JSON parsing.
+ * Authentication is now optional and managed via the Admin Control.
  *
  * @param path   - API path, relative to API_BASE (e.g. '/strategy/predict')
- * @param options - Standard fetch options + optional `skipAuth` flag
+ * @param options - Standard fetch options
  * @returns Parsed JSON response
- * @throws  On missing token, expired token, or non-OK HTTP response
+ * @throws  On non-OK HTTP response
  */
 export async function apiFetch<T = unknown>(
   path:     string,
   options?: FetchOptions,
 ): Promise<T> {
-  const { skipAuth = false, ...fetchOptions } = options ?? {};
+  const { ...fetchOptions } = options ?? {};
   const method = fetchOptions.method ?? 'GET';
 
-  logger.debug(`[apiFetch] ${method} ${path} (skipAuth=${skipAuth})`);
+  logger.debug(`[apiFetch] ${method} ${path}`);
 
   const headers = new Headers(fetchOptions.headers);
   headers.set('Content-Type', headers.get('Content-Type') ?? 'application/json');
 
-  if (!skipAuth) {
-    const token = getStoredToken();
-    if (!token) {
-      logger.warn(`[apiFetch] Missing token for protected route: ${path}`);
-      fireAuthExpired();
-      throw new Error('Not authenticated. Please sign in.');
-    }
-    headers.set('Authorization', `Bearer ${token}`);
+  // Optional: Inject legacy token if still present in storage for backend compatibility
+  const legacyToken = sessionStorage.getItem('f1_api_token');
+  if (legacyToken) {
+    headers.set('Authorization', `Bearer ${legacyToken}`);
   }
 
   try {
@@ -77,20 +71,15 @@ export async function apiFetch<T = unknown>(
 
     logger.debug(`[apiFetch] Response ${res.status} for ${path}`);
 
-    if (res.status === 401 || res.status === 403) {
-      logger.error(`[apiFetch] Auth failure (${res.status}) on ${path}`);
-      fireAuthExpired();
-      throw new Error('Session expired. Please sign in again.');
-    }
-
     if (!res.ok) {
+      // 401/403 are no longer intercepted for redirection
       let detail = `API error: ${res.status}`;
       try {
         const json = await res.json();
         if (typeof json?.detail === 'string') detail = json.detail;
       } catch { /* non-JSON body */ }
       
-      logger.warn(`[apiFetch] API logical error: ${detail}`);
+      logger.warn(`[apiFetch] API error: ${detail}`);
       throw new Error(detail);
     }
 

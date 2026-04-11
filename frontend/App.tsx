@@ -22,7 +22,12 @@ import {
   Gauge, Users, Compass, BarChart3, Activity,
   Map, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { useRaces2024, useBackendStatus } from './hooks/useApi';
+import { 
+  useRaces2024, 
+  useRaces2025, 
+  useRaces2026, 
+  useBackendStatus 
+} from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
 import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
 import { logger } from './services/logger';
@@ -125,6 +130,7 @@ class ViewErrorBoundary extends React.Component<
 const App: React.FC = () => {
   const {
     activeRaceRound,
+    selectedSeason,
     backgroundCircuitId,
     sidebarOpen,
     setSidebarOpen,
@@ -132,8 +138,12 @@ const App: React.FC = () => {
     toggleSidebarCollapsed,
     isAdmin,
   } = useAppStore();
-  const { data: races } = useRaces2024();
+
+  const { data: races2024 } = useRaces2024();
+  const { data: races2025 } = useRaces2025();
+  const { data: races2026 } = useRaces2026();
   const { online: backendOnline } = useBackendStatus();
+  
   const location  = useLocation();
   const navigate  = useNavigate();
 
@@ -141,15 +151,19 @@ const App: React.FC = () => {
    * Determine the current circuit ID for the background simulation.
    * Priority:
    * 1. Explicit background override (from Track Explorer)
-   * 2. Active race round mapping
+   * 2. Active race round mapping (based on selected season)
    * 3. Default fallback
    */
   const currentCircuitId = React.useMemo(() => {
     if (backgroundCircuitId) return backgroundCircuitId;
+    
+    // Choose the correct race list based on the user's selected season
+    const races = selectedSeason === 2026 ? races2026 : selectedSeason === 2025 ? races2025 : races2024;
+    
     if (!races) return 'bahrain';
     const currentRace = races.find((r) => r.round === activeRaceRound);
     return currentRace?.circuit?.id || 'bahrain';
-  }, [races, activeRaceRound, backgroundCircuitId]);
+  }, [races2024, races2025, races2026, selectedSeason, activeRaceRound, backgroundCircuitId]);
 
   /** Log route transitions (dev only). */
   React.useEffect(() => {
@@ -202,7 +216,7 @@ const App: React.FC = () => {
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           aria-label="Go to home page"
         >
-<img src="/apex-logo-128.png" alt="Apex" className="w-7 h-7 rounded-lg object-contain" />
+          <img src="/apex-logo-128.png" alt="Apex" className="w-7 h-7 rounded-lg object-contain" />
           <span className="font-display font-black tracking-tighter text-lg italic">{APP_NAME}</span>
         </button>
       </div>
