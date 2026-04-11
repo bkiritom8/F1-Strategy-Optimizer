@@ -335,7 +335,7 @@ def test_get_client_returns_same_instance():
 
 
 def _get_token(client):
-    r = client.post("/token", data={"username": "admin", "password": "admin"})
+    r = client.post("/users/login", data={"username": "admin", "password": "admin"})
     assert r.status_code == 200
     return r.json()["access_token"]
 
