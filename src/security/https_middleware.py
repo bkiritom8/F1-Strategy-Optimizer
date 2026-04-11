@@ -258,7 +258,9 @@ async def get_current_user(request: Request) -> User:
 
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        logger.warning(f"[Auth] Missing or invalid Authorization header for: {request.url.path}")
+        logger.warning(
+            f"[Auth] Missing or invalid Authorization header for: {request.url.path}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
@@ -285,7 +287,9 @@ async def get_current_user(request: Request) -> User:
         from .user_store import user_store
         user_data = user_store.get(token_data.username)
         if user_data:
-            logger.info(f"[Auth] User '{token_data.username}' found in Firestore UserStore")
+            logger.info(
+                f"[Auth] User '{token_data.username}' found in Firestore UserStore"
+            )
             
             # FIX: Map Firestore 'role' (string) to 'roles' (list[Role])
             if "role" in user_data and "roles" not in user_data:
@@ -300,7 +304,9 @@ async def get_current_user(request: Request) -> User:
                     logger.warning(f"[Auth] Unknown role '{role_val}' mapping to API_USER")
                     user_data["roles"] = [Role.API_USER]
         else:
-            logger.error(f"[Auth] User '{token_data.username}' not found in any store")
+            logger.error(
+                f"[Auth] User '{token_data.username}' not found in any store"
+            )
 
     if not user_data or user_data.get("disabled"):
         if user_data and user_data.get("disabled"):
@@ -317,7 +323,9 @@ async def get_current_user(request: Request) -> User:
     try:
         return User(**filtered_data)
     except Exception as e:
-        logger.error(f"[Auth] User model validation failed for {token_data.username}: {str(e)}")
+        logger.error(
+            f"[Auth] User model validation failed for {token_data.username}: {str(e)}"
+        )
         # This resolves the 501/500 issue by returning a structured 401/403 instead of a crash
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
