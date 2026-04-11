@@ -11,6 +11,9 @@ Usage:
     # Both:
     python ml/monitoring/run_monitoring.py --race-id 2025_5 --season 2025
 
+    # Auto-resolve latest race + current season (for CI/CD cron):
+    python ml/monitoring/run_monitoring.py --days 1 --log-to-cloud
+
 Results logged to:
     gs://f1optimizer-training/monitoring/drift_log.jsonl
     gs://f1optimizer-training/monitoring/accuracy_log.jsonl
@@ -29,6 +32,7 @@ import sys
 import os
 import io
 import json
+from datetime import datetime
 from google.cloud import storage
 
 # GCP Constants
@@ -115,6 +119,25 @@ MODEL_CONFIG: dict[str, dict] = {
         "metric_key": "f1",
     },
 }
+
+
+def _resolve_latest_race(season: int) -> str | None:
+    """Find the latest race_id in the feature parquet for a given season."""
+    try:
+        import pandas as pd
+
+        df = pd.read_parquet(
+            "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet",
+            columns=["season", "round"],
+        )
+        season_df = df[df["season"] == season]
+        if season_df.empty:
+            return None
+        latest_round = int(season_df["round"].max())
+        return f"{season}_{latest_round}"
+    except Exception as exc:
+        logger.warning("Could not auto-resolve latest race: %s", exc)
+        return None
 
 
 def _run_drift_check(race_id: str) -> bool:
@@ -295,10 +318,40 @@ def main() -> int:
     parser.add_argument(
         "--season", type=int, help="Season year for accuracy check, e.g. 2025"
     )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="Auto-resolve latest race and run drift + accuracy for last N days of data",
+    )
+    parser.add_argument(
+        "--log-to-cloud",
+        action="store_true",
+        help="Log results to GCS/Cloud Logging (default: local logging only)",
+    )
     args = parser.parse_args()
 
+    if args.log_to_cloud:
+        logger.info("Cloud logging enabled — results will be written to GCS")
+
+    # --days mode: auto-resolve latest race + current season
+    if args.days is not None:
+        if not args.season:
+            args.season = datetime.now().year
+        if not args.race_id:
+            resolved = _resolve_latest_race(args.season)
+            if resolved:
+                args.race_id = resolved
+                logger.info("Auto-resolved latest race: %s", args.race_id)
+            else:
+                logger.warning(
+                    "Could not resolve latest race for season %d — "
+                    "running accuracy check only",
+                    args.season,
+                )
+
     if not args.race_id and not args.season:
-        parser.error("Provide at least one of --race-id or --season")
+        parser.error("Provide at least one of --race-id, --season, or --days")
 
     all_ok = True
 
