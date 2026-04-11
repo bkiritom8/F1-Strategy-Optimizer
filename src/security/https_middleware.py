@@ -205,7 +205,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             else:
                 if count >= self.max_requests:
                     reset_at = int(window_start + self.window_seconds)
-                    retry_after = max(0, reset_at - int(current_time))
+                    retry_after = max(0, reset_at - int(current_time) + 1)
                     logger.warning("Rate limit exceeded for %s (%s)", client_ip, path)
                     return JSONResponse(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
