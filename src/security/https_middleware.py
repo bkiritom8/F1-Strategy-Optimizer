@@ -168,7 +168,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Paths that count against the quota (prefix match).
         # None / empty means every path is counted.
         self.limited_paths: FrozenSet[str] = limited_paths or frozenset()
-        self.request_counts: Dict[str, Tuple[int, float]] = {}  # IP -> (count, window_start)
+        self.request_counts: Dict[str, Tuple[int, float]] = (
+            {}
+        )  # IP -> (count, window_start)
 
     def _is_limited(self, path: str) -> bool:
         """Return True if this path should be counted against the rate limit."""
@@ -285,7 +287,9 @@ async def get_current_user(request: Request) -> User:
 
         user_data = user_store.get(token_data.username)
         if user_data:
-            logger.info(f"[Auth] User '{token_data.username}' found in Firestore UserStore")
+            logger.info(
+                f"[Auth] User '{token_data.username}' found in Firestore UserStore"
+            )
 
             # FIX: Map Firestore 'role' (string) to 'roles' (list[Role])
             if "role" in user_data and "roles" not in user_data:
@@ -297,7 +301,9 @@ async def get_current_user(request: Request) -> User:
                 try:
                     user_data["roles"] = [Role(role_val)]
                 except ValueError:
-                    logger.warning(f"[Auth] Unknown role '{role_val}' mapping to API_USER")
+                    logger.warning(
+                        f"[Auth] Unknown role '{role_val}' mapping to API_USER"
+                    )
                     user_data["roles"] = [Role.API_USER]
         else:
             logger.error(f"[Auth] User '{token_data.username}' not found in any store")
