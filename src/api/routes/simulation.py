@@ -57,33 +57,50 @@ ACTION_NAMES = [
     "PIT_INTER",
 ]
 
-TEAM_BY_DRIVER: dict[str, str] = {
-    "max_verstappen": "Red Bull",
-    "liam_lawson": "Red Bull",
-    "lando_norris": "McLaren",
-    "oscar_piastri": "McLaren",
-    "charles_leclerc": "Ferrari",
-    "lewis_hamilton": "Ferrari",
-    "george_russell": "Mercedes",
-    "kimi_antonelli": "Mercedes",
-    "fernando_alonso": "Aston Martin",
-    "lance_stroll": "Aston Martin",
-    "pierre_gasly": "Alpine",
-    "jack_doohan": "Alpine",
-    "oliver_bearman": "Haas",
-    "esteban_ocon": "Haas",
-    "yuki_tsunoda": "RB",
-    "isack_hadjar": "RB",
-    "nico_hulkenberg": "Sauber",
-    "gabriel_bortoleto": "Sauber",
-    "alex_albon": "Williams",
-    "carlos_sainz": "Williams",
-    "michael_schumacher": "Ferrari",
-    "ayrton_senna": "McLaren",
-    "alain_prost": "McLaren",
-    "sebastian_vettel": "Red Bull",
-    "valtteri_bottas": "Mercedes",
+# Year-keyed team affiliations. The outer key is driver_id; inner key is the
+# first season that entry applies. team_for_driver() picks the latest entry
+# whose year is ≤ the requested season, so gaps are filled automatically.
+DRIVER_TEAM_BY_YEAR: dict[str, dict[int, str]] = {
+    "max_verstappen": {2022: "Red Bull Racing"},
+    "liam_lawson": {2023: "AlphaTauri", 2025: "Red Bull Racing"},
+    "lando_norris": {2022: "McLaren"},
+    "oscar_piastri": {2023: "McLaren"},
+    "charles_leclerc": {2022: "Ferrari"},
+    "lewis_hamilton": {2022: "Mercedes", 2025: "Ferrari"},
+    "george_russell": {2022: "Mercedes"},
+    "kimi_antonelli": {2025: "Mercedes"},
+    "fernando_alonso": {2022: "Alpine", 2023: "Aston Martin"},
+    "lance_stroll": {2022: "Aston Martin"},
+    "pierre_gasly": {2022: "AlphaTauri", 2023: "Alpine"},
+    "jack_doohan": {2025: "Alpine"},
+    "oliver_bearman": {2025: "Haas F1 Team"},
+    "esteban_ocon": {2022: "Alpine", 2025: "Haas F1 Team"},
+    "yuki_tsunoda": {2022: "AlphaTauri", 2024: "Visa Cash App RB"},
+    "isack_hadjar": {2025: "Visa Cash App RB"},
+    "nico_hulkenberg": {2023: "Haas F1 Team", 2025: "Audi"},
+    "gabriel_bortoleto": {2025: "Audi"},
+    "alex_albon": {2022: "Williams"},
+    "carlos_sainz": {2022: "Ferrari", 2025: "Williams"},
+    # Legendary drivers — single iconic entry used for any year
+    "michael_schumacher": {2000: "Ferrari"},
+    "ayrton_senna": {1988: "McLaren"},
+    "alain_prost": {1988: "McLaren"},
+    "sebastian_vettel": {2010: "Red Bull Racing"},
+    "valtteri_bottas": {2022: "Alfa Romeo", 2024: "Sauber"},
 }
+
+
+def team_for_driver(driver_id: str, year: int) -> str:
+    """Return the correct constructor name for a driver in a given season year."""
+    entries = DRIVER_TEAM_BY_YEAR.get(driver_id)
+    if not entries:
+        return "Unknown"
+    valid = {y: t for y, t in entries.items() if y <= year}
+    if valid:
+        return entries[max(valid)]
+    # Requested year is before the earliest known entry — use earliest
+    return entries[min(entries)]
+
 
 DRIVER_CODE: dict[str, str] = {
     "max_verstappen": "VER",
@@ -318,6 +335,10 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
         race_name: str = circuit_info.get("race_name", "Grand Prix")
         total_laps: int = int(circuit_info.get("total_laps", 57))
         base_lap_ms: float = float(circuit_info.get("base_lap_time_ms", 90_000))
+        try:
+            year: int = int(race_id.split("_")[0])
+        except (ValueError, IndexError):
+            year = 2025
 
         # ── Build lineup ───────────────────────────────────────────────────────
         resolved_profile = driver_profile or get_profile(driver_id)
@@ -347,7 +368,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                         "start_position": d.start_position,
                         "start_compound": d.start_compound,
                         "is_user": d.is_user,
-                        "team": TEAM_BY_DRIVER.get(d.driver_id, "Unknown"),
+                        "team": team_for_driver(d.driver_id, year),
                     }
                     for d in lineup
                 ],
@@ -482,7 +503,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                         "lap_time_ms": int(rec.lap_time_ms),
                         "pit_stop": rec.pit_stop,
                         "new_compound": rec.new_compound,
-                        "team": TEAM_BY_DRIVER.get(rec.driver_id, "Unknown"),
+                        "team": team_for_driver(rec.driver_id, year),
                         "is_user": rec.driver_id == driver_id,
                     }
                     for rec in lap_records.values()
@@ -589,7 +610,7 @@ async def list_drivers() -> list[dict]:
                 "driver_id": driver_id,
                 "display_name": get_display_name(driver_id),
                 "code": DRIVER_CODE.get(driver_id, driver_id[:3].upper()),
-                "team": TEAM_BY_DRIVER.get(driver_id, "Unknown"),
+                "team": team_for_driver(driver_id, 2025),
             }
         )
     return result

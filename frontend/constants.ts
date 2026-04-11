@@ -54,6 +54,7 @@ export const COLORS = {
  * Keys use full official team names to match DRIVER_TEAM_MAP in endpoints.ts.
  */
 export const TEAM_COLORS: Record<string, string> = {
+  // 2025–2026 constructor names
   'Red Bull Racing':  '#3671C6',
   'Mercedes':         '#27F4D2',
   'Ferrari':          '#E8002D',
@@ -64,6 +65,16 @@ export const TEAM_COLORS: Record<string, string> = {
   'Haas F1 Team':     '#B6BABD',
   'Visa Cash App RB': '#6692FF',
   'Audi':             '#52E252',
+  // Historical aliases — mapped to current successor colors so year-aware
+  // simulations always resolve a color regardless of which season is chosen
+  'AlphaTauri':           '#6692FF',  // → Visa Cash App RB
+  'Scuderia AlphaTauri':  '#6692FF',
+  'RB':                   '#6692FF',
+  'Sauber':               '#52E252',  // → Audi
+  'Alfa Romeo':           '#900020',  // Alfa Romeo deep red (distinct from Ferrari)
+  'Haas':                 '#B6BABD',  // short-form alias
+  'Racing Point':         '#F596C8',  // → Aston Martin (kept pink for historical accuracy)
+  'Force India':          '#F596C8',
 };
 
 /**

@@ -1064,7 +1064,7 @@ async def validation_stats(
 # Register v1 router
 app.include_router(v1)
 app.include_router(rag_router)
-app.include_router(llm_router)
+app.include_router(llm_router, prefix="/api/v1")
 app.include_router(admin_router)
 app.include_router(users_router)
 app.include_router(simulate_router, prefix="/api/v1")
