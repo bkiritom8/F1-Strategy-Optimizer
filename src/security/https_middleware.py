@@ -4,6 +4,7 @@ Includes TLS validation, security headers, and request validation.
 """
 
 import logging
+import math
 from typing import Callable, Dict, FrozenSet, Optional, Tuple
 
 from fastapi import HTTPException, Request, status
@@ -205,7 +206,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             else:
                 if count >= self.max_requests:
                     reset_at = int(window_start + self.window_seconds)
-                    retry_after = max(0, reset_at - int(current_time) + 1)
+                    retry_after = max(0, math.ceil(reset_at - current_time))
                     logger.warning("Rate limit exceeded for %s (%s)", client_ip, path)
                     return JSONResponse(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
