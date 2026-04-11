@@ -78,6 +78,10 @@ interface AppState {
   // ── Greeting Logic ────────────────────────────────────────────────────────
   isReturningUser: boolean;
   setHasVisited: () => void;
+
+  // ── Global Modals ─────────────────────────────────────────────────────────
+  isAdminModalOpen: boolean;
+  setAdminModalOpen: (open: boolean) => void;
 }
 
 // ─── Store creation ──────────────────────────────────────────────────────────
@@ -140,4 +144,8 @@ export const useAppStore = create<AppState>((set) => ({
     document.cookie = 'apex_returning_user=true; path=/; max-age=31536000; SameSite=Lax';
     set({ isReturningUser: true });
   },
+
+  // ── Global Modals ─────────────────────────────────────────────────────────
+  isAdminModalOpen:  false,
+  setAdminModalOpen: (open) => set({ isAdminModalOpen: open }),
 }));

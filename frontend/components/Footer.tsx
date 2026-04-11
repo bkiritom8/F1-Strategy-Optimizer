@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Book, Mail, Globe, Lock, Info, ExternalLink } from 'lucide-react';
+import { Shield, Book, Mail, Globe, Lock, Info, ExternalLink, Github } from 'lucide-react';
 
 /**
  * @file Footer.tsx

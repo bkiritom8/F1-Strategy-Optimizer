@@ -20,7 +20,7 @@ import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'reac
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gauge, Users, Compass, BarChart3, Activity,
-  Map, ChevronLeft, ChevronRight
+  Map, ChevronLeft, ChevronRight, Lock
 } from 'lucide-react';
 import { 
   useRaces2024, 
@@ -32,6 +32,8 @@ import { useAppStore } from './store/useAppStore';
 import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
 import { logger } from './services/logger';
 import CookieConsent from './components/CookieConsent';
+import Footer from './components/Footer';
+import AdminModal from './components/AdminModal';
 
 // Lazy-load views for code splitting
 const RaceCommandCenter = React.lazy(() => import('./views/RaceCommandCenter'));
@@ -136,6 +138,7 @@ const App: React.FC = () => {
     sidebarCollapsed,
     toggleSidebarCollapsed,
     isAdmin,
+    setAdminModalOpen,
   } = useAppStore();
 
   const { data: races2024 } = useRaces2024();
@@ -181,22 +184,20 @@ const App: React.FC = () => {
     </div>
   );
 
-  if (location.pathname === '/') {
     return renderPublicPage(
-      <LandingPage
-        onLoginSuccess={() => navigate('/race')}
-        onAdminLogin={() => navigate('/admin')}
-      />
+      <>
+        <LandingPage />
+        <AdminModal />
+      </>
     );
   }
 
   if (location.pathname === '/login') {
     return renderPublicPage(
-      <LandingPage
-        showAuth={true}
-        onLoginSuccess={() => navigate('/race')}
-        onAdminLogin={() => navigate('/admin')}
-      />
+      <>
+        <LandingPage />
+        <AdminModal />
+      </>
     );
   }
 
@@ -302,6 +303,29 @@ const App: React.FC = () => {
               </NavLink>
             </motion.div>
           ))}
+
+          {/* Persistent Admin Access for non-admins */}
+          {!isAdmin && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5 }}
+              className="pt-4 mt-4 border-t border-white/5"
+            >
+              <button
+                onClick={() => setAdminModalOpen(true)}
+                title={sidebarCollapsed ? 'Admin Control' : undefined}
+                className={`w-full flex items-center gap-4 rounded-xl transition-all duration-300 group relative ${
+                  sidebarCollapsed ? 'justify-center p-3' : 'px-4 py-3.5'
+                } text-white/40 hover:bg-red-600/10 hover:text-red-500`}
+              >
+                <Lock className={`shrink-0 ${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'} group-hover:scale-110 transition-transform`} />
+                {!sidebarCollapsed && (
+                  <span className="font-bold text-[10px] uppercase tracking-widest whitespace-nowrap overflow-hidden">Admin Control</span>
+                )}
+              </button>
+            </motion.div>
+          )}
         </nav>
 
         {/* Admin shortcut pill - only visible when logged in as admin */}
@@ -359,40 +383,11 @@ const App: React.FC = () => {
           </div>
 
           {/* Global Legal Footer for Auth Views */}
-          <footer className="py-8 px-6 border-t border-white/5 bg-black/40 backdrop-blur-md">
-            <div className="max-w-7xl mx-auto space-y-6">
-              <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
-                {[
-                  { label: 'Privacy Policy', href: '/privacy-policy.html' },
-                  { label: 'Cookie Policy',  href: '/cookie-policy.html' },
-                  { label: 'Terms',          href: '/terms.html' },
-                  { label: 'Sitemap',        href: '/sitemap.xml' },
-                  { label: 'Docs',           href: '/docs.html' },
-                  { label: 'Contact',        href: '/contact.html' },
-                ].map(link => (
-                  <a 
-                    key={link.label} 
-                    href={link.href} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-center gap-2 opacity-40">
-                <img src="/apex-logo-40.png" alt="Apex" className="w-4 h-4" />
-                <span className="text-[10px] font-black uppercase tracking-widest italic">{APP_NAME}</span>
-                <span className="text-[9px] text-white/50 uppercase font-bold tracking-[0.2em]">
-                  &middot; &copy; {new Date().getFullYear()} Apex Strategy Labs
-                </span>
-              </div>
-            </div>
-          </footer>
+          <Footer onAdminClick={() => setAdminModalOpen(true)} />
         </div>
       </main>
+
+      <AdminModal />
 
 
       {/* Demo Mode Badge */}

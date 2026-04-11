@@ -223,8 +223,9 @@ const TelemetryBackground = () => {
 
 const LandingPage: React.FC<Props> = () => {
   const navigate = useNavigate();
-  const { isAdmin, adminLogin, logout } = useAppStore();
+  const { isAdmin, setAdminModalOpen } = useAppStore();
   const containerRef = useRef<HTMLDivElement>(null);
+  
   const { scrollYProgress } = useScroll({ target: containerRef });
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
@@ -237,23 +238,6 @@ const LandingPage: React.FC<Props> = () => {
   const heroOpacity = useTransform(smoothProgress, [0, 0.15], [1, 0]);
 
   const [showDataSpecs, setShowDataSpecs] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
-  const [adminError, setAdminError] = useState(false);
-
-  const handleAdminAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    const success = adminLogin(adminPassword);
-    if (success) {
-      setShowAdminModal(false);
-      setAdminPassword('');
-      setAdminError(false);
-      navigate('/race');
-    } else {
-      setAdminError(true);
-      setTimeout(() => setAdminError(false), 2000);
-    }
-  };
 
   return (
     <div ref={containerRef} className="bg-black text-white min-h-screen font-sans selection:bg-red-600/30 overflow-x-hidden">
@@ -280,7 +264,7 @@ const LandingPage: React.FC<Props> = () => {
 
           {!isAdmin ? (
              <button
-              onClick={() => setShowAdminModal(true)}
+              onClick={() => setAdminModalOpen(true)}
               className="hidden sm:flex items-center gap-2 text-white/40 hover:text-red-500 transition-all group"
             >
               <Lock className="w-4 h-4" />
@@ -563,7 +547,7 @@ const LandingPage: React.FC<Props> = () => {
         </motion.div>
       </section>
 
-      <Footer onAdminClick={() => setShowAdminModal(true)} />
+      <Footer onAdminClick={() => setAdminModalOpen(true)} />
 
       {/* ── DATA SPECS MODAL ── */}
       <AnimatePresence>
@@ -621,72 +605,7 @@ const LandingPage: React.FC<Props> = () => {
         )}
       </AnimatePresence>
 
-      {/* ── ADMIN AUTH MODAL ── */}
-      <AnimatePresence>
-        {showAdminModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowAdminModal(false)}
-              className="absolute inset-0 bg-black/90 backdrop-blur-2xl"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-sm glass-morphism p-8 rounded-[32px] border-red-500/20 shadow-[0_0_50px_rgba(225,6,0,0.1)]"
-            >
-              <div className="text-center mb-8">
-                <div className="w-12 h-12 bg-red-600/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-500/20">
-                  <Lock className="w-6 h-6 text-red-500" />
-                </div>
-                <h3 className="text-xl font-display font-bold italic uppercase tracking-tight text-white">Administrative Access</h3>
-                <p className="text-white/40 text-xs mt-2 font-medium">Authorized Personnel Only</p>
-              </div>
-
-              <form onSubmit={handleAdminAuth} className="space-y-4">
-                <div className="relative">
-                  <input
-                    type="password"
-                    autoFocus
-                    placeholder="Security Credential"
-                    className={`w-full px-6 py-4 rounded-2xl bg-white/5 border ${adminError ? 'border-red-600 animate-shake' : 'border-white/10'} focus:border-red-600 outline-none transition-all text-sm text-center placeholder:text-white/20`}
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                  />
-                </div>
-                
-                {adminError && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-red-500 text-[10px] font-black uppercase tracking-widest text-center"
-                  >
-                    Auth Failed: System Locked
-                  </motion.p>
-                )}
-
-                <button
-                  type="submit"
-                  className="w-full py-4 rounded-xl bg-red-600 text-white font-black uppercase tracking-widest text-xs hover:bg-red-700 transition-all shadow-lg shadow-red-900/40"
-                >
-                  Confirm Terminal Access
-                </button>
-              </form>
-
-              <button
-                onClick={() => setShowAdminModal(false)}
-                className="w-full mt-4 py-2 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
-              >
-                Cancel Initialization
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
+      {/* No local Admin Modal anymore - now handled by App.tsx */}
     </div>
   );
 };
