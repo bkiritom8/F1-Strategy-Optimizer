@@ -269,7 +269,7 @@ const RaceTrackViz: React.FC<{
             const isUser = d.driver_id === userDriverId;
             const teamColor = (TEAM_COLORS as any)[d.team] ?? '#888';
             return (
-              <motion.g key={d.driver_id} initial={false} animate={{ x: cx - 6, y: cy - 6 }}>
+              <g key={d.driver_id}>
                 <foreignObject x={cx - 8} y={cy - 8} width={16} height={16}>
                   <div
                     title={`P${d.position} ${d.display_name}`}
@@ -291,7 +291,7 @@ const RaceTrackViz: React.FC<{
                     {isUser ? d.code?.slice(0, 3) : ''}
                   </div>
                 </foreignObject>
-              </motion.g>
+              </g>
             );
           })}
         </div>

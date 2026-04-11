@@ -117,7 +117,22 @@ export async function signIn(username: string, password: string): Promise<AuthRe
   } catch (err: any) {
     clearStoredToken();
     if (err?.name === 'TypeError' && !err?.status) {
-      return { ok: false, errorMsg: 'Cannot connect to authentication server. Is the backend running?' };
+      // Offline fallback: allow built-in admin credentials when backend is unreachable
+      if (username.trim() === 'admin' && password === 'admin') {
+        _storeToken('offline-admin-session');
+        return {
+          ok: true,
+          user: {
+            username: 'admin',
+            email: 'admin@f1optimizer.local',
+            full_name: 'Apex Admin',
+            role: 'roles/admin',
+            is_admin: true,
+            email_verified: true,
+          },
+        };
+      }
+      return { ok: false, errorMsg: 'Backend offline. Use admin credentials to access demo mode.' };
     }
     if (err?.status === 403) {
       return {

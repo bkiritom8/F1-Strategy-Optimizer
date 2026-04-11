@@ -153,10 +153,15 @@ const StrategyHub: React.FC = () => {
   const strategyArray: [number, string][] = useMemo(() => {
     if (mode === 'preset') {
       let lap = 0;
-      return selectedPreset.stints.map(s => { lap += s.laps; return [lap, s.comp] as [number, string]; });
+      return selectedPreset.stints.map((s, i) => {
+        // First stint uses the user-selected starting tire, not the preset default
+        const comp = i === 0 ? startingTire : s.comp;
+        lap += s.laps;
+        return [lap, comp] as [number, string];
+      });
     }
     return customStints.map(s => [s.pitLap, s.compound] as [number, string]);
-  }, [mode, selectedPreset, customStints]);
+  }, [mode, selectedPreset, customStints, startingTire]);
 
   const monteCarloData = useMemo(() => {
     if (simResult?.predicted_final_position) {
@@ -176,7 +181,7 @@ const StrategyHub: React.FC = () => {
   }, [simResult, mode, selectedPreset]);
 
   const displayStints = mode === 'preset'
-    ? selectedPreset.stints
+    ? selectedPreset.stints.map((s, i) => i === 0 ? { ...s, comp: startingTire } : s)
     : (() => {
         const stints: { comp: string; laps: number }[] = [];
         let prevLap = 0;
@@ -253,7 +258,7 @@ const StrategyHub: React.FC = () => {
     } catch (err) {
       setChatMessages(prev => [
         ...prev,
-        { role: 'assistant', content: `Backend error: ${err instanceof Error ? err.message : 'Unknown error'}. Check that the API is running.` },
+        { role: 'assistant', content: 'The AI Strategist requires the Apex backend to be online. In demo mode, use the pit strategy simulator on the left to explore Monte Carlo strategy simulations with preset and custom stint configurations.' },
       ]);
     } finally {
       setChatLoading(false);

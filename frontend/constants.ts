@@ -75,6 +75,10 @@ export const TEAM_COLORS: Record<string, string> = {
   'Haas':                 '#B6BABD',  // short-form alias
   'Racing Point':         '#F596C8',  // → Aston Martin (kept pink for historical accuracy)
   'Force India':          '#F596C8',
+  // Ergast API returns these exact constructor names in race results
+  'Red Bull':             '#3671C6',  // Ergast short form
+  'Alpine F1 Team':       '#FF87BC',  // Ergast form
+  'RB F1 Team':           '#6692FF',  // Ergast 2024 form
 };
 
 /**

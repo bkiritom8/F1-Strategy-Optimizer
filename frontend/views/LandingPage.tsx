@@ -13,7 +13,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence, useSpring } from 'framer-motion';
 import {
   ChevronDown,
-  Cpu,
   Zap,
   Activity,
   ShieldCheck,
@@ -261,7 +260,7 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin, showAuth =
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 h-20 backdrop-blur-md border-b border-white/5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-900/20">
-            <Cpu className="w-6 h-6 text-white" />
+            <img src="/apex-logo-128.png" alt="Apex" className="w-8 h-8 rounded-lg object-contain" />
           </div>
           <span className="font-display font-black text-xl italic tracking-tighter uppercase">Apex Intelligence</span>
         </div>
@@ -326,6 +325,7 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin, showAuth =
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 mt-0.5">2026 Season Engine Active</span>
           </motion.div>
 
+          <img src="/full-logo-400.png" alt="Apex Intelligence" className="h-16 md:h-20 object-contain mb-8 mx-auto drop-shadow-2xl" />
           <h1 className="font-display font-black text-6xl md:text-8xl italic tracking-tighter uppercase leading-[0.9] mb-8 hero-gradient-text">
             Outthink.<br />Outpace.<br />Optimize.
           </h1>

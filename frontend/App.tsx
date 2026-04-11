@@ -20,12 +20,11 @@ import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'reac
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gauge, Users, Compass, BarChart3, Activity,
-  Cpu, Map, ChevronLeft, ChevronRight
+  Map, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { useRaces2024 } from './hooks/useApi';
+import { useRaces2024, useBackendStatus } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
 import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
-import CookieConsent from './components/CookieConsent';
 import { logger } from './services/logger';
 
 // Lazy-load views for code splitting
@@ -133,6 +132,7 @@ const App: React.FC = () => {
     isAdmin,
   } = useAppStore();
   const { data: races } = useRaces2024();
+  const { online: backendOnline } = useBackendStatus();
   const location  = useLocation();
   const navigate  = useNavigate();
 
@@ -163,7 +163,6 @@ const App: React.FC = () => {
           {children}
         </React.Suspense>
       </ViewErrorBoundary>
-      <CookieConsent />
     </div>
   );
 
@@ -201,9 +200,7 @@ const App: React.FC = () => {
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           aria-label="Go to home page"
         >
-          <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center">
-            <Cpu className="w-4 h-4 text-white" />
-          </div>
+<img src="/apex-logo-128.png" alt="Apex" className="w-7 h-7 rounded-lg object-contain" />
           <span className="font-display font-black tracking-tighter text-lg italic">{APP_NAME}</span>
         </button>
       </div>
@@ -224,10 +221,10 @@ const App: React.FC = () => {
             {/* Logo button - navigates to landing page */}
             <button
               onClick={() => { setSidebarOpen(false); navigate('/'); }}
-              className="w-10 h-10 rounded-xl shrink-0 bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center shadow-lg shadow-red-900/20 hover:opacity-80 transition-opacity"
+              className="w-10 h-10 rounded-xl shrink-0 overflow-hidden shadow-lg shadow-red-900/20 hover:opacity-80 transition-opacity"
               aria-label="Go to home page"
             >
-              <Cpu className="w-6 h-6 text-white shrink-0" />
+              <img src="/apex-logo-128.png" alt="Apex Intelligence" className="w-full h-full object-contain" />
             </button>
             <AnimatePresence>
               {!sidebarCollapsed && (
@@ -376,22 +373,8 @@ const App: React.FC = () => {
                 ))}
               </div>
 
-              <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-                <button 
-                  onClick={() => window.dispatchEvent(new CustomEvent('apex:open_cookie_settings'))}
-                  className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors"
-                >
-                  Manage cookies
-                </button>
-                <button 
-                  className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors"
-                >
-                  Do not share my personal information
-                </button>
-              </div>
-
               <div className="flex items-center justify-center gap-2 opacity-40">
-                <Cpu className="w-4 h-4 text-red-600" />
+                <img src="/apex-logo-40.png" alt="Apex" className="w-4 h-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest italic">{APP_NAME}</span>
                 <span className="text-[9px] text-white/50 uppercase font-bold tracking-[0.2em]">
                   &middot; &copy; {new Date().getFullYear()} Apex Strategy Labs
@@ -402,8 +385,13 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Global Cookie Consent System */}
-      <CookieConsent />
+
+      {/* Demo Mode Badge */}
+      {!backendOnline && (
+        <div className="fixed top-16 lg:top-3 right-3 z-[100] px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[9px] font-bold uppercase tracking-[3px] backdrop-blur-sm pointer-events-none">
+          Pipeline Data Mode
+        </div>
+      )}
 
       {/* Mobile Bottom Navigation Bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t border-white/[0.07] flex items-stretch h-16 safe-area-inset-bottom" style={{ background: 'rgba(0,0,0,0.55)' }}>

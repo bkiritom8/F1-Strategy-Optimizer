@@ -170,7 +170,7 @@ const DriverProfiles: React.FC = () => {
   }, [drivers]);
 
   // Summary stats
-  const totalDrivers = drivers?.length ?? 0;
+  const totalDrivers = filteredDrivers.filter(d => CURRENT_2026_DRIVERS.has(d.driver_id)).length || CURRENT_2026_DRIVERS.size;
   const totalWins = Array.from(seasonStats.values()).reduce((sum, s) => sum + s.wins, 0);
   const nationalities = nationalityData.length;
 
