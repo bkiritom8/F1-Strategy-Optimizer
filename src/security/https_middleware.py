@@ -240,24 +240,16 @@ CORSMiddleware = FastAPICORSMiddleware
 async def get_current_user(request: Request):
     """Extract and validate user from request.
 
-    If no Bearer token is present, returns an anonymous read-only user so that
-    public (unauthenticated) access works while the auth backend is being fixed.
-    Authenticated requests are still validated normally so admin sessions work.
+    Raises HTTP 401 if no valid Bearer token is present.
     """
-    from src.security.iam_simulator import Role
-
-    _ANONYMOUS_USER = User(
-        username="anonymous",
-        email="",
-        full_name="Guest",
-        roles=[Role.API_USER],
-        disabled=False,
-    )
-
-    # No auth header — allow as anonymous
+    # No auth header — reject with 401
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        return _ANONYMOUS_USER
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     token = auth_header.split(" ")[1]
 

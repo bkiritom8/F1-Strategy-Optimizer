@@ -269,15 +269,15 @@ class TestV1StrategySimulate:
 
     def test_returns_simulation_result(self, client):
         token = _get_token(client)
-        mock_result = MagicMock()
-        mock_result.driver_id = "max_verstappen"
-        mock_result.race_id = "2024_1"
-        mock_result.predicted_final_position = 1
-        mock_result.predicted_total_time_s = 5400.0
-        mock_result.strategy = [(20, "MEDIUM"), (42, "HARD")]
-        mock_result.lap_times_s = [90.0] * 57
-        with patch("src.api.main._get_simulator") as mock_sim:
-            mock_sim.return_value.simulate_strategy.return_value = mock_result
+        mock_result = {
+            "predicted_final_position": 1,
+            "predicted_total_time_s": 5400.0,
+            "lap_times_s": [90.0] * 58,
+            "win_probability": 0.35,
+            "podium_probability": 0.65,
+        }
+        with patch("src.api.main._get_strategy_simulator") as mock_sim:
+            mock_sim.return_value.simulate_with_strategy.return_value = mock_result
             r = client.post(
                 "/api/v1/strategy/simulate", json=self._payload(), headers=_auth(token)
             )
