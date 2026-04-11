@@ -41,7 +41,6 @@ const TrackExplorer     = React.lazy(() => import('./views/TrackExplorer'));
 const LapByLapAnalysis  = React.lazy(() => import('./views/LapByLapAnalysis'));
 const AdminPage         = React.lazy(() => import('./views/AdminPage'));
 const LandingPage       = React.lazy(() => import('./views/LandingPage'));
-const VerifyEmailPage   = React.lazy(() => import('./views/VerifyEmailPage'));
 
 const APP_NAME = 'APEX F1';
 
@@ -181,12 +180,6 @@ const App: React.FC = () => {
       <CookieConsent />
     </div>
   );
-
-  if (location.pathname === '/verify-email') {
-    return renderPublicPage(
-      <VerifyEmailPage onGoToLogin={() => navigate('/login')} />
-    );
-  }
 
   if (location.pathname === '/') {
     return renderPublicPage(
