@@ -89,7 +89,7 @@ const AdminModal: React.FC = () => {
             </form>
 
             <button
-              onClick={onClose}
+              onClick={() => setAdminModalOpen(false)}
               className="w-full mt-4 py-2 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
             >
               Cancel Initialization
