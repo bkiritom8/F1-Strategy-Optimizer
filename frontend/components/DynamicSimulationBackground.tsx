@@ -207,8 +207,9 @@ interface DynamicSimulationBackgroundProps {
   circuitId?: string;
 }
 
-export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundProps> = ({
+export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundProps & { className?: string }> = ({
   circuitId = 'bahrain',
+  className = "absolute inset-0",
 }) => {
   /**
    * Raw (un-scaled) path string for the selected circuit.
@@ -283,7 +284,7 @@ export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundPr
     }, [rawPath]);
 
   return (
-    <div data-circuit-id={circuitId} className="fixed inset-0 z-0 overflow-hidden transition-colors duration-500 bg-gray-100 dark:bg-[#080808]">
+    <div data-circuit-id={circuitId} className={`${className} z-0 overflow-hidden transition-colors duration-500 bg-gray-100 dark:bg-[#080808]`}>
 
       {/* ── Layer 1: Atmospheric glows ───────────────────────────── */}
       <div className="absolute top-[-15%] left-[-10%] w-[45%] h-[50%] bg-red-500/5 dark:bg-red-900/25 blur-[140px] rounded-full pointer-events-none" />

@@ -318,7 +318,7 @@ const LandingPage: React.FC<Props> = () => {
 
           <img src="/full-logo-400.png" alt="Apex Intelligence" className="h-16 md:h-20 object-contain mb-8 mx-auto drop-shadow-2xl" />
           <h1 className="font-display font-black text-6xl md:text-8xl italic tracking-tighter uppercase leading-[0.9] mb-8 hero-gradient-text">
-            Outthink.<br />Outpace.<br />Optimize.
+            Outthink.<br />Outpace.<br />Outsmart.<br />Optimize.
           </h1>
 
           <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto leading-relaxed mb-12">
@@ -350,12 +350,44 @@ const LandingPage: React.FC<Props> = () => {
         </motion.div>
 
         <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/30"
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 cursor-pointer group"
+          onClick={() => containerRef.current?.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
         >
-          <span className="text-[10px] uppercase font-bold tracking-widest">Explore Intelligence</span>
-          <ChevronDown className="w-5 h-5" />
+          <div className="relative w-32 h-16 flex items-center justify-center overflow-hidden">
+            {/* Arched lines from screenshot */}
+            {[...Array(3)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute border-t-2 border-red-600/40 rounded-[100%]"
+                style={{
+                  width: `${60 + i * 30}%`,
+                  height: `${100 + i * 40}%`,
+                  top: '100%',
+                }}
+                animate={{ 
+                  opacity: [0.2, 0.5, 0.2],
+                  scale: [1, 1.05, 1],
+                  y: [-2, 2, -2]
+                }}
+                transition={{ 
+                  duration: 2, 
+                  repeat: Infinity, 
+                  delay: i * 0.3,
+                  ease: "easeInOut"
+                }}
+              />
+            ))}
+            <div className="absolute top-0 w-full h-full bg-gradient-to-t from-black to-transparent z-10" />
+            <motion.div 
+              className="z-20 flex flex-col items-center"
+              whileHover={{ y: 5 }}
+            >
+              <span className="text-[10px] uppercase font-black tracking-[0.3em] text-white/60 group-hover:text-red-500 transition-colors">Explore Intelligence</span>
+              <ChevronDown className="w-5 h-5 text-white/20 group-hover:text-red-500 transition-colors mt-1" />
+            </motion.div>
+          </div>
         </motion.div>
       </section>
 
@@ -509,6 +541,71 @@ const LandingPage: React.FC<Props> = () => {
                 <p className="text-sm text-white/40 leading-relaxed font-medium">{feature.desc}</p>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── SECTION 3.5: LIVE CLOUD INFRASTRUCTURE (Car Animation) ── */}
+      <section className="relative h-[600px] flex items-center justify-center overflow-hidden border-y border-white/5">
+        <DynamicSimulationBackground 
+          className="absolute inset-0 scale-110" 
+          circuitId="bahrain"
+        />
+        
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+
+        <div className="relative z-10 max-w-7xl mx-auto px-6 w-full">
+          <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-8">
+            <motion.div
+              whileInView={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, x: -50 }}
+              viewport={{ once: true }}
+              className="space-y-6"
+            >
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-md animate-pulse">
+                  Live
+                </div>
+                <h2 className="text-4xl md:text-6xl font-display font-black italic uppercase tracking-tighter text-white">
+                  Live Cloud<br />Infrastructure
+                </h2>
+              </div>
+              <p className="text-white/60 max-w-md font-medium leading-relaxed">
+                Experience real-time telemetry processing across our global GCP nodes. 
+                Our simulation engine clones live race conditions into distributive compute environments.
+              </p>
+              <div className="flex items-center gap-6 pt-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Compute Mode</span>
+                  <span className="text-sm font-mono text-blue-400">High-Performance Cluster</span>
+                </div>
+                <div className="w-px h-10 bg-white/10" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Latency</span>
+                  <span className="text-sm font-mono text-emerald-400">&lt; 0.4ms</span>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 30 }}
+              viewport={{ once: true }}
+              className="flex flex-col items-center gap-4 bg-black/60 backdrop-blur-xl p-8 rounded-[32px] border border-white/10 shadow-2xl"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                <Activity className="w-8 h-8 text-blue-500 animate-pulse" />
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">Simulation Status</p>
+                <p className="text-xl font-display font-bold text-white uppercase italic">Active Node: GCP-US-EAST</p>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-full mt-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <span className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Stream Active</span>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
