@@ -355,7 +355,7 @@ def test_llm_chat_happy_path():
         with TestClient(app) as tc:
             token = _get_token(tc)
             r = tc.post(
-                "/llm/chat",
+                "/api/v1/llm/chat",
                 json={"question": "Should Verstappen pit?"},
                 headers={"Authorization": f"Bearer {token}"},
             )
@@ -383,7 +383,7 @@ def test_llm_chat_with_race_inputs():
         with TestClient(app) as tc:
             token = _get_token(tc)
             r = tc.post(
-                "/llm/chat",
+                "/api/v1/llm/chat",
                 json={
                     "question": "Pit or stay out?",
                     "race_inputs": {
@@ -408,7 +408,7 @@ def test_llm_chat_no_auth_returns_401():
     from src.api.main import app
 
     with TestClient(app) as tc:
-        r = tc.post("/llm/chat", json={"question": "test"})
+        r = tc.post("/api/v1/llm/chat", json={"question": "test"})
     assert r.status_code == 401
 
 
@@ -420,7 +420,7 @@ def test_llm_chat_empty_question_returns_422():
     with TestClient(app) as tc:
         token = _get_token(tc)
         r = tc.post(
-            "/llm/chat",
+            "/api/v1/llm/chat",
             json={"question": ""},
             headers={"Authorization": f"Bearer {token}"},
         )
