@@ -12,7 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
-from .iam_simulator import iam_simulator, User
+from .iam_simulator import iam_simulator, User, Role
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -237,17 +237,31 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 CORSMiddleware = FastAPICORSMiddleware
 
 
-async def get_current_user(request: Request):
+async def get_current_user(request: Request) -> User:
     """Extract and validate user from request.
 
-    Raises HTTP 401 if no valid Bearer token is present.
+    This dependency enforces strict authentication. If no valid Bearer token
+    is present, it raises a 401 Unauthorized error. It also handles the
+    mapping of legacy Firestore 'role' (string) to the modern 'roles' (list).
     """
-    # No auth header — reject with 401
+    from src.security.iam_simulator import Role
+
+    # Skip auth for health and metrics
+    if request.url.path in ["/health", "/metrics", "/docs", "/openapi.json"]:
+        return User(
+            username="system",
+            email="system@f1optimizer.local",
+            full_name="System Process",
+            roles=[Role.ADMIN],
+            disabled=False,
+        )
+
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
+        logger.warning(f"[Auth] Missing or invalid Authorization header for: {request.url.path}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
+            detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -256,25 +270,56 @@ async def get_current_user(request: Request):
     # Verify token
     token_data = iam_simulator.verify_token(token)
     if not token_data or not token_data.username:
+        logger.error(f"[Auth] Token verification failed for token: {token[:10]}...")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Get user from IAM simulator first (service accounts/admins)
+    # Get user from IAM simulator first (local service accounts/admins)
     user_data = iam_simulator.users.get(token_data.username)
-
+    
     if not user_data:
         # Fallback: check Firestore user_store for registered users
         from .user_store import user_store
-
         user_data = user_store.get(token_data.username)
+        if user_data:
+            logger.info(f"[Auth] User '{token_data.username}' found in Firestore UserStore")
+            
+            # FIX: Map Firestore 'role' (string) to 'roles' (list[Role])
+            if "role" in user_data and "roles" not in user_data:
+                role_val = user_data["role"]
+                # Handle cases where the role is just "admin" instead of "roles/admin"
+                if not str(role_val).startswith("roles/"):
+                    role_val = f"roles/{role_val.lower()}"
+                
+                try:
+                    user_data["roles"] = [Role(role_val)]
+                except ValueError:
+                    logger.warning(f"[Auth] Unknown role '{role_val}' mapping to API_USER")
+                    user_data["roles"] = [Role.API_USER]
+        else:
+            logger.error(f"[Auth] User '{token_data.username}' not found in any store")
 
     if not user_data or user_data.get("disabled"):
+        if user_data and user_data.get("disabled"):
+            logger.warning(f"[Auth] User '{token_data.username}' is disabled")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or disabled",
         )
 
-    return User(**{k: v for k, v in user_data.items() if k != "hashed_password"})
+    # Prepare data for Pydantic model validation
+    # Filter out sensitive fields like hashed_password if present
+    filtered_data = {k: v for k, v in user_data.items() if k != "hashed_password"}
+    
+    try:
+        return User(**filtered_data)
+    except Exception as e:
+        logger.error(f"[Auth] User model validation failed for {token_data.username}: {str(e)}")
+        # This resolves the 501/500 issue by returning a structured 401/403 instead of a crash
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User profile configuration error. Please contact support.",
+        )

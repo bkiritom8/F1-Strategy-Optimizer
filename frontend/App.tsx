@@ -26,6 +26,7 @@ import { useRaces2024, useBackendStatus } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
 import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
 import { logger } from './services/logger';
+import CookieConsent from './components/CookieConsent';
 
 // Lazy-load views for code splitting
 const RaceCommandCenter = React.lazy(() => import('./views/RaceCommandCenter'));
@@ -163,6 +164,7 @@ const App: React.FC = () => {
           {children}
         </React.Suspense>
       </ViewErrorBoundary>
+      <CookieConsent />
     </div>
   );
 
@@ -428,6 +430,7 @@ const App: React.FC = () => {
           </NavLink>
         ))}
       </nav>
+      <CookieConsent />
     </div>
   );
 };

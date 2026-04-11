@@ -143,6 +143,11 @@ const StrategyHub: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    console.debug('[StrategyHub] Component mounted');
+    return () => console.debug('[StrategyHub] Component unmounted');
+  }, []);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }

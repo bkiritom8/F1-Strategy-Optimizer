@@ -39,10 +39,16 @@ import Footer from '../components/Footer';
 type ModalTab   = 'password' | 'otp' | 'signup';
 type ModalState = 'idle' | 'otp_sent' | 'verify_prompt' | 'success';
 
+/**
+ * @interface LandingPageProps
+ * @description Props for the highly animated LandingPage component.
+ */
 interface Props {
+  /** Triggered after successful verification of identities. */
   onLoginSuccess: () => void;
+  /** Specialized callback for administrative dashboard entry. */
   onAdminLogin:   () => void;
-  /** When true, renders the admin auth modal instead of the public launch CTA. */
+  /** When true, forces the administrative authentication modal to render. */
   showAuth?: boolean;
 }
 
@@ -106,6 +112,81 @@ const StrategyGraphSVG = () => (
   </svg>
 );
 
+const TelemetryBackground = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+    {/* Abstract Track Path */}
+    <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+      <motion.path
+        d="M -100,500 C 200,300 400,700 600,400 C 800,100 1100,500 1100,500"
+        stroke="#E10600"
+        strokeWidth="2"
+        fill="none"
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={{ pathLength: 1, opacity: 0.3 }}
+        transition={{ duration: 4, ease: "easeInOut" }}
+      />
+      <motion.path
+        d="M -100,600 C 150,450 350,850 550,550 C 750,250 1100,600 1100,600"
+        stroke="#00D2BE"
+        strokeWidth="1"
+        fill="none"
+        strokeDasharray="10 15"
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={{ pathLength: 1, opacity: 0.2 }}
+        transition={{ duration: 5, ease: "easeInOut", delay: 1 }}
+      />
+    </svg>
+
+    {/* Moving Data Particles */}
+    {[...Array(15)].map((_, i) => (
+      <motion.div
+        key={i}
+        initial={{ 
+          x: Math.random() * 100 + "%", 
+          y: Math.random() * 100 + "%", 
+          opacity: 0,
+          scale: 0.5
+        }}
+        animate={{ 
+          y: ["-10%", "110%"],
+          opacity: [0, 0.4, 0],
+          scale: [0.5, 1, 0.5]
+        }}
+        transition={{ 
+          duration: 10 + Math.random() * 20, 
+          repeat: Infinity, 
+          delay: Math.random() * 10,
+          ease: "linear"
+        }}
+        className="absolute w-1 h-1 bg-red-500 rounded-full blur-[1px] shadow-[0_0_8px_#E10600]"
+      />
+    ))}
+
+    {/* Drifting Glow Orbs */}
+    <motion.div
+      animate={{ 
+        x: ["20%", "40%", "20%"], 
+        y: ["30%", "50%", "30%"],
+        scale: [1, 1.2, 1]
+      }}
+      transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+      className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[120px] mix-blend-screen"
+    />
+    <motion.div
+      animate={{ 
+        x: ["70%", "50%", "70%"], 
+        y: ["60%", "40%", "60%"],
+        scale: [1, 1.3, 1]
+      }}
+      transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+      className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-[100px] mix-blend-screen"
+    />
+
+    {/* Scanline Effect */}
+    <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.03),rgba(0,255,230,0.01),rgba(0,0,255,0.03))] bg-[length:100%_4px,300%_100%] z-10 pointer-events-none opacity-20" />
+  </div>
+);
+
 // ─── Helper: Password Strength ───────────────────────────────────────────
 
 function passwordStrength(pwd: string): number {
@@ -129,6 +210,11 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin, showAuth =
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
+
+  useEffect(() => {
+    console.debug('[LandingPage] Component mounted');
+    return () => console.debug('[LandingPage] Component unmounted');
+  }, []);
 
   // Parallax transforms for background elements
   const glowY = useTransform(smoothProgress, [0, 1], [-100, 200]);
@@ -284,30 +370,7 @@ const LandingPage: React.FC<Props> = ({ onLoginSuccess, onAdminLogin, showAuth =
           style={{ y: glowY }}
           className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
         >
-          {/* ── F1 RACE SCROLLING ANIMATION ── */}
-          <div className="absolute inset-0 z-0 opacity-40">
-            <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black z-10" />
-            <motion.div
-              animate={{ x: [0, -2000] }}
-              transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-              className="flex gap-4 min-w-[4000px] h-full items-center"
-            >
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="relative w-[800px] h-full shrink-0 grayscale hover:grayscale-0 transition-all duration-1000 opacity-60">
-                   <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
-                   <div className={`w-full h-full bg-cover bg-center bg-no-repeat`}
-                        style={{
-                          backgroundImage: `url('https://images.unsplash.com/photo-1533130061792-64b345e4a833?q=80&w=2070&auto=format&fit=crop')`,
-                          filter: 'brightness(0.5) contrast(1.2)'
-                        }}
-                   />
-                </div>
-              ))}
-            </motion.div>
-          </div>
-
-          <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[120px]" />
-          <div className="absolute top-3/4 right-1/4 w-[400px] h-[400px] bg-blue-600/5 rounded-full blur-[100px]" />
+          <TelemetryBackground />
         </motion.div>
 
         <motion.div

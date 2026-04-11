@@ -16,6 +16,7 @@
  */
 
 import { API_BASE } from './client';
+import { logger } from './logger';
 
 // ─── Storage keys ────────────────────────────────────────────────────────────
 
@@ -26,21 +27,32 @@ const TOKEN_TTL_MS     = 55 * 60 * 1000;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+/**
+ * Logged-in user profile attributes.
+ */
 export interface AuthUser {
+  /** Ergast-format driver slug or system username. */
   username:       string;
   email:          string;
   full_name:      string;
+  /** RBAC role (e.g., 'roles/admin', 'roles/apiUser'). */
   role:           string;
   is_admin:       boolean;
+  /** True if the user has confirmed their email address. */
   email_verified: boolean;
 }
 
+/**
+ * Result of an authentication operation.
+ */
 export interface AuthResult {
+  /** True if the operation succeeded. */
   ok:       boolean;
+  /** The loaded user profile (only on success). */
   user?:    AuthUser;
-  /** User-safe error message returned to the UI. */
+  /** Human-readable error message for UI display. */
   errorMsg?: string;
-  /** True when registration succeeded but email is unverified. */
+  /** Indicates the user must verify their email before proceeding. */
   needsVerification?: boolean;
 }
 
@@ -53,28 +65,45 @@ const OTP_COOLDOWN_MS  = 30_000;
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-/** Store a JWT with its expiry timestamp.  Never logs the token value. */
+/**
+ * Persists the JWT and calculates expiry.
+ * 
+ * @param token - The raw JWT string.
+ */
 function _storeToken(token: string): void {
+  logger.debug('[authService] _storeToken: persisting JWT and expiry');
   sessionStorage.setItem(TOKEN_KEY,        token);
   sessionStorage.setItem(TOKEN_EXPIRY_KEY, String(Date.now() + TOKEN_TTL_MS));
 }
 
-/** Fetch + decode the /users/me profile using the just-stored token. */
+/**
+ * Fetches current user profile from the backend.
+ * 
+ * @returns The authenticated user's profile.
+ * @throws {Error} if the request fails or unauthorized.
+ */
 async function _fetchMe(): Promise<AuthUser> {
   const token  = sessionStorage.getItem(TOKEN_KEY) ?? '';
+  logger.debug('[authService] _fetchMe: requesting profile from /users/me');
   const res    = await fetch(`${API_BASE}/users/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error('Failed to load user profile');
+  if (!res.ok) {
+    logger.warn(`[authService] _fetchMe failed: status=${res.status}`);
+    throw new Error('Failed to load user profile');
+  }
   return res.json();
 }
 
 /**
- * POST to a /users/* endpoint, resolving errors into user-safe messages.
- * Returns the parsed JSON body on 2xx, throws a typed Error on failure.
+ * Generic POST wrapper for auth endpoints.
+ * 
+ * @param path - URL segment.
+ * @param body - Payload as Object or URLSearchParams.
  */
 async function _post(path: string, body: Record<string, unknown> | URLSearchParams): Promise<unknown> {
   const isForm  = body instanceof URLSearchParams;
+  logger.debug(`[authService] _post: ${path}`, { contentType: isForm ? 'form' : 'json' });
   const res = await fetch(`${API_BASE}${path}`, {
     method:  'POST',
     headers: isForm
@@ -89,6 +118,8 @@ async function _post(path: string, body: Record<string, unknown> | URLSearchPara
       const json = await res.json();
       if (typeof json?.detail === 'string') detail = json.detail;
     } catch { /* ignore */ }
+    
+    logger.warn(`[authService] _post failed: path=${path} status=${res.status} detail=${detail}`);
     const err = new Error(detail);
     (err as any).status = res.status;
     throw err;
@@ -99,10 +130,14 @@ async function _post(path: string, body: Record<string, unknown> | URLSearchPara
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Sign in with username + password.
- * POSTs to /users/login (OAuth2 form), then fetches /users/me for the profile.
+ * Sign in with classic username and password.
+ * Supports an 'offline-admin' mode if the backend is unreachable.
+ * 
+ * @param username - User identifier.
+ * @param password - Plaintext password.
  */
 export async function signIn(username: string, password: string): Promise<AuthResult> {
+  logger.info(`[authService] signIn: attempting login for ${username}`);
   try {
     const form = new URLSearchParams();
     form.append('username', username.trim());
@@ -113,19 +148,22 @@ export async function signIn(username: string, password: string): Promise<AuthRe
 
     const user = await _fetchMe();
     _otpFailureCount = 0;
+    logger.info(`[authService] signIn: success for ${username}`);
     return { ok: true, user };
   } catch (err: any) {
     clearStoredToken();
     if (err?.name === 'TypeError' && !err?.status) {
+      logger.warn('[authService] signIn: backend unreachable, checking demo fallback');
       // Offline fallback: allow built-in admin credentials when backend is unreachable
       if (username.trim() === 'admin' && password === 'admin') {
+        logger.info('[authService] signIn: entering DEMO mode (offline admin)');
         _storeToken('offline-admin-session');
         return {
           ok: true,
           user: {
             username: 'admin',
             email: 'admin@f1optimizer.local',
-            full_name: 'Apex Admin',
+            full_name: 'Apex Admin (Offline)',
             role: 'roles/admin',
             is_admin: true,
             email_verified: true,
@@ -146,8 +184,12 @@ export async function signIn(username: string, password: string): Promise<AuthRe
 }
 
 /**
- * Register a new account.
- * Returns ok=true + needsVerification=true on success (email not yet verified).
+ * Register a new user account.
+ * 
+ * @param username - Target slug.
+ * @param email - Valid contact email.
+ * @param fullName - Display name.
+ * @param password - Strong password.
  */
 export async function signUp(
   username: string,
@@ -155,6 +197,7 @@ export async function signUp(
   fullName: string,
   password: string,
 ): Promise<AuthResult> {
+  logger.info(`[authService] signUp: registering ${username} (${email})`);
   try {
     await _post('/users/register', {
       username,
@@ -174,25 +217,32 @@ export async function signUp(
 }
 
 /**
- * Request a 6-digit OTP sent to the given email.
- * Always returns ok=true (backend is intentionally opaque to avoid email enumeration).
+ * Triggers an OTP code delivery to the user's email.
+ * 
+ * @param email - Target email.
  */
 export async function requestOtp(email: string): Promise<AuthResult> {
+  logger.info(`[authService] requestOtp: ${email}`);
   try {
     await _post('/users/request-otp', { email });
-  } catch {
-    // Silently swallow — UI shows generic "code sent" message regardless
+  } catch (err) {
+    logger.warn('[authService] requestOtp failed (silent)', err);
   }
   return { ok: true };
 }
 
 /**
- * Sign in with an emailed 6-digit OTP.
- * Enforces a client-side 3-failure / 30 s cooldown.
+ * Completes login using the 6-digit email code.
+ * Enforces rate limiting on the client side to prevent brute forcing.
+ * 
+ * @param email - User's email.
+ * @param otp - 6-digit code.
  */
 export async function signInWithOtp(email: string, otp: string): Promise<AuthResult> {
+  logger.info(`[authService] signInWithOtp: ${email}`);
   if (Date.now() < _otpCooldownUntil) {
     const secsLeft = Math.ceil((_otpCooldownUntil - Date.now()) / 1000);
+    logger.warn(`[authService] signInWithOtp blocked by cooldown: ${secsLeft}s`);
     return { ok: false, errorMsg: `Too many attempts. Wait ${secsLeft}s before trying again.` };
   }
 
@@ -202,10 +252,13 @@ export async function signInWithOtp(email: string, otp: string): Promise<AuthRes
     _otpFailureCount = 0;
 
     const user = await _fetchMe();
+    logger.info(`[authService] signInWithOtp: success for ${email}`);
     return { ok: true, user };
   } catch (err: any) {
     _otpFailureCount += 1;
+    logger.warn(`[authService] signInWithOtp failed (count=${_otpFailureCount}): ${err?.message}`);
     if (_otpFailureCount >= OTP_MAX_FAILURES) {
+      logger.error('[authService] OTP rate limit exceeded; starting cooldown');
       _otpCooldownUntil = Date.now() + OTP_COOLDOWN_MS;
       _otpFailureCount  = 0;
     }
@@ -214,10 +267,12 @@ export async function signInWithOtp(email: string, otp: string): Promise<AuthRes
 }
 
 /**
- * Verify email address using the token from the registration email.
- * Called automatically by VerifyEmailPage when mounted.
+ * Validates an email verification token from a magic link.
+ * 
+ * @param token - Raw verification token.
  */
 export async function verifyEmail(token: string): Promise<AuthResult> {
+  logger.info('[authService] verifyEmail: processing token');
   try {
     await _post('/users/verify-email', { token });
     return { ok: true };
@@ -227,29 +282,40 @@ export async function verifyEmail(token: string): Promise<AuthResult> {
 }
 
 /**
- * Resend the email verification link.
+ * Resends the verification email if the user lost the first one.
+ * 
+ * @param email - Target email.
  */
 export async function resendVerification(email: string): Promise<void> {
+  logger.info(`[authService] resendVerification: ${email}`);
   try {
     await _post('/users/resend-verification', { email });
-  } catch { /* silently ignore — always show the same message */ }
+  } catch (err) {
+    logger.warn('[authService] resendVerification failed (silent)', err);
+  }
 }
 
-/** Clear the stored JWT and remove expiry marker. Called on logout. */
+/** 
+ * Purges all auth data from the session. 
+ */
 export function clearStoredToken(): void {
+  logger.debug('[authService] clearStoredToken: clearing session storage');
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(TOKEN_EXPIRY_KEY);
 }
 
 /**
- * Returns the stored JWT if it exists and hasn't expired; null otherwise.
- * Used by client.ts to inject the Authorization header.
+ * Retrieves the valid JWT for header injection.
+ * 
+ * @returns The token string or null if absent/expired.
  */
 export function getStoredToken(): string | null {
   const token  = sessionStorage.getItem(TOKEN_KEY);
   const expiry = sessionStorage.getItem(TOKEN_EXPIRY_KEY);
   if (!token || !expiry) return null;
+  
   if (Date.now() > Number(expiry)) {
+    logger.warn('[authService] getStoredToken: token expired');
     clearStoredToken();
     return null;
   }
@@ -257,7 +323,9 @@ export function getStoredToken(): string | null {
 }
 
 /**
- * Returns remaining token lifetime in milliseconds, or 0 if expired/absent.
+ * Calculates current session TTL.
+ * 
+ * @returns Milliseconds until the token expires.
  */
 export function tokenRemainingMs(): number {
   const expiry = sessionStorage.getItem(TOKEN_EXPIRY_KEY);
@@ -266,9 +334,10 @@ export function tokenRemainingMs(): number {
 }
 
 /**
- * Fire a global synthetic event so any component (including App.tsx) can show
- * the login modal when a 401 is received mid-session.
+ * Triggers a system-wide auth failure event.
+ * Views listen for this to open the login modal.
  */
 export function fireAuthExpired(): void {
+  logger.error('[authService] fireAuthExpired: broadcasting auth:expired event');
   window.dispatchEvent(new CustomEvent('auth:expired'));
 }

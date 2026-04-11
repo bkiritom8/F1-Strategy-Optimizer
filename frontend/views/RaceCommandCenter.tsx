@@ -285,6 +285,11 @@ const RaceCommandCenter: React.FC = () => {
   // Resolve the correct race list based on the selected year
   const races = activeYear === 2026 ? races2026 : activeYear === 2025 ? races2025 : races2024;
 
+  useEffect(() => {
+    console.debug('[RaceCommandCenter] Component mounted');
+    return () => console.debug('[RaceCommandCenter] Component unmounted');
+  }, []);
+
   // Reset background override to follow the active race round when in this view
   useEffect(() => {
     setBackgroundCircuitId(null);

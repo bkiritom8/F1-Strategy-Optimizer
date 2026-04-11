@@ -222,7 +222,8 @@ class IAMSimulator:
 
             return TokenData(username=username, roles=roles)
 
-        except JWTError:
+        except JWTError as e:
+            logger.error(f"[Auth] JWT Verification Error: {str(e)}")
             return None
 
     def get_user_permissions(self, user: User) -> Set[Permission]:
