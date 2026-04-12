@@ -7,7 +7,7 @@
  * 'RB' is now 'Visa Cash App RB'; 'Sauber' is now 'Audi'.
  */
 
-export const APP_NAME = "Apex Intelligence";
+export const APP_NAME = "DivergeX";
 
 export const COLORS = {
   dark: {

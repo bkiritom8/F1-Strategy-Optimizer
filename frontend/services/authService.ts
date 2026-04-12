@@ -163,7 +163,7 @@ export async function signIn(username: string, password: string): Promise<AuthRe
           user: {
             username: 'admin',
             email: 'admin@f1optimizer.local',
-            full_name: 'Apex Admin (Offline)',
+            full_name: 'DivergeX Admin (Offline)',
             role: 'roles/admin',
             is_admin: true,
             email_verified: true,

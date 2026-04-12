@@ -18,7 +18,7 @@ const CookieConsent: React.FC = () => {
 
   useEffect(() => {
     // Check if user has already consented
-    const consent = localStorage.getItem('apex-cookie-consent');
+    const consent = localStorage.getItem('divergex-cookie-consent');
     if (!consent) {
       // Delay entrance for better UX focus
       const timer = setTimeout(() => setIsVisible(true), 2000);
@@ -27,12 +27,12 @@ const CookieConsent: React.FC = () => {
   }, []);
 
   const handleAccept = () => {
-    localStorage.setItem('apex-cookie-consent', 'accepted');
+    localStorage.setItem('divergex-cookie-consent', 'accepted');
     setIsVisible(false);
   };
 
   const handleDecline = () => {
-    localStorage.setItem('apex-cookie-consent', 'declined');
+    localStorage.setItem('divergex-cookie-consent', 'declined');
     setIsVisible(false);
   };
 
@@ -66,7 +66,7 @@ const CookieConsent: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-xs text-white/40 leading-relaxed font-medium">
-                  Apex Intelligence uses essential and analytical cookies to optimize your strategic engine and race telemetry experience.
+                  DivergeX uses essential and analytical cookies to optimize your strategic engine and race telemetry experience.
                 </p>
               </div>
             </div>

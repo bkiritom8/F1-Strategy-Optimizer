@@ -44,7 +44,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
   const handleCookieClick = (e: React.MouseEvent) => {
     e.preventDefault();
     // Dispatch event to show cookie consent if hidden
-    window.dispatchEvent(new CustomEvent('apex:open_cookie_settings'));
+    window.dispatchEvent(new CustomEvent('divergex:open_cookie_settings'));
   };
 
   return (
@@ -61,7 +61,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
                 <span className="text-white font-black text-xl italic tracking-tighter">A</span>
               </div>
               <span className="text-xl font-black uppercase tracking-tighter italic text-white flex items-center">
-                Apex <span className="text-red-600 ml-1">Intelligence</span>
+                Diverge<span className="text-red-600">X</span>
               </span>
             </div>
             <p className="text-sm text-white/40 leading-relaxed max-w-xs">
@@ -123,7 +123,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
         {/* Bottom bar */}
         <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-medium text-center md:text-left">
-            © {currentYear} Apex Strategy Labs. All Data Streams Encrypted.
+            © {currentYear} DivergeX. All Data Streams Encrypted.
           </div>
           <div className="flex items-center gap-8">
              <div className="flex items-center gap-2">

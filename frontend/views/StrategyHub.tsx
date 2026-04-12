@@ -136,7 +136,7 @@ const StrategyHub: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: 'I am the Apex AI Strategist, powered by the F1 backend. Ask me anything about tire management, undercut opportunities, pit windows, or Grand Prix strategy.',
+      content: 'I am the DivergeX AI Strategist, powered by the F1 backend. Ask me anything about tire management, undercut opportunities, pit windows, or Grand Prix strategy.',
     },
   ]);
   const [chatLoading, setChatLoading] = useState(false);
