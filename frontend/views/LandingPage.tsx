@@ -28,6 +28,7 @@ import { motion, useScroll, useSpring, useTransform, AnimatePresence } from 'fra
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import Footer from '../components/Footer';
+import { DynamicSimulationBackground } from '../components/DynamicSimulationBackground';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -223,7 +224,7 @@ const TelemetryBackground = () => {
 
 const LandingPage: React.FC<Props> = () => {
   const navigate = useNavigate();
-  const { isAdmin, setAdminModalOpen } = useAppStore();
+  const { isAdmin, setAdminModalOpen, logout } = useAppStore();
   const containerRef = useRef<HTMLDivElement>(null);
   
   const { scrollYProgress } = useScroll({ target: containerRef });
