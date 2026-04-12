@@ -13,7 +13,9 @@ import logging
 import os
 from typing import Any
 
+import warnings
 import joblib
+from sklearn.exceptions import InconsistentVersionWarning
 import pandas as pd
 from google.cloud import storage
 
@@ -60,7 +62,9 @@ def _load(name: str) -> Any | None:
             path
         ).download_to_file(buf)
         buf.seek(0)
-        _bundles[name] = joblib.load(buf)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", InconsistentVersionWarning)
+            _bundles[name] = joblib.load(buf)
         logger.info("model_bridge: loaded %s from %s", name, path)
         return _bundles[name]
     except Exception as exc:
