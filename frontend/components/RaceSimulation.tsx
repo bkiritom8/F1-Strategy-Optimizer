@@ -1268,7 +1268,7 @@ const RaceSimulation: React.FC = () => {
       {/* Standings + lap log */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <StandingsTower standings={currentStandings} userDriverId={selectedDriver.id} />
-        <LapTimeline laps={laps} userDriverId={selectedDriver.id} />
+        <LapTimeline laps={laps.filter(l => l.lap <= currentLap)} userDriverId={selectedDriver.id} />
       </div>
 
       {/* AI Chat */}
