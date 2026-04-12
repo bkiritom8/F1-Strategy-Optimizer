@@ -219,7 +219,6 @@ const RaceTrackViz: React.FC<{
   safetyCarActive: boolean;
 }> = ({ circuitId, standings, userDriverId, totalLaps, currentLap, safetyCarActive }) => {
   const trackInfo = TRACK_REGISTRY.find(t => t.id === circuitId);
-  if (!trackInfo) return null;
 
   return (
     <div className="relative rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-color)', backgroundColor: '#0A0A0A' }}>
@@ -242,7 +241,7 @@ const RaceTrackViz: React.FC<{
             </motion.span>
           )}
           <span className="text-[9px] font-mono text-white/30 uppercase">
-            {trackInfo.name}
+            {trackInfo?.name ?? circuitId}
           </span>
         </div>
       </div>
