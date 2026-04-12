@@ -536,9 +536,10 @@ class SafetyCarAdapter(_BaseAdapter):
     """
     Wraps safety_car.pkl.
 
-    Two responsibilities:
-      1. sc_deploy_prob(race_name) — P(SC deploys this lap) from circuit lookup table
-      2. predict_pit(state)        — P(should pit now given SC is active) from classifier
+    Three responsibilities:
+      1. sc_deploy_prob(race_name)  — P(SC deploys this lap) from circuit lookup table
+      2. sc_race_prob(race_name)    — P(at least one SC occurs in this race)
+      3. predict_pit(state)         — P(should pit now given SC is active) from classifier
 
     Note: pkl uses non-standard keys: pit_lgb, pit_xgb, pit_weight.
     """
@@ -547,16 +548,48 @@ class SafetyCarAdapter(_BaseAdapter):
 
     # SC deployment base rate when circuit not found in lookup
     _DEFAULT_SC_PROB = 0.04
+    # ~65% of F1 races historically have at least one SC/VSC
+    _DEFAULT_SC_RACE_PROB = 0.65
 
     def sc_deploy_prob(self, race_name: str) -> float:
         """
-        Returns per-lap SC deployment probability for a given circuit.
-        Source: circuit_sc_prob lookup table in safety_car.pkl.
+        Returns the true fraction of laps historically under SC for a given circuit.
+
+        NOTE: older bundles store sum(is_sc_lap across all drivers) / max(LapNumber),
+        which inflates values by ~n_drivers (~20).  Values > 0.5 are detected as
+        inflated and normalized automatically.
         """
         if not self.loaded:
             return self._DEFAULT_SC_PROB
         circuit_probs: dict = self._bundle.get("circuit_sc_prob", {})
-        return float(circuit_probs.get(race_name, self._DEFAULT_SC_PROB))
+        raw = float(circuit_probs.get(race_name, self._DEFAULT_SC_PROB))
+        # Detect and correct old inflated bundle (per-driver-lap sums instead of per-race-lap)
+        return raw / 20.0 if raw > 0.5 else raw
+
+    def sc_race_prob(self, race_name: str) -> float:
+        """
+        Returns P(at least one SC in this race) for a given circuit.
+
+        Uses circuit_sc_race_prob from the bundle if available (new bundles).
+        Falls back to deriving from circuit_sc_prob for older bundles.
+
+        Typical values after correct training:
+          ~0.40  clean power circuits (e.g. Monza)
+          ~0.65  average circuit
+          ~0.85  street circuits (e.g. Monaco)
+        """
+        if not self.loaded:
+            return self._DEFAULT_SC_RACE_PROB
+        # Prefer explicitly stored race-level probability (new bundles after training fix)
+        if "circuit_sc_race_prob" in self._bundle:
+            race_probs: dict = self._bundle["circuit_sc_race_prob"]
+            return float(race_probs.get(race_name, self._DEFAULT_SC_RACE_PROB))
+        # Fallback: derive from fraction-of-laps metric
+        circuit_probs: dict = self._bundle.get("circuit_sc_prob", {})
+        raw = float(circuit_probs.get(race_name, 0.08))
+        true_fraction = raw / 20.0 if raw > 0.5 else raw
+        # Scale fraction → race probability: 0.045→~0.65, 0.065→~0.90
+        return min(0.90, max(0.20, true_fraction * 14.0))
 
     def predict_pit(self, state: dict) -> float:
         """

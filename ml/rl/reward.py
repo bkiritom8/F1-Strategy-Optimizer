@@ -7,7 +7,7 @@ position_gain      +5.0 per position gained this lap; -3.0 per position lost
 lap_time_bonus     deviation from field median lap time (±1 s → ±0.5 reward)
 tire_overstay      −0.3 per lap past 110 % of compound's optimal stint
 pit_cost           −1.0 flat (offset toward 0 if tire was already overdue)
-sc_pit_bonus       +8.0 bonus for pitting under safety car (free pit window)
+sc_pit_bonus       +3.0 bonus for pitting under safety car (free pit window)
 finish_reward      terminal only — graduated P1 (+50) through P20 (−10)
 """
 
@@ -28,7 +28,7 @@ COMPOUND_OPTIMAL_LAPS: dict[str, int] = {
 POS_GAIN_REWARD = 5.0
 POS_LOSS_PENALTY = 3.0
 PIT_BASE_COST = 1.0  # reduced from 2.0 — prevents "never pit" trap
-SC_PIT_BONUS = 8.0
+SC_PIT_BONUS = 3.0   # reduced from 8.0 — was 8× the pit cost, causing agent to pit every SC
 
 # Terminal rewards: graduated P1–P20 so the agent has a gradient signal
 # even when finishing outside the points.

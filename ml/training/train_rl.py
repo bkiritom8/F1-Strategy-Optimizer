@@ -1038,7 +1038,9 @@ def main() -> None:
         }
 
     # ── Rollback check ────────────────────────────────────────────────────────
-    baseline_policy = str(_REPO_ROOT / "models" / "rl" / "final_policy.zip")
+    # Use the frontend-facing path as the baseline so we compare against
+    # whatever the simulation is actually serving.
+    baseline_policy = str(_REPO_ROOT / "models" / "rl_strategy" / "v3" / "policy.zip")
     if args.resume:
         # Fine-tuning run: the resumed policy was trained in a different
         # environment (e.g. physics-only Phase 1 vs ML Phase 2). Comparing
@@ -1059,16 +1061,36 @@ def main() -> None:
         )
 
     if deploy_model:
-        # Copy to permanent models/rl/ directory
+        # Copy to the directory the frontend simulation loads from:
+        #   src/api/routes/simulation.py checks models/rl_strategy/v3/policy.zip
+        #   (or RL_MODEL_DIR env var) before falling back to GCS.
         import shutil
 
-        dest_dir = _REPO_ROOT / "models" / "rl"
+        dest_dir = _REPO_ROOT / "models" / "rl_strategy" / "v3"
         dest_dir.mkdir(parents=True, exist_ok=True)
         if os.path.exists(local_policy):
-            shutil.copy2(local_policy, dest_dir / "final_policy.zip")
+            shutil.copy2(local_policy, dest_dir / "policy.zip")
         if os.path.exists(local_vn):
-            shutil.copy2(local_vn, dest_dir / "final_vec_normalize.pkl")
-        logger.info("Model deployed → %s", dest_dir)
+            shutil.copy2(local_vn, dest_dir / "vec_normalize.pkl")
+        logger.info("Model deployed locally → %s", dest_dir)
+
+        # Also keep a copy in models/rl/ for backward compatibility
+        rl_dir = _REPO_ROOT / "models" / "rl"
+        rl_dir.mkdir(parents=True, exist_ok=True)
+        if os.path.exists(local_policy):
+            shutil.copy2(local_policy, rl_dir / "final_policy.zip")
+        if os.path.exists(local_vn):
+            shutil.copy2(local_vn, rl_dir / "final_vec_normalize.pkl")
+
+        # Upload to GCS under rl_strategy/latest so the frontend's GCS
+        # fallback (gs://f1optimizer-models/rl_strategy/latest) stays current.
+        try:
+            agent.save("gs://f1optimizer-models/rl_strategy/latest")
+            logger.info("Model uploaded → gs://f1optimizer-models/rl_strategy/latest")
+            if not gcs_model_uri:
+                gcs_model_uri = "gs://f1optimizer-models/rl_strategy/latest"
+        except Exception as exc:
+            logger.warning("GCS upload to rl_strategy/latest failed: %s", exc)
     else:
         logger.warning(
             "Rollback: keeping existing baseline model at %s", baseline_policy

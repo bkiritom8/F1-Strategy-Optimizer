@@ -626,9 +626,10 @@ def _registry_lookup(race_id: str) -> dict | None:
 FUEL_START_KG = 110.0
 PIT_STOP_LOSS_MS = 25_000.0
 SC_LAP_DELTA_MS = 15_000.0  # SC adds ~15 s per lap (field bunched, no racing)
-SC_END_PROB = 0.40  # P(SC ends this lap); expected duration ≈ 2.5 laps
+SC_END_PROB = 0.18        # ~5-6 lap avg SC duration (was 0.40 = 2.5 laps)
 SC_MIN_LAPS = 2  # minimum laps SC/VSC must be active before it can clear
-SC_DEFAULT_PROB = 0.04
+SC_DEFAULT_PROB = 0.02   # fallback when model not loaded (was 0.04)
+SC_RACE_PROB_DEFAULT = 0.65  # ~65% of F1 races historically have at least one SC
 
 VSC_LAP_DELTA_MS = 6_000.0  # VSC adds ~6 s per lap (delta-time enforced, no bunching)
 VSC_END_PROB = 0.40  # same clearance probability as SC
@@ -787,6 +788,7 @@ class RaceRunner:
             _reg["base_lap_time_ms"] if _reg else self._load_base_lap_time()
         )
         self._sc_deploy_prob = self._load_sc_prob()
+        self._sc_race_prob = self._load_sc_race_prob()
 
         # Initialised on reset()
         self._current_lap: int = 1
@@ -794,6 +796,7 @@ class RaceRunner:
         self._vsc: bool = False
         self._sc_laps_active: int = 0
         self._vsc_laps_active: int = 0
+        self._sc_possible: bool = True  # sampled per-episode in reset()
         self._states: dict[str, DriverRaceState] = {}
         self._lap_data: dict[str, list[LapRecord]] = {}
         self._user_id: str = next((d.driver_id for d in drivers if d.is_user), "")
@@ -814,6 +817,8 @@ class RaceRunner:
         self._vsc = False
         self._sc_laps_active = 0
         self._vsc_laps_active = 0
+        # Roll once per race episode: not every real race has a safety car.
+        self._sc_possible = self._rng.random() < self._sc_race_prob
         self._lap_data = {d.driver_id: [] for d in self._drivers}
         self._reward_fn.reset()
         self._encoder.reset()
@@ -898,12 +903,18 @@ class RaceRunner:
             for d in active:
                 state = self._states[d.driver_id]
                 if d.driver_id == self._user_id:
+                    # Use physics for tire degradation (same model as rivals)
+                    # to avoid asymmetry: ML tire model has a +726ms fresh-tire
+                    # penalty (age=0) and plateaus at ~0.45s/lap, while the physics
+                    # model grows linearly from 0. This asymmetry caused the RL
+                    # agent to learn that pitting is costly and always finish P20.
+                    phys = {
+                        "tire_compound": state.tire_compound,
+                        "tire_age_laps": state.tire_age_laps,
+                        "driving_mode": state.driving_mode,
+                    }
+                    tire_deltas[d.driver_id] = _PHYSICS_TIRE.predict(phys)
                     ms = self._model_state_dict(state)
-                    tire_deltas[d.driver_id] = (
-                        td_adapter.predict(ms)
-                        if td_adapter.loaded
-                        else _PHYSICS_TIRE.predict(ms)
-                    )
                     fuel_burns[d.driver_id] = (
                         fuel_adapter.predict(ms)
                         if fuel_adapter.loaded
@@ -1088,22 +1099,19 @@ class RaceRunner:
 
         # ── Pit decision ─────────────────────────────────────────────────────
 
-        # Safety car opportunity — query SC model or use tire age heuristic
-        # VSC requires more tire wear than SC to justify a pit (smaller time saving)
-        if (state.safety_car and tire_age > 8) or (state.vsc and tire_age > 15):
+        # Safety car opportunity — only pit if model is confident AND tire is past optimal
+        if state.safety_car and tire_age >= 10 and laps_rem >= 5:
             model_state = self._model_state_dict(state)
             pit_prob = (
                 self._sc_adapter().predict_pit(model_state)
                 if self._sc_adapter().loaded
                 else 0.0
             )
-            threshold = (
-                0.45 - 0.1 * tire_mgmt
-            )  # conservative managers need higher confidence
-            if (
-                pit_prob > threshold
-                or tire_age > COMPOUND_OPTIMAL_LAPS.get(compound, 30) * 0.8
-            ):
+            # Raised threshold (0.55 vs 0.45) and switched OR→AND so both conditions
+            # must hold: model must be confident AND tire must already be past optimal.
+            threshold = 0.55 - 0.1 * tire_mgmt
+            optimal = COMPOUND_OPTIMAL_LAPS.get(compound, 30)
+            if pit_prob > threshold and tire_age > optimal:
                 return _choose_compound_action(laps_rem, aggression)
 
         # Tire degradation threshold: better tire managers can stretch further
@@ -1112,15 +1120,21 @@ class RaceRunner:
         if tire_age >= max_age:
             return _choose_compound_action(laps_rem, aggression)
 
-        # Undercut / anti-undercut window (lap 0.35-0.65 race)
+        # Mandatory pit stop: F1 requires using at least 2 compounds.
+        # Force a pit if no stop yet and fewer than 8 laps remain.
+        if state.pit_stops == 0 and laps_rem <= 8 and laps_rem >= 2:
+            return _choose_compound_action(laps_rem, aggression)
+
+        # Undercut / anti-undercut window
         laps_pct = lap / max(total, 1)
         if (
             state.pit_stops == 0
             and 0.35 <= laps_pct <= 0.52
             and tire_age >= int(optimal * 0.75)
         ):
-            # Small stochastic chance to pit in strategic window
-            if self._rng.random() < 0.06 + 0.04 * aggression:
+            # Reduced from 0.06-0.10 to 0.02-0.03 per lap to avoid compounding
+            # over the ~8-lap window into near-certain extra stops
+            if self._rng.random() < 0.02 + 0.01 * aggression:
                 return _choose_compound_action(laps_rem, aggression)
 
         if (
@@ -1128,7 +1142,7 @@ class RaceRunner:
             and 0.65 <= laps_pct <= 0.80
             and tire_age >= int(optimal * 0.70)
         ):
-            if self._rng.random() < 0.07 + 0.03 * aggression:
+            if self._rng.random() < 0.02 + 0.01 * aggression:
                 return _choose_compound_action(laps_rem, aggression)
 
         # ── Driving mode ─────────────────────────────────────────────────────
@@ -1223,6 +1237,8 @@ class RaceRunner:
         SC/VSC lasts at least 2 laps before the pit lane is closed and the
         field is released.
         """
+        if not self._sc_possible:
+            return  # this race has no safety car
         if self._safety_car:
             self._sc_laps_active += 1
             if self._sc_laps_active >= SC_MIN_LAPS and self._rng.random() < SC_END_PROB:
@@ -1322,8 +1338,17 @@ class RaceRunner:
     def _load_sc_prob(self) -> float:
         sc = self._adapters.get("sc")
         if sc and sc.loaded and self._race_name:
-            return sc.sc_deploy_prob(self._race_name)
+            # sc_deploy_prob now returns the true fraction of laps under SC
+            # (old inflated bundles are normalized automatically in the adapter).
+            # Use the fraction directly as per-lap deployment probability, capped at 3%.
+            return min(sc.sc_deploy_prob(self._race_name), 0.03)
         return SC_DEFAULT_PROB
+
+    def _load_sc_race_prob(self) -> float:
+        sc = self._adapters.get("sc")
+        if sc and sc.loaded and self._race_name:
+            return sc.sc_race_prob(self._race_name)
+        return SC_RACE_PROB_DEFAULT
 
     # ── Observation / info for user driver ────────────────────────────────────
 
