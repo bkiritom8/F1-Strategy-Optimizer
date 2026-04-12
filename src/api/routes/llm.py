@@ -8,7 +8,7 @@ import time
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from src.security.https_middleware import get_current_user
+from src.security.https_middleware import get_current_user, get_current_user_optional
 from src.security.iam_simulator import iam_simulator, Permission
 
 logger = logging.getLogger(__name__)
@@ -316,13 +316,13 @@ async def _fire_simulation(
 async def llm_chat(
     request: ChatRequest,
     background_tasks: BackgroundTasks,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ) -> ChatResponse:
     """
     Ask an F1 strategy question. Optionally provide structured race inputs
     (driver, circuit, lap, tire compound, etc.) to enrich the answer.
 
-    Requires: DATA_READ permission.
+    Public endpoint — anonymous callers receive API_USER (DATA_READ) access.
     """
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
         raise HTTPException(status_code=403, detail="Insufficient permissions")

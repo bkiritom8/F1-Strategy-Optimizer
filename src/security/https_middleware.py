@@ -331,3 +331,21 @@ async def get_current_user(request: Request) -> User:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User profile configuration error. Please contact support.",
         )
+
+
+async def get_current_user_optional(request: Request) -> User:
+    """Like get_current_user but returns an anonymous API_USER when no token is sent.
+
+    Use this for public-facing endpoints (Strategy Hub, LLM chat) that should be
+    accessible without login while still respecting tokens when present.
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return User(
+            username="anonymous",
+            email="anonymous@f1optimizer.local",
+            full_name="Anonymous",
+            roles=[Role.API_USER],
+            disabled=False,
+        )
+    return await get_current_user(request)

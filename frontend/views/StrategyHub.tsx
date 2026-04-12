@@ -263,7 +263,7 @@ const StrategyHub: React.FC = () => {
     } catch (err) {
       setChatMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'The AI Strategist requires the Apex backend to be online. In demo mode, use the pit strategy simulator on the left to explore Monte Carlo strategy simulations with preset and custom stint configurations.' },
+        { role: 'assistant', content: 'Unable to reach the AI Strategist. The backend may be starting up — please try again in a moment. In demo mode, the pit strategy simulator on the left is fully available.' },
       ]);
     } finally {
       setChatLoading(false);
