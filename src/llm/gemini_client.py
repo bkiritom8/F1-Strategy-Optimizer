@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Callable
 
-import vertexai
 from google import genai
 from google.genai import types
 
@@ -131,8 +130,13 @@ class GeminiClient:
         """Initialize Vertex AI with config project and region."""
         if self._initialized:
             return
-        vertexai.init(project=self._config.PROJECT_ID, location=self._config.REGION)
-        self._genai_client = genai.Client(vertexai=True)
+        # google.genai.Client(vertexai=True) requires project/location passed directly;
+        # it does NOT inherit from vertexai.init(), which is a different SDK.
+        self._genai_client = genai.Client(
+            vertexai=True,
+            project=self._config.PROJECT_ID,
+            location=self._config.REGION,
+        )
         self._initialized = True
 
     def warm_cache(self) -> None:
