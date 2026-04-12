@@ -1041,9 +1041,7 @@ class RaceRunner:
             user_driver_id=self._user_id,
             lap_data=self._lap_data,
             final_standings=standings,
-            user_final_position=(
-                self._states[self._user_id].position if self._user_id else 0
-            ),
+            user_final_position=next((s["position"] for s in standings if s["driver_id"] == self._user_id), 20),
             strategy_summary=strategy_summary,
         )
 
@@ -1398,3 +1396,4 @@ def _extract_stints(lap_records: list[LapRecord]) -> list[dict]:
     last_lap = lap_records[-1].lap_number
     stints.append({"compound": current_compound, "laps": last_lap - stint_start + 1})
     return stints
+

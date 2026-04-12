@@ -264,7 +264,7 @@ class StrategySimulator:
                 return _compound_to_action(forced_pits[lap])
             if self._agent is not None:
                 return self._agent.predict(obs, deterministic=True)
-            return self._heuristic_action(info)
+            return int(self._heuristic_action(info)) if not forced_pits else int(Action.STAY_BALANCED)
 
         return runner.run_full_race(action_fn)
 
@@ -430,3 +430,4 @@ def _compute_risk(laps: list[LapRecord]) -> str:
 def _total_time(result: RaceResult, driver_id: str) -> float:
     laps = result.lap_data.get(driver_id, [])
     return laps[-1].cumulative_time_ms if laps else 0.0
+
