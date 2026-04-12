@@ -228,16 +228,18 @@ const RaceTrackViz: React.FC<{
   // Callback-ref maps: populated once on mount, O(1) lookup per frame
   const circleMapRef = useRef<Map<string, SVGCircleElement>>(new Map());
   const labelMapRef = useRef<Map<string, SVGTextElement>>(new Map());
-  const lapStartRef = useRef<number>(Date.now());
+  // Animation start time — set once on mount, never reset; cars loop continuously
+  const animStartRef = useRef<number>(Date.now());
   const animRef = useRef<number | null>(null);
-  // Keep latest values accessible inside the rAF closure without re-subscribing
+  // Keep latest standings accessible inside the rAF closure without re-subscribing
   const standingsRef = useRef(standings);
   standingsRef.current = standings;
-  const lapIntervalRef = useRef(1_578);
-  lapIntervalRef.current = totalLaps > 0 ? 90_000 / totalLaps : 1_578;
 
-  // Reset lap clock each time the displayed lap number advances
-  useEffect(() => { lapStartRef.current = Date.now(); }, [currentLap]);
+  // Visual lap duration is decoupled from the data update interval.
+  // Cars complete one full circuit in VISUAL_LAP_MS regardless of how fast
+  // the race data advances (real F1 lap ~90s compressed 60x → 1.5s data pace,
+  // but we want the cars to be visibly moving at ~14s per circuit).
+  const VISUAL_LAP_MS = 14_000;
 
   // Continuous animation loop — moves dots imperatively so React doesn't re-render at 60 fps
   useEffect(() => {
@@ -245,8 +247,9 @@ const RaceTrackViz: React.FC<{
       const pathEl = trackPathRef.current;
       if (pathEl) {
         const totalLength = pathEl.getTotalLength();
-        const elapsed = Date.now() - lapStartRef.current;
-        const lapFrac = Math.min(elapsed / lapIntervalRef.current, 1.0);
+        // Continuously cycle 0→1 every VISUAL_LAP_MS regardless of lap counter
+        const elapsed = Date.now() - animStartRef.current;
+        const lapFrac = (elapsed % VISUAL_LAP_MS) / VISUAL_LAP_MS;
         const S = standingsRef.current;
         const n = S.length || 20;
         for (const d of S) {
@@ -1060,9 +1063,14 @@ const RaceSimulation: React.FC = () => {
 
       else if (msg.type === 'laps') {
         const newLaps: LapSnap[] = msg.data;
-        setLaps(prev => [...prev, ...newLaps]);
+        // Normalize lap numbers to always start at 1 regardless of backend value.
+        // Backend may send lap_number from post-step (first snap = 2); this
+        // remaps to sequential 1-indexed values based on buffer insertion order.
+        const baseIdx = lapBufferRef.current.length + 1;
+        const normalized = newLaps.map((s, i) => ({ ...s, lap: baseIdx + i }));
+        setLaps(prev => [...prev, ...normalized]);
         // Append to playback buffer; loop will advance at the computed interval
-        lapBufferRef.current.push(...newLaps);
+        lapBufferRef.current.push(...normalized);
         startPlayback();
       }
 
