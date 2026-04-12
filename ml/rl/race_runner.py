@@ -625,9 +625,14 @@ def _registry_lookup(race_id: str) -> dict | None:
 
 FUEL_START_KG = 110.0
 PIT_STOP_LOSS_MS = 25_000.0
-SC_LAP_DELTA_MS = 15_000.0  # safety car lap overhead
-SC_END_PROB = 0.30
+SC_LAP_DELTA_MS = 15_000.0  # SC adds ~15 s per lap (field bunched, no racing)
+SC_END_PROB = 0.40  # P(SC ends this lap); expected duration ≈ 2.5 laps
+SC_MIN_LAPS = 2  # minimum laps SC/VSC must be active before it can clear
 SC_DEFAULT_PROB = 0.04
+
+VSC_LAP_DELTA_MS = 6_000.0  # VSC adds ~6 s per lap (delta-time enforced, no bunching)
+VSC_END_PROB = 0.40  # same clearance probability as SC
+VSC_DEFAULT_PROB = 0.06  # VSC triggered slightly more often than full SC
 
 COMPOUND_DELTA_MS: dict[str, float] = {
     "SOFT": 0.0,
@@ -673,6 +678,7 @@ class DriverRaceState:
     gap_to_leader: float  # seconds
     gap_to_ahead: float  # seconds
     safety_car: bool = False
+    vsc: bool = False
     retired: bool = False
     # Rolling features for ML models (maintained over race)
     _tyre_delta_hist: deque = field(default_factory=lambda: deque([0.0] * 5, maxlen=5))
@@ -698,6 +704,7 @@ class LapRecord:
     gap_to_leader: float
     gap_to_ahead: float
     safety_car: bool
+    vsc: bool
     cumulative_time_ms: float
 
 
@@ -784,6 +791,9 @@ class RaceRunner:
         # Initialised on reset()
         self._current_lap: int = 1
         self._safety_car: bool = False
+        self._vsc: bool = False
+        self._sc_laps_active: int = 0
+        self._vsc_laps_active: int = 0
         self._states: dict[str, DriverRaceState] = {}
         self._lap_data: dict[str, list[LapRecord]] = {}
         self._user_id: str = next((d.driver_id for d in drivers if d.is_user), "")
@@ -801,6 +811,9 @@ class RaceRunner:
         """Initialise race state. Returns (obs, info) for the user's driver."""
         self._current_lap = 1
         self._safety_car = False
+        self._vsc = False
+        self._sc_laps_active = 0
+        self._vsc_laps_active = 0
         self._lap_data = {d.driver_id: [] for d in self._drivers}
         self._reward_fn.reset()
         self._encoder.reset()
@@ -959,6 +972,7 @@ class RaceRunner:
                 gap_to_leader=0.0,  # filled after position update
                 gap_to_ahead=0.0,
                 safety_car=self._safety_car,
+                vsc=self._vsc,
                 cumulative_time_ms=round(state.cumulative_time_ms, 1),
             )
             lap_records[d.driver_id] = rec
@@ -968,11 +982,13 @@ class RaceRunner:
         self._update_positions(lap_records)
         self._update_safety_car()
 
-        # Sync safety car flag into states and records
+        # Sync safety car / VSC flag into states and records
         for d in self._drivers:
             self._states[d.driver_id].safety_car = self._safety_car
+            self._states[d.driver_id].vsc = self._vsc
             if d.driver_id in lap_records:
                 lap_records[d.driver_id].safety_car = self._safety_car
+                lap_records[d.driver_id].vsc = self._vsc
 
         self._current_lap += 1
 
@@ -1072,7 +1088,8 @@ class RaceRunner:
         # ── Pit decision ─────────────────────────────────────────────────────
 
         # Safety car opportunity — query SC model or use tire age heuristic
-        if state.safety_car and tire_age > 8:
+        # VSC requires more tire wear than SC to justify a pit (smaller time saving)
+        if (state.safety_car and tire_age > 8) or (state.vsc and tire_age > 15):
             model_state = self._model_state_dict(state)
             pit_prob = (
                 self._sc_adapter().predict_pit(model_state)
@@ -1143,7 +1160,12 @@ class RaceRunner:
         deg_ms = tire_delta_s * 1000.0
         compound_delta = COMPOUND_DELTA_MS.get(state.tire_compound.upper(), 0.0)
         mode_delta = MODE_DELTA_MS.get(state.driving_mode, 0.0)
-        sc_delta = SC_LAP_DELTA_MS if self._safety_car else 0.0
+        if self._safety_car:
+            sc_delta = SC_LAP_DELTA_MS
+        elif self._vsc:
+            sc_delta = VSC_LAP_DELTA_MS
+        else:
+            sc_delta = 0.0
         pit_loss = PIT_STOP_LOSS_MS if just_pitted else 0.0
 
         pressure_delta = 0.0
@@ -1193,13 +1215,33 @@ class RaceRunner:
                 rec.gap_to_ahead = round(s.gap_to_ahead, 3)
 
     def _update_safety_car(self) -> None:
-        """Stochastically deploy or clear the safety car."""
+        """Stochastically deploy or clear the safety car / virtual safety car.
+
+        Minimum duration (SC_MIN_LAPS / VSC_MIN_LAPS) prevents the flag from
+        clearing on the same lap it deployed, matching real-F1 behaviour where
+        SC/VSC lasts at least 2 laps before the pit lane is closed and the
+        field is released.
+        """
         if self._safety_car:
-            if self._rng.random() < SC_END_PROB:
+            self._sc_laps_active += 1
+            if self._sc_laps_active >= SC_MIN_LAPS and self._rng.random() < SC_END_PROB:
                 self._safety_car = False
+                self._sc_laps_active = 0
+        elif self._vsc:
+            self._vsc_laps_active += 1
+            if (
+                self._vsc_laps_active >= SC_MIN_LAPS
+                and self._rng.random() < VSC_END_PROB
+            ):
+                self._vsc = False
+                self._vsc_laps_active = 0
         else:
             if self._rng.random() < self._sc_deploy_prob:
                 self._safety_car = True
+                self._sc_laps_active = 0
+            elif self._rng.random() < VSC_DEFAULT_PROB:
+                self._vsc = True
+                self._vsc_laps_active = 0
 
     # ── Model state dict ──────────────────────────────────────────────────────
 
@@ -1225,6 +1267,7 @@ class RaceRunner:
             "driving_style_int": state.driving_style_int,
             "prev_style_int": state._prev_style_int,
             "safety_car": self._safety_car,
+            "vsc": self._vsc,
             "race_name": self._race_name,
             "delta_roll3": float(np.mean(t_hist[-3:])) if t_hist else 0.0,
             "delta_roll5": float(np.mean(t_hist)) if t_hist else 0.0,
@@ -1317,6 +1360,7 @@ class RaceRunner:
             "fuel_remaining_kg": round(s.fuel_remaining_kg, 2),
             "driving_mode": s.driving_mode,
             "safety_car": self._safety_car,
+            "vsc": self._vsc,
             "gap_to_leader": round(s.gap_to_leader, 3),
             "gap_to_ahead": round(s.gap_to_ahead, 3),
             "lap_time_ms": round(s.last_lap_time_ms, 1),

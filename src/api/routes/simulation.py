@@ -166,6 +166,7 @@ def _heuristic_probs(info: dict) -> np.ndarray:
     compound = info.get("tire_compound", "MEDIUM").upper()
     tire_age = int(info.get("tire_age_laps", 0))
     safety_car = bool(info.get("safety_car", False))
+    vsc = bool(info.get("vsc", False))
     total_laps = int(info.get("total_laps", 57))
     lap_num = int(info.get("lap_number", 1))
     remaining = total_laps - lap_num
@@ -178,6 +179,13 @@ def _heuristic_probs(info: dict) -> np.ndarray:
 
     if safety_car:
         probs = np.array([0.00, 0.01, 0.00, 0.15, 0.42, 0.38, 0.04])
+    elif vsc:
+        # VSC: pit is advantageous but less so than SC (only ~6 s saved vs ~15 s).
+        # Only recommend pitting if tires are meaningfully worn.
+        if wear >= 0.70:
+            probs = np.array([0.02, 0.10, 0.02, 0.12, 0.38, 0.28, 0.08])
+        else:
+            probs = np.array([0.08, 0.45, 0.30, 0.06, 0.07, 0.03, 0.01])
     elif wear >= 1.1:
         probs = np.array([0.00, 0.02, 0.00, 0.10, 0.48, 0.38, 0.02])
     elif wear >= 0.85:
@@ -238,6 +246,8 @@ def _is_key_moment(
     tire_age = int(info.get("tire_age_laps", 0))
     sc = bool(info.get("safety_car", False))
     prev_sc = bool(prev_info.get("safety_car", False))
+    vsc = bool(info.get("vsc", False))
+    prev_vsc = bool(prev_info.get("vsc", False))
     optimal = COMPOUND_OPTIMAL_LAPS.get(compound, 30)
     remaining = total - lap
 
@@ -245,16 +255,30 @@ def _is_key_moment(
     if sc and not prev_sc:
         return True, f"Safety Car deployed on lap {lap} — free pit window!"
 
+    # 1b. VSC deployed — partial pit window (weaker than SC; only prompt if tires are worn)
+    if vsc and not prev_vsc and tire_age >= 10:
+        return (
+            True,
+            f"Virtual Safety Car on lap {lap} — evaluate pit window (tires: {tire_age}L)",
+        )
+
     # 2. RL recommends pitting — fire prompt when argmax is a pit action, tires
-    #    are not fresh (tire_age >= 5), and SC is NOT active.
+    #    are not fresh (tire_age >= 5), and SC/VSC is NOT active.
     #    • tire_age >= 5 prevents re-prompting immediately after a pit on fresh
     #      tires (e.g. consecutive SC laps where argmax stays PIT_MEDIUM even
     #      though the car pitted one lap ago).
-    #    • not sc keeps SC-period pit advice exclusively in trigger 1 (just
-    #      deployed), avoiding a second prompt if SC outlasts 5 laps after a pit.
+    #    • not sc/vsc keeps SC/VSC-period pit advice exclusively in trigger 1/1b
+    #      (just deployed), avoiding a second prompt if SC/VSC outlasts 5 laps.
     pit_prob = float(probs[3:].sum())
     best_action = int(probs.argmax())
-    if best_action >= 3 and not sc and tire_age >= 5 and lap > 4 and remaining > 8:
+    if (
+        best_action >= 3
+        and not sc
+        and not vsc
+        and tire_age >= 5
+        and lap > 4
+        and remaining > 8
+    ):
         compound_name = {3: "SOFT", 4: "MEDIUM", 5: "HARD", 6: "INTER"}.get(
             best_action, "MEDIUM"
         )
@@ -453,6 +477,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                                 float(info.get("gap_to_ahead", 99)), 2
                             ),
                             "safety_car": bool(info.get("safety_car", False)),
+                            "vsc": bool(info.get("vsc", False)),
                             "total_laps": total_laps,
                         },
                     }
@@ -525,6 +550,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
             lap_snap = {
                 "lap": int(new_info.get("lap_number", 1)),
                 "safety_car": bool(new_info.get("safety_car", False)),
+                "vsc": bool(new_info.get("vsc", False)),
                 "standings": standings,
                 "user": {
                     "position": new_info.get("position"),
@@ -535,6 +561,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                     "gap_to_leader": round(float(new_info.get("gap_to_leader", 0)), 2),
                     "gap_to_ahead": round(float(new_info.get("gap_to_ahead", 99)), 2),
                     "safety_car": bool(new_info.get("safety_car", False)),
+                    "vsc": bool(new_info.get("vsc", False)),
                     "action_taken": action,
                     "action_name": ACTION_NAMES[action],
                 },

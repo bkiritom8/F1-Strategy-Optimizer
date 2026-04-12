@@ -51,6 +51,7 @@ interface DriverLapState {
 interface LapSnap {
   lap: number;
   safety_car: boolean;
+  vsc: boolean;
   standings: DriverLapState[];
   user: {
     position: number;
@@ -61,6 +62,7 @@ interface LapSnap {
     gap_to_leader: number;
     gap_to_ahead: number;
     safety_car: boolean;
+    vsc: boolean;
     action_taken: number;
     action_name: string;
   };
@@ -84,6 +86,7 @@ interface PromptState {
     gap_to_leader: number;
     gap_to_ahead: number;
     safety_car: boolean;
+    vsc?: boolean;
     total_laps: number;
   };
 }
@@ -217,7 +220,8 @@ const RaceTrackViz: React.FC<{
   totalLaps: number;
   currentLap: number;
   safetyCarActive: boolean;
-}> = ({ circuitId, standings, userDriverId, totalLaps, currentLap, safetyCarActive }) => {
+  vscActive: boolean;
+}> = ({ circuitId, standings, userDriverId, totalLaps, currentLap, safetyCarActive, vscActive }) => {
   const trackInfo = TRACK_REGISTRY.find(t => t.id === circuitId);
 
   return (
@@ -238,6 +242,15 @@ const RaceTrackViz: React.FC<{
               className="text-[9px] font-black px-2 py-0.5 rounded bg-yellow-400 text-black uppercase tracking-wider"
             >
               SAFETY CAR
+            </motion.span>
+          )}
+          {vscActive && !safetyCarActive && (
+            <motion.span
+              animate={{ opacity: [1, 0.4, 1] }}
+              transition={{ duration: 0.8, repeat: Infinity }}
+              className="text-[9px] font-black px-2 py-0.5 rounded bg-orange-400 text-black uppercase tracking-wider"
+            >
+              VIRTUAL SC
             </motion.span>
           )}
           <span className="text-[9px] font-mono text-white/30 uppercase">
@@ -565,6 +578,9 @@ const LapTimeline: React.FC<{ laps: LapSnap[]; userDriverId: string }> = ({ laps
               {snap.safety_car && (
                 <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-yellow-400/20 text-yellow-300">SC</span>
               )}
+              {snap.vsc && !snap.safety_car && (
+                <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-orange-400/20 text-orange-300">VSC</span>
+              )}
               <span className="ml-auto text-white/20">{u.fuel_kg.toFixed(0)}kg</span>
             </div>
           );
@@ -801,6 +817,7 @@ const RaceSimulation: React.FC = () => {
   const [raceName, setRaceName] = useState('');
   const [currentLap, setCurrentLap] = useState(0);
   const [safetyCarActive, setSafetyCarActive] = useState(false);
+  const [vscActive, setVscActive] = useState(false);
   const [activePrompt, setActivePrompt] = useState<PromptState | null>(null);
   const [promptLoading, setPromptLoading] = useState(false);
   const [finishedResult, setFinishedResult] = useState<RaceFinished | null>(null);
@@ -853,6 +870,7 @@ const RaceSimulation: React.FC = () => {
       }
       setCurrentLap(lapSnap.lap);
       setSafetyCarActive(lapSnap.safety_car);
+      setVscActive(lapSnap.vsc ?? false);
       if (lapSnap.standings?.length > 0) setCurrentStandings(lapSnap.standings);
       setStatusMsg(`Lap ${lapSnap.lap} / ${totalLapsRef.current}`);
       playbackIdxRef.current = idx + 1;
@@ -917,6 +935,7 @@ const RaceSimulation: React.FC = () => {
     setCurrentStandings([]);
     setCurrentLap(0);
     setSafetyCarActive(false);
+    setVscActive(false);
     setActivePrompt(null);
     setFinishedResult(null);
     setStatusMsg('Connecting to simulation…');
@@ -1263,6 +1282,7 @@ const RaceSimulation: React.FC = () => {
         totalLaps={totalLaps}
         currentLap={currentLap}
         safetyCarActive={safetyCarActive}
+        vscActive={vscActive}
       />
 
       {/* Standings + lap log */}
