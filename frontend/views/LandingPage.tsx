@@ -14,7 +14,6 @@ import {
   Database,
   BarChart3,
   X,
-  Github,
   Lock,
   ShieldCheck,
   ChevronDown,
@@ -247,22 +246,12 @@ const LandingPage: React.FC<Props> = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 h-20 backdrop-blur-md border-b border-white/5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-900/20">
-            <img src="/apex-logo-128.png" alt="Apex" className="w-8 h-8 rounded-lg object-contain" />
+            <img src="/apex-logo.svg" alt="Apex" className="w-8 h-8 rounded-lg object-contain" />
           </div>
           <span className="font-display font-black text-xl italic tracking-tighter uppercase">Apex Intelligence</span>
         </div>
         
         <div className="flex items-center gap-4 md:gap-10">
-          <a 
-            href="https://github.com/nateplusplus/F1-Strategy-Optimizer" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-white/40 hover:text-white transition-all group"
-          >
-            <Github className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Repository</span>
-          </a>
-
           {!isAdmin ? (
              <button
               onClick={() => setAdminModalOpen(true)}
@@ -317,7 +306,7 @@ const LandingPage: React.FC<Props> = () => {
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 mt-0.5">2026 Season Engine Active</span>
           </motion.div>
 
-          <img src="/full-logo-400.png" alt="Apex Intelligence" className="h-16 md:h-20 object-contain mb-8 mx-auto drop-shadow-2xl" />
+          <img src="/apex-logo.svg" alt="Apex Intelligence" className="h-16 md:h-20 object-contain mb-8 mx-auto drop-shadow-2xl" />
           <h1 className="font-display font-black text-6xl md:text-8xl italic tracking-tighter uppercase leading-[0.9] mb-8 hero-gradient-text">
             Outthink.<br />Outpace.<br />Outsmart.<br />Optimize.
           </h1>
@@ -633,14 +622,6 @@ const LandingPage: React.FC<Props> = () => {
             >
               Enter Command Center
             </button>
-            <a
-               href="https://github.com/nateplusplus/F1-Strategy-Optimizer"
-               target="_blank"
-               rel="noopener noreferrer"
-               className="w-full sm:w-auto px-12 py-5 rounded-full glass-morphism text-white font-black uppercase tracking-widest text-sm hover:bg-white/5 transition-all flex items-center justify-center gap-3"
-            >
-              <Github className="w-5 h-5" /> Repository
-            </a>
           </div>
         </motion.div>
       </section>

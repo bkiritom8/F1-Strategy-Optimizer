@@ -211,7 +211,7 @@ const App: React.FC = () => {
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           aria-label="Go to home page"
         >
-          <img src="/apex-logo-128.png" alt="Apex" className="w-7 h-7 rounded-lg object-contain" />
+          <img src="/apex-logo.svg" alt="Apex" className="w-7 h-7 rounded-lg object-contain" />
           <span className="font-display font-black tracking-tighter text-lg italic">{APP_NAME}</span>
         </button>
       </div>
@@ -235,7 +235,7 @@ const App: React.FC = () => {
               className="w-10 h-10 rounded-xl shrink-0 overflow-hidden shadow-lg shadow-red-900/20 hover:opacity-80 transition-opacity"
               aria-label="Go to home page"
             >
-              <img src="/apex-logo-128.png" alt="Apex Intelligence" className="w-full h-full object-contain" />
+              <img src="/apex-logo.svg" alt="Apex Intelligence" className="w-full h-full object-contain" />
             </button>
             <AnimatePresence>
               {!sidebarCollapsed && (
