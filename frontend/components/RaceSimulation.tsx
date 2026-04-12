@@ -543,7 +543,7 @@ const LapTimeline: React.FC<{ laps: LapSnap[]; userDriverId: string }> = ({ laps
       <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--border-color)' }}>
         <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-white/40">Lap Log</span>
       </div>
-      <div ref={ref} className="overflow-y-auto max-h-52 scrollbar-hide">
+      <div ref={ref} className="overflow-y-auto max-h-[380px] scrollbar-hide">
         {laps.length === 0 && (
           <p className="text-[10px] font-mono text-white/20 p-4 text-center">Simulation starting…</p>
         )}
