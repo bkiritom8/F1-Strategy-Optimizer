@@ -548,7 +548,7 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
             )
 
             lap_snap = {
-                "lap": int(new_info.get("lap_number", 1)),
+                "lap": int(info.get("lap_number", 1)),
                 "safety_car": bool(new_info.get("safety_car", False)),
                 "vsc": bool(new_info.get("vsc", False)),
                 "standings": standings,

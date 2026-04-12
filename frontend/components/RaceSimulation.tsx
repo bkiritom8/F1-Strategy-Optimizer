@@ -223,6 +223,54 @@ const RaceTrackViz: React.FC<{
   vscActive: boolean;
 }> = ({ circuitId, standings, userDriverId, totalLaps, currentLap, safetyCarActive, vscActive }) => {
   const trackInfo = TRACK_REGISTRY.find(t => t.id === circuitId);
+  const trackPathRef = useRef<SVGPathElement | null>(null);
+  const overlayRef = useRef<SVGSVGElement | null>(null);
+  // Callback-ref maps: populated once on mount, O(1) lookup per frame
+  const circleMapRef = useRef<Map<string, SVGCircleElement>>(new Map());
+  const labelMapRef = useRef<Map<string, SVGTextElement>>(new Map());
+  const lapStartRef = useRef<number>(Date.now());
+  const animRef = useRef<number | null>(null);
+  // Keep latest values accessible inside the rAF closure without re-subscribing
+  const standingsRef = useRef(standings);
+  standingsRef.current = standings;
+  const lapIntervalRef = useRef(1_578);
+  lapIntervalRef.current = totalLaps > 0 ? 90_000 / totalLaps : 1_578;
+
+  // Reset lap clock each time the displayed lap number advances
+  useEffect(() => { lapStartRef.current = Date.now(); }, [currentLap]);
+
+  // Continuous animation loop — moves dots imperatively so React doesn't re-render at 60 fps
+  useEffect(() => {
+    const tick = () => {
+      const pathEl = trackPathRef.current;
+      if (pathEl) {
+        const totalLength = pathEl.getTotalLength();
+        const elapsed = Date.now() - lapStartRef.current;
+        const lapFrac = Math.min(elapsed / lapIntervalRef.current, 1.0);
+        const S = standingsRef.current;
+        const n = S.length || 20;
+        for (const d of S) {
+          // P1 is furthest ahead (gapFrac → highest), P-last is at 0
+          const gapFrac = (n - d.position) / n;
+          const frac = (lapFrac + gapFrac) % 1.0;
+          const pt = pathEl.getPointAtLength(frac * totalLength);
+          const circle = circleMapRef.current.get(d.driver_id);
+          if (circle) {
+            circle.setAttribute('cx', pt.x.toFixed(1));
+            circle.setAttribute('cy', pt.y.toFixed(1));
+          }
+          const label = labelMapRef.current.get(d.driver_id);
+          if (label) {
+            label.setAttribute('x', pt.x.toFixed(1));
+            label.setAttribute('y', (pt.y + 12).toFixed(1));
+          }
+        }
+      }
+      animRef.current = requestAnimationFrame(tick);
+    };
+    animRef.current = requestAnimationFrame(tick);
+    return () => { if (animRef.current !== null) cancelAnimationFrame(animRef.current); };
+  }, []); // empty: all mutable state accessed via refs
 
   return (
     <div className="relative rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-color)', backgroundColor: '#0A0A0A' }}>
@@ -270,11 +318,11 @@ const RaceTrackViz: React.FC<{
             strokeWidth={3}
             showStartFinish
             animated={false}
+            pathRef={trackPathRef}
           />
-          {/* Driver dots: SVG overlay so elements render correctly in SVG context.
-              Ellipse uses position-index spread (330°) so leader at top and last
-              car never overlap. ViewBox matches TrackDisplay's 300x200 space. */}
+          {/* Driver dots — positions driven imperatively by the rAF loop above */}
           <svg
+            ref={overlayRef}
             className="absolute inset-0"
             width={320}
             height={220}
@@ -282,21 +330,18 @@ const RaceTrackViz: React.FC<{
             style={{ pointerEvents: 'none' }}
           >
             {standings.map((d) => {
-              const totalCars = standings.length || 20;
-              const frac = (d.position - 1) / totalCars;
-              // 330° span starting from top (-90°), leader at top, cars spread clockwise
-              const angle = frac * (330 / 360) * 2 * Math.PI - Math.PI / 2;
-              const rx = 118, ry = 78;
-              const cx = 150 + rx * Math.cos(angle);
-              const cy = 100 + ry * Math.sin(angle);
               const isUser = d.driver_id === userDriverId;
               const teamColor = (TEAM_COLORS as any)[d.team] ?? '#888';
               return (
                 <g key={d.driver_id}>
                   <title>{`P${d.position} ${d.display_name}`}</title>
                   <circle
-                    cx={cx}
-                    cy={cy}
+                    ref={(el) => {
+                      if (el) circleMapRef.current.set(d.driver_id, el);
+                      else circleMapRef.current.delete(d.driver_id);
+                    }}
+                    cx={0}
+                    cy={0}
                     r={isUser ? 6 : 4}
                     fill={isUser ? COLORS.accent.red : teamColor}
                     stroke={isUser ? '#fff' : 'rgba(255,255,255,0.3)'}
@@ -305,8 +350,12 @@ const RaceTrackViz: React.FC<{
                   />
                   {isUser && (
                     <text
-                      x={cx}
-                      y={cy + 12}
+                      ref={(el) => {
+                        if (el) labelMapRef.current.set(d.driver_id, el);
+                        else labelMapRef.current.delete(d.driver_id);
+                      }}
+                      x={0}
+                      y={12}
                       textAnchor="middle"
                       fontSize={6}
                       fill="#fff"

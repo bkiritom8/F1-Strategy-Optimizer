@@ -55,6 +55,7 @@ def _make_lap(
         gap_to_leader=0.0,
         gap_to_ahead=0.0,
         safety_car=False,
+        vsc=False,
         cumulative_time_ms=cumulative_time_ms,
     )
 
@@ -165,6 +166,7 @@ class TestComputeRisk:
                     gap_to_leader=0.0,
                     gap_to_ahead=0.0,
                     safety_car=False,
+                    vsc=False,
                     cumulative_time_ms=float(i * 90_000),
                 )
             )
