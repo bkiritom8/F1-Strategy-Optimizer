@@ -245,13 +245,14 @@ def _is_key_moment(
     if sc and not prev_sc:
         return True, f"Safety Car deployed on lap {lap} — free pit window!"
 
-    # 2. RL recommends pitting — fire prompt when argmax is a pit action OR total
-    #    pit probability exceeds 0.45. The lower threshold catches cases where
-    #    pit prob is split across MEDIUM/HARD (each ~0.25) but argmax is clearly
-    #    a pit, preventing silent auto-pits in the else branch.
+    # 2. RL recommends pitting — fire prompt when argmax is a pit action AND
+    #    tires have been out long enough to justify a pit (tire_age >= 5).
+    #    The tire_age guard prevents re-prompting on fresh tires immediately
+    #    after a pit (e.g. consecutive SC laps where argmax stays PIT_MEDIUM
+    #    even though the car pitted one lap ago).
     pit_prob = float(probs[3:].sum())
     best_action = int(probs.argmax())
-    if best_action >= 3 and lap > 4 and remaining > 8:
+    if best_action >= 3 and tire_age >= 5 and lap > 4 and remaining > 8:
         compound_name = {3: "SOFT", 4: "MEDIUM", 5: "HARD", 6: "INTER"}.get(
             best_action, "MEDIUM"
         )
