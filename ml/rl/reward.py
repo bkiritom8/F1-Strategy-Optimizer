@@ -28,7 +28,9 @@ COMPOUND_OPTIMAL_LAPS: dict[str, int] = {
 POS_GAIN_REWARD = 5.0
 POS_LOSS_PENALTY = 3.0
 PIT_BASE_COST = 1.0  # reduced from 2.0 — prevents "never pit" trap
-SC_PIT_BONUS = 3.0   # reduced from 8.0 — was 8× the pit cost, causing agent to pit every SC
+SC_PIT_BONUS = (
+    3.0  # reduced from 8.0 — was 8× the pit cost, causing agent to pit every SC
+)
 
 # Terminal rewards: graduated P1–P20 so the agent has a gradient signal
 # even when finishing outside the points.

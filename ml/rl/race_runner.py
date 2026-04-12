@@ -626,9 +626,9 @@ def _registry_lookup(race_id: str) -> dict | None:
 FUEL_START_KG = 110.0
 PIT_STOP_LOSS_MS = 25_000.0
 SC_LAP_DELTA_MS = 15_000.0  # SC adds ~15 s per lap (field bunched, no racing)
-SC_END_PROB = 0.18        # ~5-6 lap avg SC duration (was 0.40 = 2.5 laps)
+SC_END_PROB = 0.18  # ~5-6 lap avg SC duration (was 0.40 = 2.5 laps)
 SC_MIN_LAPS = 2  # minimum laps SC/VSC must be active before it can clear
-SC_DEFAULT_PROB = 0.02   # fallback when model not loaded (was 0.04)
+SC_DEFAULT_PROB = 0.02  # fallback when model not loaded (was 0.04)
 SC_RACE_PROB_DEFAULT = 0.65  # ~65% of F1 races historically have at least one SC
 
 VSC_LAP_DELTA_MS = 6_000.0  # VSC adds ~6 s per lap (delta-time enforced, no bunching)
