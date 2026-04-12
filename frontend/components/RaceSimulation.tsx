@@ -254,8 +254,8 @@ const RaceTrackViz: React.FC<{
             trackId={circuitId}
             width={320}
             height={220}
-            strokeColor="rgba(255,255,255,0.15)"
-            strokeWidth={4}
+            strokeColor="rgba(255,255,255,0.45)"
+            strokeWidth={3}
             showStartFinish
             animated={false}
           />
@@ -950,7 +950,22 @@ const RaceSimulation: React.FC = () => {
         const tl: number = msg.total_laps ?? 57;
         totalLapsRef.current = tl;
         setTotalLaps(tl);
-        setCircuitId(msg.circuit_id);
+        // Map backend circuit_id values to the TRACK_REGISTRY IDs used by TrackDisplay.
+        // Backend uses historical/canonical names; frontend uses short display names.
+        const CIRCUIT_ID_MAP: Record<string, string> = {
+          albert_park: 'melbourne',
+          catalunya:   'barcelona',
+          red_bull_ring: 'spielberg',
+          hungaroring: 'budapest',
+          marina_bay:  'singapore',
+          americas:    'cota',
+          rodriguez:   'mexico',
+          las_vegas:   'vegas',
+          losail:      'lusail',
+          villeneuve:  'montreal',
+        };
+        const rawId: string = msg.circuit_id ?? '';
+        setCircuitId(CIRCUIT_ID_MAP[rawId] ?? rawId);
         setRaceName(msg.circuit_name);
         setStatusMsg(`Race loaded: ${msg.circuit_name} · ${tl} laps — starting…`);
         // Initialise standings from starting grid so drivers appear immediately
