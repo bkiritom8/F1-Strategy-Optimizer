@@ -1,6 +1,6 @@
-# Contributing to F1 Strategy Optimizer
+# Contributing to DivergeX
 
-First off, thank you for considering contributing to the F1 Strategy Optimizer! It's people like you who make this project a great tool for the racing community.
+First off, thank you for considering contributing to DivergeX! It's people like you who make this project a great tool for the racing community.
 
 ## Code of Conduct
 

@@ -1,6 +1,6 @@
-# Apex Intelligence | F1 Strategy Frontend
+# DivergeX | F1 Strategy Frontend
 
-Production React 19 + TypeScript dashboard for the F1 Strategy Optimizer. Visualizes real-time telemetry, historical trends, Monte Carlo simulations, and ML-powered strategy recommendations. Deployed on **Firebase Hosting**.
+Production React 19 + TypeScript dashboard for DivergeX. Visualizes real-time telemetry, historical trends, Monte Carlo simulations, and ML-powered strategy recommendations. Deployed on **Firebase Hosting**.
 
 ## Tech Stack
 

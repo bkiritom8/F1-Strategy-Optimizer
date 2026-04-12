@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-The F1 Strategy Optimizer trains on 76 years of race data (1950–2026). This span
+DivergeX trains on 76 years of race data (1950–2026). This span
 introduces significant representation bias:
 
 - **Temporal bias**: 86% of data points come from 2014+ (hybrid era). Pre-2010 data

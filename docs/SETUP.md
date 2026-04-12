@@ -1,4 +1,4 @@
-# F1 Strategy Optimizer — Setup
+# DivergeX — Setup
 
 This project runs entirely on GCP — there is no local Docker or database setup.
 

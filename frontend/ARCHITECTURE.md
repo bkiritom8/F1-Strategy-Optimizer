@@ -1,7 +1,7 @@
-# Apex Intelligence Architecture
+# DivergeX Architecture
 
 This document outlines the technical architecture, design principles, and API integration
-for the Apex Intelligence platform.
+for the DivergeX platform.
 
 ## 1. Technology Stack
 

@@ -1,4 +1,4 @@
-# Antigravity IDE: Push + Deploy F1 Strategy Optimizer Backend
+# Antigravity IDE: Push + Deploy DivergeX Backend
 
 ## Context
 - Repo: `/Users/skymaster/Library/CloudStorage/OneDrive-NortheasternUniversity/Projects/F1-Strategy-Optimizer`
@@ -85,7 +85,7 @@ The health check should return `{"status": "healthy", ...}`. The OPTIONS request
 - All `/users/*` routes (login, register, OTP, verify-email, me)
 - All `/api/v1/*` routes (race state, drivers, strategy simulate)
 - `/llm/chat` endpoint for the AI Strategist
-- Upgraded email templates (OTP + verification) with Apex Intelligence dark branding
+- Upgraded email templates (OTP + verification) with DivergeX dark branding
 - Pydantic v2 migration in schema_validator.py
 
 ### Troubleshooting

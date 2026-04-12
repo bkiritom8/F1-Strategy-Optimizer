@@ -1,6 +1,6 @@
 # Team Documentation
 
-Internal developer documentation for the F1 Strategy Optimizer project.
+Internal developer documentation for the DivergeX project.
 These files are for contributors — not part of the course submission.
 
 ## Contents

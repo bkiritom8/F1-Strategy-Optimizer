@@ -4,7 +4,7 @@
 
 ## Overview
 
-The F1 Strategy Optimizer employs 6 supervised ensemble models plus a PPO reinforcement learning agent. All supervised models are trained on FastF1 data 2018–2025 using a temporal split (train 2018–2021, val 2022–2023, test 2024). Training scripts live in `ml/training/`, model wrappers in `ml/models/`.
+DivergeX employs 6 supervised ensemble models plus a PPO reinforcement learning agent. All supervised models are trained on FastF1 data 2018–2025 using a temporal split (train 2018–2021, val 2022–2023, test 2024). Training scripts live in `ml/training/`, model wrappers in `ml/models/`.
 
 ## Model Architecture Summary
 

@@ -4,7 +4,7 @@
 
 ## Overview
 
-The F1 Strategy Optimizer training pipeline uses Vertex AI — either individual Custom Jobs
+The DivergeX training pipeline uses Vertex AI — either individual Custom Jobs
 for development experiments or a full KFP Pipeline for end-to-end runs. All training code
 lives in `ml/`.
 

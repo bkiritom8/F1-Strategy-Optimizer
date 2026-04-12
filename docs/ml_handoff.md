@@ -1,4 +1,4 @@
-# F1 Strategy Optimizer — ML Team Handoff
+# DivergeX — ML Team Handoff
 
 **Date:** 2026-04-02
 **Status:** Full ML pipeline complete — 6 supervised models + PPO RL agent trained, tested, and deployed.

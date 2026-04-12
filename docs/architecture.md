@@ -4,7 +4,7 @@
 
 ## Overview
 
-The F1 Strategy Optimizer is a production-grade system built on Google Cloud Platform, designed for real-time race strategy recommendations with <500ms P99 latency. Infrastructure is fully managed by Terraform and deployed to `us-central1`. Race/ML data lives in GCS. User accounts and audit records live in Firestore (Native mode).
+DivergeX is a production-grade system built on Google Cloud Platform, designed for real-time race strategy recommendations with <500ms P99 latency. Infrastructure is fully managed by Terraform and deployed to `us-central1`. Race/ML data lives in GCS. User accounts and audit records live in Firestore (Native mode).
 
 ## High-Level Architecture
 

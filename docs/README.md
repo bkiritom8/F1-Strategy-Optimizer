@@ -1,6 +1,6 @@
 # Documentation
 
-Technical architecture, setup guides, ML handoffs, and operational references for the F1 Strategy Optimizer.
+Technical architecture, setup guides, ML handoffs, and operational references for DivergeX.
 
 ## Index
 

@@ -4,7 +4,7 @@
 
 ## Overview
 
-Production monitoring for the F1 Strategy Optimizer using Google Cloud Monitoring, Cloud Logging, and custom alerting. This document covers metrics collection, dashboards, alert rules, and incident response procedures.
+Production monitoring for DivergeX using Google Cloud Monitoring, Cloud Logging, and custom alerting. This document covers metrics collection, dashboards, alert rules, and incident response procedures.
 
 ## Monitoring Architecture
 

@@ -1,6 +1,6 @@
 # Test Suites
 
-Integration, unit, and E2E tests for the F1 Strategy Optimizer backend, ML pipeline, and frontend.
+Integration, unit, and E2E tests for the DivergeX backend, ML pipeline, and frontend.
 
 ## Structure
 

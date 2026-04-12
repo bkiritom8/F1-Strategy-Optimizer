@@ -4,7 +4,7 @@
 
 ## Overview
 
-The F1 Strategy Optimizer leverages 76 years of comprehensive Formula 1 data spanning 1950–2026, encompassing race results, pit stops, qualifying sessions, and high-frequency telemetry. All data is stored in GCS as CSV (raw) and Parquet (processed) — there is no database.
+DivergeX leverages 76 years of comprehensive Formula 1 data spanning 1950–2026, encompassing race results, pit stops, qualifying sessions, and high-frequency telemetry. All data is stored in GCS as CSV (raw) and Parquet (processed) — there is no database.
 
 ## Data Card
 

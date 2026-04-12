@@ -1,6 +1,6 @@
 # Shared Backend Logic
 
-Core Python libraries and FastAPI application for the F1 Strategy Optimizer, deployed on Cloud Run `f1-strategy-api-dev`.
+Core Python libraries and FastAPI application for DivergeX, deployed on Cloud Run `f1-strategy-api-dev`.
 
 ## Directory Structure
 

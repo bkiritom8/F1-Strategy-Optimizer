@@ -11,7 +11,7 @@ Only the latest `main` and `pipeline` branches are currently supported with secu
 
 ## Reporting a Vulnerability
 
-We take the security of the F1 Strategy Optimizer seriously. If you believe you have found a security vulnerability, please report it to us responsibly.
+We take the security of DivergeX seriously. If you believe you have found a security vulnerability, please report it to us responsibly.
 
 **Please do not report security vulnerabilities via public GitHub issues.**
 
@@ -24,4 +24,4 @@ We will acknowledge receipt of your vulnerability report as soon as possible and
 - Steps to reproduce the vulnerability.
 - Any suggested mitigations or fixes.
 
-Thank you for helping us keep Apex Intelligence secure.
+Thank you for helping us keep DivergeX secure.

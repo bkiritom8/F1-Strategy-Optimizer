@@ -1,4 +1,4 @@
-# F1 Complete Race Strategy Optimizer
+# DivergeX
 
 > **Production-grade, real-time Formula 1 race strategy intelligence — powered by 76 years of F1 data, six machine learning models, a reinforcement learning agent, a Retrieval-Augmented Generation (RAG) knowledge base, and a Monte Carlo race simulator. Driver-aware recommendations with a <500ms P99 latency target, deployed on Google Cloud.**
 
@@ -8,7 +8,7 @@
 
 Formula 1 race strategy is one of the most consequential and time-pressured decision-making environments in professional sport. A single pit stop decision — timed a lap too early or a lap too late — can swing a race result by multiple positions. The compounding complexity of tyre degradation curves, safety car probability windows, competitor undercut threat, fuel load, brake temperature, and real-time weather creates a decision space that is difficult even for experienced race engineers armed with telemetry and decades of institutional knowledge.
 
-**The F1 Complete Race Strategy Optimizer** is a full-stack AI system designed to replicate and exceed the reasoning quality of an F1 strategy wall — in real time, for any driver, at any circuit, under live race conditions. The system ingests raw telemetry and historical race data at the 10Hz level, runs it through a seven-model ML ensemble, and surfaces actionable strategy decisions through a modern web dashboard. It is not a toy. It is architected as a production service: containerized, deployed to Cloud Run, continuously trained on Vertex AI, tested across 87 automated test cases, and monitored through a CI/CD pipeline on Google Cloud Build.
+**DivergeX** is a full-stack AI system designed to replicate and exceed the reasoning quality of an F1 strategy wall — in real time, for any driver, at any circuit, under live race conditions. The system ingests raw telemetry and historical race data at the 10Hz level, runs it through a seven-model ML ensemble, and surfaces actionable strategy decisions through a modern web dashboard. It is not a toy. It is architected as a production service: containerized, deployed to Cloud Run, continuously trained on Vertex AI, tested across 87 automated test cases, and monitored through a CI/CD pipeline on Google Cloud Build.
 
 This is the kind of system that a real F1 team's data science group would build. The goal is to demonstrate that an end-to-end production ML system — from raw data acquisition to a live user interface — can be built as a solo engineering project, at scale, with correct infrastructure choices.
 
@@ -119,7 +119,7 @@ Beyond direct ML inference, the system includes three intelligence layers:
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│               REACT FRONTEND (frontend/) — Apex Intelligence         │
+│               REACT FRONTEND (frontend/) — DivergeX                  │
 │                                                                      │
 │  React 19 + TypeScript + Vite 6 + Tailwind CSS + Zustand            │
 │  Firebase Hosting — https://f1optimizer.web.app                      │
@@ -218,7 +218,7 @@ ml/                    All ML code — features, models, training, rl, dag, dist
   distributed/         Cluster configs + distribution strategies
   dag/                 KFP v2 pipeline + 6 components
   tests/               All ML tests (87 tests total)
-frontend/              React 19 + TypeScript dashboard (Apex Intelligence)
+frontend/              React 19 + TypeScript dashboard (DivergeX)
 pipeline/scripts/      Data scripts (csv_to_parquet.py, verify_upload.py, backfill_data.py)
 rag/                   RAG pipeline — Vertex AI Vector Search, LangChain, embeddings
 ingest/                Cloud Run Jobs — Jolpica + FastF1 data acquisition

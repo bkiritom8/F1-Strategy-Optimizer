@@ -1,4 +1,4 @@
-# F1 Strategy Optimizer — Developer Setup Guide
+# DivergeX — Developer Setup Guide
 
 **Project**: `f1optimizer` (GCP, `us-central1`)
 **Repo**: [`bkiritom8/F1-Strategy-Optimizer`](https://github.com/bkiritom8/F1-Strategy-Optimizer) | Branch: `main` (stable) | `pipeline` (CI/CD)

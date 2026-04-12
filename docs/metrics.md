@@ -4,13 +4,13 @@
 
 ## Overview
 
-This document defines all key performance indicators (KPIs), success metrics, and validation criteria for the F1 Strategy Optimizer. Metrics are organized into 4 categories: Driver Profiles, Model Performance, Race Predictions, and Operations.
+This document defines all key performance indicators (KPIs), success metrics, and validation criteria for DivergeX. Metrics are organized into 4 categories: Driver Profiles, Model Performance, Race Predictions, and Operations.
 
 ## Metric Summary Dashboard
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    F1 STRATEGY OPTIMIZER METRICS                 │
+│                         DIVERGEX METRICS                         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Driver Profiles (3 metrics)                                    │

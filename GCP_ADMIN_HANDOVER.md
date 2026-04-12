@@ -1,6 +1,6 @@
-# GCP Admin Handover Guide: F1 Strategy Optimizer
+# GCP Admin Handover Guide: DivergeX
 
-This document provides the necessary steps to deploy and manage the F1 Strategy Optimizer in a production environment.
+This document provides the necessary steps to deploy and manage DivergeX in a production environment.
 
 ## 1. Production Secrets (GitHub Actions / Cloud Run)
 

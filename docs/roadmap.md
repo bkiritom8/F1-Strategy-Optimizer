@@ -6,7 +6,7 @@
 
 ## Overview
 
-The F1 Strategy Optimizer follows a phased development approach across 13 weeks, organized into 5 major phases: Setup & Data (Weeks 1-4), Model Development (Weeks 5-7), RAG + API (Weeks 8-9), Frontend + CI/CD (Weeks 10-11), and Driver Profiles + Monitoring (Weeks 12-13). Phases 1-4 are complete. Monte Carlo simulation pipeline is complete. Monitoring dashboards remain the only open item.
+DivergeX follows a phased development approach across 13 weeks, organized into 5 major phases: Setup & Data (Weeks 1-4), Model Development (Weeks 5-7), RAG + API (Weeks 8-9), Frontend + CI/CD (Weeks 10-11), and Driver Profiles + Monitoring (Weeks 12-13). Phases 1-4 are complete. Monte Carlo simulation pipeline is complete. Monitoring dashboards remain the only open item.
 
 ## Timeline Visualization
 
@@ -397,7 +397,7 @@ Monitoring Dashboards                                                    ░░�
 | 7 | All 6 Models + RL Trained | Complete | 6 supervised ensembles + PPO RL agent (`models/rl/final_policy.zip`) |
 | 9 | RAG Pipeline Added | Complete | `rag/` — chunker, embedder, Vector Search, Gemini retriever + API routes |
 | 11 | API Deployed | Complete | Cloud Run `f1-strategy-api-dev`, `/recommend` + `/rag/query` |
-| 11 | React Frontend Deployed | Complete | Firebase Hosting — Apex Intelligence (`frontend/`) |
+| 11 | React Frontend Deployed | Complete | Firebase Hosting — DivergeX (`frontend/`) |
 | 12 | CI/CD Stable | Complete | Cloud Build + GitHub Actions — all steps passing incl. test-rag |
 | 13 | Monitoring Dashboards | Not Started | Cloud Monitoring dashboards + alert policies |
 

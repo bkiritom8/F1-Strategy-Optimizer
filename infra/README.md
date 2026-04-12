@@ -1,6 +1,6 @@
 # Infrastructure as Code
 
-Terraform manages all GCP infrastructure for the F1 Strategy Optimizer. Budget hard cap: **$70/month**.
+Terraform manages all GCP infrastructure for DivergeX. Budget hard cap: **$70/month**.
 
 ## Structure
 
