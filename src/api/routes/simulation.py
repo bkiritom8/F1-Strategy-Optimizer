@@ -245,12 +245,15 @@ def _is_key_moment(
     if sc and not prev_sc:
         return True, f"Safety Car deployed on lap {lap} — free pit window!"
 
-    # 2. RL strongly recommends pitting
+    # 2. RL recommends pitting — fire prompt when argmax is a pit action OR total
+    #    pit probability exceeds 0.45. The lower threshold catches cases where
+    #    pit prob is split across MEDIUM/HARD (each ~0.25) but argmax is clearly
+    #    a pit, preventing silent auto-pits in the else branch.
     pit_prob = float(probs[3:].sum())
-    if pit_prob > 0.60 and lap > 4 and remaining > 8:
-        best_pit = int(3 + int(probs[3:].argmax()))
+    best_action = int(probs.argmax())
+    if best_action >= 3 and lap > 4 and remaining > 8:
         compound_name = {3: "SOFT", 4: "MEDIUM", 5: "HARD", 6: "INTER"}.get(
-            best_pit, "MEDIUM"
+            best_action, "MEDIUM"
         )
         return (
             True,
@@ -482,7 +485,12 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                 )
                 prompt_count += 1
             else:
-                action = rl_action
+                # Never auto-apply a pit action on a non-prompted lap.
+                # If the RL agent recommends pitting but this lap didn't
+                # qualify as a key moment (e.g. max prompts reached), fall
+                # back to STAY_BALANCED so the user is never force-pitted
+                # without being asked.
+                action = rl_action if rl_action < 3 else 1  # 1 = STAY_BALANCED
 
             # ── Step the simulation ────────────────────────────────────────────
             lap_records, new_obs, new_info = runner.step_lap(action)
