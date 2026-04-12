@@ -245,14 +245,16 @@ def _is_key_moment(
     if sc and not prev_sc:
         return True, f"Safety Car deployed on lap {lap} — free pit window!"
 
-    # 2. RL recommends pitting — fire prompt when argmax is a pit action AND
-    #    tires have been out long enough to justify a pit (tire_age >= 5).
-    #    The tire_age guard prevents re-prompting on fresh tires immediately
-    #    after a pit (e.g. consecutive SC laps where argmax stays PIT_MEDIUM
-    #    even though the car pitted one lap ago).
+    # 2. RL recommends pitting — fire prompt when argmax is a pit action, tires
+    #    are not fresh (tire_age >= 5), and SC is NOT active.
+    #    • tire_age >= 5 prevents re-prompting immediately after a pit on fresh
+    #      tires (e.g. consecutive SC laps where argmax stays PIT_MEDIUM even
+    #      though the car pitted one lap ago).
+    #    • not sc keeps SC-period pit advice exclusively in trigger 1 (just
+    #      deployed), avoiding a second prompt if SC outlasts 5 laps after a pit.
     pit_prob = float(probs[3:].sum())
     best_action = int(probs.argmax())
-    if best_action >= 3 and tire_age >= 5 and lap > 4 and remaining > 8:
+    if best_action >= 3 and not sc and tire_age >= 5 and lap > 4 and remaining > 8:
         compound_name = {3: "SOFT", 4: "MEDIUM", 5: "HARD", 6: "INTER"}.get(
             best_action, "MEDIUM"
         )
