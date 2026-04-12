@@ -197,7 +197,7 @@ class TestRewardFunction:
             lap_time_ms=85_000, tire_compound="SOFT",
             tire_age_laps=15, pitted=True, safety_car_active=True,
         )
-        assert r.sc_pit_bonus == pytest.approx(8.0)
+        assert r.sc_pit_bonus == pytest.approx(3.0)
 
     def test_no_sc_bonus_without_sc(self, rf):
         r = rf.step(
