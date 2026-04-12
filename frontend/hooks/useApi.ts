@@ -416,28 +416,40 @@ export function useBackendStatus() {
   useEffect(() => {
     let mounted = true;
 
-    const check = async () => {
+    const probe = async (): Promise<{ ok: boolean; ms: number; status?: number }> => {
       const start = performance.now();
       try {
+        // 15 s timeout covers Cloud Run cold starts (can take 15–40 s from scale-zero)
         const res = await fetch(`${API_BASE}/health`, {
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(15_000),
         });
-        const ms = Math.round(performance.now() - start);
-        if (mounted && res.ok) {
-          logger.api('GET', '/health', res.status, ms);
-          setOnline(true);
-          setLatency(ms);
-        } else if (mounted) {
-          logger.warn(`[useBackendStatus] /health returned ${res.status}`);
-          setOnline(false);
-          setLatency(null);
-        }
-      } catch (err: any) {
-        if (mounted) {
-          logger.warn(`[useBackendStatus] /health unreachable — ${err?.message}`);
-          setOnline(false);
-          setLatency(null);
-        }
+        return { ok: res.ok, ms: Math.round(performance.now() - start), status: res.status };
+      } catch {
+        return { ok: false, ms: Math.round(performance.now() - start) };
+      }
+    };
+
+    const check = async () => {
+      let result = await probe();
+
+      // If first probe failed, wait 8 s and retry once before declaring offline.
+      // This absorbs the tail of a Cloud Run cold start without thrashing the UI.
+      if (!result.ok && mounted) {
+        await new Promise((r) => setTimeout(r, 8_000));
+        if (!mounted) return;
+        result = await probe();
+      }
+
+      if (!mounted) return;
+
+      if (result.ok) {
+        logger.api('GET', '/health', result.status ?? 200, result.ms);
+        setOnline(true);
+        setLatency(result.ms);
+      } else {
+        logger.warn(`[useBackendStatus] /health unreachable after retry`);
+        setOnline(false);
+        setLatency(null);
       }
     };
 
