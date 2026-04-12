@@ -371,12 +371,17 @@ async def llm_chat(
             )
             context_docs = []
 
-        answer = client.generate_with_tools(
-            request.question,
-            _execute_strategy_tool,
-            structured_inputs=structured,
-            context_docs=context_docs,
-            history=[{"role": h.role, "content": h.content} for h in request.history],
+        import asyncio
+
+        history_list = [{"role": h.role, "content": h.content} for h in request.history]
+        answer = await asyncio.to_thread(
+            lambda: client.generate_with_tools(
+                request.question,
+                _execute_strategy_tool,
+                structured_inputs=structured,
+                context_docs=context_docs,
+                history=history_list,
+            )
         )
         latency_ms = round((time.time() - start) * 1000, 2)
 

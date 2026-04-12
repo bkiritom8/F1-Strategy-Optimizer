@@ -255,6 +255,41 @@ class GeminiClient:
         ]
         return any(t in q for t in triggers)
 
+    def generate_plain(self, prompt: str) -> str:
+        """Send a raw prompt to Gemini without cache, system prompt, or tools.
+
+        Used by the adversarial scorer's Gemini-as-judge layer.
+        """
+        self._ensure_initialized()
+        response = self._genai_client.models.generate_content(  # type: ignore[union-attr]
+            model=self._config.LLM_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.0,
+                max_output_tokens=16,
+            ),
+        )
+        return response.text or ""
+
+    async def async_generate(
+        self,
+        question: str,
+        context_docs: list = [],
+        structured_inputs: dict | None = None,
+        model_predictions: dict | None = None,
+    ) -> str:
+        """Async wrapper around generate() for use by ProviderChain / batcher.
+
+        Runs the synchronous Gemini call in a thread pool so it does not block
+        the event loop. model_predictions is accepted for interface compatibility
+        but is not forwarded (the GeminiClient generates its own predictions).
+        """
+        import asyncio
+
+        return await asyncio.to_thread(
+            self.generate, question, context_docs, structured_inputs
+        )
+
     def generate_with_tools(
         self,
         question: str,
