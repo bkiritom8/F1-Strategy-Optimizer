@@ -259,41 +259,54 @@ const RaceTrackViz: React.FC<{
             showStartFinish
             animated={false}
           />
-          {/* Driver position dots along track perimeter — distributed by gap */}
-          {standings.map((d) => {
-            const frac = Math.max(0, Math.min(1, 1 - (d.gap_to_leader / Math.max(0.1, (standings[standings.length - 1]?.gap_to_leader ?? 120)))));
-            const angle = frac * 2 * Math.PI - Math.PI / 2;
-            const rx = 130, ry = 85;
-            const cx = 160 + rx * Math.cos(angle);
-            const cy = 110 + ry * Math.sin(angle);
-            const isUser = d.driver_id === userDriverId;
-            const teamColor = (TEAM_COLORS as any)[d.team] ?? '#888';
-            return (
-              <g key={d.driver_id}>
-                <foreignObject x={cx - 8} y={cy - 8} width={16} height={16}>
-                  <div
-                    title={`P${d.position} ${d.display_name}`}
-                    style={{
-                      width: isUser ? 16 : 10,
-                      height: isUser ? 16 : 10,
-                      borderRadius: '50%',
-                      backgroundColor: isUser ? COLORS.accent.red : teamColor,
-                      border: isUser ? '2px solid #fff' : '1px solid rgba(255,255,255,0.3)',
-                      boxShadow: isUser ? '0 0 8px #E10600' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 6,
-                      fontWeight: 'bold',
-                      color: '#fff',
-                    }}
-                  >
-                    {isUser ? d.code?.slice(0, 3) : ''}
-                  </div>
-                </foreignObject>
-              </g>
-            );
-          })}
+          {/* Driver dots: SVG overlay so elements render correctly in SVG context.
+              Ellipse uses position-index spread (330°) so leader at top and last
+              car never overlap. ViewBox matches TrackDisplay's 300x200 space. */}
+          <svg
+            className="absolute inset-0"
+            width={320}
+            height={220}
+            viewBox="0 0 300 200"
+            style={{ pointerEvents: 'none' }}
+          >
+            {standings.map((d) => {
+              const totalCars = standings.length || 20;
+              const frac = (d.position - 1) / totalCars;
+              // 330° span starting from top (-90°), leader at top, cars spread clockwise
+              const angle = frac * (330 / 360) * 2 * Math.PI - Math.PI / 2;
+              const rx = 118, ry = 78;
+              const cx = 150 + rx * Math.cos(angle);
+              const cy = 100 + ry * Math.sin(angle);
+              const isUser = d.driver_id === userDriverId;
+              const teamColor = (TEAM_COLORS as any)[d.team] ?? '#888';
+              return (
+                <g key={d.driver_id}>
+                  <title>{`P${d.position} ${d.display_name}`}</title>
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={isUser ? 6 : 4}
+                    fill={isUser ? COLORS.accent.red : teamColor}
+                    stroke={isUser ? '#fff' : 'rgba(255,255,255,0.3)'}
+                    strokeWidth={isUser ? 2 : 1}
+                    style={isUser ? { filter: 'drop-shadow(0 0 4px #E10600)' } : undefined}
+                  />
+                  {isUser && (
+                    <text
+                      x={cx}
+                      y={cy + 12}
+                      textAnchor="middle"
+                      fontSize={6}
+                      fill="#fff"
+                      fontWeight="bold"
+                    >
+                      {d.code?.slice(0, 3)}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
         </div>
       </div>
 
@@ -804,8 +817,52 @@ const RaceSimulation: React.FC = () => {
   // ── WebSocket ref ────────────────────────────────────────────────────────────
   const wsRef = useRef<WebSocket | null>(null);
 
+  // ── Playback engine ───────────────────────────────────────────────────────────
+  // Full race compressed into RACE_PLAYBACK_MS (1.5 min). Laps stream into
+  // lapBufferRef from the WebSocket; the setInterval loop advances one lap at
+  // a time at the computed per-lap interval regardless of batch boundaries.
+  const RACE_PLAYBACK_MS = 90_000; // 1.5 minutes
+  const lapBufferRef = useRef<LapSnap[]>([]);
+  const playbackIdxRef = useRef(0);
+  const playbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const totalLapsRef = useRef(57);           // mirror of totalLaps state for callbacks
+  const raceFinishedDataRef = useRef<RaceFinished | null>(null); // deferred until playback ends
+
+  const stopPlayback = useCallback(() => {
+    if (playbackTimerRef.current !== null) {
+      clearInterval(playbackTimerRef.current);
+      playbackTimerRef.current = null;
+    }
+  }, []);
+
+  // Start the steady-tick playback loop (idempotent — safe to call multiple times).
+  const startPlayback = useCallback(() => {
+    if (playbackTimerRef.current !== null) return;
+    const lapIntervalMs = Math.max(100, RACE_PLAYBACK_MS / totalLapsRef.current);
+    playbackTimerRef.current = setInterval(() => {
+      const idx = playbackIdxRef.current;
+      const lapSnap = lapBufferRef.current[idx];
+      if (!lapSnap) {
+        // Buffer not yet filled — wait for more laps from WS.
+        // If the backend finished and there are no more laps, end playback.
+        if (raceFinishedDataRef.current) {
+          stopPlayback();
+          setFinishedResult(raceFinishedDataRef.current);
+          setPhase('finished');
+        }
+        return;
+      }
+      setCurrentLap(lapSnap.lap);
+      setSafetyCarActive(lapSnap.safety_car);
+      if (lapSnap.standings?.length > 0) setCurrentStandings(lapSnap.standings);
+      setStatusMsg(`Lap ${lapSnap.lap} / ${totalLapsRef.current}`);
+      playbackIdxRef.current = idx + 1;
+    }, lapIntervalMs);
+  }, [stopPlayback]);
+
   // ── Cleanup ──────────────────────────────────────────────────────────────────
   const closeWs = useCallback(() => {
+    stopPlayback();
     if (wsRef.current) {
       wsRef.current.onmessage = null;
       wsRef.current.onerror = null;
@@ -813,7 +870,7 @@ const RaceSimulation: React.FC = () => {
       wsRef.current.close();
       wsRef.current = null;
     }
-  }, []);
+  }, [stopPlayback]);
 
   useEffect(() => () => closeWs(), [closeWs]);
 
@@ -852,6 +909,10 @@ const RaceSimulation: React.FC = () => {
   // ── Start simulation ──────────────────────────────────────────────────────────
   const startSimulation = useCallback(() => {
     closeWs();
+    // Reset playback engine
+    lapBufferRef.current = [];
+    playbackIdxRef.current = 0;
+    raceFinishedDataRef.current = null;
     setPhase('running');
     setLaps([]);
     setCurrentStandings([]);
@@ -886,35 +947,63 @@ const RaceSimulation: React.FC = () => {
       const msg = JSON.parse(ev.data as string);
 
       if (msg.type === 'setup_ack') {
-        setTotalLaps(msg.total_laps);
+        const tl: number = msg.total_laps ?? 57;
+        totalLapsRef.current = tl;
+        setTotalLaps(tl);
         setCircuitId(msg.circuit_id);
         setRaceName(msg.circuit_name);
-        setStatusMsg(`Race loaded: ${msg.circuit_name} · ${msg.total_laps} laps`);
+        setStatusMsg(`Race loaded: ${msg.circuit_name} · ${tl} laps — starting…`);
+        // Initialise standings from starting grid so drivers appear immediately
+        if (Array.isArray(msg.drivers) && msg.drivers.length > 0) {
+          const gridStandings: DriverLapState[] = [...(msg.drivers as any[])]
+            .sort((a: any, b: any) => a.start_position - b.start_position)
+            .map((d: any, idx: number) => ({
+              driver_id: d.driver_id,
+              display_name: d.display_name,
+              code: d.code,
+              position: d.start_position,
+              compound: d.start_compound,
+              tire_age: 0,
+              gap_to_leader: idx * 0.5,
+              lap_time_ms: 0,
+              pit_stop: false,
+              new_compound: null,
+              team: d.team,
+              is_user: d.is_user,
+            }));
+          setCurrentStandings(gridStandings);
+          setCurrentLap(0);
+        }
       }
 
       else if (msg.type === 'laps') {
         const newLaps: LapSnap[] = msg.data;
         setLaps(prev => [...prev, ...newLaps]);
-        if (newLaps.length > 0) {
-          const last = newLaps[newLaps.length - 1];
-          setCurrentLap(last.lap);
-          setSafetyCarActive(last.safety_car);
-          if (last.standings?.length > 0) setCurrentStandings(last.standings);
-          setStatusMsg(`Simulating lap ${last.lap}…`);
-        }
+        // Append to playback buffer; loop will advance at the computed interval
+        lapBufferRef.current.push(...newLaps);
+        startPlayback();
       }
 
       else if (msg.type === 'prompt') {
-        setPhase('prompt');
-        setActivePrompt(msg as PromptState);
-        setStatusMsg(`Strategy decision required - Lap ${msg.lap}`);
+        // Auto-accept all strategy prompts so the race runs without pausing.
+        // The key-moment reason appears briefly in the status bar.
+        setStatusMsg(`Strategy: ${msg.reason}`);
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'accept' }));
+        }
       }
 
       else if (msg.type === 'finished') {
-        setFinishedResult(msg as RaceFinished);
-        setPhase('finished');
-        closeWs();
-        setStatusMsg('Race complete!');
+        // Store result but don't switch phase yet — playback loop will do that
+        // once it exhausts the lap buffer, so the user sees every lap played out.
+        // Close the WebSocket directly (not via closeWs) so the playback loop
+        // keeps running until the buffer is empty.
+        raceFinishedDataRef.current = msg as RaceFinished;
+        ws.onmessage = null;
+        ws.onclose = null;
+        ws.close();
+        wsRef.current = null;
+        setStatusMsg('Final lap — race finishing…');
       }
 
       else if (msg.type === 'error') {
@@ -934,7 +1023,7 @@ const RaceSimulation: React.FC = () => {
         setStatusMsg(`Disconnected (code ${ev.code})`);
       }
     };
-  }, [selectedRace, selectedDriver, startPosition, startCompound, closeWs, phase]);
+  }, [selectedRace, selectedDriver, startPosition, startCompound, closeWs, startPlayback, phase]);
 
   // ── Accept RL recommendation ─────────────────────────────────────────────────
   const handleAccept = useCallback(() => {
@@ -959,6 +1048,9 @@ const RaceSimulation: React.FC = () => {
   // ── Stop simulation ───────────────────────────────────────────────────────────
   const stopSimulation = useCallback(() => {
     closeWs();
+    lapBufferRef.current = [];
+    playbackIdxRef.current = 0;
+    raceFinishedDataRef.current = null;
     setPhase('setup');
     setStatusMsg('');
   }, [closeWs]);
@@ -966,6 +1058,9 @@ const RaceSimulation: React.FC = () => {
   // ── Reset ─────────────────────────────────────────────────────────────────────
   const reset = useCallback(() => {
     closeWs();
+    lapBufferRef.current = [];
+    playbackIdxRef.current = 0;
+    raceFinishedDataRef.current = null;
     setPhase('setup');
     setLaps([]);
     setCurrentStandings([]);
@@ -1111,27 +1206,39 @@ const RaceSimulation: React.FC = () => {
     );
   }
 
-  // RUNNING / PROMPT PHASE
+  // RUNNING PHASE (prompt phase no longer exists — prompts are auto-accepted)
+  const lapProgress = totalLaps > 0 ? Math.min(1, currentLap / totalLaps) : 0;
+
   return (
     <div className="space-y-4">
-      {/* Status bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <motion.div
-            animate={{ scale: [1, 1.3, 1] }}
-            transition={{ duration: 1, repeat: Infinity }}
-            className="w-2 h-2 rounded-full bg-red-500"
-          />
-          <span className="text-[10px] font-mono text-white/50">{statusMsg}</span>
+      {/* Status bar + race progress */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <motion.div
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+              className="w-2 h-2 rounded-full bg-red-500"
+            />
+            <span className="text-[10px] font-mono text-white/50">{statusMsg}</span>
+          </div>
+          <button
+            onClick={stopSimulation}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold text-white/40 hover:text-red-400 hover:border-red-600/40 transition-all"
+            style={{ borderColor: 'var(--border-color)' }}
+          >
+            <StopCircle className="w-3.5 h-3.5" />
+            Stop
+          </button>
         </div>
-        <button
-          onClick={stopSimulation}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold text-white/40 hover:text-red-400 hover:border-red-600/40 transition-all"
-          style={{ borderColor: 'var(--border-color)' }}
-        >
-          <StopCircle className="w-3.5 h-3.5" />
-          Stop
-        </button>
+        {/* Race progress bar — spans full 1.5-min playback */}
+        <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+          <motion.div
+            className="h-full rounded-full bg-red-600"
+            animate={{ width: `${lapProgress * 100}%` }}
+            transition={{ duration: 0.3, ease: 'linear' }}
+          />
+        </div>
       </div>
 
       {/* Track viz */}
@@ -1143,18 +1250,6 @@ const RaceSimulation: React.FC = () => {
         currentLap={currentLap}
         safetyCarActive={safetyCarActive}
       />
-
-      {/* RL Prompt overlay */}
-      <AnimatePresence>
-        {phase === 'prompt' && activePrompt && (
-          <StrategyPrompt
-            prompt={activePrompt}
-            onAccept={handleAccept}
-            onOverride={handleOverride}
-            loading={promptLoading}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Standings + lap log */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
