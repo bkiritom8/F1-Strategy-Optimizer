@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
 
@@ -94,7 +94,7 @@ async def lifespan(app: FastAPI):
             if model is not None:
                 _strategy_model = model
                 _models_loaded_from_gcs = True
-                _model_loaded_at = datetime.utcnow().isoformat()
+                _model_loaded_at = datetime.now(timezone.utc).isoformat()
                 logger.info(
                     "ML model loaded from GCS: strategy_predictor/latest/model.pkl"
                 )
@@ -297,7 +297,7 @@ async def health_check():
     """Health check endpoint"""
     return HealthResponse(
         status="healthy",
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         version="1.0.0",
         environment=ENV,
     )
@@ -885,7 +885,7 @@ async def full_simulate(
 async def system_health():
     """Return system health with real dependency checks."""
     checks: Dict[str, Any] = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "feature_pipeline": "not_loaded",
         "simulators_cached": 1 if _strategy_simulator is not None else 0,
         "ml_model": "loaded" if _strategy_model is not None else "fallback",
@@ -1038,7 +1038,7 @@ async def predict_safety_car(
     base_prob = 0.62 if is_street else 0.34
     return {
         "probability": base_prob,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "model_version": "safety_car/1.2.0",
     }
 

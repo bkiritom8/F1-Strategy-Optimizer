@@ -127,7 +127,12 @@ class TestStrategyRecommend:
 class TestDataDrivers:
     def test_returns_driver_list(self, client):
         token = _get_token(client)
-        r = client.get("/data/drivers", headers=_auth(token))
+        import pandas as pd
+        mock_pipeline = MagicMock()
+        mock_df = pd.DataFrame([{"driverId": "max_verstappen", "givenName": "Max", "familyName": "Verstappen", "nationality": "Dutch", "code": "VER"}])
+        mock_pipeline._drivers.return_value = mock_df
+        with patch("src.api.main._get_pipeline", return_value=mock_pipeline):
+            r = client.get("/data/drivers", headers=_auth(token))
         assert r.status_code == 200
         data = r.json()
         assert isinstance(data, list)
