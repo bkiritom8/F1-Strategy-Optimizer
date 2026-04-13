@@ -224,6 +224,81 @@ class StrategySimulator:
             strategy_summary=optimal_result.strategy_summary,
         )
 
+    # ── Strategy Hub entry point ──────────────────────────────────────────────
+
+    def simulate_with_strategy(
+        self,
+        race_id: str,
+        user_driver_id: str,
+        strategy: list[tuple[int, str]],
+        start_position: int = 10,
+        start_compound: str = "MEDIUM",
+        n_stochastic_runs: int = 6,
+    ) -> dict:
+        """Run one race with forced pit stops and return a result dict.
+
+        Called by POST /api/v1/strategy/simulate (Strategy Hub).
+
+        Args:
+            race_id:           e.g. "2026_1"
+            user_driver_id:    e.g. "max_verstappen"
+            strategy:          [(pit_lap, compound), ...] forced pit schedule
+            start_position:    Grid slot 1–20
+            start_compound:    Starting tire
+            n_stochastic_runs: Runs used to estimate win/podium probability
+
+        Returns dict with keys:
+            predicted_final_position, predicted_total_time_s,
+            lap_times_s, win_probability, podium_probability
+        """
+        profile = get_profile(user_driver_id)
+
+        # Deterministic run with the user's forced strategy
+        det_result = self._run_race(
+            race_id,
+            user_driver_id,
+            profile,
+            rivals=None,
+            start_position=start_position,
+            start_compound=start_compound,
+            strategy_override=strategy,
+            seed=42,
+        )
+
+        # Stochastic runs to estimate finishing probabilities
+        position_counts = [0] * 21
+        for seed in range(n_stochastic_runs):
+            r = self._run_race(
+                race_id,
+                user_driver_id,
+                profile,
+                rivals=None,
+                start_position=start_position,
+                start_compound=start_compound,
+                strategy_override=strategy,
+                seed=seed,
+            )
+            pos = max(1, min(r.user_final_position, 20))
+            position_counts[pos] += 1
+
+        finishing_probs = [
+            position_counts[p] / max(n_stochastic_runs, 1) for p in range(1, 11)
+        ]
+        win_prob = finishing_probs[0]
+        podium_prob = sum(finishing_probs[:3])
+
+        user_laps = det_result.lap_data.get(user_driver_id, [])
+        lap_times_s = [round(r.lap_time_ms / 1000.0, 3) for r in user_laps]
+        total_time_s = round(_total_time(det_result, user_driver_id) / 1000.0, 1)
+
+        return {
+            "predicted_final_position": det_result.user_final_position,
+            "predicted_total_time_s": total_time_s,
+            "lap_times_s": lap_times_s,
+            "win_probability": round(win_prob, 3),
+            "podium_probability": round(podium_prob, 3),
+        }
+
     # ── Race runner ───────────────────────────────────────────────────────────
 
     def _run_race(
