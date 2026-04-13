@@ -1,1 +1,1 @@
-from rag import vector_store
+# rag package
