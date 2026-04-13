@@ -14,7 +14,7 @@ def sanitize_data(df: pd.DataFrame) -> pd.DataFrame:
     logger.info("Sanitizing data...")
     df_clean = df.copy()
     df_clean = df_clean.dropna(how="all")
-    for col in df_clean.select_dtypes(include=["object", "str"]).columns:
+    for col in df_clean.select_dtypes(include=["object"]).columns:
         df_clean[col] = df_clean[col].str.strip()
     df_clean = df_clean.replace(r"^\s*$", np.nan, regex=True)
     original_count = len(df_clean)
