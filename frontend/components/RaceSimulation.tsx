@@ -914,6 +914,7 @@ const RaceSimulation: React.FC = () => {
   const playbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalLapsRef = useRef(57);           // mirror of totalLaps state for callbacks
   const raceFinishedDataRef = useRef<RaceFinished | null>(null); // deferred until playback ends
+  const pendingPromptRef = useRef<PromptState | null>(null);     // buffered until playback catches up
 
   const stopPlayback = useCallback(() => {
     if (playbackTimerRef.current !== null) {
@@ -930,12 +931,20 @@ const RaceSimulation: React.FC = () => {
       const idx = playbackIdxRef.current;
       const lapSnap = lapBufferRef.current[idx];
       if (!lapSnap) {
-        // Buffer not yet filled — wait for more laps from WS.
-        // If the backend finished and there are no more laps, end playback.
+        // Buffer empty — all buffered laps have been displayed.
         if (raceFinishedDataRef.current) {
           stopPlayback();
           setFinishedResult(raceFinishedDataRef.current);
           setPhase('finished');
+        } else if (pendingPromptRef.current) {
+          // A prompt was queued while laps were playing — fire it now that
+          // the user has seen all preceding laps.
+          const pending = pendingPromptRef.current;
+          pendingPromptRef.current = null;
+          stopPlayback();
+          setPhase('prompt');
+          setActivePrompt(pending);
+          setStatusMsg(`Strategy decision required — Lap ${pending.lap}`);
         }
         return;
       }
@@ -1001,6 +1010,7 @@ const RaceSimulation: React.FC = () => {
     lapBufferRef.current = [];
     playbackIdxRef.current = 0;
     raceFinishedDataRef.current = null;
+    pendingPromptRef.current = null;
     setPhase('running');
     setLaps([]);
     setCurrentStandings([]);
@@ -1094,10 +1104,10 @@ const RaceSimulation: React.FC = () => {
       }
 
       else if (msg.type === 'prompt') {
-        stopPlayback();
-        setPhase('prompt');
-        setActivePrompt(msg as PromptState);
-        setStatusMsg(`Strategy decision required - Lap ${msg.lap}`);
+        // Buffer the prompt — the playback loop will display it once all
+        // preceding laps have been rendered, so the user sees the simulation
+        // before the decision overlay appears.
+        pendingPromptRef.current = msg as PromptState;
       }
 
       else if (msg.type === 'finished') {
@@ -1130,7 +1140,7 @@ const RaceSimulation: React.FC = () => {
         setStatusMsg(`Disconnected (code ${ev.code})`);
       }
     };
-  }, [selectedRace, selectedDriver, startPosition, startCompound, closeWs, startPlayback, stopPlayback, phase]);
+  }, [selectedRace, selectedDriver, startPosition, startCompound, closeWs, startPlayback, phase]);
 
   // ── Accept RL recommendation ─────────────────────────────────────────────────
   const handleAccept = useCallback(() => {
@@ -1162,6 +1172,7 @@ const RaceSimulation: React.FC = () => {
     lapBufferRef.current = [];
     playbackIdxRef.current = 0;
     raceFinishedDataRef.current = null;
+    pendingPromptRef.current = null;
     setPhase('setup');
     setStatusMsg('');
   }, [closeWs]);
