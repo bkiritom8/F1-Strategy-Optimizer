@@ -3,6 +3,13 @@ from unittest.mock import MagicMock, patch, call
 
 pytest.importorskip("langchain_core")
 from langchain_core.documents import Document
+import rag.embedder as _embedder
+
+@pytest.fixture(autouse=True)
+def clear_model_cache():
+    _embedder._model_cache.clear()
+    yield
+    _embedder._model_cache.clear()
 
 
 def _make_mock_model(dim: int = 768):

@@ -1,5 +1,8 @@
+try:
+    from vertexai.language_models import TextEmbeddingModel
+except Exception:
+    TextEmbeddingModel = None  # type: ignore
 import vertexai  # noqa: F401 — callers must call vertexai.init(project, location) before use
-from vertexai.language_models import TextEmbeddingModel
 from langchain_core.documents import Document
 import time
 import logging
