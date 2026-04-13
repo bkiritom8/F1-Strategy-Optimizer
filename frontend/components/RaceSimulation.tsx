@@ -221,19 +221,24 @@ const RaceTrackViz: React.FC<{
   currentLap: number;
   safetyCarActive: boolean;
   vscActive: boolean;
-}> = ({ circuitId, standings, userDriverId, totalLaps, currentLap, safetyCarActive, vscActive }) => {
+  paused?: boolean;
+}> = ({ circuitId, standings, userDriverId, totalLaps, currentLap, safetyCarActive, vscActive, paused = false }) => {
   const trackInfo = TRACK_REGISTRY.find(t => t.id === circuitId);
   const trackPathRef = useRef<SVGPathElement | null>(null);
   const overlayRef = useRef<SVGSVGElement | null>(null);
   // Callback-ref maps: populated once on mount, O(1) lookup per frame
   const circleMapRef = useRef<Map<string, SVGCircleElement>>(new Map());
   const labelMapRef = useRef<Map<string, SVGTextElement>>(new Map());
-  // Animation start time — set once on mount, never reset; cars loop continuously
+  // Animation start time — advances only while not paused, so position is held on pause
   const animStartRef = useRef<number>(Date.now());
+  const pausedAtRef = useRef<number | null>(null); // elapsed ms when pause started
   const animRef = useRef<number | null>(null);
   // Keep latest standings accessible inside the rAF closure without re-subscribing
   const standingsRef = useRef(standings);
   standingsRef.current = standings;
+  // Keep paused flag accessible in rAF closure without re-subscribing
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   // Visual lap duration is decoupled from the data update interval.
   // Cars complete one full circuit in VISUAL_LAP_MS regardless of how fast
@@ -241,32 +246,46 @@ const RaceTrackViz: React.FC<{
   // but we want the cars to be visibly moving at ~14s per circuit).
   const VISUAL_LAP_MS = 14_000;
 
-  // Continuous animation loop — moves dots imperatively so React doesn't re-render at 60 fps
+  // Continuous animation loop — moves dots imperatively so React doesn't re-render at 60 fps.
+  // When paused, the loop keeps running but skips DOM updates, freezing cars in place.
   useEffect(() => {
     const tick = () => {
-      const pathEl = trackPathRef.current;
-      if (pathEl) {
-        const totalLength = pathEl.getTotalLength();
-        // Continuously cycle 0→1 every VISUAL_LAP_MS regardless of lap counter
-        const elapsed = Date.now() - animStartRef.current;
-        const lapFrac = (elapsed % VISUAL_LAP_MS) / VISUAL_LAP_MS;
-        const S = standingsRef.current;
-        const n = S.length || 20;
-        for (const d of S) {
-          // P1 is furthest ahead (gapFrac → highest), P-last is at 0
-          const gapFrac = (n - d.position) / n;
-          const frac = (lapFrac + gapFrac) % 1.0;
-          const pt = pathEl.getPointAtLength(frac * totalLength);
-          const circle = circleMapRef.current.get(d.driver_id);
-          if (circle) {
-            circle.setAttribute('cx', pt.x.toFixed(1));
-            circle.setAttribute('cy', pt.y.toFixed(1));
+      if (!pausedRef.current) {
+        // If we were paused, shift animStartRef forward by the paused duration so
+        // cars resume from the exact position they froze at.
+        if (pausedAtRef.current !== null) {
+          animStartRef.current += Date.now() - animStartRef.current - pausedAtRef.current;
+          pausedAtRef.current = null;
+        }
+        const pathEl = trackPathRef.current;
+        if (pathEl) {
+          const totalLength = pathEl.getTotalLength();
+          // Continuously cycle 0→1 every VISUAL_LAP_MS regardless of lap counter
+          const elapsed = Date.now() - animStartRef.current;
+          const lapFrac = (elapsed % VISUAL_LAP_MS) / VISUAL_LAP_MS;
+          const S = standingsRef.current;
+          const n = S.length || 20;
+          for (const d of S) {
+            // P1 is furthest ahead (gapFrac → highest), P-last is at 0
+            const gapFrac = (n - d.position) / n;
+            const frac = (lapFrac + gapFrac) % 1.0;
+            const pt = pathEl.getPointAtLength(frac * totalLength);
+            const circle = circleMapRef.current.get(d.driver_id);
+            if (circle) {
+              circle.setAttribute('cx', pt.x.toFixed(1));
+              circle.setAttribute('cy', pt.y.toFixed(1));
+            }
+            const label = labelMapRef.current.get(d.driver_id);
+            if (label) {
+              label.setAttribute('x', pt.x.toFixed(1));
+              label.setAttribute('y', (pt.y + 12).toFixed(1));
+            }
           }
-          const label = labelMapRef.current.get(d.driver_id);
-          if (label) {
-            label.setAttribute('x', pt.x.toFixed(1));
-            label.setAttribute('y', (pt.y + 12).toFixed(1));
-          }
+        }
+      } else {
+        // Record the elapsed ms at the moment we first noticed the pause
+        if (pausedAtRef.current === null) {
+          pausedAtRef.current = Date.now() - animStartRef.current;
         }
       }
       animRef.current = requestAnimationFrame(tick);
@@ -1075,12 +1094,10 @@ const RaceSimulation: React.FC = () => {
       }
 
       else if (msg.type === 'prompt') {
-        // Auto-accept all strategy prompts so the race runs without pausing.
-        // The key-moment reason appears briefly in the status bar.
-        setStatusMsg(`Strategy: ${msg.reason}`);
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'accept' }));
-        }
+        stopPlayback();
+        setPhase('prompt');
+        setActivePrompt(msg as PromptState);
+        setStatusMsg(`Strategy decision required - Lap ${msg.lap}`);
       }
 
       else if (msg.type === 'finished') {
@@ -1113,27 +1130,31 @@ const RaceSimulation: React.FC = () => {
         setStatusMsg(`Disconnected (code ${ev.code})`);
       }
     };
-  }, [selectedRace, selectedDriver, startPosition, startCompound, closeWs, startPlayback, phase]);
+  }, [selectedRace, selectedDriver, startPosition, startCompound, closeWs, startPlayback, stopPlayback, phase]);
 
   // ── Accept RL recommendation ─────────────────────────────────────────────────
   const handleAccept = useCallback(() => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    setPromptLoading(true);
-    wsRef.current.send(JSON.stringify({ type: 'accept' }));
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'accept' }));
+    }
+    // Always dismiss the prompt and resume playback even if WS closed mid-prompt.
     setActivePrompt(null);
     setPhase('running');
     setPromptLoading(false);
-  }, []);
+    startPlayback();
+  }, [startPlayback]);
 
   // ── Override with custom action ───────────────────────────────────────────────
   const handleOverride = useCallback((action: number) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    setPromptLoading(true);
-    wsRef.current.send(JSON.stringify({ type: 'override', action }));
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'override', action }));
+    }
+    // Always dismiss the prompt and resume playback even if WS closed mid-prompt.
     setActivePrompt(null);
     setPhase('running');
     setPromptLoading(false);
-  }, []);
+    startPlayback();
+  }, [startPlayback]);
 
   // ── Stop simulation ───────────────────────────────────────────────────────────
   const stopSimulation = useCallback(() => {
@@ -1296,7 +1317,7 @@ const RaceSimulation: React.FC = () => {
     );
   }
 
-  // RUNNING PHASE (prompt phase no longer exists — prompts are auto-accepted)
+  // RUNNING / PROMPT PHASE
   const lapProgress = totalLaps > 0 ? Math.min(1, currentLap / totalLaps) : 0;
 
   return (
@@ -1340,7 +1361,31 @@ const RaceSimulation: React.FC = () => {
         currentLap={currentLap}
         safetyCarActive={safetyCarActive}
         vscActive={vscActive}
+        paused={phase === 'prompt'}
       />
+
+      {/* RL Prompt modal — fixed overlay so it's visible regardless of scroll position */}
+      <AnimatePresence>
+        {phase === 'prompt' && activePrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+          >
+            <div className="w-full max-w-lg">
+              <StrategyPrompt
+                prompt={activePrompt}
+                onAccept={handleAccept}
+                onOverride={handleOverride}
+                loading={promptLoading}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Standings + lap log */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
