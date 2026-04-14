@@ -40,8 +40,24 @@ const _DRIVER_QUALITY: Record<string, number> = {
 const _COMPOUND_PACE: Record<string, number> = {
   SOFT: -0.40, MEDIUM: 0.0, HARD: 0.30, INTERMEDIATE: 2.5, WET: 5.0,
 };
-const _COMPOUND_DEG: Record<string, number> = {
-  SOFT: 0.095, MEDIUM: 0.050, HARD: 0.026, INTERMEDIATE: 0.08, WET: 0.06,
+// Exponential degradation model: deg(tireAge) = min(scale * (e^(k * tireAge) - 1), 6.0)
+// Calibrated to real Pirelli data: SOFT cliff ~lap 15, MEDIUM ~lap 28, HARD ~lap 50.
+// Cap of 6s prevents infinite blow-up when a stint is pushed well past its cliff.
+const _COMPOUND_DEG_SCALE: Record<string, number> = {
+  SOFT: 0.045, MEDIUM: 0.025, HARD: 0.012, INTERMEDIATE: 0.020, WET: 0.012,
+};
+const _COMPOUND_DEG_K: Record<string, number> = {
+  SOFT: 0.24, MEDIUM: 0.14, HARD: 0.10, INTERMEDIATE: 0.15, WET: 0.09,
+};
+// Lap count at which the tire hits 100% wear (its rated life).
+// Beyond this the tire is "overused" but still driveable — just slower.
+const _COMPOUND_RATED_LAPS: Record<string, number> = {
+  SOFT: 15, MEDIUM: 28, HARD: 50, INTERMEDIATE: 25, WET: 40,
+};
+// Lap-time multiplier applied every lap the tire is over 100% wear.
+// 10% for hard compounds, 15% for soft — reflects thermal degradation physics.
+const _COMPOUND_OVER_WEAR_MULT: Record<string, number> = {
+  SOFT: 0.15, MEDIUM: 0.12, HARD: 0.10, INTERMEDIATE: 0.13, WET: 0.11,
 };
 
 function localSimulate({
@@ -64,12 +80,30 @@ function localSimulate({
   const lap_times_s: number[] = [];
   for (const stint of stints) {
     for (let tireAge = 0; tireAge < stint.laps && lap_times_s.length < TOTAL_LAPS; tireAge++) {
-      const lap   = lap_times_s.length + 1;
-      const pace  = _COMPOUND_PACE[stint.comp] ?? 0;
-      const deg   = (_COMPOUND_DEG[stint.comp] ?? 0.05) * tireAge;
-      const drv   = (1 - quality) * 2.2;
-      const noise = ((lap * Math.abs(dSeed) * 13 + Math.abs(tSeed) * 7) % 200 - 100) / 2000;
-      lap_times_s.push(+(BASE_LAP + pace + deg + drv + noise).toFixed(3));
+      const lap        = lap_times_s.length + 1;
+      const pace       = _COMPOUND_PACE[stint.comp] ?? 0;
+      const scale      = _COMPOUND_DEG_SCALE[stint.comp] ?? 0.04;
+      const k          = _COMPOUND_DEG_K[stint.comp] ?? 0.09;
+      const deg        = Math.min(scale * (Math.exp(k * tireAge) - 1), 6.0);
+      const drv        = (1 - quality) * 2.2;
+      const noise      = ((lap * Math.abs(dSeed) * 13 + Math.abs(tSeed) * 7) % 200 - 100) / 2000;
+      const ratedLaps  = _COMPOUND_RATED_LAPS[stint.comp] ?? 28;
+      const wearPct    = (tireAge / ratedLaps) * 100;
+      const overMult   = _COMPOUND_OVER_WEAR_MULT[stint.comp] ?? 0.12;
+
+      let lapTime = BASE_LAP + pace + deg + drv + noise;
+
+      // >100% wear: lap time degrades by 10–15% (compound-dependent)
+      if (wearPct > 100) lapTime *= (1 + overMult);
+
+      // >120% wear: blistering/chunking adds an unpredictable 0.2–0.6s per lap.
+      // Uses Math.random() — track conditions, rubber marbles, temperature swings
+      // all make this genuinely non-deterministic.
+      if (wearPct > 120) {
+        lapTime += 0.2 + Math.random() * 0.4;
+      }
+
+      lap_times_s.push(+lapTime.toFixed(3));
     }
   }
   while (lap_times_s.length < TOTAL_LAPS) {
