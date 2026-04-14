@@ -233,6 +233,7 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 temperature=self._config.LLM_TEMPERATURE,
                 max_output_tokens=self._config.MAX_OUTPUT_TOKENS,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         answer = response.text or ""
@@ -282,6 +283,7 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 temperature=0.0,
                 max_output_tokens=16,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         return response.text or ""
@@ -343,6 +345,7 @@ class GeminiClient:
         gen_config = types.GenerateContentConfig(
             temperature=self._config.LLM_TEMPERATURE,
             max_output_tokens=self._config.MAX_OUTPUT_TOKENS,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
             tools=[_STRATEGY_TOOL],
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                 disable=True,
@@ -413,6 +416,7 @@ class GeminiClient:
                 config=types.GenerateContentConfig(
                     temperature=self._config.LLM_TEMPERATURE,
                     max_output_tokens=self._config.MAX_OUTPUT_TOKENS,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
             answer = response.text or ""
@@ -503,6 +507,7 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 temperature=0.0,
                 response_mime_type="application/json",
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         import json
