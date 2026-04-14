@@ -982,6 +982,7 @@ const RaceSimulation: React.FC = () => {
   const totalLapsRef = useRef(57);           // mirror of totalLaps state for callbacks
   const raceFinishedDataRef = useRef<RaceFinished | null>(null); // deferred until playback ends
   const pendingPromptRef = useRef<PromptState | null>(null);     // buffered until playback catches up
+  const preloadedPromptLapRef = useRef<number | null>(null);     // tracks which prompt lap was already preloaded
 
   const stopPlayback = useCallback(() => {
     if (playbackTimerRef.current !== null) {
@@ -1104,6 +1105,54 @@ const RaceSimulation: React.FC = () => {
       setChatLoading(false);
     }
   }, [chatMessages, simContext, raceInputsForLlm]);
+
+  // ── Proactive LLM preload — fires the moment an RL prompt arrives ─────────────
+  // The simulation is paused at this point, so we use the idle time to pre-fetch
+  // a strategic briefing before the user has typed a single character.
+  useEffect(() => {
+    if (!activePrompt) return;
+    // One preload per unique prompt lap — don't re-fire if already done
+    if (preloadedPromptLapRef.current === activePrompt.lap) return;
+    preloadedPromptLapRef.current = activePrompt.lap;
+
+    const promptState = activePrompt.current_state;
+    const totalL = promptState.total_laps ?? totalLaps;
+    const preloadQ =
+      `Lap ${activePrompt.lap}/${totalL} — P${promptState.position}, ` +
+      `${promptState.compound} tires (${promptState.tire_age} laps old), ` +
+      `${promptState.fuel_kg.toFixed(0)} kg fuel, ` +
+      `${promptState.gap_to_leader.toFixed(1)}s to the leader. ` +
+      `RL recommends: ${activePrompt.rl_action_name} (${(activePrompt.confidence * 100).toFixed(0)}% confidence) — ${activePrompt.reason}. ` +
+      `Should I follow this recommendation? Give a concise strategic assessment.`;
+
+    const inputs = {
+      driver: selectedDriver.name,
+      circuit: raceName || selectedRace.name,
+      current_lap: activePrompt.lap,
+      total_laps: totalL,
+      tire_compound: promptState.compound,
+      tire_age_laps: promptState.tire_age,
+      position: promptState.position,
+      gap_to_leader: promptState.gap_to_leader,
+      fuel_remaining_kg: promptState.fuel_kg,
+    };
+
+    setChatLoading(true);
+    apiFetch<{ answer: string; latency_ms: number }>('/api/v1/llm/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: preloadQ, history: [], race_inputs: inputs }),
+    })
+      .then(res => {
+        setChatMessages(prev => [
+          ...prev,
+          { role: 'assistant' as const, content: res.answer, latency_ms: res.latency_ms },
+        ]);
+      })
+      .catch(() => { /* silent — user can still ask manually */ })
+      .finally(() => { setChatLoading(false); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePrompt]);
 
   // ── Start simulation ──────────────────────────────────────────────────────────
   const startSimulation = useCallback(() => {
