@@ -40,6 +40,7 @@ from src.security.https_middleware import (
     RateLimitMiddleware,
     CORSMiddleware,
     get_current_user,
+    get_current_user_optional,
 )
 
 # Configure logging
