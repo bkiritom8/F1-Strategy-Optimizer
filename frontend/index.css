@@ -15,6 +15,31 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Keep select dropdown text visible across Windows/light-mode/forced-color setups */
+select {
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+}
+
+select option {
+  color: CanvasText;
+  background-color: Canvas;
+}
+
+@media (prefers-color-scheme: dark) {
+  select option {
+    color: #f9fafb;
+    background-color: #0a0a0a;
+  }
+}
+
+@media (forced-colors: active) {
+  select,
+  select option {
+    forced-color-adjust: auto;
+  }
+}
+
 /* ── Custom utility classes ────────────────────────────────── */
 
 .font-display {

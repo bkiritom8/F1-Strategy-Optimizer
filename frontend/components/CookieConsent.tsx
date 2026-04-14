@@ -26,6 +26,14 @@ const CookieConsent: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const onOpenSettings = () => setIsVisible(true);
+    window.addEventListener('divergex:open_cookie_settings', onOpenSettings as EventListener);
+    return () => {
+      window.removeEventListener('divergex:open_cookie_settings', onOpenSettings as EventListener);
+    };
+  }, []);
+
   const handleAccept = () => {
     localStorage.setItem('divergex-cookie-consent', 'accepted');
     setIsVisible(false);
@@ -82,7 +90,7 @@ const CookieConsent: React.FC = () => {
                 onClick={handleDecline}
                 className="px-6 py-3 rounded-xl border border-white/10 text-white/60 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all"
               >
-                Settings
+                Reject Optional
               </button>
             </div>
 

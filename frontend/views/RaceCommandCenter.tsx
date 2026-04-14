@@ -422,7 +422,7 @@ const RaceCommandCenter: React.FC = () => {
 
   // Fetch strategy simulation variants when race/driver changes
   useEffect(() => {
-    if (!online || !selectedRaceId || !selectedDriverId || !selectedDriver) return;
+    if (!online || !selectedRaceId || !selectedDriverId) return;
     
     fullSimulateStrategy({
       race_id: selectedRaceId,
@@ -437,7 +437,7 @@ const RaceCommandCenter: React.FC = () => {
       .catch(err => {
         console.error('Strategy simulation failed:', err);
       });
-  }, [online, selectedRaceId, selectedDriverId, selectedDriver]);
+  }, [online, selectedRaceId, selectedDriverId, telemetries]);
 
 
   const selectedDriver = drivers.find(d => d.driver_id === selectedDriverId) || drivers[0];
