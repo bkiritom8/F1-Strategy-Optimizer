@@ -7,6 +7,7 @@
 import React from 'react';
 import { Database, BarChart3, TrendingUp, AlertCircle, Zap } from 'lucide-react';
 import { useAdminGcpMetrics, useAdminQuotas, useBackendStatus } from '../hooks/useApi';
+import { GcpMetrics, AdminQuotas } from '../services/endpoints';
 import { LiveBadge } from '../components/LiveBadge';
 
 const DatabaseMetrics: React.FC = () => {
@@ -28,8 +29,8 @@ const DatabaseMetrics: React.FC = () => {
     );
   }
 
-  const metrics = metricsData || {};
-  const quotas = quotasData || {};
+  const metrics: GcpMetrics | null = metricsData || null;
+  const quotas: AdminQuotas | null = quotasData || null;
 
   // Render quota bar
   const renderQuotaBar = (used: number, limit: number) => {
@@ -75,15 +76,15 @@ const DatabaseMetrics: React.FC = () => {
             <div className="text-[10px] uppercase tracking-[4px] text-white/40">CPU Usage</div>
             <BarChart3 className="w-4 h-4 text-blue-500" />
           </div>
-          <div className="text-3xl font-bold text-white">{(metrics.cpu_usage_percent || 0).toFixed(1)}%</div>
+          <div className="text-3xl font-bold text-white">{metrics ? (metrics.cpu_usage_percent || 0).toFixed(1) : '—'}%</div>
           <div className="mt-3 h-1.5 bg-white/10 rounded-full overflow-hidden">
             <div
               className={`h-full ${
-                (metrics.cpu_usage_percent || 0) > 80 ? 'bg-red-600' :
-                (metrics.cpu_usage_percent || 0) > 60 ? 'bg-yellow-600' :
+                metrics && (metrics.cpu_usage_percent || 0) > 80 ? 'bg-red-600' :
+                metrics && (metrics.cpu_usage_percent || 0) > 60 ? 'bg-yellow-600' :
                 'bg-blue-600'
               }`}
-              style={{ width: `${Math.min(metrics.cpu_usage_percent || 0, 100)}%` }}
+              style={{ width: `${Math.min(metrics?.cpu_usage_percent || 0, 100)}%` }}
             />
           </div>
           <p className="text-xs text-white/40 mt-2">Server CPU load</p>
@@ -94,15 +95,15 @@ const DatabaseMetrics: React.FC = () => {
             <div className="text-[10px] uppercase tracking-[4px] text-white/40">Memory Usage</div>
             <TrendingUp className="w-4 h-4 text-purple-500" />
           </div>
-          <div className="text-3xl font-bold text-white">{(metrics.memory_usage_percent || 0).toFixed(1)}%</div>
+          <div className="text-3xl font-bold text-white">{metrics ? (metrics.memory_usage_percent || 0).toFixed(1) : '—'}%</div>
           <div className="mt-3 h-1.5 bg-white/10 rounded-full overflow-hidden">
             <div
               className={`h-full ${
-                (metrics.memory_usage_percent || 0) > 80 ? 'bg-red-600' :
-                (metrics.memory_usage_percent || 0) > 60 ? 'bg-yellow-600' :
+                metrics && (metrics.memory_usage_percent || 0) > 80 ? 'bg-red-600' :
+                metrics && (metrics.memory_usage_percent || 0) > 60 ? 'bg-yellow-600' :
                 'bg-purple-600'
               }`}
-              style={{ width: `${Math.min(metrics.memory_usage_percent || 0, 100)}%` }}
+              style={{ width: `${Math.min(metrics?.memory_usage_percent || 0, 100)}%` }}
             />
           </div>
           <p className="text-xs text-white/40 mt-2">RAM allocation</p>
@@ -113,7 +114,7 @@ const DatabaseMetrics: React.FC = () => {
             <div className="text-[10px] uppercase tracking-[4px] text-white/40">Request Count</div>
             <Zap className="w-4 h-4 text-yellow-500" />
           </div>
-          <div className="text-3xl font-bold text-white">{((metrics.request_count || 0) / 1000).toFixed(1)}k</div>
+          <div className="text-3xl font-bold text-white">{metrics ? ((metrics.request_count || 0) / 1000).toFixed(1) : '—'}k</div>
           <p className="text-xs text-white/40 mt-2">Total API requests today</p>
         </div>
       </div>
