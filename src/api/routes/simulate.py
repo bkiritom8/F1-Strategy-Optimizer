@@ -160,7 +160,9 @@ def _run_rule_based_fallback(
                     "position": idx + 1,
                     "compound": driver.get("start_compound", "MEDIUM"),
                     "gap_ms": idx * 1200,
-                    "lap_time_ms": 90000 + idx * 200 + round(driver.get("car_offset_ms", 0.0)),
+                    "lap_time_ms": 90000
+                    + idx * 200
+                    + round(driver.get("car_offset_ms", 0.0)),
                     "tire_age": lap,
                 }
             )
@@ -217,9 +219,7 @@ async def start_simulation(
         offset_ms = driver.car_offset_ms
         if driver.constructor_id and season is not None:
             offset_ms = store.get_offset_ms(driver.constructor_id, season)
-        drivers_with_offsets.append(
-            {**driver.model_dump(), "car_offset_ms": offset_ms}
-        )
+        drivers_with_offsets.append({**driver.model_dump(), "car_offset_ms": offset_ms})
 
     # Include drivers in hash so different constructor selections produce distinct jobs
     scenario_dict = request.scenario.model_dump()

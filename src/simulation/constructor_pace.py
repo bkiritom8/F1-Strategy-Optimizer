@@ -97,11 +97,7 @@ class ConstructorPaceStore:
         Return car pace delta in milliseconds vs field median.
         Negative = faster than average. Returns 0.0 if unknown.
         """
-        entry = (
-            self._data.get(constructor_id, {})
-            .get("seasons", {})
-            .get(str(season))
-        )
+        entry = self._data.get(constructor_id, {}).get("seasons", {}).get(str(season))
         if entry is None:
             return 0.0
         delta_s = entry.get("pace_delta_s")
@@ -111,11 +107,7 @@ class ConstructorPaceStore:
 
     def is_limited_data(self, constructor_id: str, season: int) -> bool:
         """Return True if this constructor-season is flagged as limited_data."""
-        entry = (
-            self._data.get(constructor_id, {})
-            .get("seasons", {})
-            .get(str(season))
-        )
+        entry = self._data.get(constructor_id, {}).get("seasons", {}).get(str(season))
         if entry is None:
             return False
         return bool(entry.get("limited_data", False))
