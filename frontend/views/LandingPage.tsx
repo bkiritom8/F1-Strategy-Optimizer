@@ -80,6 +80,8 @@ const LandingPage: React.FC<Props> = () => {
   const navigate = useNavigate();
   const { isAdmin, setAdminModalOpen, logout } = useAppStore();
   const containerRef = useRef<HTMLDivElement>(null);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const [isLoopFading, setIsLoopFading] = useState(false);
   
   const { scrollYProgress } = useScroll({ target: containerRef });
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
@@ -136,13 +138,25 @@ const LandingPage: React.FC<Props> = () => {
         {/* Hero-only video background */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-black">
           <video
-            className="absolute inset-0 w-full h-full object-cover object-center"
+            ref={heroVideoRef}
+            className="absolute inset-0 w-full h-full object-contain object-center"
             autoPlay
             loop
             muted
             playsInline
             preload="auto"
             aria-hidden="true"
+            style={{ opacity: isLoopFading ? 0.86 : 1, transition: 'opacity 260ms ease-in-out' }}
+            onTimeUpdate={() => {
+              const video = heroVideoRef.current;
+              if (!video || !video.duration) return;
+              const remaining = video.duration - video.currentTime;
+              if (remaining < 0.35 && !isLoopFading) {
+                setIsLoopFading(true);
+              } else if (video.currentTime < 0.16 && isLoopFading) {
+                setIsLoopFading(false);
+              }
+            }}
           >
             <source src="/divergex.mp4" type="video/mp4" />
           </video>
