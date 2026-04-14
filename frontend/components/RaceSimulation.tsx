@@ -687,7 +687,7 @@ const SimChat: React.FC<{
           <Bot className="w-3.5 h-3.5 text-white" />
         </div>
         <span className="text-xs font-display font-bold uppercase tracking-tight">AI Strategist</span>
-        <span className="ml-auto text-[8px] font-mono text-white/20 uppercase">Simulation Context</span>
+        <span className="ml-auto text-[8px] font-mono text-white/20 uppercase">Strategy Decision</span>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-hide min-h-[180px] max-h-[280px]">
@@ -736,7 +736,7 @@ const SimChat: React.FC<{
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder="Ask about tires, undercut, pit window…"
+          placeholder="Ask about tires, undercut, pit window… or describe a custom strategy"
           className="flex-1 px-3 py-2 rounded-lg border text-xs focus:outline-none focus:ring-1 focus:ring-red-600 bg-black/20 placeholder:text-gray-500"
           style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
         />
@@ -921,7 +921,7 @@ const RaceSimulation: React.FC = () => {
   // ── Chat state ───────────────────────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{
     role: 'assistant',
-    content: 'I\'m your race strategist. Once the simulation starts, ask me about tire windows, undercut timing, SC strategy, or anything about your race.',
+    content: 'I\'m your race strategist. When the RL agent pauses for a decision, ask me anything — tire windows, undercut timing, SC strategy — or describe a custom strategy and I\'ll analyse it.',
   }]);
   const [chatLoading, setChatLoading] = useState(false);
 
@@ -1511,7 +1511,7 @@ const RaceSimulation: React.FC = () => {
         paused={phase === 'prompt'}
       />
 
-      {/* AI Strategy Assistant Overlay: fixed positioning ensures visibility across all scroll states */}
+      {/* RL Prompt Overlay — pauses simulation for strategic decision + AI chat */}
       <AnimatePresence>
         {phase === 'prompt' && activePrompt && (
           <motion.div
@@ -1522,13 +1522,24 @@ const RaceSimulation: React.FC = () => {
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
           >
-            <div className="w-full max-w-lg">
-              <StrategyPrompt
-                prompt={activePrompt}
-                onAccept={handleAccept}
-                onOverride={handleOverride}
-                loading={promptLoading}
-              />
+            <div className="w-full max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[90vh]">
+              {/* RL recommendation + accept/override controls */}
+              <div className="overflow-y-auto scrollbar-hide">
+                <StrategyPrompt
+                  prompt={activePrompt}
+                  onAccept={handleAccept}
+                  onOverride={handleOverride}
+                  loading={promptLoading}
+                />
+              </div>
+              {/* AI chat — ask questions or describe a custom strategy */}
+              <div className="flex flex-col min-h-0">
+                <SimChat
+                  messages={chatMessages}
+                  onSend={handleChat}
+                  loading={chatLoading}
+                />
+              </div>
             </div>
           </motion.div>
         )}
