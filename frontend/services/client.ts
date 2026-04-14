@@ -66,14 +66,17 @@ export async function apiFetch<T = unknown>(
     logger.debug(`[apiFetch] Response ${res.status} for ${path}`);
 
     if (!res.ok) {
-      // 401/403 are no longer intercepted for redirection
       let detail = `API error: ${res.status}`;
       try {
         const json = await res.json();
         if (typeof json?.detail === 'string') detail = json.detail;
       } catch { /* non-JSON body */ }
       
-      logger.warn(`[apiFetch] API error: ${detail}`);
+      if (res.status === 401 || res.status === 404) {
+        logger.warn(`[apiFetch] ${res.status} on ${path}: ${detail}`);
+      } else {
+        logger.error(`[apiFetch] API error: ${detail}`);
+      }
       throw new Error(detail);
     }
 
@@ -85,10 +88,11 @@ export async function apiFetch<T = unknown>(
 
     return res.json() as Promise<T>;
   } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      logger.debug(`[apiFetch] Request aborted: ${path}`);
+    if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('401') || err.message.includes('404'))) {
+      // Log as warning if it's a transient auth/missing error or abort
+      logger.warn(`[apiFetch] Request info for ${path}: ${err.message}`);
     } else {
-      logger.error(`[apiFetch] Network/Request error on ${path}:`, err);
+      logger.error(`[apiFetch] Network/Critical error on ${path}:`, err);
     }
     throw err;
   }

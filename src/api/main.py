@@ -313,7 +313,7 @@ async def metrics():
 
 @app.post("/strategy/recommend", response_model=StrategyRecommendation)
 async def recommend_strategy(
-    request: StrategyRequest, current_user: User = Depends(get_current_user)
+    request: StrategyRequest, current_user: User = Depends(get_current_user_optional)
 ):
     """
     Get race strategy recommendation
@@ -446,7 +446,7 @@ async def get_drivers(
 
 
 @app.get("/models/status")
-async def get_models_status(current_user: User = Depends(get_current_user)):
+async def get_models_status(current_user: User = Depends(get_current_user_optional)):
     """
     Get ML models load status.
     Requires: ML_MODEL_READ permission
@@ -522,7 +522,7 @@ class SimulateResponse(BaseModel):
 async def race_state(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """Return full RaceState at a given lap (all drivers)."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
@@ -550,7 +550,7 @@ async def race_state(
 async def race_standings(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """Return driver standings at a given lap."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
@@ -570,7 +570,7 @@ async def driver_lap_telemetry(
     driver_id: str,
     lap: int,
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """Return telemetry data for a specific driver and lap in a race."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
@@ -598,7 +598,7 @@ async def driver_lap_telemetry(
 
 
 @v1.get("/drivers")
-async def list_drivers(current_user=Depends(get_current_user)):
+async def list_drivers(current_user=Depends(get_current_user_optional)):
     """Return all driver profiles with computed career stats."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
         raise HTTPException(
@@ -667,7 +667,7 @@ async def list_drivers(current_user=Depends(get_current_user)):
 
 
 @v1.get("/drivers/{driver_id}/history")
-async def driver_history(driver_id: str, current_user=Depends(get_current_user)):
+async def driver_history(driver_id: str, current_user=Depends(get_current_user_optional)):
     """Return career race history for a driver."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
         raise HTTPException(
@@ -1024,7 +1024,7 @@ _MODEL_TEST_METRICS = {
 @v1.get("/race/predict/safety_car")
 async def predict_safety_car(
     race_id: str = Query(..., description="Race ID e.g. '2024_1' or circuit name"),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """
     Predict safety car probability for a given race.
@@ -1046,7 +1046,7 @@ async def predict_safety_car(
 @v1.get("/validation/race/{race_id}")
 async def validation_stats(
     race_id: str,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """
     Return validation metrics for a race.

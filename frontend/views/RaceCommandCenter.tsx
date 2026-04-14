@@ -503,9 +503,17 @@ const RaceCommandCenter: React.FC = () => {
               >
                 <Menu className="w-4 h-4 text-white/60" />
               </button>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-tight uppercase italic leading-tight">
-                {selectedRace ? selectedRace.name : raceState.circuit}
-              </h1>
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold tracking-tight uppercase italic leading-tight line-clamp-1">
+                  {selectedRace ? selectedRace.name : raceState.circuit}
+                </h1>
+                {selectedRace?.circuit?.name && (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Map className="w-3 h-3 text-red-500/60" />
+                    <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{selectedRace.circuit.name}</span>
+                  </div>
+                )}
+              </div>
               {/* Year selector */}
               <div className="flex gap-1" role="group" aria-label="Season year">
                 {([2024, 2025, 2026] as const).map(yr => (
