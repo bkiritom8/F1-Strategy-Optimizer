@@ -14,6 +14,12 @@ import pandas as pd
 import pytest
 
 MODELS_DIR = "models"
+
+pytag = pytest.mark.skipif(
+    not os.path.isdir(MODELS_DIR),
+    reason="local models/ directory not found"
+)
+pytestmark = pytag
 FEATURES_URI  = "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet"
 RACE_RESULTS_URI = "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet"
 
