@@ -872,12 +872,36 @@ const RaceResults: React.FC<{
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
+// ── Constructor pace types ───────────────────────────────────────────────────
+
+interface ConstructorSeason {
+  pace_delta_s: number;
+  data_tier: number;
+  limited_data: boolean;
+}
+
+interface ConstructorEntry {
+  display_name: string;
+  seasons: Record<string, ConstructorSeason>;
+}
+
+interface ConstructorPaceData {
+  version: string;
+  reference: string;
+  constructors: Record<string, ConstructorEntry>;
+}
+
 const RaceSimulation: React.FC = () => {
   // ── Setup state ─────────────────────────────────────────────────────────────
   const [selectedRace, setSelectedRace] = useState(AVAILABLE_RACES[0]);
   const [selectedDriver, setSelectedDriver] = useState(AVAILABLE_DRIVERS[0]);
   const [startPosition, setStartPosition] = useState(5);
   const [startCompound, setStartCompound] = useState<'SOFT'|'MEDIUM'|'HARD'>('MEDIUM');
+
+  // ── Car / year state ─────────────────────────────────────────────────────────
+  const [constructorPace, setConstructorPace] = useState<ConstructorPaceData | null>(null);
+  const [selectedYear, setSelectedYear] = useState(2024);
+  const [selectedConstructorId, setSelectedConstructorId] = useState<string>('red_bull');
 
   // ── Simulation state ─────────────────────────────────────────────────────────
   const [phase, setPhase] = useState<SimPhase>('setup');
@@ -900,6 +924,49 @@ const RaceSimulation: React.FC = () => {
     content: 'I\'m your race strategist. Once the simulation starts, ask me about tire windows, undercut timing, SC strategy, or anything about your race.',
   }]);
   const [chatLoading, setChatLoading] = useState(false);
+
+  // ── Load constructor pace data ───────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/data/constructor_pace.json')
+      .then(r => r.json())
+      .then((d: ConstructorPaceData) => setConstructorPace(d))
+      .catch(() => {});
+  }, []);
+
+  // Sorted list of years that have at least one constructor entry
+  const availableYears = useMemo(() => {
+    if (!constructorPace) return [2024, 2023, 2022, 2021, 2020, 2019, 2018];
+    const yearSet = new Set<number>();
+    for (const c of Object.values(constructorPace.constructors)) {
+      for (const y of Object.keys(c.seasons)) yearSet.add(parseInt(y));
+    }
+    return Array.from(yearSet).sort((a, b) => b - a);
+  }, [constructorPace]);
+
+  // Constructors available for the selected year, sorted fastest → slowest
+  const constructorsForYear = useMemo(() => {
+    if (!constructorPace) return [];
+    return Object.entries(constructorPace.constructors)
+      .filter(([, c]) => c.seasons[String(selectedYear)] !== undefined)
+      .map(([id, c]) => ({
+        id,
+        name: c.display_name,
+        pace_delta_s: c.seasons[String(selectedYear)].pace_delta_s,
+        limited_data: c.seasons[String(selectedYear)].limited_data,
+      }))
+      .sort((a, b) => a.pace_delta_s - b.pace_delta_s);
+  }, [constructorPace, selectedYear]);
+
+  // Reset constructor when year changes if the previous pick has no data
+  useEffect(() => {
+    if (constructorsForYear.length > 0) {
+      setSelectedConstructorId(prev =>
+        constructorsForYear.some(c => c.id === prev) ? prev : constructorsForYear[0].id
+      );
+    }
+  }, [constructorsForYear]);
+
+  const selectedConstructorEntry = constructorsForYear.find(c => c.id === selectedConstructorId) ?? null;
 
   // ── WebSocket ref ────────────────────────────────────────────────────────────
   const wsRef = useRef<WebSocket | null>(null);
@@ -1039,6 +1106,9 @@ const RaceSimulation: React.FC = () => {
         driver_id: selectedDriver.id,
         start_position: startPosition,
         start_compound: startCompound,
+        car_year: selectedYear,
+        car_constructor_id: selectedConstructorId,
+        car_pace_delta_s: selectedConstructorEntry?.pace_delta_s ?? 0,
       }));
     };
 
@@ -1247,6 +1317,72 @@ const RaceSimulation: React.FC = () => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+
+        {/* Year + Car selector */}
+        <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: 'var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <label className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Car Era</label>
+            <div className="flex flex-wrap gap-1.5">
+              {availableYears.map(y => (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  className={`px-2.5 py-1 rounded-lg border text-[10px] font-black transition-all ${
+                    selectedYear === y
+                      ? 'border-red-600 bg-red-600/15 text-white'
+                      : 'text-white/30 hover:text-white/70'
+                  }`}
+                  style={{ borderColor: selectedYear === y ? '#E10600' : 'var(--border-color)' }}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Constructor — {selectedYear}</label>
+              {selectedConstructorEntry && (
+                <span
+                  className="text-[9px] font-mono font-bold px-2 py-0.5 rounded"
+                  style={{
+                    color: selectedConstructorEntry.pace_delta_s < 0 ? COLORS.accent.green : COLORS.accent.red,
+                    backgroundColor: selectedConstructorEntry.pace_delta_s < 0 ? 'rgba(0,210,190,0.1)' : 'rgba(225,6,0,0.1)',
+                  }}
+                >
+                  {selectedConstructorEntry.pace_delta_s < 0 ? '▲ ' : '▼ '}
+                  {selectedConstructorEntry.pace_delta_s < 0 ? '' : '+'}{selectedConstructorEntry.pace_delta_s.toFixed(3)}s vs field median
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 max-h-44 overflow-y-auto scrollbar-hide pr-1">
+              {constructorsForYear.map(c => {
+                const isSelected = selectedConstructorId === c.id;
+                const isFaster = c.pace_delta_s < 0;
+                const deltaColor = isFaster ? COLORS.accent.green : COLORS.accent.red;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedConstructorId(c.id)}
+                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-left transition-all ${
+                      isSelected ? 'border-red-600 bg-red-600/10' : 'hover:bg-white/[0.03]'
+                    }`}
+                    style={{ borderColor: isSelected ? '#E10600' : 'var(--border-color)' }}
+                  >
+                    <span className={`text-[10px] font-bold truncate ${isSelected ? 'text-white' : 'text-white/50'}`}>{c.name}</span>
+                    <span className="text-[9px] font-mono font-bold flex-shrink-0" style={{ color: deltaColor }}>
+                      {isFaster ? '' : '+'}{c.pace_delta_s.toFixed(2)}s
+                    </span>
+                  </button>
+                );
+              })}
+              {constructorsForYear.length === 0 && (
+                <p className="col-span-2 text-[10px] font-mono text-white/20 px-1">No data for {selectedYear}</p>
+              )}
             </div>
           </div>
         </div>
