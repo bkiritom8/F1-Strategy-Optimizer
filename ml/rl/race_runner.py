@@ -52,6 +52,145 @@ logger = logging.getLogger(__name__)
 # base_lap_time_ms is median dry-weather lap time (ms) from fastf1 data.
 
 CIRCUIT_REGISTRY: dict[str, dict] = {
+    # ── 2026 — same circuits as 2025 calendar ─────────────────────────────────
+    "2026_1": {
+        "total_laps": 57,
+        "base_lap_time_ms": 95_800,
+        "race_name": "Bahrain Grand Prix",
+        "circuit_id": "bahrain",
+    },
+    "2026_2": {
+        "total_laps": 50,
+        "base_lap_time_ms": 90_800,
+        "race_name": "Saudi Arabian Grand Prix",
+        "circuit_id": "jeddah",
+    },
+    "2026_3": {
+        "total_laps": 58,
+        "base_lap_time_ms": 81_000,
+        "race_name": "Australian Grand Prix",
+        "circuit_id": "albert_park",
+    },
+    "2026_4": {
+        "total_laps": 53,
+        "base_lap_time_ms": 93_500,
+        "race_name": "Japanese Grand Prix",
+        "circuit_id": "suzuka",
+    },
+    "2026_5": {
+        "total_laps": 56,
+        "base_lap_time_ms": 96_500,
+        "race_name": "Chinese Grand Prix",
+        "circuit_id": "shanghai",
+    },
+    "2026_6": {
+        "total_laps": 57,
+        "base_lap_time_ms": 91_500,
+        "race_name": "Miami Grand Prix",
+        "circuit_id": "miami",
+    },
+    "2026_7": {
+        "total_laps": 63,
+        "base_lap_time_ms": 79_500,
+        "race_name": "Emilia Romagna Grand Prix",
+        "circuit_id": "imola",
+    },
+    "2026_8": {
+        "total_laps": 78,
+        "base_lap_time_ms": 75_000,
+        "race_name": "Monaco Grand Prix",
+        "circuit_id": "monaco",
+    },
+    "2026_9": {
+        "total_laps": 66,
+        "base_lap_time_ms": 83_500,
+        "race_name": "Spanish Grand Prix",
+        "circuit_id": "catalunya",
+    },
+    "2026_10": {
+        "total_laps": 70,
+        "base_lap_time_ms": 76_000,
+        "race_name": "Canadian Grand Prix",
+        "circuit_id": "villeneuve",
+    },
+    "2026_11": {
+        "total_laps": 71,
+        "base_lap_time_ms": 68_500,
+        "race_name": "Austrian Grand Prix",
+        "circuit_id": "red_bull_ring",
+    },
+    "2026_12": {
+        "total_laps": 52,
+        "base_lap_time_ms": 92_500,
+        "race_name": "British Grand Prix",
+        "circuit_id": "silverstone",
+    },
+    "2026_13": {
+        "total_laps": 70,
+        "base_lap_time_ms": 80_500,
+        "race_name": "Hungarian Grand Prix",
+        "circuit_id": "hungaroring",
+    },
+    "2026_14": {
+        "total_laps": 44,
+        "base_lap_time_ms": 108_000,
+        "race_name": "Belgian Grand Prix",
+        "circuit_id": "spa",
+    },
+    "2026_15": {
+        "total_laps": 72,
+        "base_lap_time_ms": 74_000,
+        "race_name": "Dutch Grand Prix",
+        "circuit_id": "zandvoort",
+    },
+    "2026_16": {
+        "total_laps": 53,
+        "base_lap_time_ms": 83_000,
+        "race_name": "Italian Grand Prix",
+        "circuit_id": "monza",
+    },
+    "2026_17": {
+        "total_laps": 62,
+        "base_lap_time_ms": 102_000,
+        "race_name": "Singapore Grand Prix",
+        "circuit_id": "marina_bay",
+    },
+    "2026_18": {
+        "total_laps": 56,
+        "base_lap_time_ms": 100_500,
+        "race_name": "United States Grand Prix",
+        "circuit_id": "americas",
+    },
+    "2026_19": {
+        "total_laps": 71,
+        "base_lap_time_ms": 80_000,
+        "race_name": "Mexico City Grand Prix",
+        "circuit_id": "rodriguez",
+    },
+    "2026_20": {
+        "total_laps": 71,
+        "base_lap_time_ms": 74_000,
+        "race_name": "Sao Paulo Grand Prix",
+        "circuit_id": "interlagos",
+    },
+    "2026_21": {
+        "total_laps": 50,
+        "base_lap_time_ms": 100_000,
+        "race_name": "Las Vegas Grand Prix",
+        "circuit_id": "las_vegas",
+    },
+    "2026_22": {
+        "total_laps": 57,
+        "base_lap_time_ms": 88_500,
+        "race_name": "Qatar Grand Prix",
+        "circuit_id": "losail",
+    },
+    "2026_23": {
+        "total_laps": 55,
+        "base_lap_time_ms": 95_500,
+        "race_name": "Abu Dhabi Grand Prix",
+        "circuit_id": "yas_marina",
+    },
     # ── 2025 ──────────────────────────────────────────────────────────────────
     "2025_1": {
         "total_laps": 58,
