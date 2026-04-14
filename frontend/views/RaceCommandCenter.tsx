@@ -290,6 +290,8 @@ const RaceCommandCenter: React.FC = () => {
   // Resolve the correct race list based on the selected season
   const races = selectedSeason === 2026 ? races2026 : selectedSeason === 2025 ? races2025 : races2024;
 
+  const selectedRace = races?.find((r: any) => r.round === activeRaceRound) || races?.[0];
+
   useEffect(() => {
     console.debug('[RaceCommandCenter] Component mounted');
     return () => console.debug('[RaceCommandCenter] Component unmounted');
@@ -312,8 +314,6 @@ const RaceCommandCenter: React.FC = () => {
       setActiveRaceRound(races[0].round);
     }
   }, [races, activeRaceRound, setActiveRaceRound]);
-
-  const selectedRace = races?.find((r: any) => r.round === activeRaceRound) || races?.[0];
 
   const drivers: DriverProfile[] = useMemo(() => {
     if (selectedRace) {
