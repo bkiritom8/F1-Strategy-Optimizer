@@ -353,6 +353,17 @@ const RaceCommandCenter: React.FC = () => {
   const [strategyVariants, setStrategyVariants] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!showBeginnerTips) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowBeginnerTips(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showBeginnerTips]);
+
+  useEffect(() => {
     if (drivers.length > 0 && !selectedDriverId) setSelectedDriverId(drivers[0].driver_id);
   }, [drivers, selectedDriverId]);
 
@@ -826,24 +837,43 @@ const RaceCommandCenter: React.FC = () => {
 
         {/* ── Beginner Tips Overlay ───────────────────────────────────── */}
         {showBeginnerTips && (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="fixed right-6 top-24 w-80 z-40 p-5 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <div className="p-2 rounded-lg bg-accent-blue/20 text-accent-blue"><Info className="w-4 h-4" /></div>
-              <h3 className="text-sm font-display font-bold uppercase tracking-wider">Race Day Intelligence</h3>
-            </div>
-            <div className="space-y-4">
-              <Tip complexity="Beginner" title="Look for the Delta" description="The 'Delta' shows the real-time gap between cars. If it's decreasing, an overtake might be coming!" />
-              <Tip complexity="Intermediate" title="Sector Colors" description="Purple = personal best. Green = session best. Yellow = slower than session best. Watch sector bars above!" />
-              <Tip complexity="Expert" title="SC Probability Gauge" description="The Safety Car gauge uses ML to predict incidents. Above 30% means high risk; strategy windows open up." />
-            </div>
-            <div className="mt-6 pt-4 border-t border-white/10">
-              <p className="text-[10px] text-gray-500 italic">Hover over dashed terms anywhere in the dashboard for instant definitions.</p>
-            </div>
-          </motion.div>
+          <div className="fixed inset-0 z-40" onClick={() => setShowBeginnerTips(false)}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="absolute right-6 top-24 w-80 p-5 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-accent-blue/20 text-accent-blue"><Info className="w-4 h-4" /></div>
+                  <h3 className="text-sm font-display font-bold uppercase tracking-wider">Race Day Intelligence</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBeginnerTips(false)}
+                  className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                  aria-label="Close tips panel"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <Tip complexity="Beginner" title="Look for the Delta" description="The 'Delta' shows the real-time gap between cars. If it's decreasing, an overtake might be coming!" />
+                <Tip complexity="Intermediate" title="Sector Colors" description="Purple = personal best. Green = session best. Yellow = slower than session best. Watch sector bars above!" />
+                <Tip complexity="Expert" title="SC Probability Gauge" description="The Safety Car gauge uses ML to predict incidents. Above 30% means high risk; strategy windows open up." />
+              </div>
+              <div className="mt-6 pt-4 border-t border-white/10">
+                <p className="text-[10px] text-gray-500 italic">Hover over dashed terms anywhere in the dashboard for instant definitions.</p>
+              </div>
+            </motion.div>
+          </div>
         )}
       </div>
     </div>
