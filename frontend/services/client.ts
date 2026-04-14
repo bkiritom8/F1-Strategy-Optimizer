@@ -57,14 +57,6 @@ export async function apiFetch<T = unknown>(
   const headers = new Headers(fetchOptions.headers);
   headers.set('Content-Type', headers.get('Content-Type') ?? 'application/json');
 
-  if (!options?.skipAuth) {
-    const token  = localStorage.getItem('f1_api_token');
-    const expiry = localStorage.getItem('f1_api_token_expiry');
-    if (token && expiry && Date.now() < Number(expiry)) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
-  }
-
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       ...fetchOptions,

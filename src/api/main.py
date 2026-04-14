@@ -314,22 +314,9 @@ async def metrics():
 
 @app.post("/strategy/recommend", response_model=StrategyRecommendation)
 async def recommend_strategy(
-    request: StrategyRequest, current_user: User = Depends(get_current_user)
+    request: StrategyRequest,
 ):
-    """
-    Get race strategy recommendation
-
-    Requires: API_USER role or higher
-    """
-    # Check permission
-    if not iam_simulator.check_permission(current_user, Permission.ML_MODEL_READ):
-        REQUEST_COUNT.labels(
-            method="POST", endpoint="/strategy/recommend", status="403"
-        ).inc()
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
-
+    """Get race strategy recommendation."""
     # Track request
     start_time = time.time()
 
@@ -415,17 +402,8 @@ async def recommend_strategy(
 
 
 @app.get("/data/drivers", response_model=List[Dict])
-async def get_drivers(
-    current_user: User = Depends(get_current_user), year: Optional[int] = None
-):
-    """
-    Get driver list. Delegates to FeaturePipeline.
-    Requires: DATA_READ permission
-    """
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
+async def get_drivers(year: Optional[int] = None):
+    """Get driver list. Delegates to FeaturePipeline."""
     try:
         pipeline = _get_pipeline()
         drv_df = pipeline._drivers()
@@ -447,16 +425,8 @@ async def get_drivers(
 
 
 @app.get("/models/status")
-async def get_models_status(current_user: User = Depends(get_current_user)):
-    """
-    Get ML models load status.
-    Requires: ML_MODEL_READ permission
-    """
-    if not iam_simulator.check_permission(current_user, Permission.ML_MODEL_READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
-
+async def get_models_status():
+    """Get ML models load status."""
     strategy_status = {
         "name": "strategy_predictor",
         "status": "loaded" if _strategy_model is not None else "fallback",
@@ -523,13 +493,8 @@ class SimulateResponse(BaseModel):
 async def race_state(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
-    current_user=Depends(get_current_user),
 ):
     """Return full RaceState at a given lap (all drivers)."""
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
     try:
         sim = _get_simulator()
         state = sim.step(race_id, lap)
@@ -551,13 +516,8 @@ async def race_state(
 async def race_standings(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
-    current_user=Depends(get_current_user),
 ):
     """Return driver standings at a given lap."""
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
     try:
         sim = _get_simulator()
         standings = sim.get_standings(race_id, lap)
@@ -571,13 +531,8 @@ async def driver_lap_telemetry(
     driver_id: str,
     lap: int,
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
-    current_user=Depends(get_current_user_optional),
 ):
     """Return telemetry data for a specific driver and lap in a race."""
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
     try:
         pipeline = _get_pipeline()
         df = pipeline.build_state_vector(race_id, driver_id)
@@ -599,12 +554,8 @@ async def driver_lap_telemetry(
 
 
 @v1.get("/drivers")
-async def list_drivers(current_user=Depends(get_current_user)):
+async def list_drivers():
     """Return all driver profiles with computed career stats."""
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
     try:
         import pandas as pd
 
@@ -668,12 +619,8 @@ async def list_drivers(current_user=Depends(get_current_user)):
 
 
 @v1.get("/drivers/{driver_id}/history")
-async def driver_history(driver_id: str, current_user=Depends(get_current_user)):
+async def driver_history(driver_id: str):
     """Return career race history for a driver."""
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
     try:
         pipeline = _get_pipeline()
         history = pipeline.get_driver_history(driver_id)
@@ -721,20 +668,13 @@ def _rule_based_simulate(
 
 
 @v1.post("/strategy/simulate", response_model=SimulateResponse)
-async def simulate_strategy(
-    request: SimulateRequest,
-    current_user=Depends(get_current_user),
-):
+async def simulate_strategy(request: SimulateRequest):
     """
     Simulate a custom pit strategy using the local StrategySimulator.
 
     strategy: [[pit_lap, compound], ...]  e.g. [[20, "MEDIUM"], [42, "HARD"]]
     Runs a full 20-driver race with the user's pit stops forced at the specified laps.
     """
-    if not iam_simulator.check_permission(current_user, Permission.ML_MODEL_READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
     try:
         sim = _get_strategy_simulator()
         strategy_override = [(int(s[0]), str(s[1])) for s in request.strategy]
@@ -825,19 +765,12 @@ def _get_strategy_simulator():
 
 
 @v1.post("/strategy/full-simulate", response_model=FullSimulateResponse)
-async def full_simulate(
-    request: FullSimulateRequest,
-    current_user=Depends(get_current_user),
-):
+async def full_simulate(request: FullSimulateRequest):
     """
     Run a full 20-driver race simulation and return three strategy variants
     (Optimal / Aggressive Undercut / Conserve 1-Stop) plus final standings
     and finishing probability distribution.
     """
-    if not iam_simulator.check_permission(current_user, Permission.ML_MODEL_READ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
     try:
         sim = _get_strategy_simulator()
         output = sim.simulate(

@@ -205,11 +205,8 @@ def _run_rule_based_fallback(
 async def start_simulation(
     request: SimulateRequest,
     background_tasks: BackgroundTasks,
-    current_user=Depends(get_current_user),
 ) -> SimulateResponse:
     """Submit a race scenario for simulation. Returns job_id immediately."""
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     coordinator = _get_coordinator()
     store = _get_constructor_store()
@@ -245,11 +242,8 @@ async def start_simulation(
 @router.get("/race/stream")
 async def stream_simulation(
     job_id: str = Query(..., min_length=1),
-    current_user=Depends(get_current_user),
 ) -> StreamingResponse:
     """SSE stream of lap frames for a given job_id."""
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     coordinator = _get_coordinator()
 

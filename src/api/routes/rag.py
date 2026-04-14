@@ -73,14 +73,11 @@ class HealthResponse(BaseModel):
 
 
 @router.post("/query", response_model=QueryResponse)
-async def query_rag(request: QueryRequest, current_user=Depends(get_current_user)):
+async def query_rag(request: QueryRequest):
     """
     Run a RAG query against F1 data.
     Returns 503 if VECTOR_SEARCH_INDEX_ID or VECTOR_SEARCH_ENDPOINT_ID are not set.
-    Requires: DATA_READ permission.
     """
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
     retriever = get_retriever()
     if not retriever.config.is_configured:
         raise HTTPException(

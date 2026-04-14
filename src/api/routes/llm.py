@@ -437,16 +437,8 @@ async def llm_chat(
 @router.post("/parse-strategy", response_model=StrategyParseResponse)
 async def parse_strategy(
     request: StrategyParseRequest,
-    current_user=Depends(get_current_user),
 ) -> StrategyParseResponse:
-    """
-    Parse a natural language strategy request into a structured JSON payload
-    using Gemini. Validates against the /strategy/simulate schemas.
-
-    Requires: DATA_READ permission.
-    """
-    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    """Parse a natural language strategy request into a structured JSON payload using Gemini."""
 
     from src.llm.gemini_client import get_client
 
