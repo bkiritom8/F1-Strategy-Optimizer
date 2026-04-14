@@ -667,7 +667,9 @@ async def list_drivers(current_user=Depends(get_current_user_optional)):
 
 
 @v1.get("/drivers/{driver_id}/history")
-async def driver_history(driver_id: str, current_user=Depends(get_current_user_optional)):
+async def driver_history(
+    driver_id: str, current_user=Depends(get_current_user_optional)
+):
     """Return career race history for a driver."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
         raise HTTPException(

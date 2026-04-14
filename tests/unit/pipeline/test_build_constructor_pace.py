@@ -7,175 +7,124 @@ import pandas as pd
 import pytest
 
 from pipeline.scripts.build_constructor_pace import (
-    assign_tier,
-    build_output,
-    compute_relative_pace,
-    fit_constructor_pace,
-    get_circuit_category,
-    slugify,
+    _circuit_category,
+    _build_output,
+    CONSTRUCTOR_ID_MAP,
 )
 
 
-# ── slugify ───────────────────────────────────────────────────────────────────
-
-
-def test_slugify_basic():
-    assert slugify("Red Bull") == "red_bull"
-
-
-def test_slugify_special_chars():
-    assert slugify("Mercedes-AMG Petronas") == "mercedes_amg_petronas"
-
-
-def test_slugify_already_slug():
-    assert slugify("ferrari") == "ferrari"
-
-
-# ── get_circuit_category ──────────────────────────────────────────────────────
+# ── _circuit_category ─────────────────────────────────────────────────────────
 
 
 def test_circuit_category_street():
-    assert get_circuit_category("monaco") == "street"
+    assert _circuit_category("Monaco Grand Prix") == "street"
 
 
 def test_circuit_category_high_speed():
-    assert get_circuit_category("monza") == "high_speed"
+    assert _circuit_category("Italian Grand Prix") == "high_speed"
+
+
+def test_circuit_category_balanced():
+    assert _circuit_category("Hungarian Grand Prix") == "balanced"
 
 
 def test_circuit_category_unknown():
-    assert get_circuit_category("unknown_track") == "technical"
+    assert _circuit_category("Some Unknown GP") == "balanced"
 
 
-# ── assign_tier ───────────────────────────────────────────────────────────────
+# ── CONSTRUCTOR_ID_MAP ────────────────────────────────────────────────────────
 
 
-def test_assign_tier_1():
-    assert assign_tier(2023) == 1
+def test_constructor_id_map_has_all_teams():
+    expected = [
+        "Alfa Romeo", "Alfa Romeo Racing", "AlphaTauri", "Alpine",
+        "Aston Martin", "Ferrari", "Force India", "Haas F1 Team",
+        "Kick Sauber", "McLaren", "Mercedes", "RB", "Racing Point",
+        "Red Bull Racing", "Renault", "Sauber", "Toro Rosso",
+        "Unknown", "Williams",
+    ]
+    for team in expected:
+        assert team in CONSTRUCTOR_ID_MAP
 
 
-def test_assign_tier_2():
-    assert assign_tier(2010) == 2
+def test_constructor_id_map_values_are_slugs():
+    for name, slug in CONSTRUCTOR_ID_MAP.items():
+        assert slug == slug.lower()
+        assert " " not in slug
 
 
-def test_assign_tier_3():
-    assert assign_tier(1998) == 3
-
-
-def test_assign_tier_boundary_2018():
-    assert assign_tier(2018) == 1
-
-
-def test_assign_tier_boundary_2003():
-    assert assign_tier(2003) == 2
-
-
-# ── compute_relative_pace ─────────────────────────────────────────────────────
-
-
-def test_compute_relative_pace_columns():
-    df = pd.DataFrame(
-        {
-            "season": [2024, 2024, 2024],
-            "circuit_slug": ["monaco", "monaco", "monaco"],
-            "lap_time_s": [90.0, 90.0, 91.0],
-        }
-    )
-    result = compute_relative_pace(df, "lap_time_s")
-    assert "relative_pace" in result.columns
-    assert "session_median_s" in result.columns
-
-
-def test_compute_relative_pace_values():
-    df = pd.DataFrame(
-        {
-            "season": [2024, 2024],
-            "circuit_slug": ["monza", "monza"],
-            "lap_time_s": [80.0, 100.0],
-        }
-    )
-    result = compute_relative_pace(df, "lap_time_s")
-    median = 90.0
-    assert result["session_median_s"].iloc[0] == pytest.approx(median)
-    assert result["relative_pace"].iloc[0] == pytest.approx(80.0 / 90.0 - 1.0)
-
-
-# ── fit_constructor_pace ──────────────────────────────────────────────────────
-
-
-def _make_df(n_drivers=3, n_constructors=2, n_circuits=2, n_seasons=1):
-    """Build a minimal synthetic DataFrame for MixedLM fitting."""
-    rows = []
-    for season in range(2022, 2022 + n_seasons):
-        for c_idx in range(n_constructors):
-            for d_idx in range(n_drivers):
-                for circ in range(n_circuits):
-                    rows.append(
-                        {
-                            "season": season,
-                            "driver_id": f"driver_{d_idx}",
-                            "constructor_season": f"constructor_{c_idx}_{season}",
-                            "circuit_category": "high_speed" if circ == 0 else "technical",
-                            "relative_pace": -0.01 * c_idx + np.random.normal(0, 0.001),
-                            "session_median_s": 90.0,
-                        }
-                    )
-    return pd.DataFrame(rows)
-
-
-def test_fit_constructor_pace_returns_dict():
-    df = _make_df()
-    result = fit_constructor_pace(df)
-    assert isinstance(result, dict)
-
-
-def test_fit_constructor_pace_empty_df():
-    df = pd.DataFrame(
-        columns=["driver_id", "constructor_season", "circuit_category", "relative_pace", "session_median_s"]
-    )
-    result = fit_constructor_pace(df)
-    assert result == {}
-
-
-def test_fit_constructor_pace_too_few_drivers():
-    df = _make_df(n_drivers=1)
-    result = fit_constructor_pace(df)
-    assert result == {}
-
-
-# ── build_output ──────────────────────────────────────────────────────────────
+# ── _build_output ─────────────────────────────────────────────────────────────
 
 
 def test_build_output_structure():
-    coefs = {"red_bull_2024": -0.3, "ferrari_2024": 0.05}
-    tier_map = {"red_bull_2024": 1, "ferrari_2024": 1}
-    limited = set()
-    output = build_output(coefs, tier_map, limited)
-    assert "red_bull" in output
-    assert "ferrari" in output
-    assert "2024" in output["red_bull"]["seasons"]
-    assert output["red_bull"]["seasons"]["2024"]["pace_delta_s"] == -0.3
+    pace_deltas = {"red_bull_2024": -0.312, "ferrari_2024": 0.05}
+    output = _build_output(pace_deltas)
+    assert "constructors" in output
+    assert "version" in output
+    assert "reference" in output
+    assert "red_bull" in output["constructors"]
+    assert "ferrari" in output["constructors"]
+    assert "2024" in output["constructors"]["red_bull"]["seasons"]
 
 
-def test_build_output_limited_flag():
-    coefs = {"red_bull_2026": -0.1}
-    tier_map = {"red_bull_2026": 1}
-    limited = {"red_bull_2026"}
-    output = build_output(coefs, tier_map, limited)
-    assert output["red_bull"]["seasons"]["2026"]["limited_data"] is True
+def test_build_output_pace_delta():
+    pace_deltas = {"red_bull_2024": -0.312}
+    output = _build_output(pace_deltas)
+    season = output["constructors"]["red_bull"]["seasons"]["2024"]
+    assert season["pace_delta_s"] == -0.312
+    assert season["data_tier"] == 1
+    assert season["limited_data"] is False
 
 
-def test_build_output_not_limited():
-    coefs = {"ferrari_2024": 0.05}
-    tier_map = {"ferrari_2024": 1}
-    limited = set()
-    output = build_output(coefs, tier_map, limited)
-    assert output["ferrari"]["seasons"]["2024"]["limited_data"] is False
+def test_build_output_limited_data_2026():
+    pace_deltas = {"red_bull_2026": -0.1}
+    output = _build_output(pace_deltas)
+    season = output["constructors"]["red_bull"]["seasons"]["2026"]
+    assert season["limited_data"] is True
+
+
+def test_build_output_not_limited_2024():
+    pace_deltas = {"ferrari_2024": 0.05}
+    output = _build_output(pace_deltas)
+    season = output["constructors"]["ferrari"]["seasons"]["2024"]
+    assert season["limited_data"] is False
 
 
 def test_build_output_skips_malformed_key():
-    coefs = {"noyear": 0.1, "ferrari_2024": 0.0}
-    tier_map = {"ferrari_2024": 1}
-    limited = set()
-    output = build_output(coefs, tier_map, limited)
-    assert "noyear" not in output
-    assert "ferrari" in output
+    pace_deltas = {"noyear": 0.1, "ferrari_2024": 0.0}
+    output = _build_output(pace_deltas)
+    constructors = output["constructors"]
+    assert "noyear" not in constructors
+    assert "ferrari" in constructors
+
+
+def test_build_output_sorted():
+    pace_deltas = {"williams_2024": 0.5, "alfa_romeo_2024": 0.1, "ferrari_2024": -0.3}
+    output = _build_output(pace_deltas)
+    keys = list(output["constructors"].keys())
+    assert keys == sorted(keys)
+
+
+def test_build_output_multiple_seasons():
+    pace_deltas = {
+        "red_bull_2023": -0.445,
+        "red_bull_2024": -0.312,
+    }
+    output = _build_output(pace_deltas)
+    seasons = output["constructors"]["red_bull"]["seasons"]
+    assert "2023" in seasons
+    assert "2024" in seasons
+    assert seasons["2023"]["pace_delta_s"] == -0.445
+    assert seasons["2024"]["pace_delta_s"] == -0.312
+
+
+def test_build_output_display_name():
+    pace_deltas = {"red_bull_2024": -0.3}
+    output = _build_output(pace_deltas)
+    assert output["constructors"]["red_bull"]["display_name"] == "Red Bull Racing"
+
+
+def test_build_output_empty():
+    output = _build_output({})
+    assert output["constructors"] == {}
+    assert "version" in output
