@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from src.security.https_middleware import get_current_user
 from src.security.iam_simulator import Permission, iam_simulator
+from src.simulation.constructor_pace import ConstructorPaceStore
 from src.simulation.coordinator import SimulationCoordinator, scenario_hash
 from src.simulation.streamer import frames_to_sse
 
@@ -29,6 +30,7 @@ SIMULATION_ENDPOINT = os.environ.get(
 )
 
 _coordinator: SimulationCoordinator | None = None
+_constructor_store: ConstructorPaceStore | None = None
 
 
 def _get_coordinator() -> SimulationCoordinator:
@@ -38,11 +40,26 @@ def _get_coordinator() -> SimulationCoordinator:
     return _coordinator
 
 
+def _get_constructor_store() -> ConstructorPaceStore:
+    global _constructor_store
+    if _constructor_store is None:
+        _constructor_store = ConstructorPaceStore()
+    return _constructor_store
+
+
+def _parse_season(race_id: str) -> int | None:
+    try:
+        return int(race_id.split("_")[0])
+    except (ValueError, IndexError, AttributeError):
+        return None
+
+
 # ---------- Request / Response models ----------
 
 
 class DriverInput(BaseModel):
     driver_id: str
+    constructor_id: str | None = None
     car_offset_ms: float = 0.0
     grid_position: int
     start_compound: str = "MEDIUM"
@@ -143,7 +160,7 @@ def _run_rule_based_fallback(
                     "position": idx + 1,
                     "compound": driver.get("start_compound", "MEDIUM"),
                     "gap_ms": idx * 1200,
-                    "lap_time_ms": 90000 + idx * 200,
+                    "lap_time_ms": 90000 + idx * 200 + round(driver.get("car_offset_ms", 0.0)),
                     "tire_age": lap,
                 }
             )
@@ -191,7 +208,23 @@ async def start_simulation(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     coordinator = _get_coordinator()
-    job_id = scenario_hash(request.race_id, request.scenario.model_dump())
+    store = _get_constructor_store()
+    season = _parse_season(request.race_id)
+
+    # Resolve car_offset_ms from constructor pace store
+    drivers_with_offsets = []
+    for driver in request.drivers:
+        offset_ms = driver.car_offset_ms
+        if driver.constructor_id and season is not None:
+            offset_ms = store.get_offset_ms(driver.constructor_id, season)
+        drivers_with_offsets.append(
+            {**driver.model_dump(), "car_offset_ms": offset_ms}
+        )
+
+    # Include drivers in hash so different constructor selections produce distinct jobs
+    scenario_dict = request.scenario.model_dump()
+    scenario_dict["drivers"] = drivers_with_offsets
+    job_id = scenario_hash(request.race_id, scenario_dict)
 
     # Cache hit: replay existing frames
     if coordinator.replay_from_cache(job_id):
@@ -200,6 +233,7 @@ async def start_simulation(
     # Cache miss: kick off background simulation
     coordinator.set_status(job_id, "pending")
     payload = request.model_dump()
+    payload["drivers"] = drivers_with_offsets
     payload["n_trials"] = coordinator.n_trials(coordinator.get_queue_depth())
     background_tasks.add_task(_run_simulation, job_id, payload, coordinator)
 

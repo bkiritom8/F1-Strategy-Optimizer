@@ -16,16 +16,16 @@ steps:
         echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.api|docker/requirements-api\.txt|src/|rag/|ml/)' \
           && touch /workspace/api_rebuild || true
 
-        # ml image: Dockerfile.ml, requirements-ml*.txt, ml/, src/
-        echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.ml|docker/requirements-ml|ml/|src/)' \
+        # ml image: Dockerfile.ml, requirements-ml*.txt, ml/, pipeline/scripts/, src/
+        echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.ml|docker/requirements-ml|ml/|pipeline/scripts/|src/)' \
           && touch /workspace/ml_rebuild || true
 
         # rag image: Dockerfile.rag, requirements-rag.txt, rag/, src/
         echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.rag|docker/requirements-rag\.txt|rag/|src/)' \
           && touch /workspace/rag_rebuild || true
 
-        # ml training: ml/training/, ml/features/, ml/preprocessing/
-        echo "$$DIFF" | grep -qE '^ml/(training|features|preprocessing)/' \
+        # ml training: ml/training/, ml/features/, ml/preprocessing/, pipeline/scripts/
+        echo "$$DIFF" | grep -qE '^(ml/(training|features|preprocessing)|pipeline/scripts)/' \
           && touch /workspace/ml_changed || true
 
         # rag ingestion trigger: rag/document_fetcher.py
