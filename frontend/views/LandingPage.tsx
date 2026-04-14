@@ -189,10 +189,10 @@ const LandingPage: React.FC<Props> = () => {
         <motion.div
           animate={{ opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 cursor-pointer group"
+          className="relative z-10 mt-12 flex flex-col items-center gap-4 cursor-pointer group"
           onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
         >
-          <div className="relative w-32 h-16 flex items-center justify-center overflow-hidden">
+          <div className="relative w-52 h-16 flex items-center justify-center">
             {/* Arched lines from screenshot */}
             {[...Array(3)].map((_, i) => (
               <motion.div

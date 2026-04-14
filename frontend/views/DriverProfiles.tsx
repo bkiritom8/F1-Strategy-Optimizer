@@ -13,11 +13,10 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { TEAM_COLORS } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDrivers, useRaces2024, useRaces2025, useRaces2026 } from '../hooks/useApi';
-import { Search, Users, Trophy, Flag, MapPin, Calendar, ChevronRight, Star } from 'lucide-react';
+import { Search, Users, Trophy, MapPin, ChevronRight, Star } from 'lucide-react';
 import type { DriverProfile } from '../types';
 
 /**
@@ -141,38 +140,9 @@ const DriverProfiles: React.FC = () => {
     return Array.from(teamSet).sort();
   }, [drivers, seasonStats]);
 
-  // Nationality breakdown | all drivers we have profiles for
-  const nationalityData = useMemo(() => {
-    if (!drivers) return [];
-    const counts: Record<string, number> = {};
-    drivers.forEach(d => {
-      if (d.nationality) counts[d.nationality] = (counts[d.nationality] || 0) + 1;
-    });
-    
-    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    const mainGroups: { name: string; value: number }[] = [];
-    let otherCount = 0;
-    
-    // Group nationalities with fewer than 3 drivers to avoid chart congestion
-    entries.forEach(([name, value]) => {
-      if (value >= 3) {
-        mainGroups.push({ name, value });
-      } else {
-        otherCount += value;
-      }
-    });
-    
-    if (otherCount > 0) {
-      mainGroups.push({ name: 'Others', value: otherCount });
-    }
-    
-    return mainGroups;
-  }, [drivers]);
-
   // Summary stats
   const totalDrivers = filteredDrivers.filter(d => CURRENT_2026_DRIVERS.has(d.driver_id)).length || CURRENT_2026_DRIVERS.size;
   const totalWins = Array.from(seasonStats.values()).reduce((sum, s) => sum + s.wins, 0);
-  const nationalities = nationalityData.length;
 
   if (loading && !drivers) {
     return (
@@ -226,7 +196,7 @@ const DriverProfiles: React.FC = () => {
       </div>
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="flex items-center gap-3 p-4 rounded-xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
           <Users className="w-5 h-5 text-blue-500" />
           <div>
@@ -239,13 +209,6 @@ const DriverProfiles: React.FC = () => {
           <div>
             <div className="text-[9px] text-white/40 uppercase font-bold tracking-widest">Total Race Wins</div>
             <div className="text-2xl font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{totalWins}</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 p-4 rounded-xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-          <Flag className="w-5 h-5 text-green-500" />
-          <div>
-            <div className="text-[9px] text-white/40 uppercase font-bold tracking-widest">Nationalities</div>
-            <div className="text-2xl font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{nationalities}</div>
           </div>
         </div>
       </div>
@@ -479,77 +442,6 @@ const DriverProfiles: React.FC = () => {
                 </motion.div>
               </AnimatePresence>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Nationality Breakdown */}
-      <div className="rounded-2xl p-8 border shadow-2xl relative overflow-hidden" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-        <div className="flex justify-between items-center mb-8">
-          <h3 className="text-xs font-display font-bold uppercase tracking-widest text-white/40 px-2">
-            Driver Nationalities ({activeYear} Season)
-          </h3>
-          <div className="text-[10px] text-white/20 font-mono italic">Grouped (n &gt; 1)</div>
-        </div>
-        
-        <div className="flex flex-col md:flex-row items-center gap-12">
-          {/* Donut Chart */}
-          <div className="h-[280px] w-full md:w-1/2 relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={nationalityData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={70}
-                  outerRadius={100}
-                  paddingAngle={4}
-                  stroke="none"
-                >
-                  {nationalityData.map((entry, index) => {
-                    const colors = ['#E10600', '#2563EB', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B'];
-                    const color = entry.name === 'Others' ? '#334155' : colors[index % colors.length];
-                    return <Cell key={`cell-${index}`} fill={color} />;
-                  })}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ 
-                    backgroundColor: 'rgba(10, 10, 10, 0.95)', 
-                    border: '1px solid rgba(255,255,255,0.1)', 
-                    borderRadius: '12px',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-                  }}
-                  itemStyle={{ color: '#fff' }}
-                  cursor={{ fill: 'transparent' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            {/* Center Text */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-              <div className="text-2xl font-display font-black italic">{nationalityData.length}</div>
-              <div className="text-[8px] uppercase tracking-widest text-white/40">Regions</div>
-            </div>
-          </div>
-
-          {/* Legend Grid */}
-          <div className="w-full md:w-1/2 grid grid-cols-2 gap-y-3 gap-x-6">
-            {nationalityData.map((entry, index) => {
-              const colors = ['#E10600', '#2563EB', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B'];
-              const color = entry.name === 'Others' ? '#334155' : colors[index % colors.length];
-              return (
-                <div key={entry.name} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-                    <span className="text-[10px] font-bold uppercase tracking-tight text-white/60">{entry.name}</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-white/40 font-bold">{entry.value}</span>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
