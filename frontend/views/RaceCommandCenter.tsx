@@ -270,9 +270,9 @@ function SectorTimingCard({ driverCode, sectors }: {
 const RaceCommandCenter: React.FC = () => {
   const { data: apiDrivers } = useDrivers();
   const { online } = useBackendStatus();
-  const { data: races2024 } = useRaces2024();
-  const { data: races2025 } = useRaces2025();
-  const { data: races2026 } = useRaces2026();
+  const { data: races2024, loading: loading2024 } = useRaces2024();
+  const { data: races2025, loading: loading2025 } = useRaces2025();
+  const { data: races2026, loading: loading2026 } = useRaces2026();
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [selectedOpponentId, setSelectedOpponentId] = useState('norris');
 
@@ -290,6 +290,7 @@ const RaceCommandCenter: React.FC = () => {
 
   // Resolve the correct race list based on the selected season
   const races = selectedSeason === 2026 ? races2026 : selectedSeason === 2025 ? races2025 : races2024;
+  const racesLoading = selectedSeason === 2026 ? loading2026 : selectedSeason === 2025 ? loading2025 : loading2024;
 
   const selectedRace = races?.find((r: any) => r.round === activeRaceRound) || races?.[0];
 
@@ -444,7 +445,23 @@ const RaceCommandCenter: React.FC = () => {
     return { lap, time: 74.2 + deterministicRandom * 0.4, benchmark: 74.1 };
   }), [selectedDriverId]);
 
-  if (!selectedDriver || !selectedTelemetry) return null;
+  if (!selectedDriver || !selectedTelemetry) {
+    return (
+      <div className="flex h-full items-center justify-center relative">
+        <RacingBackground view="command" theme="dark" />
+        <div className="z-10 flex flex-col items-center gap-4">
+          {racesLoading ? (
+            <>
+              <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm font-mono" style={{ color: 'var(--text-secondary)' }}>Loading race data…</p>
+            </>
+          ) : (
+            <p className="text-sm font-mono" style={{ color: 'var(--text-secondary)' }}>No race data available for {selectedSeason}.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full overflow-hidden relative">
