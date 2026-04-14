@@ -39,63 +39,6 @@ interface Props {}
 
 // ─── SVG Components ──────────────────────────────────────────────────────────
 
-const F1CarSVG = () => (
-  <motion.svg
-    width="100%"
-    height="100%"
-    viewBox="0 0 1200 400"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className="f1-red-glow filter drop-shadow-[0_0_30px_rgba(225,6,0,0.2)]"
-    initial={{ opacity: 0, scale: 0.9 }}
-    animate={{ opacity: 1, scale: 1 }}
-    transition={{ duration: 1.5, ease: "easeOut" }}
-  >
-    {/* High-Fidelity Chassis Silhouette */}
-    <motion.path
-      d="M100 320 L250 320 L280 290 L400 290 L450 250 L850 250 L920 290 L1100 290 L1100 320 M250 320 Q270 240 350 240 Q430 240 450 320 M850 320 Q870 240 950 240 Q1030 240 1050 320"
-      stroke="#E10600"
-      strokeWidth="3"
-      strokeLinecap="round"
-      initial={{ pathLength: 0 }}
-      animate={{ pathLength: 1 }}
-      transition={{ duration: 3, ease: "easeInOut" }}
-    />
-    {/* Body Lines & Aero Details */}
-    <motion.path
-      d="M480 240 Q650 220 820 240 M500 260 L800 260 M550 280 L750 280"
-      stroke="white"
-      strokeWidth="1"
-      strokeOpacity="0.3"
-      initial={{ pathLength: 0 }}
-      animate={{ pathLength: 1 }}
-      transition={{ duration: 2, delay: 1 }}
-    />
-    <motion.path
-      d="M450 250 Q650 180 850 250"
-      stroke="#E10600"
-      strokeWidth="1.5"
-      fill="none"
-      strokeDasharray="10 10"
-      initial={{ pathLength: 0 }}
-      animate={{ pathLength: 1 }}
-      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-    />
-    {/* Dynamic Speed Lines */}
-    {[...Array(5)].map((_, i) => (
-      <motion.line
-        key={i}
-        x1="1150" y1={250 + i * 15} x2="1300" y2={250 + i * 15}
-        stroke="#00D2BE"
-        strokeWidth="1"
-        initial={{ x1: 1150, x2: 1250, opacity: 0 }}
-        animate={{ x1: [-100, 1300], x2: [0, 1400], opacity: [0, 1, 0] }}
-        transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15, ease: "linear" }}
-      />
-    ))}
-  </motion.svg>
-);
-
 const StrategyGraphSVG = () => (
   <svg width="100%" height="200" viewBox="0 0 400 200" className="opacity-80">
     <motion.path
@@ -121,103 +64,16 @@ const StrategyGraphSVG = () => (
   </svg>
 );
 
-const TelemetryBackground = () => {
-  const { scrollYProgress } = useScroll();
-  const smoothScroll = useSpring(scrollYProgress, { stiffness: 50, damping: 20 });
-
-  // Each layer of the "Tunnel"
-  const layers = [
-    { id: 1, delay: 0,   scaleRange: [0.5, 10], opacityRange: [0, 0.4, 0] },
-    { id: 2, delay: 0.2, scaleRange: [0.3, 8],  opacityRange: [0, 0.3, 0] },
-    { id: 3, delay: 0.4, scaleRange: [0.1, 5],  opacityRange: [0, 0.2, 0] },
-    { id: 4, delay: 0.6, scaleRange: [0.05, 3], opacityRange: [0, 0.1, 0] },
-  ];
-
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 bg-black">
-      {/* Base Depth Grid */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(225,6,0,0.08)_0%,transparent_70%)]" />
-      
-      {/* Perspective Tunnel Layers */}
-      {layers.map((layer) => {
-        const scale = useTransform(smoothScroll, [0, 1], layer.scaleRange);
-        const opacity = useTransform(smoothScroll, [0, 0.5, 1], layer.opacityRange);
-        
-        return (
-          <motion.div
-            key={layer.id}
-            style={{ scale, opacity }}
-            className="absolute inset-0 flex items-center justify-center"
-          >
-            {/* Geometric Tech Ring */}
-            <svg className="w-[120%] h-[120%] opacity-20" viewBox="0 0 1000 1000">
-              <motion.circle
-                cx="500" cy="500" r="450"
-                stroke={layer.id % 2 === 0 ? "#E10600" : "#00D2BE"}
-                strokeWidth="0.5"
-                fill="none"
-                strokeDasharray="100 200"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20 + layer.id * 10, repeat: Infinity, ease: "linear" }}
-              />
-              <motion.path
-                d="M500 50 L950 500 L500 950 L50  500 Z"
-                stroke="#E10600"
-                strokeWidth="0.2"
-                fill="none"
-                strokeDasharray="50 150"
-                animate={{ rotate: -360 }}
-                transition={{ duration: 30 + layer.id * 5, repeat: Infinity, ease: "linear" }}
-              />
-              {/* Floating Data Nodes */}
-              {[...Array(12)].map((_, j) => (
-                <text
-                  key={j}
-                  x={500 + 400 * Math.cos(j * Math.PI / 6)}
-                  y={500 + 400 * Math.sin(j * Math.PI / 6)}
-                  fill="white"
-                  fontSize="8"
-                  className="font-mono opacity-40 uppercase"
-                >
-                  {Math.random().toString(16).substr(2, 4)}
-                </text>
-              ))}
-            </svg>
-          </motion.div>
-        );
-      })}
-
-      {/* Near-Field High Speed Particles (Dolly) */}
-      <div className="absolute inset-0">
-        {[...Array(60)].map((_, i) => {
-          // Each particle has its own lifecycle linked to scroll
-          const scale = useTransform(smoothScroll, [0, 1], [0.1, 15]);
-          const opacity = useTransform(smoothScroll, [0, 0.2, 0.8, 1], [0, 0.5, 0.5, 0]);
-          
-          return (
-            <motion.div
-              key={i}
-              className="absolute w-0.5 h-0.5 bg-white rounded-full"
-              style={{
-                top: `${(Math.sin(i * 13.57) * 50) + 50}%`,
-                left: `${(Math.cos(i * 13.57) * 50) + 50}%`,
-                scale,
-                opacity,
-                filter: 'blur(1px)'
-              }}
-            />
-          );
-        })}
-      </div>
-
-      {/* Cinematic Vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,black_90%)]" />
-      
-      {/* Dynamic Digital Noise */}
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
-    </div>
-  );
-};
+const TelemetryBackground = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 bg-black">
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(225,6,0,0.08)_0%,transparent_70%)]" />
+    <svg className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] opacity-20" viewBox="0 0 1000 1000">
+      <circle cx="500" cy="500" r="450" stroke="#E10600" strokeWidth="0.5" fill="none" strokeDasharray="100 200" />
+      <path d="M500 50 L950 500 L500 950 L50 500 Z" stroke="#E10600" strokeWidth="0.2" fill="none" strokeDasharray="50 150" />
+    </svg>
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,black_90%)]" />
+  </div>
+);
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -248,7 +104,7 @@ const LandingPage: React.FC<Props> = () => {
           <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-900/20">
             <img src="/apex-logo.svg" alt="DivergeX" className="w-8 h-8 rounded-lg object-contain" />
           </div>
-          <span className="font-display font-black text-xl italic tracking-tighter uppercase">DivergeX</span>
+          <span className="font-display font-black text-xl italic tracking-tighter uppercase">Diverge<span className="text-red-600">X</span></span>
         </div>
         
         <div className="flex items-center gap-4 md:gap-10">
@@ -269,12 +125,6 @@ const LandingPage: React.FC<Props> = () => {
             </button>
           )}
 
-          <button
-            onClick={() => navigate('/race')}
-            className="flex items-center gap-2 px-6 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all text-sm font-bold uppercase tracking-widest text-white/70 hover:text-white"
-          >
-            Launch <ArrowRight className="w-4 h-4 ml-1" />
-          </button>
         </div>
       </nav>
 
@@ -293,25 +143,29 @@ const LandingPage: React.FC<Props> = () => {
           <TelemetryBackground />
         </motion.div>
 
+        {/* Translucent logo watermark */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
+          <img src="/apex-logo.svg" alt="Logo" className="w-[80vw] max-w-[800px] object-contain" />
+        </div>
+
         <motion.div
           style={{ scale: heroScale, opacity: heroOpacity }}
-          className="relative z-10 text-center max-w-4xl"
+          className="relative z-10 text-center max-w-3xl"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-morphism mb-8 border-red-900/30"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-morphism mb-6 border-red-900/30"
           >
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 mt-0.5">2026 Season Engine Active</span>
           </motion.div>
 
-          <img src="/apex-logo.svg" alt="DivergeX" className="h-16 md:h-20 object-contain mb-8 mx-auto drop-shadow-2xl" />
-          <h1 className="font-display font-black text-6xl md:text-8xl italic tracking-tighter uppercase leading-[0.9] mb-8 hero-gradient-text">
+          <h1 className="font-display font-black text-5xl md:text-7xl italic tracking-tighter uppercase leading-[0.9] mb-6 hero-gradient-text">
             Outthink.<br />Outpace.<br />Outsmart.<br />Optimize.
           </h1>
 
-          <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto leading-relaxed mb-12">
+          <p className="text-base md:text-lg text-white/50 max-w-xl mx-auto leading-relaxed mb-8">
             The next generation of Formula 1 strategy. Real-time telemetry, predictive AI simulations, and adaptive modeling for the hybrid era.
           </p>
 
@@ -331,13 +185,7 @@ const LandingPage: React.FC<Props> = () => {
           </div>
         </motion.div>
 
-        <motion.div
-          style={{ y: carParallax }}
-          className="mt-20 w-full max-w-4xl opacity-50 relative"
-        >
-          <div className="absolute inset-0 bg-red-600/5 blur-3xl rounded-full" />
-          <F1CarSVG />
-        </motion.div>
+        {/* Car parallax removed in favor of lightweight branding and layout */}
 
         <motion.div
           animate={{ opacity: [0.4, 1, 0.4] }}
@@ -535,70 +383,7 @@ const LandingPage: React.FC<Props> = () => {
         </div>
       </section>
 
-      {/* ── SECTION 3.5: LIVE CLOUD INFRASTRUCTURE (Car Animation) ── */}
-      <section className="relative h-[600px] flex items-center justify-center overflow-hidden border-y border-white/5">
-        <DynamicSimulationBackground 
-          className="absolute inset-0 scale-110" 
-          circuitId="bahrain"
-        />
-        
-        {/* Dark overlay for text readability */}
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
-
-        <div className="relative z-10 max-w-7xl mx-auto px-6 w-full">
-          <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-8">
-            <motion.div
-              whileInView={{ opacity: 1, x: 0 }}
-              initial={{ opacity: 0, x: -50 }}
-              viewport={{ once: true }}
-              className="space-y-6"
-            >
-              <div className="flex items-center gap-3">
-                <div className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-md animate-pulse">
-                  Live
-                </div>
-                <h2 className="text-4xl md:text-6xl font-display font-black italic uppercase tracking-tighter text-white">
-                  Live Cloud<br />Infrastructure
-                </h2>
-              </div>
-              <p className="text-white/60 max-w-md font-medium leading-relaxed">
-                Experience real-time telemetry processing across our global GCP nodes. 
-                Our simulation engine clones live race conditions into distributive compute environments.
-              </p>
-              <div className="flex items-center gap-6 pt-4">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Compute Mode</span>
-                  <span className="text-sm font-mono text-blue-400">High-Performance Cluster</span>
-                </div>
-                <div className="w-px h-10 bg-white/10" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Latency</span>
-                  <span className="text-sm font-mono text-emerald-400">&lt; 0.4ms</span>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              whileInView={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 30 }}
-              viewport={{ once: true }}
-              className="flex flex-col items-center gap-4 bg-black/60 backdrop-blur-xl p-8 rounded-[32px] border border-white/10 shadow-2xl"
-            >
-              <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                <Activity className="w-8 h-8 text-blue-500 animate-pulse" />
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">Simulation Status</p>
-                <p className="text-xl font-display font-bold text-white uppercase italic">Active Node: GCP-US-EAST</p>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-full mt-2">
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                <span className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Stream Active</span>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
+      {/* Section 3.5 removed to optimize landing page weight. */}
 
       {/* ── SECTION 4: FINAL CTA ── */}
       <section className="relative min-h-[60vh] flex items-center justify-center py-20 px-6">

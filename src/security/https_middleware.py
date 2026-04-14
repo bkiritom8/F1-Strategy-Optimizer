@@ -181,6 +181,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable):
         import time
+        import math
 
         # WebSocket connections are long-lived — don't rate-limit the upgrade
         if request.headers.get("upgrade", "").lower() == "websocket":
@@ -205,8 +206,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 self.request_counts[client_ip] = (1, current_time)
             else:
                 if count >= self.max_requests:
-                    reset_at = int(window_start + self.window_seconds)
-                    retry_after = max(0, math.ceil(reset_at - current_time))
+                    reset_at = window_start + self.window_seconds
+                    retry_after = int(math.ceil(max(0.0, reset_at - current_time)))
                     logger.warning("Rate limit exceeded for %s (%s)", client_ip, path)
                     return JSONResponse(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,

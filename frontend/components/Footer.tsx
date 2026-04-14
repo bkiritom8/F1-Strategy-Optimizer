@@ -69,7 +69,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
             </p>
             <div className="flex gap-4">
               <a 
-                href="https://github.com/nateplusplus/F1-Strategy-Optimizer" 
+                href="https://github.com/bkiritom8/F1-Strategy-Optimizer" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/50 transition-all flex items-center justify-center group"

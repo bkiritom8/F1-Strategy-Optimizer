@@ -116,7 +116,7 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedDriverId: (id) => set({ selectedDriverId: id }),
 
   // ── Season selection ───────────────────────────────────────────────────────
-  selectedSeason: 2026,
+  selectedSeason: 2024,
   setSelectedSeason: (season) => set({ selectedSeason: season }),
 
   // ── Race context ───────────────────────────────────────────────────────────

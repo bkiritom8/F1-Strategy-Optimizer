@@ -29,7 +29,7 @@ import {
   useBackendStatus 
 } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
-import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
+import { F1GridBackground } from './components/F1GridBackground';
 import { logger } from './services/logger';
 import CookieConsent from './components/CookieConsent';
 import Footer from './components/Footer';
@@ -212,7 +212,7 @@ const App: React.FC = () => {
           aria-label="Go to home page"
         >
           <img src="/apex-logo.svg" alt="DivergeX" className="w-7 h-7 rounded-lg object-contain" />
-          <span className="font-display font-black tracking-tighter text-lg italic">{APP_NAME}</span>
+          <span className="font-display font-black tracking-tighter text-lg italic">Diverge<span className="text-red-600">X</span></span>
         </button>
       </div>
 
@@ -251,7 +251,7 @@ const App: React.FC = () => {
                     className="text-left hover:opacity-80 transition-opacity pr-2"
                     aria-label="Go to home page"
                   >
-                    <h1 className="font-display font-black tracking-tighter text-xl italic leading-none text-white">{APP_NAME}</h1>
+                    <h1 className="font-display font-black tracking-tighter text-xl italic leading-none text-white">Diverge<span className="text-red-600">X</span></h1>
                     <p className="text-[10px] font-mono text-red-500 font-bold uppercase tracking-widest mt-1">Race Intelligence</p>
                   </button>
                 </motion.div>
@@ -365,7 +365,7 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-24 lg:pt-0 lg:pb-0">
-        <DynamicSimulationBackground key={currentCircuitId} circuitId={currentCircuitId} />
+        <F1GridBackground />
         <div className="relative z-10 h-full flex flex-col overflow-y-auto scrollbar-hide">
           <div className="flex-1">
             <ViewErrorBoundary>

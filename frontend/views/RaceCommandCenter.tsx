@@ -272,41 +272,48 @@ const RaceCommandCenter: React.FC = () => {
   const { data: races2024 } = useRaces2024();
   const { data: races2025 } = useRaces2025();
   const { data: races2026 } = useRaces2026();
-
-  const [activeYear, setActiveYear] = useState<2024 | 2025 | 2026>(2024);
+  const [selectedDriverId, setSelectedDriverId] = useState('');
+  const [selectedOpponentId, setSelectedOpponentId] = useState('norris');
 
   const { 
     activeRaceRound, 
     setActiveRaceRound, 
+    selectedSeason,
+    setSelectedSeason,
     setBackgroundCircuitId,
     setSelectedDriverId: setStoreDriverId 
   } = useAppStore();
 
-  // Resolve the correct race list based on the selected year
-  const races = activeYear === 2026 ? races2026 : activeYear === 2025 ? races2025 : races2024;
+  const { data: safetyCarData } = useSafetyCarProb(activeRaceRound?.toString() || null);
+  const { data: overtakeData } = useOvertakeMetric(selectedDriverId || null, selectedOpponentId || null);
+
+  // Resolve the correct race list based on the selected season
+  const races = selectedSeason === 2026 ? races2026 : selectedSeason === 2025 ? races2025 : races2024;
 
   useEffect(() => {
     console.debug('[RaceCommandCenter] Component mounted');
     return () => console.debug('[RaceCommandCenter] Component unmounted');
   }, []);
 
-  // Reset background override to follow the active race round when in this view
+  // Sync background circuit with the selected race
   useEffect(() => {
-    setBackgroundCircuitId(null);
-  }, [setBackgroundCircuitId]);
-  const [selectedRaceId, setSelectedRaceId] = useState<number | null>(activeRaceRound || null);
-
-  // Predictive ML Metrics
-  const { data: overtakeData } = useOvertakeMetric('VER', 'NOR');
-  const { data: safetyCarData } = useSafetyCarProb('2024_1');
-
-  useEffect(() => {
-    if (races && races.length > 0 && selectedRaceId === null) {
-      setSelectedRaceId(races[0].round);
+    if (selectedRace?.circuit?.id) {
+      console.debug('[RaceCommandCenter] Syncing background:', selectedRace.circuit.id);
+      setBackgroundCircuitId(selectedRace.circuit.id);
     }
-  }, [races, selectedRaceId]);
+  }, [selectedRace, setBackgroundCircuitId]);
 
-  const selectedRace = races?.find((r: any) => r.round === selectedRaceId) || races?.[0];
+  useEffect(() => {
+    if (selectedDriverId) setStoreDriverId(selectedDriverId);
+  }, [selectedDriverId, setStoreDriverId]);
+
+  useEffect(() => {
+    if (races && races.length > 0 && activeRaceRound === null) {
+      setActiveRaceRound(races[0].round);
+    }
+  }, [races, activeRaceRound, setActiveRaceRound]);
+
+  const selectedRace = races?.find((r: any) => r.round === activeRaceRound) || races?.[0];
 
   const drivers: DriverProfile[] = useMemo(() => {
     if (selectedRace) {
@@ -331,7 +338,6 @@ const RaceCommandCenter: React.FC = () => {
     return [];
   }, [selectedRace, apiDrivers]);
 
-  const [selectedDriverId, setSelectedDriverId] = useState('');
   const [showBeginnerTips, setShowBeginnerTips] = useState(false);
   const [mobileTowerOpen, setMobileTowerOpen] = useState(false);
   const [raceState, setRaceState] = useState<RaceState>(DEFAULT_RACE_STATE);
@@ -383,14 +389,6 @@ const RaceCommandCenter: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Sync selections to global store so other views preserve context
-  useEffect(() => {
-    if (selectedRaceId) setActiveRaceRound(selectedRaceId);
-  }, [selectedRaceId, setActiveRaceRound]);
-
-  useEffect(() => {
-    if (selectedDriverId) setStoreDriverId(selectedDriverId);
-  }, [selectedDriverId, setStoreDriverId]);
 
   const selectedDriver = drivers.find(d => d.driver_id === selectedDriverId) || drivers[0];
   const selectedTelemetry = telemetries.find(t => t.driver_id === selectedDriverId) || telemetries[0];
@@ -510,9 +508,12 @@ const RaceCommandCenter: React.FC = () => {
                 {([2024, 2025, 2026] as const).map(yr => (
                   <button
                     key={yr}
-                    onClick={() => { setActiveYear(yr); setSelectedRaceId(null); }}
+                    onClick={() => { 
+                      setSelectedSeason(yr); 
+                      setActiveRaceRound(null); 
+                    }}
                     className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wide transition-colors ${
-                      activeYear === yr
+                      selectedSeason === yr
                         ? 'bg-red-600 text-white'
                         : 'text-white/40 hover:text-white hover:bg-white/10 border border-white/10'
                     }`}
@@ -523,8 +524,8 @@ const RaceCommandCenter: React.FC = () => {
               </div>
               {/* Race selector */}
               <select
-                value={selectedRaceId || ''}
-                onChange={e => setSelectedRaceId(Number(e.target.value))}
+                value={activeRaceRound || ''}
+                onChange={e => setActiveRaceRound(Number(e.target.value))}
                 className="px-3 py-1.5 rounded-xl border text-sm font-bold bg-transparent focus:outline-none cursor-pointer"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
               >
@@ -564,11 +565,11 @@ const RaceCommandCenter: React.FC = () => {
             subtitle={`Model v${safetyCarData?.model_version || '1.2.0'} · updates every 30s`}
           />
           <ProbGauge
-            value={overtakeData?.probability || 0.12}
+            value={overtakeData?.data?.probability || 0.12}
             label="Overtake Prob."
             icon={Radio}
             color={COLORS.accent.green}
-            subtitle={`${selectedDriver.code ?? selectedDriver.name.split(' ')[0]} vs NOR`}
+            subtitle={`${selectedDriver.code ?? selectedDriver.name.split(' ')[0]} vs ${selectedOpponentId.slice(0, 3).toUpperCase()}`}
           />
           <DRSCard active={selectedTelemetry.drs_active} zonesTotal={drsZones} />
           <SectorTimingCard driverCode={selectedDriver.code ?? selectedDriver.name.split(' ')[0]} sectors={sectorData} />

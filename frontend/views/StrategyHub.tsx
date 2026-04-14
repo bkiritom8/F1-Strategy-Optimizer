@@ -18,6 +18,7 @@ import {
   Send, User, Bot, Sparkles, Zap, Flag,
 } from 'lucide-react';
 import { simulateStrategy, chatWithStrategist } from '../services/endpoints';
+import { useRaces2024, useDrivers } from '../hooks/useApi';
 import type { TireCompound } from '../types';
 import RaceSimulation from '../components/RaceSimulation';
 
@@ -33,57 +34,6 @@ const STRATEGY_PRESETS = [
 
 const COMPOUNDS: TireCompound[] = ['SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET'];
 const TOTAL_LAPS = 57;
-
-/** 2026 confirmed driver list for the driver selector. */
-const DRIVERS_2026 = [
-  { id: 'max_verstappen',  name: 'Max Verstappen' },
-  { id: 'lawson',          name: 'Liam Lawson' },
-  { id: 'hamilton',        name: 'Lewis Hamilton' },
-  { id: 'leclerc',         name: 'Charles Leclerc' },
-  { id: 'norris',          name: 'Lando Norris' },
-  { id: 'piastri',         name: 'Oscar Piastri' },
-  { id: 'russell',         name: 'George Russell' },
-  { id: 'antonelli',       name: 'Kimi Antonelli' },
-  { id: 'alonso',          name: 'Fernando Alonso' },
-  { id: 'stroll',          name: 'Lance Stroll' },
-  { id: 'gasly',           name: 'Pierre Gasly' },
-  { id: 'doohan',          name: 'Jack Doohan' },
-  { id: 'colapinto',       name: 'Franco Colapinto' },
-  { id: 'tsunoda',         name: 'Yuki Tsunoda' },
-  { id: 'hadjar',          name: 'Isack Hadjar' },
-  { id: 'albon',           name: 'Alex Albon' },
-  { id: 'sainz',           name: 'Carlos Sainz' },
-  { id: 'hulkenberg',      name: 'Nico Hulkenberg' },
-  { id: 'bortoleto',       name: 'Gabriel Bortoleto' },
-  { id: 'bearman',         name: 'Oliver Bearman' },
-];
-
-/** 2026 calendar races for the track selector. */
-const TRACKS_2026 = [
-  { id: '2026_1',  name: 'Bahrain Grand Prix' },
-  { id: '2026_2',  name: 'Saudi Arabian Grand Prix' },
-  { id: '2026_3',  name: 'Australian Grand Prix' },
-  { id: '2026_4',  name: 'Japanese Grand Prix' },
-  { id: '2026_5',  name: 'Chinese Grand Prix' },
-  { id: '2026_6',  name: 'Miami Grand Prix' },
-  { id: '2026_7',  name: 'Emilia Romagna Grand Prix' },
-  { id: '2026_8',  name: 'Monaco Grand Prix' },
-  { id: '2026_9',  name: 'Spanish Grand Prix' },
-  { id: '2026_10', name: 'Canadian Grand Prix' },
-  { id: '2026_11', name: 'Austrian Grand Prix' },
-  { id: '2026_12', name: 'British Grand Prix' },
-  { id: '2026_13', name: 'Hungarian Grand Prix' },
-  { id: '2026_14', name: 'Belgian Grand Prix' },
-  { id: '2026_15', name: 'Dutch Grand Prix' },
-  { id: '2026_16', name: 'Italian Grand Prix' },
-  { id: '2026_17', name: 'Singapore Grand Prix' },
-  { id: '2026_18', name: 'United States Grand Prix' },
-  { id: '2026_19', name: 'Mexico City Grand Prix' },
-  { id: '2026_20', name: 'Sao Paulo Grand Prix' },
-  { id: '2026_21', name: 'Las Vegas Grand Prix' },
-  { id: '2026_22', name: 'Qatar Grand Prix' },
-  { id: '2026_23', name: 'Abu Dhabi Grand Prix' },
-];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -115,6 +65,29 @@ const StrategyHub: React.FC = () => {
   // ── Tab state ───────────────────────────────────────────────────────────────
   const [hubTab, setHubTab] = useState<HubTab>('strategy');
 
+  const { data: races2024 } = useRaces2024();
+  const { data: apiDrivers } = useDrivers();
+
+  const DRIVERS_LIST = useMemo(() => {
+    if (!apiDrivers || apiDrivers.length === 0) {
+      return [{ id: 'max_verstappen', name: 'Max Verstappen' }];
+    }
+    return apiDrivers.map((d: any) => ({
+      id: d.driver_id,
+      name: d.name || d.driver_id.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+    }));
+  }, [apiDrivers]);
+
+  const TRACKS_LIST = useMemo(() => {
+    if (!races2024 || races2024.length === 0) {
+      return [{ id: '2024_1', name: 'Bahrain Grand Prix' }];
+    }
+    return races2024.map((r: any) => ({
+      id: `2024_${r.round}`,
+      name: r.name || `Round ${r.round}`,
+    }));
+  }, [races2024]);
+
   // ── Strategy state ──────────────────────────────────────────────────────────
   const [selectedPreset, setSelectedPreset] = useState(STRATEGY_PRESETS[0]);
   const [mode, setMode] = useState<'preset' | 'custom'>('preset');
@@ -122,12 +95,12 @@ const StrategyHub: React.FC = () => {
     { pitLap: 20, compound: 'MEDIUM' },
     { pitLap: 42, compound: 'HARD' },
   ]);
-  /** Selected driver (dropdown, 2026 grid). */
-  const [selectedDriverId, setSelectedDriverId] = useState(DRIVERS_2026[0].id);
+  /** Selected driver */
+  const [selectedDriverId, setSelectedDriverId] = useState('');
   /** Starting tire compound - applied at race start before the first pit stop. */
   const [startingTire, setStartingTire] = useState<TireCompound>('MEDIUM');
-  /** Selected 2026 race for the simulation context. */
-  const [selectedTrackId, setSelectedTrackId] = useState(TRACKS_2026[0].id);
+  /** Selected race for the simulation context. */
+  const [selectedTrackId, setSelectedTrackId] = useState('');
   const [simResult, setSimResult] = useState<SimResult | null>(null);
   const [simLoading, setSimLoading] = useState(false);
 
@@ -146,6 +119,18 @@ const StrategyHub: React.FC = () => {
     console.debug('[StrategyHub] Component mounted');
     return () => console.debug('[StrategyHub] Component unmounted');
   }, []);
+
+  useEffect(() => {
+    if (DRIVERS_LIST.length > 0 && !selectedDriverId) {
+      setSelectedDriverId(DRIVERS_LIST[0].id);
+    }
+  }, [DRIVERS_LIST, selectedDriverId]);
+
+  useEffect(() => {
+    if (TRACKS_LIST.length > 0 && !selectedTrackId) {
+      setSelectedTrackId(TRACKS_LIST[0].id);
+    }
+  }, [TRACKS_LIST, selectedTrackId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -237,7 +222,10 @@ const StrategyHub: React.FC = () => {
     const lastLap = customStints.length > 0 ? customStints[customStints.length - 1].pitLap + 15 : 20;
     setCustomStints([...customStints, { pitLap: Math.min(lastLap, TOTAL_LAPS - 5), compound: 'HARD' }]);
   };
-  const removeStint = (idx: number) => setCustomStints(customStints.filter((_, i) => i !== idx));
+  const removeStint = (idx: number) => {
+    if (customStints.length <= 1) return;
+    setCustomStints(customStints.filter((_, i) => i !== idx));
+  };
   const updateStint = (idx: number, field: keyof Stint, value: any) =>
     setCustomStints(customStints.map((s, i) => (i === idx ? { ...s, [field]: value } : s)));
 
@@ -312,7 +300,7 @@ const StrategyHub: React.FC = () => {
                 className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[180px]"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
               >
-                {DRIVERS_2026.map(d => (
+                {DRIVERS_LIST.map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
@@ -326,7 +314,7 @@ const StrategyHub: React.FC = () => {
                 className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[220px]"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
               >
-                {TRACKS_2026.map(t => (
+                {TRACKS_LIST.map(t => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
@@ -408,9 +396,9 @@ const StrategyHub: React.FC = () => {
               >
                 {/* Driver + track label above cards */}
                 <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
-                  Simulating: <span className="text-white font-bold">{DRIVERS_2026.find(d => d.id === selectedDriverId)?.name ?? selectedDriverId}</span>
+                  Simulating: <span className="text-white font-bold">{DRIVERS_LIST.find(d => d.id === selectedDriverId)?.name ?? selectedDriverId}</span>
                   <span className="text-white/30"> &middot; </span>
-                  <span className="text-white/70">{TRACKS_2026.find(t => t.id === selectedTrackId)?.name ?? selectedTrackId}</span>
+                  <span className="text-white/70">{TRACKS_LIST.find(t => t.id === selectedTrackId)?.name ?? selectedTrackId}</span>
                   <span className="text-white/30"> &middot; </span>
                   Starting on <span style={{ color: (COLORS.tires as any)[startingTire] }}>{startingTire}</span>
                 </p>
@@ -626,13 +614,6 @@ const StrategyHub: React.FC = () => {
                             )
                         }
                       </div>
-                      {m.role === 'assistant' && m.model && (
-                        <div className="flex items-center gap-2 px-1">
-                          <span className="text-[9px] font-mono text-white/30">{m.model}</span>
-                          {m.cache_hit && <span className="text-[9px] font-mono text-blue-400 uppercase">cache hit</span>}
-                          {m.latency_ms != null && <span className="text-[9px] font-mono text-white/30">{m.latency_ms.toFixed(0)}ms</span>}
-                        </div>
-                      )}
                     </div>
                     {m.role === 'user' && (
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 border mt-1" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
