@@ -31,7 +31,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
       title: 'Navigation',
       links: [
         { label: 'Documentation', href: '/docs.html', icon: Book },
-        { label: 'Technical Specs', href: '#', icon: Info },
+        { label: 'Technical Specs', href: '/docs.html', icon: Info },
         { label: 'Sitemap', href: '/sitemap.xml', icon: Globe },
       ],
     },
@@ -47,8 +47,8 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
       title: 'Support',
       links: [
         { label: 'Contact Strategist', href: '/contact.html', icon: Mail },
-        { label: 'Manage Cookies', href: '#', icon: Info, isCookieTrigger: true },
-        { label: 'Administrative Entry', href: '#', icon: Lock, isAdminTrigger: true },
+        { label: 'Manage Cookies', href: '/cookie-policy.html', icon: Info, isCookieTrigger: true },
+        { label: 'Administrative Entry', href: '/admin', icon: Lock, isAdminTrigger: true },
       ],
     },
   ];
