@@ -71,7 +71,7 @@ DivergeX is a production system — containerized, cloud-deployed, continuously 
 | Layer | Technology |
 |---|---|
 | Frontend | React 19 · TypeScript · Vite · Tailwind · Firebase Hosting |
-| Backend | FastAPI · Cloud Run · Redis · JWT auth |
+| Backend | FastAPI · Cloud Run · Redis |
 | ML Training | Vertex AI Custom Training · KFP v2 Pipelines · T4 GPU |
 | Models | XGBoost · LightGBM · CatBoost · Random Forest · Stable-Baselines3 PPO |
 | LLM & RAG | Gemini Pro · Vertex AI Vector Search · LangChain · 768-dim embeddings |

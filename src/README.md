@@ -53,9 +53,9 @@ Gemini Pro via Vertex AI for strategy recommendations. Prompt templates enforce 
 
 ### Security (`security/`)
 
-- JWT-based authentication with configurable expiry
-- Firestore-backed sessions (no server-side state in stateless Cloud Run)
-- Input sanitization at all public endpoints
+- All product endpoints (strategy, simulation, drivers, models, RAG, LLM) are public — no login required
+- JWT auth is retained for admin-only routes (`/admin/*`, `/users/me`)
+- Input sanitization at all endpoints
 
 ## Running Locally
 

@@ -92,7 +92,7 @@ firebase deploy --only hosting
 | Variable | Description |
 |---|---|
 | `VITE_API_URL` | Backend Cloud Run URL |
-| `VITE_FIREBASE_*` | Firebase project config (auth, hosting) |
+| `VITE_FIREBASE_*` | Firebase project config (hosting only — no login required) |
 
 ---
 
