@@ -314,7 +314,7 @@ async def metrics():
 
 @app.post("/strategy/recommend", response_model=StrategyRecommendation)
 async def recommend_strategy(
-    request: StrategyRequest, current_user: User = Depends(get_current_user_optional)
+    request: StrategyRequest, current_user: User = Depends(get_current_user)
 ):
     """
     Get race strategy recommendation
@@ -447,7 +447,7 @@ async def get_drivers(
 
 
 @app.get("/models/status")
-async def get_models_status(current_user: User = Depends(get_current_user_optional)):
+async def get_models_status(current_user: User = Depends(get_current_user)):
     """
     Get ML models load status.
     Requires: ML_MODEL_READ permission
@@ -523,7 +523,7 @@ class SimulateResponse(BaseModel):
 async def race_state(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
-    current_user=Depends(get_current_user_optional),
+    current_user=Depends(get_current_user),
 ):
     """Return full RaceState at a given lap (all drivers)."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
@@ -551,7 +551,7 @@ async def race_state(
 async def race_standings(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
-    current_user=Depends(get_current_user_optional),
+    current_user=Depends(get_current_user),
 ):
     """Return driver standings at a given lap."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
@@ -599,7 +599,7 @@ async def driver_lap_telemetry(
 
 
 @v1.get("/drivers")
-async def list_drivers(current_user=Depends(get_current_user_optional)):
+async def list_drivers(current_user=Depends(get_current_user)):
     """Return all driver profiles with computed career stats."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
         raise HTTPException(
@@ -668,9 +668,7 @@ async def list_drivers(current_user=Depends(get_current_user_optional)):
 
 
 @v1.get("/drivers/{driver_id}/history")
-async def driver_history(
-    driver_id: str, current_user=Depends(get_current_user_optional)
-):
+async def driver_history(driver_id: str, current_user=Depends(get_current_user)):
     """Return career race history for a driver."""
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
         raise HTTPException(
