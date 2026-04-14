@@ -1,0 +1,2008 @@
+{
+  "version": "2026-04-14",
+  "reference": "field_median",
+  "description": "Unified car performance: pace_delta_s + compound-specific tire degradation profiles",
+  "n_constructors": 16,
+  "n_constructor_seasons": 71,
+  "n_compound_entries": 203,
+  "constructors": {
+    "alfa_romeo": {
+      "display_name": "Alfa Romeo",
+      "seasons": {
+        "2019": {
+          "pace_delta_s": 0.0,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.028,
+              "base_deg_s": 0.09,
+              "avg_tyre_delta": 0.628,
+              "r_squared": 0.093,
+              "n_laps": 659
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0195,
+              "base_deg_s": 0.269,
+              "avg_tyre_delta": 0.564,
+              "r_squared": 0.023,
+              "n_laps": 904
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0215,
+              "base_deg_s": 0.079,
+              "avg_tyre_delta": 0.376,
+              "r_squared": 0.022,
+              "n_laps": 598
+            }
+          }
+        },
+        "2023": {
+          "pace_delta_s": 0.193,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0273,
+              "base_deg_s": 0.136,
+              "avg_tyre_delta": 0.617,
+              "r_squared": 0.079,
+              "n_laps": 1106
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0289,
+              "base_deg_s": 0.228,
+              "avg_tyre_delta": 0.589,
+              "r_squared": 0.054,
+              "n_laps": 490
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0183,
+              "base_deg_s": 0.639,
+              "avg_tyre_delta": 0.813,
+              "r_squared": 0.005,
+              "n_laps": 200
+            }
+          }
+        },
+        "2020": {
+          "pace_delta_s": -0.156,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.023,
+              "base_deg_s": 0.285,
+              "avg_tyre_delta": 0.693,
+              "r_squared": 0.048,
+              "n_laps": 455
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0114,
+              "base_deg_s": 0.494,
+              "avg_tyre_delta": 0.673,
+              "r_squared": 0.012,
+              "n_laps": 752
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0271,
+              "base_deg_s": 0.276,
+              "avg_tyre_delta": 0.615,
+              "r_squared": 0.034,
+              "n_laps": 278
+            }
+          }
+        },
+        "2022": {
+          "pace_delta_s": 0.092,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.012,
+              "base_deg_s": 0.266,
+              "avg_tyre_delta": 0.468,
+              "r_squared": 0.014,
+              "n_laps": 652
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0171,
+              "base_deg_s": 0.076,
+              "avg_tyre_delta": 0.316,
+              "r_squared": 0.021,
+              "n_laps": 774
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0384,
+              "base_deg_s": -0.065,
+              "avg_tyre_delta": 0.393,
+              "r_squared": 0.047,
+              "n_laps": 321
+            }
+          }
+        },
+        "2021": {
+          "pace_delta_s": 0.042,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0214,
+              "base_deg_s": 0.116,
+              "avg_tyre_delta": 0.5,
+              "r_squared": 0.048,
+              "n_laps": 1016
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0217,
+              "base_deg_s": 0.166,
+              "avg_tyre_delta": 0.488,
+              "r_squared": 0.032,
+              "n_laps": 890
+            },
+            "SOFT": {
+              "deg_slope_per_lap": -0.0067,
+              "base_deg_s": 0.328,
+              "avg_tyre_delta": 0.233,
+              "r_squared": 0.005,
+              "n_laps": 162
+            }
+          }
+        }
+      }
+    },
+    "alphatauri": {
+      "display_name": "AlphaTauri",
+      "seasons": {
+        "2023": {
+          "pace_delta_s": 0.007,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0306,
+              "base_deg_s": 0.118,
+              "avg_tyre_delta": 0.612,
+              "r_squared": 0.09,
+              "n_laps": 759
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0109,
+              "base_deg_s": 0.39,
+              "avg_tyre_delta": 0.553,
+              "r_squared": 0.011,
+              "n_laps": 690
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.024,
+              "base_deg_s": 0.27,
+              "avg_tyre_delta": 0.571,
+              "r_squared": 0.072,
+              "n_laps": 242
+            }
+          }
+        },
+        "2021": {
+          "pace_delta_s": -0.417,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0128,
+              "base_deg_s": -0.143,
+              "avg_tyre_delta": 0.096,
+              "r_squared": 0.027,
+              "n_laps": 1008
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0046,
+              "base_deg_s": -0.06,
+              "avg_tyre_delta": 0.012,
+              "r_squared": 0.001,
+              "n_laps": 541
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0253,
+              "base_deg_s": -0.549,
+              "avg_tyre_delta": -0.207,
+              "r_squared": 0.031,
+              "n_laps": 287
+            }
+          }
+        },
+        "2020": {
+          "pace_delta_s": -0.269,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.018,
+              "base_deg_s": -0.091,
+              "avg_tyre_delta": 0.218,
+              "r_squared": 0.044,
+              "n_laps": 666
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0155,
+              "base_deg_s": -0.105,
+              "avg_tyre_delta": 0.103,
+              "r_squared": 0.019,
+              "n_laps": 423
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0373,
+              "base_deg_s": -0.161,
+              "avg_tyre_delta": 0.285,
+              "r_squared": 0.028,
+              "n_laps": 307
+            }
+          }
+        },
+        "2022": {
+          "pace_delta_s": -0.043,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0194,
+              "base_deg_s": 0.107,
+              "avg_tyre_delta": 0.43,
+              "r_squared": 0.031,
+              "n_laps": 664
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0142,
+              "base_deg_s": 0.134,
+              "avg_tyre_delta": 0.323,
+              "r_squared": 0.019,
+              "n_laps": 682
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0435,
+              "base_deg_s": -0.115,
+              "avg_tyre_delta": 0.367,
+              "r_squared": 0.036,
+              "n_laps": 500
+            }
+          }
+        }
+      }
+    },
+    "alpine": {
+      "display_name": "Alpine",
+      "seasons": {
+        "2022": {
+          "pace_delta_s": -0.386,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0168,
+              "base_deg_s": -0.138,
+              "avg_tyre_delta": 0.149,
+              "r_squared": 0.046,
+              "n_laps": 902
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0334,
+              "base_deg_s": -0.429,
+              "avg_tyre_delta": 0.003,
+              "r_squared": 0.08,
+              "n_laps": 736
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0314,
+              "base_deg_s": -0.435,
+              "avg_tyre_delta": -0.083,
+              "r_squared": 0.039,
+              "n_laps": 291
+            }
+          }
+        },
+        "2021": {
+          "pace_delta_s": -0.262,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0192,
+              "base_deg_s": -0.243,
+              "avg_tyre_delta": 0.112,
+              "r_squared": 0.041,
+              "n_laps": 911
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0203,
+              "base_deg_s": -0.068,
+              "avg_tyre_delta": 0.286,
+              "r_squared": 0.042,
+              "n_laps": 802
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0075,
+              "base_deg_s": -0.118,
+              "avg_tyre_delta": -0.003,
+              "r_squared": 0.005,
+              "n_laps": 329
+            }
+          }
+        },
+        "2024": {
+          "pace_delta_s": 0.056,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0279,
+              "base_deg_s": 0.198,
+              "avg_tyre_delta": 0.669,
+              "r_squared": 0.073,
+              "n_laps": 1156
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0193,
+              "base_deg_s": 0.309,
+              "avg_tyre_delta": 0.599,
+              "r_squared": 0.044,
+              "n_laps": 733
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0336,
+              "base_deg_s": 0.133,
+              "avg_tyre_delta": 0.43,
+              "r_squared": 0.02,
+              "n_laps": 121
+            }
+          }
+        },
+        "2023": {
+          "pace_delta_s": -0.528,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0104,
+              "base_deg_s": -0.122,
+              "avg_tyre_delta": 0.061,
+              "r_squared": 0.017,
+              "n_laps": 902
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.027,
+              "base_deg_s": -0.209,
+              "avg_tyre_delta": 0.09,
+              "r_squared": 0.024,
+              "n_laps": 478
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0127,
+              "base_deg_s": -0.085,
+              "avg_tyre_delta": 0.068,
+              "r_squared": 0.008,
+              "n_laps": 225
+            }
+          }
+        }
+      }
+    },
+    "aston_martin": {
+      "display_name": "Aston Martin",
+      "seasons": {
+        "2021": {
+          "pace_delta_s": -0.028,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0147,
+              "base_deg_s": -0.044,
+              "avg_tyre_delta": 0.221,
+              "r_squared": 0.022,
+              "n_laps": 942
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0127,
+              "base_deg_s": 0.127,
+              "avg_tyre_delta": 0.315,
+              "r_squared": 0.007,
+              "n_laps": 756
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0106,
+              "base_deg_s": 0.048,
+              "avg_tyre_delta": 0.209,
+              "r_squared": 0.008,
+              "n_laps": 374
+            }
+          }
+        },
+        "2022": {
+          "pace_delta_s": 0.106,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0051,
+              "base_deg_s": 0.4,
+              "avg_tyre_delta": 0.495,
+              "r_squared": 0.003,
+              "n_laps": 680
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0203,
+              "base_deg_s": 0.023,
+              "avg_tyre_delta": 0.316,
+              "r_squared": 0.031,
+              "n_laps": 856
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0349,
+              "base_deg_s": 0.127,
+              "avg_tyre_delta": 0.567,
+              "r_squared": 0.038,
+              "n_laps": 403
+            }
+          }
+        },
+        "2023": {
+          "pace_delta_s": -0.707,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0045,
+              "base_deg_s": -0.233,
+              "avg_tyre_delta": -0.15,
+              "r_squared": 0.002,
+              "n_laps": 929
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.039,
+              "base_deg_s": -0.591,
+              "avg_tyre_delta": -0.149,
+              "r_squared": 0.055,
+              "n_laps": 539
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0477,
+              "base_deg_s": -0.725,
+              "avg_tyre_delta": -0.081,
+              "r_squared": 0.102,
+              "n_laps": 282
+            }
+          }
+        },
+        "2024": {
+          "pace_delta_s": -0.199,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0279,
+              "base_deg_s": -0.222,
+              "avg_tyre_delta": 0.218,
+              "r_squared": 0.065,
+              "n_laps": 1028
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0275,
+              "base_deg_s": -0.062,
+              "avg_tyre_delta": 0.379,
+              "r_squared": 0.087,
+              "n_laps": 929
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0559,
+              "base_deg_s": -0.039,
+              "avg_tyre_delta": 0.498,
+              "r_squared": 0.05,
+              "n_laps": 180
+            }
+          }
+        }
+      }
+    },
+    "ferrari": {
+      "display_name": "Ferrari",
+      "seasons": {
+        "2021": {
+          "pace_delta_s": -0.268,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.025,
+              "base_deg_s": -0.77,
+              "avg_tyre_delta": -0.333,
+              "r_squared": 0.086,
+              "n_laps": 986
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0242,
+              "base_deg_s": -0.794,
+              "avg_tyre_delta": -0.381,
+              "r_squared": 0.056,
+              "n_laps": 805
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0438,
+              "base_deg_s": -1.299,
+              "avg_tyre_delta": -0.602,
+              "r_squared": 0.088,
+              "n_laps": 266
+            }
+          }
+        },
+        "2019": {
+          "pace_delta_s": -1.344,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0246,
+              "base_deg_s": -1.462,
+              "avg_tyre_delta": -0.992,
+              "r_squared": 0.078,
+              "n_laps": 711
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0625,
+              "base_deg_s": -2.137,
+              "avg_tyre_delta": -1.177,
+              "r_squared": 0.198,
+              "n_laps": 758
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0762,
+              "base_deg_s": -2.341,
+              "avg_tyre_delta": -1.361,
+              "r_squared": 0.126,
+              "n_laps": 592
+            }
+          }
+        },
+        "2020": {
+          "pace_delta_s": 0.076,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0228,
+              "base_deg_s": -0.141,
+              "avg_tyre_delta": 0.247,
+              "r_squared": 0.045,
+              "n_laps": 640
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0122,
+              "base_deg_s": -0.071,
+              "avg_tyre_delta": 0.11,
+              "r_squared": 0.008,
+              "n_laps": 447
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0369,
+              "base_deg_s": -0.223,
+              "avg_tyre_delta": 0.289,
+              "r_squared": 0.053,
+              "n_laps": 246
+            }
+          }
+        },
+        "2018": {
+          "pace_delta_s": -1.622,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0489,
+              "base_deg_s": -1.629,
+              "avg_tyre_delta": -0.926,
+              "r_squared": 0.104,
+              "n_laps": 190
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0227,
+              "base_deg_s": -1.714,
+              "avg_tyre_delta": -1.271,
+              "r_squared": 0.056,
+              "n_laps": 826
+            }
+          }
+        },
+        "2023": {
+          "pace_delta_s": -0.414,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0141,
+              "base_deg_s": -0.676,
+              "avg_tyre_delta": -0.423,
+              "r_squared": 0.038,
+              "n_laps": 935
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0492,
+              "base_deg_s": -1.042,
+              "avg_tyre_delta": -0.44,
+              "r_squared": 0.102,
+              "n_laps": 571
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0863,
+              "base_deg_s": -1.272,
+              "avg_tyre_delta": -0.234,
+              "r_squared": 0.194,
+              "n_laps": 212
+            }
+          }
+        },
+        "2024": {
+          "pace_delta_s": -0.795,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0136,
+              "base_deg_s": -1.045,
+              "avg_tyre_delta": -0.776,
+              "r_squared": 0.059,
+              "n_laps": 1316
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0466,
+              "base_deg_s": -1.197,
+              "avg_tyre_delta": -0.62,
+              "r_squared": 0.081,
+              "n_laps": 792
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0804,
+              "base_deg_s": -1.324,
+              "avg_tyre_delta": -0.498,
+              "r_squared": 0.18,
+              "n_laps": 101
+            }
+          }
+        },
+        "2022": {
+          "pace_delta_s": -1.03,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.019,
+              "base_deg_s": -1.45,
+              "avg_tyre_delta": -1.137,
+              "r_squared": 0.035,
+              "n_laps": 520
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0557,
+              "base_deg_s": -1.806,
+              "avg_tyre_delta": -1.088,
+              "r_squared": 0.164,
+              "n_laps": 848
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0998,
+              "base_deg_s": -2.29,
+              "avg_tyre_delta": -1.056,
+              "r_squared": 0.296,
+              "n_laps": 408
+            }
+          }
+        }
+      }
+    },
+    "force_india": {
+      "display_name": "Force India",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -0.036,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0105,
+              "base_deg_s": 0.026,
+              "avg_tyre_delta": 0.152,
+              "r_squared": 0.013,
+              "n_laps": 63
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0086,
+              "base_deg_s": 0.113,
+              "avg_tyre_delta": 0.289,
+              "r_squared": 0.012,
+              "n_laps": 460
+            }
+          }
+        }
+      }
+    },
+    "haas": {
+      "display_name": "Haas F1 Team",
+      "seasons": {
+        "2023": {
+          "pace_delta_s": -0.085,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.027,
+              "base_deg_s": 0.177,
+              "avg_tyre_delta": 0.673,
+              "r_squared": 0.076,
+              "n_laps": 1005
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0573,
+              "base_deg_s": -0.116,
+              "avg_tyre_delta": 0.521,
+              "r_squared": 0.112,
+              "n_laps": 614
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0443,
+              "base_deg_s": 0.129,
+              "avg_tyre_delta": 0.582,
+              "r_squared": 0.028,
+              "n_laps": 176
+            }
+          }
+        },
+        "2024": {
+          "pace_delta_s": -0.263,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0335,
+              "base_deg_s": -0.163,
+              "avg_tyre_delta": 0.396,
+              "r_squared": 0.109,
+              "n_laps": 1299
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0233,
+              "base_deg_s": 0.201,
+              "avg_tyre_delta": 0.494,
+              "r_squared": 0.025,
+              "n_laps": 708
+            },
+            "SOFT": {
+              "deg_slope_per_lap": -0.0024,
+              "base_deg_s": 0.439,
+              "avg_tyre_delta": 0.422,
+              "r_squared": 0.0,
+              "n_laps": 87
+            }
+          }
+        },
+        "2020": {
+          "pace_delta_s": -0.032,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0329,
+              "base_deg_s": 0.551,
+              "avg_tyre_delta": 1.06,
+              "r_squared": 0.045,
+              "n_laps": 498
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0052,
+              "base_deg_s": 0.742,
+              "avg_tyre_delta": 0.817,
+              "r_squared": 0.001,
+              "n_laps": 573
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0185,
+              "base_deg_s": 0.37,
+              "avg_tyre_delta": 0.641,
+              "r_squared": 0.013,
+              "n_laps": 217
+            }
+          }
+        },
+        "2019": {
+          "pace_delta_s": -0.045,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0344,
+              "base_deg_s": 0.246,
+              "avg_tyre_delta": 0.868,
+              "r_squared": 0.077,
+              "n_laps": 597
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0192,
+              "base_deg_s": 0.465,
+              "avg_tyre_delta": 0.773,
+              "r_squared": 0.028,
+              "n_laps": 839
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0013,
+              "base_deg_s": 0.456,
+              "avg_tyre_delta": 0.474,
+              "r_squared": 0.0,
+              "n_laps": 543
+            }
+          }
+        },
+        "2022": {
+          "pace_delta_s": -0.144,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0297,
+              "base_deg_s": 0.155,
+              "avg_tyre_delta": 0.628,
+              "r_squared": 0.07,
+              "n_laps": 654
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0322,
+              "base_deg_s": 0.162,
+              "avg_tyre_delta": 0.62,
+              "r_squared": 0.059,
+              "n_laps": 869
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0506,
+              "base_deg_s": -0.284,
+              "avg_tyre_delta": 0.401,
+              "r_squared": 0.089,
+              "n_laps": 273
+            }
+          }
+        },
+        "2021": {
+          "pace_delta_s": 0.743,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0308,
+              "base_deg_s": 1.123,
+              "avg_tyre_delta": 1.645,
+              "r_squared": 0.048,
+              "n_laps": 760
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0322,
+              "base_deg_s": 1.107,
+              "avg_tyre_delta": 1.564,
+              "r_squared": 0.042,
+              "n_laps": 802
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0237,
+              "base_deg_s": 1.891,
+              "avg_tyre_delta": 2.184,
+              "r_squared": 0.01,
+              "n_laps": 232
+            }
+          }
+        },
+        "2018": {
+          "pace_delta_s": -0.484,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0308,
+              "base_deg_s": -0.208,
+              "avg_tyre_delta": 0.343,
+              "r_squared": 0.077,
+              "n_laps": 226
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0043,
+              "base_deg_s": 0.108,
+              "avg_tyre_delta": 0.197,
+              "r_squared": 0.002,
+              "n_laps": 597
+            }
+          }
+        }
+      }
+    },
+    "mclaren": {
+      "display_name": "McLaren",
+      "seasons": {
+        "2019": {
+          "pace_delta_s": 0.34,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0271,
+              "base_deg_s": -0.26,
+              "avg_tyre_delta": 0.261,
+              "r_squared": 0.083,
+              "n_laps": 708
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0218,
+              "base_deg_s": -0.372,
+              "avg_tyre_delta": -0.005,
+              "r_squared": 0.048,
+              "n_laps": 673
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0285,
+              "base_deg_s": -0.382,
+              "avg_tyre_delta": 0.013,
+              "r_squared": 0.03,
+              "n_laps": 632
+            }
+          }
+        },
+        "2023": {
+          "pace_delta_s": 0.475,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0304,
+              "base_deg_s": -0.545,
+              "avg_tyre_delta": 0.017,
+              "r_squared": 0.126,
+              "n_laps": 959
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0336,
+              "base_deg_s": -0.629,
+              "avg_tyre_delta": -0.186,
+              "r_squared": 0.073,
+              "n_laps": 610
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.01,
+              "base_deg_s": 0.054,
+              "avg_tyre_delta": 0.182,
+              "r_squared": 0.003,
+              "n_laps": 179
+            }
+          }
+        },
+        "2018": {
+          "pace_delta_s": 0.082,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.023,
+              "base_deg_s": 0.424,
+              "avg_tyre_delta": 0.785,
+              "r_squared": 0.029,
+              "n_laps": 313
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0093,
+              "base_deg_s": 0.452,
+              "avg_tyre_delta": 0.626,
+              "r_squared": 0.01,
+              "n_laps": 762
+            }
+          }
+        },
+        "2022": {
+          "pace_delta_s": 0.481,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0105,
+              "base_deg_s": 0.053,
+              "avg_tyre_delta": 0.221,
+              "r_squared": 0.008,
+              "n_laps": 855
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0236,
+              "base_deg_s": -0.156,
+              "avg_tyre_delta": 0.147,
+              "r_squared": 0.033,
+              "n_laps": 797
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0415,
+              "base_deg_s": -0.243,
+              "avg_tyre_delta": 0.212,
+              "r_squared": 0.029,
+              "n_laps": 309
+            }
+          }
+        },
+        "2021": {
+          "pace_delta_s": 0.003,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0208,
+              "base_deg_s": -0.585,
+              "avg_tyre_delta": -0.19,
+              "r_squared": 0.066,
+              "n_laps": 1067
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0238,
+              "base_deg_s": -0.529,
+              "avg_tyre_delta": -0.122,
+              "r_squared": 0.062,
+              "n_laps": 692
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0355,
+              "base_deg_s": -0.892,
+              "avg_tyre_delta": -0.342,
+              "r_squared": 0.078,
+              "n_laps": 346
+            }
+          }
+        },
+        "2024": {
+          "pace_delta_s": -0.376,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.012,
+              "base_deg_s": -1.022,
+              "avg_tyre_delta": -0.796,
+              "r_squared": 0.035,
+              "n_laps": 1236
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0411,
+              "base_deg_s": -1.349,
+              "avg_tyre_delta": -0.799,
+              "r_squared": 0.09,
+              "n_laps": 871
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0784,
+              "base_deg_s": -1.531,
+              "avg_tyre_delta": -0.571,
+              "r_squared": 0.169,
+              "n_laps": 131
+            }
+          }
+        },
+        "2020": {
+          "pace_delta_s": 0.168,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0105,
+              "base_deg_s": -0.252,
+              "avg_tyre_delta": -0.064,
+              "r_squared": 0.017,
+              "n_laps": 420
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0089,
+              "base_deg_s": -0.303,
+              "avg_tyre_delta": -0.168,
+              "r_squared": 0.009,
+              "n_laps": 510
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.031,
+              "base_deg_s": -0.579,
+              "avg_tyre_delta": -0.113,
+              "r_squared": 0.058,
+              "n_laps": 497
+            }
+          }
+        }
+      }
+    },
+    "mercedes": {
+      "display_name": "Mercedes",
+      "seasons": {
+        "2021": {
+          "pace_delta_s": -1.257,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0371,
+              "base_deg_s": -1.469,
+              "avg_tyre_delta": -0.861,
+              "r_squared": 0.092,
+              "n_laps": 982
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0376,
+              "base_deg_s": -1.73,
+              "avg_tyre_delta": -1.106,
+              "r_squared": 0.071,
+              "n_laps": 805
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0563,
+              "base_deg_s": -2.175,
+              "avg_tyre_delta": -1.275,
+              "r_squared": 0.126,
+              "n_laps": 206
+            }
+          }
+        },
+        "2024": {
+          "pace_delta_s": -0.611,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0357,
+              "base_deg_s": -1.078,
+              "avg_tyre_delta": -0.503,
+              "r_squared": 0.135,
+              "n_laps": 1174
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0025,
+              "base_deg_s": -0.613,
+              "avg_tyre_delta": -0.575,
+              "r_squared": 0.001,
+              "n_laps": 777
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.039,
+              "base_deg_s": -0.879,
+              "avg_tyre_delta": -0.438,
+              "r_squared": 0.036,
+              "n_laps": 195
+            }
+          }
+        },
+        "2022": {
+          "pace_delta_s": -0.708,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0283,
+              "base_deg_s": -1.295,
+              "avg_tyre_delta": -0.843,
+              "r_squared": 0.079,
+              "n_laps": 769
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0431,
+              "base_deg_s": -1.311,
+              "avg_tyre_delta": -0.713,
+              "r_squared": 0.116,
+              "n_laps": 923
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.028,
+              "base_deg_s": -1.188,
+              "avg_tyre_delta": -0.825,
+              "r_squared": 0.011,
+              "n_laps": 276
+            }
+          }
+        },
+        "2020": {
+          "pace_delta_s": -1.502,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0326,
+              "base_deg_s": -1.601,
+              "avg_tyre_delta": -1.041,
+              "r_squared": 0.084,
+              "n_laps": 601
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0314,
+              "base_deg_s": -1.82,
+              "avg_tyre_delta": -1.293,
+              "r_squared": 0.077,
+              "n_laps": 630
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0533,
+              "base_deg_s": -2.177,
+              "avg_tyre_delta": -1.436,
+              "r_squared": 0.093,
+              "n_laps": 278
+            }
+          }
+        },
+        "2023": {
+          "pace_delta_s": -0.497,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0126,
+              "base_deg_s": -0.516,
+              "avg_tyre_delta": -0.297,
+              "r_squared": 0.023,
+              "n_laps": 818
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.042,
+              "base_deg_s": -1.139,
+              "avg_tyre_delta": -0.632,
+              "r_squared": 0.092,
+              "n_laps": 712
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0527,
+              "base_deg_s": -1.179,
+              "avg_tyre_delta": -0.472,
+              "r_squared": 0.165,
+              "n_laps": 250
+            }
+          }
+        },
+        "2018": {
+          "pace_delta_s": -1.522,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0193,
+              "base_deg_s": -1.574,
+              "avg_tyre_delta": -1.182,
+              "r_squared": 0.055,
+              "n_laps": 279
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0312,
+              "base_deg_s": -1.979,
+              "avg_tyre_delta": -1.386,
+              "r_squared": 0.088,
+              "n_laps": 767
+            }
+          }
+        },
+        "2019": {
+          "pace_delta_s": -1.695,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0304,
+              "base_deg_s": -1.739,
+              "avg_tyre_delta": -1.127,
+              "r_squared": 0.134,
+              "n_laps": 647
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0354,
+              "base_deg_s": -2.105,
+              "avg_tyre_delta": -1.499,
+              "r_squared": 0.122,
+              "n_laps": 1009
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0632,
+              "base_deg_s": -2.316,
+              "avg_tyre_delta": -1.402,
+              "r_squared": 0.09,
+              "n_laps": 540
+            }
+          }
+        }
+      }
+    },
+    "racing_point": {
+      "display_name": "Racing Point",
+      "seasons": {
+        "2020": {
+          "pace_delta_s": -0.58,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0335,
+              "base_deg_s": -0.612,
+              "avg_tyre_delta": -0.102,
+              "r_squared": 0.098,
+              "n_laps": 379
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0206,
+              "base_deg_s": -0.596,
+              "avg_tyre_delta": -0.258,
+              "r_squared": 0.033,
+              "n_laps": 499
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0283,
+              "base_deg_s": -0.506,
+              "avg_tyre_delta": -0.096,
+              "r_squared": 0.037,
+              "n_laps": 451
+            }
+          }
+        },
+        "2018": {
+          "pace_delta_s": -0.258,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0088,
+              "base_deg_s": -0.191,
+              "avg_tyre_delta": -0.064,
+              "r_squared": 0.018,
+              "n_laps": 26
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0168,
+              "base_deg_s": -0.223,
+              "avg_tyre_delta": 0.06,
+              "r_squared": 0.035,
+              "n_laps": 329
+            }
+          }
+        },
+        "2019": {
+          "pace_delta_s": -0.082,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0114,
+              "base_deg_s": 0.099,
+              "avg_tyre_delta": 0.344,
+              "r_squared": 0.021,
+              "n_laps": 779
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0132,
+              "base_deg_s": 0.152,
+              "avg_tyre_delta": 0.34,
+              "r_squared": 0.013,
+              "n_laps": 923
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.056,
+              "base_deg_s": -0.32,
+              "avg_tyre_delta": 0.329,
+              "r_squared": 0.085,
+              "n_laps": 474
+            }
+          }
+        }
+      }
+    },
+    "rb": {
+      "display_name": "RB",
+      "seasons": {
+        "2024": {
+          "pace_delta_s": 0.11,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0175,
+              "base_deg_s": 0.204,
+              "avg_tyre_delta": 0.571,
+              "r_squared": 0.072,
+              "n_laps": 1167
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0345,
+              "base_deg_s": 0.109,
+              "avg_tyre_delta": 0.529,
+              "r_squared": 0.051,
+              "n_laps": 576
+            },
+            "SOFT": {
+              "deg_slope_per_lap": -0.0093,
+              "base_deg_s": 0.68,
+              "avg_tyre_delta": 0.585,
+              "r_squared": 0.002,
+              "n_laps": 259
+            }
+          }
+        }
+      }
+    },
+    "red_bull": {
+      "display_name": "Red Bull Racing",
+      "seasons": {
+        "2022": {
+          "pace_delta_s": -0.989,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0108,
+              "base_deg_s": -1.229,
+              "avg_tyre_delta": -1.068,
+              "r_squared": 0.006,
+              "n_laps": 569
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0606,
+              "base_deg_s": -1.999,
+              "avg_tyre_delta": -1.185,
+              "r_squared": 0.175,
+              "n_laps": 968
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0839,
+              "base_deg_s": -2.214,
+              "avg_tyre_delta": -1.206,
+              "r_squared": 0.177,
+              "n_laps": 400
+            }
+          }
+        },
+        "2023": {
+          "pace_delta_s": -0.769,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0195,
+              "base_deg_s": -1.078,
+              "avg_tyre_delta": -0.734,
+              "r_squared": 0.036,
+              "n_laps": 785
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0303,
+              "base_deg_s": -1.178,
+              "avg_tyre_delta": -0.777,
+              "r_squared": 0.042,
+              "n_laps": 772
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0546,
+              "base_deg_s": -1.818,
+              "avg_tyre_delta": -1.116,
+              "r_squared": 0.153,
+              "n_laps": 261
+            }
+          }
+        },
+        "2020": {
+          "pace_delta_s": -0.883,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0121,
+              "base_deg_s": -0.909,
+              "avg_tyre_delta": -0.705,
+              "r_squared": 0.01,
+              "n_laps": 513
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0452,
+              "base_deg_s": -1.543,
+              "avg_tyre_delta": -0.844,
+              "r_squared": 0.124,
+              "n_laps": 509
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0486,
+              "base_deg_s": -1.351,
+              "avg_tyre_delta": -0.637,
+              "r_squared": 0.094,
+              "n_laps": 380
+            }
+          }
+        },
+        "2018": {
+          "pace_delta_s": -1.197,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.001,
+              "base_deg_s": -1.22,
+              "avg_tyre_delta": -1.206,
+              "r_squared": 0.0,
+              "n_laps": 135
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0118,
+              "base_deg_s": -1.457,
+              "avg_tyre_delta": -1.245,
+              "r_squared": 0.014,
+              "n_laps": 630
+            }
+          }
+        },
+        "2021": {
+          "pace_delta_s": -0.994,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0191,
+              "base_deg_s": -1.311,
+              "avg_tyre_delta": -1.016,
+              "r_squared": 0.032,
+              "n_laps": 857
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.038,
+              "base_deg_s": -1.64,
+              "avg_tyre_delta": -0.986,
+              "r_squared": 0.083,
+              "n_laps": 846
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0477,
+              "base_deg_s": -1.89,
+              "avg_tyre_delta": -1.129,
+              "r_squared": 0.103,
+              "n_laps": 295
+            }
+          }
+        },
+        "2019": {
+          "pace_delta_s": -0.96,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0244,
+              "base_deg_s": -1.278,
+              "avg_tyre_delta": -0.71,
+              "r_squared": 0.13,
+              "n_laps": 740
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0305,
+              "base_deg_s": -1.445,
+              "avg_tyre_delta": -0.996,
+              "r_squared": 0.046,
+              "n_laps": 775
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0615,
+              "base_deg_s": -1.514,
+              "avg_tyre_delta": -0.679,
+              "r_squared": 0.082,
+              "n_laps": 623
+            }
+          }
+        },
+        "2024": {
+          "pace_delta_s": -0.594,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0307,
+              "base_deg_s": -1.131,
+              "avg_tyre_delta": -0.628,
+              "r_squared": 0.076,
+              "n_laps": 1059
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.04,
+              "base_deg_s": -1.132,
+              "avg_tyre_delta": -0.625,
+              "r_squared": 0.074,
+              "n_laps": 866
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0697,
+              "base_deg_s": -1.533,
+              "avg_tyre_delta": -0.742,
+              "r_squared": 0.094,
+              "n_laps": 159
+            }
+          }
+        }
+      }
+    },
+    "renault": {
+      "display_name": "Renault",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": 0.238,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": -0.0188,
+              "base_deg_s": 0.553,
+              "avg_tyre_delta": 0.294,
+              "r_squared": 0.057,
+              "n_laps": 38
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0133,
+              "base_deg_s": 0.208,
+              "avg_tyre_delta": 0.422,
+              "r_squared": 0.015,
+              "n_laps": 282
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0294,
+              "base_deg_s": -0.19,
+              "avg_tyre_delta": 0.26,
+              "r_squared": 0.068,
+              "n_laps": 468
+            }
+          }
+        },
+        "2019": {
+          "pace_delta_s": -0.325,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0081,
+              "base_deg_s": 0.046,
+              "avg_tyre_delta": 0.231,
+              "r_squared": 0.014,
+              "n_laps": 776
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0071,
+              "base_deg_s": 0.192,
+              "avg_tyre_delta": 0.31,
+              "r_squared": 0.006,
+              "n_laps": 681
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0612,
+              "base_deg_s": -0.787,
+              "avg_tyre_delta": 0.049,
+              "r_squared": 0.156,
+              "n_laps": 640
+            }
+          }
+        },
+        "2020": {
+          "pace_delta_s": -0.422,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0017,
+              "base_deg_s": -0.101,
+              "avg_tyre_delta": -0.07,
+              "r_squared": 0.0,
+              "n_laps": 500
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.009,
+              "base_deg_s": -0.067,
+              "avg_tyre_delta": 0.092,
+              "r_squared": 0.012,
+              "n_laps": 521
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0192,
+              "base_deg_s": -0.418,
+              "avg_tyre_delta": -0.16,
+              "r_squared": 0.012,
+              "n_laps": 365
+            }
+          }
+        }
+      }
+    },
+    "sauber": {
+      "display_name": "Kick Sauber",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": 0.543,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0412,
+              "base_deg_s": 0.008,
+              "avg_tyre_delta": 0.928,
+              "r_squared": 0.228,
+              "n_laps": 262
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0088,
+              "base_deg_s": 0.498,
+              "avg_tyre_delta": 0.662,
+              "r_squared": 0.008,
+              "n_laps": 522
+            }
+          }
+        },
+        "2024": {
+          "pace_delta_s": 0.516,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0387,
+              "base_deg_s": 0.26,
+              "avg_tyre_delta": 0.965,
+              "r_squared": 0.144,
+              "n_laps": 1265
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0068,
+              "base_deg_s": 0.77,
+              "avg_tyre_delta": 0.854,
+              "r_squared": 0.002,
+              "n_laps": 620
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0108,
+              "base_deg_s": 0.797,
+              "avg_tyre_delta": 0.889,
+              "r_squared": 0.002,
+              "n_laps": 222
+            }
+          }
+        }
+      }
+    },
+    "toro_rosso": {
+      "display_name": "Toro Rosso",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -0.011,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0211,
+              "base_deg_s": 0.348,
+              "avg_tyre_delta": 0.794,
+              "r_squared": 0.049,
+              "n_laps": 265
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0122,
+              "base_deg_s": 0.59,
+              "avg_tyre_delta": 0.799,
+              "r_squared": 0.012,
+              "n_laps": 378
+            }
+          }
+        },
+        "2019": {
+          "pace_delta_s": -0.214,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0201,
+              "base_deg_s": -0.083,
+              "avg_tyre_delta": 0.333,
+              "r_squared": 0.06,
+              "n_laps": 718
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0286,
+              "base_deg_s": -0.103,
+              "avg_tyre_delta": 0.34,
+              "r_squared": 0.057,
+              "n_laps": 903
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0017,
+              "base_deg_s": 0.202,
+              "avg_tyre_delta": 0.225,
+              "r_squared": 0.0,
+              "n_laps": 548
+            }
+          }
+        }
+      }
+    },
+    "williams": {
+      "display_name": "Williams",
+      "seasons": {
+        "2019": {
+          "pace_delta_s": 1.391,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0085,
+              "base_deg_s": 1.448,
+              "avg_tyre_delta": 1.626,
+              "r_squared": 0.008,
+              "n_laps": 873
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0505,
+              "base_deg_s": 1.392,
+              "avg_tyre_delta": 2.017,
+              "r_squared": 0.068,
+              "n_laps": 1021
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0867,
+              "base_deg_s": 1.19,
+              "avg_tyre_delta": 1.819,
+              "r_squared": 0.039,
+              "n_laps": 190
+            }
+          }
+        },
+        "2018": {
+          "pace_delta_s": 0.417,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0491,
+              "base_deg_s": 0.366,
+              "avg_tyre_delta": 1.324,
+              "r_squared": 0.174,
+              "n_laps": 410
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0395,
+              "base_deg_s": 0.375,
+              "avg_tyre_delta": 1.103,
+              "r_squared": 0.137,
+              "n_laps": 665
+            }
+          }
+        },
+        "2020": {
+          "pace_delta_s": 0.585,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.015,
+              "base_deg_s": 0.675,
+              "avg_tyre_delta": 0.918,
+              "r_squared": 0.022,
+              "n_laps": 477
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0302,
+              "base_deg_s": 0.555,
+              "avg_tyre_delta": 0.951,
+              "r_squared": 0.032,
+              "n_laps": 745
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0177,
+              "base_deg_s": 0.936,
+              "avg_tyre_delta": 1.16,
+              "r_squared": 0.01,
+              "n_laps": 188
+            }
+          }
+        },
+        "2021": {
+          "pace_delta_s": 0.605,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0283,
+              "base_deg_s": 0.275,
+              "avg_tyre_delta": 0.822,
+              "r_squared": 0.083,
+              "n_laps": 1168
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0183,
+              "base_deg_s": 0.715,
+              "avg_tyre_delta": 0.95,
+              "r_squared": 0.014,
+              "n_laps": 726
+            },
+            "SOFT": {
+              "deg_slope_per_lap": -0.0316,
+              "base_deg_s": 1.342,
+              "avg_tyre_delta": 1.049,
+              "r_squared": 0.012,
+              "n_laps": 111
+            }
+          }
+        },
+        "2024": {
+          "pace_delta_s": -0.116,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0241,
+              "base_deg_s": 0.213,
+              "avg_tyre_delta": 0.679,
+              "r_squared": 0.095,
+              "n_laps": 1165
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0292,
+              "base_deg_s": 0.296,
+              "avg_tyre_delta": 0.599,
+              "r_squared": 0.022,
+              "n_laps": 612
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.084,
+              "base_deg_s": -0.104,
+              "avg_tyre_delta": 0.618,
+              "r_squared": 0.13,
+              "n_laps": 145
+            }
+          }
+        },
+        "2023": {
+          "pace_delta_s": -0.16,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0184,
+              "base_deg_s": 0.145,
+              "avg_tyre_delta": 0.475,
+              "r_squared": 0.054,
+              "n_laps": 786
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": 0.0183,
+              "base_deg_s": 0.4,
+              "avg_tyre_delta": 0.602,
+              "r_squared": 0.012,
+              "n_laps": 611
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0129,
+              "base_deg_s": 0.345,
+              "avg_tyre_delta": 0.501,
+              "r_squared": 0.005,
+              "n_laps": 240
+            }
+          }
+        },
+        "2022": {
+          "pace_delta_s": 0.509,
+          "data_tier": 1,
+          "limited_data": false,
+          "compounds": {
+            "HARD": {
+              "deg_slope_per_lap": 0.0192,
+              "base_deg_s": 0.49,
+              "avg_tyre_delta": 0.815,
+              "r_squared": 0.029,
+              "n_laps": 688
+            },
+            "MEDIUM": {
+              "deg_slope_per_lap": -0.0021,
+              "base_deg_s": 0.894,
+              "avg_tyre_delta": 0.869,
+              "r_squared": 0.0,
+              "n_laps": 786
+            },
+            "SOFT": {
+              "deg_slope_per_lap": 0.0555,
+              "base_deg_s": 0.416,
+              "avg_tyre_delta": 1.013,
+              "r_squared": 0.056,
+              "n_laps": 370
+            }
+          }
+        }
+      }
+    }
+  }
+}
