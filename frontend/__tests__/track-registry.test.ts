@@ -22,8 +22,8 @@ import {
 // ─── Registry integrity ────────────────────────────────────────────────────────
 
 describe('TRACK_REGISTRY', () => {
-  it('contains exactly 26 circuits', () => {
-    expect(TRACK_REGISTRY).toHaveLength(26);
+  it('contains exactly 24 circuits', () => {
+    expect(TRACK_REGISTRY).toHaveLength(24);
   });
 
   it('has no duplicate IDs', () => {
@@ -70,14 +70,14 @@ describe('hasLiveData partitioning', () => {
     expect(live).toHaveLength(23);
   });
 
-  it('3 circuits are flagged as speculative / no live data', () => {
+  it('1 circuit is flagged as speculative / no live data', () => {
     const speculative = TRACK_REGISTRY.filter((t) => !t.hasLiveData);
-    expect(speculative).toHaveLength(3);
+    expect(speculative).toHaveLength(1);
   });
 
-  it('speculative circuits are madrid, bhuj, argentina', () => {
-    const ids = TRACK_REGISTRY.filter((t) => !t.hasLiveData).map((t) => t.id).sort();
-    expect(ids).toEqual(['argentina', 'bhuj', 'madrid']);
+  it('speculative circuit is madrid', () => {
+    const ids = TRACK_REGISTRY.filter((t) => !t.hasLiveData).map((t) => t.id);
+    expect(ids).toEqual(['madrid']);
   });
 
   it('speculative circuits each have a statusNote explaining the approximation', () => {
@@ -153,16 +153,14 @@ describe('getLiveDataTracks', () => {
   it('does not include speculative tracks', () => {
     const ids = getLiveDataTracks().map((t) => t.id);
     expect(ids).not.toContain('madrid');
-    expect(ids).not.toContain('bhuj');
-    expect(ids).not.toContain('argentina');
   });
 });
 
 // ─── getSpeculativeTracks ─────────────────────────────────────────────────────
 
 describe('getSpeculativeTracks', () => {
-  it('returns exactly 3 tracks', () => {
-    expect(getSpeculativeTracks()).toHaveLength(3);
+  it('returns exactly 1 track', () => {
+    expect(getSpeculativeTracks()).toHaveLength(1);
   });
 
   it('all returned tracks have hasLiveData=false', () => {
@@ -171,9 +169,9 @@ describe('getSpeculativeTracks', () => {
     }
   });
 
-  it('contains madrid, bhuj, and argentina', () => {
-    const ids = getSpeculativeTracks().map((t) => t.id).sort();
-    expect(ids).toEqual(['argentina', 'bhuj', 'madrid']);
+  it('contains only madrid', () => {
+    const ids = getSpeculativeTracks().map((t) => t.id);
+    expect(ids).toEqual(['madrid']);
   });
 });
 

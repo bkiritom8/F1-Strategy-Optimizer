@@ -47,8 +47,6 @@ const TRACK_EXTENDED_DATA: Record<string, {
   lusail: { lapRecord: '1:24.319', recordHolder: 'Max Verstappen', recordYear: 2023, tireWear: 'high', fuelConsumption: 'medium', overtaking: 'medium', firstGP: 2021 },
   yas_marina: { lapRecord: '1:26.103', recordHolder: 'Max Verstappen', recordYear: 2021, tireWear: 'medium', fuelConsumption: 'medium', overtaking: 'medium', firstGP: 2009 },
   madrid: { lapRecord: 'TBD', recordHolder: 'TBD', recordYear: 2026, tireWear: 'medium', fuelConsumption: 'medium', overtaking: 'high', firstGP: 2026 },
-  bhuj: { lapRecord: 'TBD', recordHolder: 'TBD', recordYear: 2027, tireWear: 'high', fuelConsumption: 'medium', overtaking: 'medium', firstGP: 2027 },
-  argentina: { lapRecord: '1:27.981', recordHolder: 'Gerhard Berger', recordYear: 1997, tireWear: 'medium', fuelConsumption: 'low', overtaking: 'medium', firstGP: 1953 },
 };
 
 const getRatingColor = (rating: 'low' | 'medium' | 'high') => {
@@ -134,7 +132,7 @@ export const TrackDetailCard: React.FC<TrackDetailCardProps> = ({
         </p>
       </div>
 
-      {/* Track SVG - Large */}
+      {/* Track SVG - Large / Coming Soon placeholder */}
       <div
         style={{
           display: 'flex',
@@ -144,16 +142,27 @@ export const TrackDetailCard: React.FC<TrackDetailCardProps> = ({
           backgroundColor: bgTertiary,
           borderRadius: '12px',
           marginBottom: '20px',
+          minHeight: '160px',
         }}
       >
-        <TrackComponent
-          width={320}
-          height={200}
-          strokeColor={COLORS.accent.red}
-          strokeWidth={4}
-          showStartFinish={true}
-          animated={true}
-        />
+        {track.comingSoon ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '48px' }}>🏗️</span>
+            <span style={{ fontSize: '14px', fontWeight: 700, color: COLORS.accent.yellow, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Coming Soon</span>
+            {track.statusNote && (
+              <span style={{ fontSize: '12px', color: textSecondary, textAlign: 'center', maxWidth: '260px' }}>{track.statusNote}</span>
+            )}
+          </div>
+        ) : (
+          <TrackComponent
+            width={320}
+            height={200}
+            strokeColor={COLORS.accent.red}
+            strokeWidth={4}
+            showStartFinish={true}
+            animated={true}
+          />
+        )}
       </div>
 
       {/* Stats Grid */}

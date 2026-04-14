@@ -32,7 +32,7 @@ vi.mock('framer-motion', () => ({
 }));
 
 describe('TrackGallery', () => {
-  it('renders all 26 circuit names', () => {
+  it('renders all 24 circuit names', () => {
     render(<TrackGallery />);
     for (const track of TRACK_REGISTRY) {
       // track names are upper-cased via CSS, use regex to ignore case
@@ -40,35 +40,27 @@ describe('TrackGallery', () => {
     }
   });
 
-  it('renders exactly 3 no-data badges for speculative circuits', () => {
+  it('renders exactly 1 no-data badge for the speculative circuit', () => {
     render(<TrackGallery />);
     const badges = screen.getAllByTestId('no-data-badge');
-    expect(badges).toHaveLength(3);
+    expect(badges).toHaveLength(1);
   });
 
-  it('no-data badges appear only on madrid, bhuj, argentina cards', () => {
+  it('no-data badge appears only on the madrid card', () => {
     render(<TrackGallery />);
-    const badges = screen.getAllByTestId('no-data-badge');
-    const speculativeNames = ['Madrid Street Circuit', 'Gujarat International Circuit', 'Autodromo Oscar y Juan Galvez'];
-    
-    // Total badge count matches the 3 speculative circuits
-    expect(badges.length).toBe(speculativeNames.length);
-
-    for (const name of speculativeNames) {
-      const h3 = screen.getByText(new RegExp(name, 'i'));
-      const card = h3.closest('div');
-      const badge = card?.querySelector('[data-testid="no-data-badge"]');
-      expect(badge).not.toBeNull();
-    }
+    const h3 = screen.getByText(/Madrid Street Circuit/i);
+    const card = h3.closest('div');
+    const badge = card?.querySelector('[data-testid="no-data-badge"]');
+    expect(badge).not.toBeNull();
   });
 
   it('live circuits do not show the no-data badge', () => {
     render(
       <TrackGallery selectedTrackId="bahrain" />
     );
-    // Constraint Validation: Expect exactly 3 status badges; Bahrain remains unbadged.
+    // Constraint Validation: Expect exactly 1 status badge; Bahrain remains unbadged.
     const badges = screen.queryAllByTestId('no-data-badge');
-    expect(badges).toHaveLength(3);
+    expect(badges).toHaveLength(1);
     // Bahrain card should not have a badge
     const bahrainH3 = screen.getByText(/Bahrain International Circuit/i);
     const bahrainCard = bahrainH3.closest('div');

@@ -657,6 +657,8 @@ export interface TrackInfo {
   hasLiveData: boolean;
   /** Optional status note shown in the Circuit Directory UI. */
   statusNote?: string;
+  /** When true, suppress the SVG layout and display a "Coming Soon" placeholder instead. */
+  comingSoon?: boolean;
 }
 
 
@@ -759,24 +761,12 @@ export const TRACK_REGISTRY: TrackInfo[] = [
   { id: 'lusail',     name: 'Lusail International Circuit',         country: 'Qatar',          component: LusailTrack,     lengthKm: 5.419, corners: 16, drsZones: 2, laps: 57, hasLiveData: true },
   { id: 'yas_marina', name: 'Yas Marina Circuit',                   country: 'UAE',            component: YasMarinaTrack,  lengthKm: 5.281, corners: 16, drsZones: 2, laps: 58, hasLiveData: true },
 
-  // ── Future / speculative circuits (approximated SVG paths, no FastF1 data) ─
+  // ── Future circuits ────────────────────────────────────────────────────────
   {
     id: 'madrid', name: 'Madrid Street Circuit', country: 'Spain',
     component: MadridTrack, lengthKm: 5.474, corners: 18, drsZones: 2, laps: 55,
-    hasLiveData: false,
-    statusNote: 'Planned 2026 debut : layout approximated from published designs. No FastF1 telemetry available.',
-  },
-  {
-    id: 'bhuj', name: 'Gujarat International Circuit', country: 'India',
-    component: BhujTrack, lengthKm: 5.340, corners: 16, drsZones: 3, laps: 57,
-    hasLiveData: false,
-    statusNote: 'Proposed circuit : layout approximated from conceptual renders. No FastF1 telemetry available.',
-  },
-  {
-    id: 'argentina', name: 'Autodromo Oscar y Juan Galvez', country: 'Argentina',
-    component: ArgentinaTrack, lengthKm: 4.259, corners: 15, drsZones: 2, laps: 72,
-    hasLiveData: false,
-    statusNote: 'Historical venue speculated for return : layout based on Autodromo Oscar Galvez. No FastF1 telemetry available.',
+    hasLiveData: false, comingSoon: true,
+    statusNote: 'Planned 2026 debut. No FastF1 telemetry available yet.',
   },
 ];
 

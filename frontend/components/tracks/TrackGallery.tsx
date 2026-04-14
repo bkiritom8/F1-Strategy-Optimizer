@@ -89,7 +89,7 @@ const TrackItem = memo(({ track, isSelected, onSelect, showDetails }: TrackItemP
         </div>
       )}
 
-      {/* Track SVG */}
+      {/* Track SVG / Coming Soon placeholder */}
       <div
         style={{
           display: 'flex',
@@ -99,16 +99,24 @@ const TrackItem = memo(({ track, isSelected, onSelect, showDetails }: TrackItemP
           padding: '8px',
           backgroundColor: 'rgba(0,0,0,0.3)',
           borderRadius: '8px',
+          height: '136px',
         }}
       >
-        <TrackComponent
-          width={180}
-          height={120}
-          strokeColor={isSelected ? COLORS.accent.red : isHovered ? COLORS.accent.green : textColor}
-          strokeWidth={2.5}
-          showStartFinish={true}
-          animated={isHovered || isSelected}
-        />
+        {track.comingSoon ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '28px' }}>🏗️</span>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: COLORS.accent.yellow, textTransform: 'uppercase', letterSpacing: '1px' }}>Coming Soon</span>
+          </div>
+        ) : (
+          <TrackComponent
+            width={180}
+            height={120}
+            strokeColor={isSelected ? COLORS.accent.red : isHovered ? COLORS.accent.green : textColor}
+            strokeWidth={2.5}
+            showStartFinish={true}
+            animated={isHovered || isSelected}
+          />
+        )}
       </div>
 
       {/* Track Name */}
