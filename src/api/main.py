@@ -320,7 +320,9 @@ async def recommend_strategy(
     """Get race strategy recommendation. Requires non-viewer role."""
     # Check permission: viewers cannot use strategy recommend
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
-        raise HTTPException(status_code=403, detail="Forbidden: insufficient permissions")
+        raise HTTPException(
+            status_code=403, detail="Forbidden: insufficient permissions"
+        )
     # Track request
     start_time = time.time()
 
