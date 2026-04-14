@@ -12,7 +12,7 @@
  * from multi-season telemetry analysis.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { TEAM_COLORS } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDrivers, useRaces2024, useRaces2025, useRaces2026 } from '../hooks/useApi';
@@ -70,6 +70,23 @@ function normalizeTeamName(team: string): string {
   return team
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (char: string) => char.toUpperCase());
+}
+
+function isCurrentForYear(
+  driver: DriverProfile,
+  year: SeasonYear,
+  seasonStats: Map<string, { points: number; wins: number; podiums: number; races: number; dnfs: number; avgGrid: number; avgFinish: number; bestFinish: number; team: string }>
+): boolean {
+  // Strongest signal: appears in selected season race results
+  if (seasonStats.has(driver.driver_id)) return true;
+
+  // Static dataset carries last_season for most drivers
+  if (typeof driver.last_season === 'number') {
+    return driver.last_season >= year;
+  }
+
+  // Fallback for entries without last_season
+  return year === 2026 && CURRENT_2026_DRIVERS.has(driver.driver_id);
 }
 
 const DriverProfiles: React.FC = () => {
@@ -140,7 +157,7 @@ const DriverProfiles: React.FC = () => {
   const filteredDrivers = useMemo(() => {
     if (!drivers) return [];
     return drivers.filter(d => {
-      const isCurrent = CURRENT_2026_DRIVERS.has(d.driver_id);
+      const isCurrent = isCurrentForYear(d, activeYear, seasonStats);
       if (!isCurrent && !showLegends) return false;   // hide legends unless toggle is on
       const matchesSearch = searchQuery === '' ||
         d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -150,13 +167,20 @@ const DriverProfiles: React.FC = () => {
       const matchesTeam = filterTeam === 'all' || team === filterTeam;
       return matchesSearch && matchesTeam;
     });
-  }, [drivers, searchQuery, filterTeam, seasonStats, showLegends]);
+  }, [drivers, activeYear, searchQuery, filterTeam, seasonStats, showLegends]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    if (!filteredDrivers.some((d) => d.driver_id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [filteredDrivers, selectedId]);
 
   const selectedDriver = useMemo(() => {
-    if (!drivers || drivers.length === 0) return null;
-    if (selectedId) return drivers.find(d => d.driver_id === selectedId) || null;
-    return drivers[0] || null;
-  }, [drivers, selectedId]);
+    if (!filteredDrivers || filteredDrivers.length === 0) return null;
+    if (selectedId) return filteredDrivers.find(d => d.driver_id === selectedId) || null;
+    return filteredDrivers[0] || null;
+  }, [filteredDrivers, selectedId]);
 
   const selectedStats = selectedDriver ? seasonStats.get(selectedDriver.driver_id) : null;
 
@@ -165,15 +189,21 @@ const DriverProfiles: React.FC = () => {
     const teamSet = new Set<string>();
     if (drivers) {
       for (const d of drivers) {
+        const isCurrent = isCurrentForYear(d, activeYear, seasonStats);
+        if (!showLegends && !isCurrent) continue;
         const team = normalizeTeamName(seasonStats.get(d.driver_id)?.team || d.team);
         if (team && team !== 'Unknown') teamSet.add(team);
       }
     }
     return Array.from(teamSet).sort();
-  }, [drivers, seasonStats]);
+  }, [drivers, activeYear, seasonStats, showLegends]);
 
   // Summary stats
-  const totalDrivers = filteredDrivers.filter(d => CURRENT_2026_DRIVERS.has(d.driver_id)).length || CURRENT_2026_DRIVERS.size;
+  const totalDrivers = useMemo(() => {
+    if (!drivers || drivers.length === 0) return activeYear === 2026 ? CURRENT_2026_DRIVERS.size : 0;
+    const count = drivers.filter((d) => isCurrentForYear(d, activeYear, seasonStats)).length;
+    return count || (activeYear === 2026 ? CURRENT_2026_DRIVERS.size : 0);
+  }, [drivers, activeYear, seasonStats]);
   const totalWins = Array.from(seasonStats.values()).reduce((sum, s) => sum + s.wins, 0);
 
   if (loading && !drivers) {
