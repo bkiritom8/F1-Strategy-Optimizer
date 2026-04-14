@@ -31,14 +31,42 @@ import Footer from './components/Footer';
 import AdminModal from './components/AdminModal';
 import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
 
+const LAZY_RELOAD_KEY = 'divergex:lazy-reload-attempted';
+
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  importer: () => Promise<{ default: T }>
+) {
+  return React.lazy(async () => {
+    try {
+      const module = await importer();
+      sessionStorage.removeItem(LAZY_RELOAD_KEY);
+      return module;
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      const isChunkLoadError = /Failed to fetch dynamically imported module|Loading chunk [\d]+ failed|Importing a module script failed/i.test(message);
+      const alreadyRetried = sessionStorage.getItem(LAZY_RELOAD_KEY) === '1';
+
+      if (isChunkLoadError && !alreadyRetried) {
+        sessionStorage.setItem(LAZY_RELOAD_KEY, '1');
+        window.location.reload();
+        return new Promise<never>(() => {
+          // Intentionally unresolved because page is reloading.
+        });
+      }
+
+      throw error;
+    }
+  });
+}
+
 // Lazy-load views for code splitting
-const RaceCommandCenter = React.lazy(() => import('./views/RaceCommandCenter'));
-const DriverProfiles    = React.lazy(() => import('./views/DriverProfiles'));
-const StrategyHub       = React.lazy(() => import('./views/StrategyHub'));
-const TrackExplorer     = React.lazy(() => import('./views/TrackExplorer'));
-const LapByLapAnalysis  = React.lazy(() => import('./views/LapByLapAnalysis'));
-const AdminPage         = React.lazy(() => import('./views/AdminPage'));
-const LandingPage       = React.lazy(() => import('./views/LandingPage'));
+const RaceCommandCenter = lazyWithRetry(() => import('./views/RaceCommandCenter'));
+const DriverProfiles    = lazyWithRetry(() => import('./views/DriverProfiles'));
+const StrategyHub       = lazyWithRetry(() => import('./views/StrategyHub'));
+const TrackExplorer     = lazyWithRetry(() => import('./views/TrackExplorer'));
+const LapByLapAnalysis  = lazyWithRetry(() => import('./views/LapByLapAnalysis'));
+const AdminPage         = lazyWithRetry(() => import('./views/AdminPage'));
+const LandingPage       = lazyWithRetry(() => import('./views/LandingPage'));
 
 
 
