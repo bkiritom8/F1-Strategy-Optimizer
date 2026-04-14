@@ -17,6 +17,8 @@ import ValidationPerformance from './ValidationPerformance';
 import SystemMonitoringHealth from './SystemMonitoringHealth';
 import ModelEngineering from './ModelEngineering';
 import GcpAdminPanel from './GcpAdminPanel';
+import SecurityAudit from './SecurityAudit';
+import DatabaseMetrics from './DatabaseMetrics';
 import { useAppStore } from '../store/useAppStore';
 
 const AdminPage: React.FC = () => {
@@ -45,13 +47,8 @@ const AdminPage: React.FC = () => {
         {activeTab === 'health'      && <SystemMonitoringHealth />}
         {activeTab === 'engineering' && <ModelEngineering />}
         {activeTab === 'backend'     && <GcpAdminPanel />}
-        {(['database', 'security'].includes(activeTab)) && (
-          <div className="flex flex-col items-center justify-center p-20 border border-dashed border-white/[0.07] rounded-3xl bg-white/[0.04] text-white/40">
-            <Lock className="w-12 h-12 mb-4 opacity-20" />
-            <h3 className="text-xl font-bold tracking-tight uppercase tracking-widest italic">Terminal Restricted</h3>
-            <p className="text-xs mt-2 text-white/40">This module requires direct Cloud Shell credentials (IAM: f1-ingest-sa)</p>
-          </div>
-        )}
+        {activeTab === 'database'    && <DatabaseMetrics />}
+        {activeTab === 'security'    && <SecurityAudit />}
       </div>
     </div>
   );
