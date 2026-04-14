@@ -7,6 +7,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.routes.simulate import _parse_season, router
+from src.security.https_middleware import get_current_user
+from src.security.iam_simulator import Permission
 
 
 # ── _parse_season unit tests ──────────────────────────────────────────────────
@@ -55,18 +57,18 @@ def mock_deps():
     with (
         patch("src.api.routes.simulate._get_coordinator", return_value=mock_coord),
         patch("src.api.routes.simulate._get_constructor_store", return_value=mock_store),
-        patch("src.api.routes.simulate.get_current_user", return_value=mock_user),
         patch("src.api.routes.simulate.iam_simulator") as mock_iam,
     ):
         mock_iam.check_permission.return_value = True
-        yield mock_coord, mock_store
+        yield mock_coord, mock_store, mock_user
 
 
 def test_constructor_offset_resolved(mock_deps):
-    mock_coord, mock_store = mock_deps
+    mock_coord, mock_store, mock_user = mock_deps
     from fastapi import FastAPI
 
     app = FastAPI()
+    app.dependency_overrides[get_current_user] = lambda: mock_user
     app.include_router(router)
     client = TestClient(app, raise_server_exceptions=True)
 
@@ -88,10 +90,11 @@ def test_constructor_offset_resolved(mock_deps):
 
 
 def test_no_constructor_id_no_store_lookup(mock_deps):
-    mock_coord, mock_store = mock_deps
+    mock_coord, mock_store, mock_user = mock_deps
     from fastapi import FastAPI
 
     app = FastAPI()
+    app.dependency_overrides[get_current_user] = lambda: mock_user
     app.include_router(router)
     client = TestClient(app, raise_server_exceptions=True)
 

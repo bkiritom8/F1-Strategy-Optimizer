@@ -93,6 +93,6 @@ export const F1_GLOSSARY: Record<string, string> = {
   'Brake Bias': "The distribution of braking force between the front and rear wheels, adjusted by the driver for different corners.",
   'Dirty Air': "Turbulent air left behind by a leading car, which reduces the aerodynamic downforce (grip) for the car following.",
   Delta: "The time difference between two cars, or between a driver's current lap and their best lap.",
-  Apex: "The innermost point of the line taken through a curve, where the car is closest to the inside of the corner (Note: legacy brand name reference).",
+  Apex: "The innermost point of the line taken through a curve, where the car is closest to the inside of the corner.",
   Stint: "The period between pit stops during which a driver is on track with a single set of tires.",
 };

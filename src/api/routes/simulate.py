@@ -5,6 +5,8 @@ POST /api/v1/simulate/race   — submit a scenario, returns job_id
 GET  /api/v1/simulate/race/stream — SSE stream of lap frames for job_id
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import math
