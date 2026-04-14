@@ -27,7 +27,7 @@ ml/
 │   ├── environment.py  # F1RaceEnv (29 obs features, 7 actions)
 │   ├── agent.py
 │   ├── state.py
-│   ├── adapters.py
+│   ├── model_adapters.py
 │   └── reward.py
 ├── preprocessing/      # FastF1 + race results feature engineering
 │   └── preprocess_data.py
@@ -102,4 +102,4 @@ python ml/tests/run_tests_on_vertex.py
 
 ---
 
-**Status**: Complete — 6 supervised models + PPO RL agent trained and promoted to GCS | **Last Updated**: 2026-04-08
+**Status**: Complete — 6 supervised models + PPO RL agent trained and promoted to GCS | **Last Updated**: 2026-04-14
