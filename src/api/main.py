@@ -315,8 +315,12 @@ async def metrics():
 @app.post("/strategy/recommend", response_model=StrategyRecommendation)
 async def recommend_strategy(
     request: StrategyRequest,
+    current_user: User = Depends(get_current_user),
 ):
-    """Get race strategy recommendation."""
+    """Get race strategy recommendation. Requires non-viewer role."""
+    # Check permission: viewers cannot use strategy recommend
+    if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
+        raise HTTPException(status_code=403, detail="Forbidden: insufficient permissions")
     # Track request
     start_time = time.time()
 
@@ -402,8 +406,11 @@ async def recommend_strategy(
 
 
 @app.get("/data/drivers", response_model=List[Dict])
-async def get_drivers(year: Optional[int] = None):
-    """Get driver list. Delegates to FeaturePipeline."""
+async def get_drivers(
+    year: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+):
+    """Get driver list. Delegates to FeaturePipeline. Requires authentication."""
     try:
         pipeline = _get_pipeline()
         drv_df = pipeline._drivers()
@@ -425,8 +432,10 @@ async def get_drivers(year: Optional[int] = None):
 
 
 @app.get("/models/status")
-async def get_models_status():
-    """Get ML models load status."""
+async def get_models_status(
+    current_user: User = Depends(get_current_user),
+):
+    """Get ML models load status. Requires authentication."""
     strategy_status = {
         "name": "strategy_predictor",
         "status": "loaded" if _strategy_model is not None else "fallback",
@@ -493,8 +502,9 @@ class SimulateResponse(BaseModel):
 async def race_state(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
+    current_user: User = Depends(get_current_user),
 ):
-    """Return full RaceState at a given lap (all drivers)."""
+    """Return full RaceState at a given lap (all drivers). Requires authentication."""
     try:
         sim = _get_simulator()
         state = sim.step(race_id, lap)
@@ -516,8 +526,9 @@ async def race_state(
 async def race_standings(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
+    current_user: User = Depends(get_current_user),
 ):
-    """Return driver standings at a given lap."""
+    """Return driver standings at a given lap. Requires authentication."""
     try:
         sim = _get_simulator()
         standings = sim.get_standings(race_id, lap)
@@ -554,8 +565,10 @@ async def driver_lap_telemetry(
 
 
 @v1.get("/drivers")
-async def list_drivers():
-    """Return all driver profiles with computed career stats."""
+async def list_drivers(
+    current_user: User = Depends(get_current_user),
+):
+    """Return all driver profiles with computed career stats. Requires authentication."""
     try:
         import pandas as pd
 
@@ -619,8 +632,11 @@ async def list_drivers():
 
 
 @v1.get("/drivers/{driver_id}/history")
-async def driver_history(driver_id: str):
-    """Return career race history for a driver."""
+async def driver_history(
+    driver_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Return career race history for a driver. Requires authentication."""
     try:
         pipeline = _get_pipeline()
         history = pipeline.get_driver_history(driver_id)
@@ -668,7 +684,10 @@ def _rule_based_simulate(
 
 
 @v1.post("/strategy/simulate", response_model=SimulateResponse)
-async def simulate_strategy(request: SimulateRequest):
+async def simulate_strategy(
+    request: SimulateRequest,
+    current_user: User = Depends(get_current_user),
+):
     """
     Simulate a custom pit strategy using the local StrategySimulator.
 

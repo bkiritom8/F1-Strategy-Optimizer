@@ -255,7 +255,7 @@ DRIVER_CONSTRUCTOR_MAP: dict[str, str] = {
 # Hardcoded fallback car pace offsets (ms/lap vs field median, negative = faster).
 # Used when GCS is unavailable.  Reflects approximate 2024/2025 competitiveness.
 CAR_PERFORMANCE_OFFSET_MS: dict[str, float] = {
-    "max_verstappen": -600.0,
+    "max_verstappen": -594.0,
     "liam_lawson": -480.0,
     "lando_norris": -550.0,
     "oscar_piastri": -540.0,
