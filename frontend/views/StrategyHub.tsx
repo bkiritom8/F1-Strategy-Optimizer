@@ -180,6 +180,26 @@ interface ChatMessage {
   parsedStrategy?: { driver_id: string; strategy: [number, string][] } | null;
 }
 
+const FinishingDistributionTooltip: React.FC<{ active?: boolean; payload?: any[] }> = ({ active, payload }) => {
+  if (!active || !payload || payload.length === 0) return null;
+  const point = payload[0]?.payload;
+  if (!point) return null;
+
+  return (
+    <div
+      className="rounded-lg px-3 py-2 border text-xs"
+      style={{
+        backgroundColor: 'var(--bg-primary)',
+        borderColor: 'var(--border-color)',
+        color: 'var(--text-primary)',
+      }}
+    >
+      <div className="font-bold">Position P{point.pos}</div>
+      <div className="text-white/70">Probability: {point.prob}%</div>
+    </div>
+  );
+};
+
 // Patterns that indicate the user is asking a "what if" strategy question
 const WHAT_IF_RE = /what\s+if|if\s+i\s+(pit|start|use|try|go)|pit\s+(at|on|lap)|try\s+(soft|medium|hard|wet|inter)|undercut|overcut|1.?stop|2.?stop|3.?stop|simulate|test\s+strat/i;
 
@@ -720,7 +740,10 @@ const StrategyHub: React.FC = () => {
                 <BarChart data={monteCarloData}>
                   <XAxis dataKey="pos" stroke="var(--text-secondary)" fontSize={10} axisLine={false} tickLine={false} />
                   <YAxis stroke="var(--text-secondary)" fontSize={10} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: 'var(--bg-secondary)' }} contentStyle={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} formatter={(v: number) => [`${v}%`, 'Probability']} />
+                  <Tooltip
+                    cursor={{ fill: 'var(--bg-secondary)' }}
+                    content={<FinishingDistributionTooltip />}
+                  />
                   <Bar dataKey="prob" radius={[4, 4, 0, 0]}>
                     {monteCarloData.map((_, i) => <Cell key={i} fill={i < 3 ? COLORS.accent.green : COLORS.accent.blue} fillOpacity={i < 3 ? 1 : 0.4} />)}
                   </Bar>
