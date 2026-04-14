@@ -178,7 +178,8 @@ def _heuristic_probs(info: dict) -> np.ndarray:
     probs = np.array([0.10, 0.55, 0.25, 0.03, 0.04, 0.03, 0.0], dtype=np.float64)
 
     if safety_car:
-        probs = np.array([0.00, 0.01, 0.00, 0.15, 0.42, 0.38, 0.04])
+        # SC: soft is the go-to under SC (free pit); medium for long stints; hard rare
+        probs = np.array([0.00, 0.44, 0.01, 0.07, 0.25, 0.20, 0.03])
     elif vsc:
         # VSC: pit is advantageous but less so than SC (only ~6 s saved vs ~15 s).
         # Only recommend pitting if tires are meaningfully worn.
@@ -256,7 +257,7 @@ def _is_key_moment(
         return True, f"Safety Car deployed on lap {lap} — free pit window!"
 
     # 1b. VSC deployed — partial pit window (weaker than SC; only prompt if tires are worn)
-    if vsc and not prev_vsc and tire_age >= 10:
+    if vsc and not prev_vsc and tire_age >= 15:
         return (
             True,
             f"Virtual Safety Car on lap {lap} — evaluate pit window (tires: {tire_age}L)",
@@ -346,6 +347,8 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
         start_position: int = max(1, min(20, int(msg.get("start_position", 10))))
         start_compound: str = msg.get("start_compound", "MEDIUM").upper()
         driver_profile: Optional[dict] = msg.get("driver_profile") or None
+        # car_id allows putting any driver in any constructor's car (e.g. verstappen in mercedes)
+        car_id: Optional[str] = msg.get("car_id") or None
 
         # ── Circuit info ───────────────────────────────────────────────────────
         circuit_info = CIRCUIT_REGISTRY.get(race_id) or {}
@@ -372,11 +375,13 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
 
         # ── Build lineup ───────────────────────────────────────────────────────
         resolved_profile = driver_profile or get_profile(driver_id)
+        car_id_overrides = {driver_id: car_id} if car_id else None
         lineup = build_race_lineup(
             user_driver_id=driver_id,
             user_profile=resolved_profile,
             user_start_position=start_position,
             user_start_compound=start_compound,
+            car_id_overrides=car_id_overrides,
         )
 
         # ── Send setup acknowledgement ─────────────────────────────────────────

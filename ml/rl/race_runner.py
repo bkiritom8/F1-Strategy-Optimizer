@@ -772,7 +772,8 @@ SC_RACE_PROB_DEFAULT = 0.65  # ~65% of F1 races historically have at least one S
 
 VSC_LAP_DELTA_MS = 6_000.0  # VSC adds ~6 s per lap (delta-time enforced, no bunching)
 VSC_END_PROB = 0.40  # same clearance probability as SC
-VSC_DEFAULT_PROB = 0.06  # VSC triggered slightly more often than full SC
+VSC_DEFAULT_PROB = 0.010  # ~1 in 100 laps triggers a VSC (was 0.06, too frequent)
+VSC_RACE_PROB_DEFAULT = 0.40  # ~40% of F1 races have at least one VSC
 
 COMPOUND_DELTA_MS: dict[str, float] = {
     "SOFT": 0.0,
@@ -792,7 +793,10 @@ FUEL_BURN_KG: dict[str, float] = {"PUSH": 2.1, "BALANCED": 1.8, "NEUTRAL": 1.5}
 MODE_DELTA_MS: dict[str, float] = {"PUSH": -200.0, "BALANCED": 0.0, "NEUTRAL": 150.0}
 
 # Lap-to-lap noise std (ms) for a perfectly consistent driver; scaled by (1 - consistency)
-BASE_NOISE_MS = 400.0
+BASE_NOISE_MS = 150.0
+
+# Gap between grid slots at race start (ms) — prevents instant reshuffling on lap 1
+GRID_SLOT_GAP_MS = 700.0
 
 # How much gap (s) below which "pressure" effect kicks in
 PRESSURE_GAP_S = 1.2
@@ -928,6 +932,7 @@ class RaceRunner:
         )
         self._sc_deploy_prob = self._load_sc_prob()
         self._sc_race_prob = self._load_sc_race_prob()
+        self._vsc_race_prob = self._load_vsc_race_prob()
 
         # Initialised on reset()
         self._current_lap: int = 1
@@ -935,7 +940,8 @@ class RaceRunner:
         self._vsc: bool = False
         self._sc_laps_active: int = 0
         self._vsc_laps_active: int = 0
-        self._sc_possible: bool = True  # sampled per-episode in reset()
+        self._sc_possible: bool = True   # sampled per-episode in reset()
+        self._vsc_possible: bool = True  # sampled per-episode in reset()
         self._states: dict[str, DriverRaceState] = {}
         self._lap_data: dict[str, list[LapRecord]] = {}
         self._user_id: str = next((d.driver_id for d in drivers if d.is_user), "")
@@ -956,8 +962,9 @@ class RaceRunner:
         self._vsc = False
         self._sc_laps_active = 0
         self._vsc_laps_active = 0
-        # Roll once per race episode: not every real race has a safety car.
+        # Roll once per race episode: not every real race has a safety car / VSC.
         self._sc_possible = self._rng.random() < self._sc_race_prob
+        self._vsc_possible = self._rng.random() < self._vsc_race_prob
         self._lap_data = {d.driver_id: [] for d in self._drivers}
         self._reward_fn.reset()
         self._encoder.reset()
@@ -970,7 +977,10 @@ class RaceRunner:
                 tire_age_laps=0,
                 pit_stops=0,
                 fuel_remaining_kg=FUEL_START_KG,
-                cumulative_time_ms=0.0,
+                # Stagger start times by grid position so faster cars don't
+                # instantly leap from P10 to P1 on lap 1: P1 starts at 0 ms,
+                # P2 at 700 ms, P3 at 1400 ms, etc.
+                cumulative_time_ms=float((d.start_position - 1) * GRID_SLOT_GAP_MS),
                 last_lap_time_ms=self._base_lap_time_ms,
                 driving_mode="BALANCED",
                 driving_style_int=1,
@@ -1093,6 +1103,13 @@ class RaceRunner:
             new_compound = new_compounds[d.driver_id]
             tire_delta_s = tire_deltas[d.driver_id]
             fuel_burn = fuel_burns[d.driver_id]
+
+            # Override physics tire delta with car-specific degradation model when
+            # a CarProfile is available (set via car_id_overrides in build_race_lineup).
+            if d.car_profile is not None:
+                tire_delta_s = d.car_profile.deg_params(
+                    state.tire_compound
+                ).deg_at_age(state.tire_age_laps)
 
             lap_time_ms = self._compute_lap_time(state, pitted, tire_delta_s)
 
@@ -1251,18 +1268,18 @@ class RaceRunner:
             threshold = 0.55 - 0.1 * tire_mgmt
             optimal = COMPOUND_OPTIMAL_LAPS.get(compound, 30)
             if pit_prob > threshold and tire_age > optimal:
-                return _choose_compound_action(laps_rem, aggression)
+                return _choose_compound_action(laps_rem, aggression, tire_mgmt)
 
         # Tire degradation threshold: better tire managers can stretch further
         optimal = COMPOUND_OPTIMAL_LAPS.get(compound, 30)
         max_age = int(optimal * (1.0 + 0.30 * tire_mgmt))
         if tire_age >= max_age:
-            return _choose_compound_action(laps_rem, aggression)
+            return _choose_compound_action(laps_rem, aggression, tire_mgmt)
 
         # Mandatory pit stop: F1 requires using at least 2 compounds.
         # Force a pit if no stop yet and fewer than 8 laps remain.
         if state.pit_stops == 0 and laps_rem <= 8 and laps_rem >= 2:
-            return _choose_compound_action(laps_rem, aggression)
+            return _choose_compound_action(laps_rem, aggression, tire_mgmt)
 
         # Undercut / anti-undercut window
         laps_pct = lap / max(total, 1)
@@ -1274,7 +1291,7 @@ class RaceRunner:
             # Reduced from 0.06-0.10 to 0.02-0.03 per lap to avoid compounding
             # over the ~8-lap window into near-certain extra stops
             if self._rng.random() < 0.02 + 0.01 * aggression:
-                return _choose_compound_action(laps_rem, aggression)
+                return _choose_compound_action(laps_rem, aggression, tire_mgmt)
 
         if (
             state.pit_stops == 1
@@ -1282,7 +1299,7 @@ class RaceRunner:
             and tire_age >= int(optimal * 0.70)
         ):
             if self._rng.random() < 0.02 + 0.01 * aggression:
-                return _choose_compound_action(laps_rem, aggression)
+                return _choose_compound_action(laps_rem, aggression, tire_mgmt)
 
         # ── Driving mode ─────────────────────────────────────────────────────
 
@@ -1395,7 +1412,7 @@ class RaceRunner:
             if self._rng.random() < self._sc_deploy_prob:
                 self._safety_car = True
                 self._sc_laps_active = 0
-            elif self._rng.random() < VSC_DEFAULT_PROB:
+            elif self._vsc_possible and self._rng.random() < VSC_DEFAULT_PROB:
                 self._vsc = True
                 self._vsc_laps_active = 0
 
@@ -1489,6 +1506,9 @@ class RaceRunner:
             return sc.sc_race_prob(self._race_name)
         return SC_RACE_PROB_DEFAULT
 
+    def _load_vsc_race_prob(self) -> float:
+        return VSC_RACE_PROB_DEFAULT
+
     # ── Observation / info for user driver ────────────────────────────────────
 
     def _user_obs(self) -> np.ndarray:
@@ -1536,12 +1556,17 @@ class RaceRunner:
 # ── Module-level helpers ──────────────────────────────────────────────────────
 
 
-def _choose_compound_action(laps_remaining: int, aggression: float) -> int:
-    """Pick a pit action based on remaining laps and driver aggression."""
+def _choose_compound_action(
+    laps_remaining: int, aggression: float, tire_mgmt: float = 0.5
+) -> int:
+    """Pick a pit action based on remaining laps, driver aggression, and tire management skill."""
     if laps_remaining <= 15:
         return int(Action.PIT_SOFT)
     if laps_remaining <= 28:
         return int(Action.PIT_MEDIUM) if aggression < 0.75 else int(Action.PIT_SOFT)
+    # Long stints: drivers with good tire management prefer Hard compound
+    if laps_remaining > 32 and tire_mgmt >= 0.65:
+        return int(Action.PIT_HARD)
     return int(Action.PIT_HARD) if aggression < 0.70 else int(Action.PIT_MEDIUM)
 
 
