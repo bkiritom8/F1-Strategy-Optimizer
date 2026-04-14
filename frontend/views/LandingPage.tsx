@@ -25,16 +25,6 @@ import { motion, useScroll, useSpring, useTransform, AnimatePresence } from 'fra
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import Footer from '../components/Footer';
-import { DynamicSimulationBackground } from '../components/DynamicSimulationBackground';
-
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-/**
- * @interface LandingPageProps
- * @description Props for the highly animated LandingPage component.
- */
-interface Props {}
 
 // ─── SVG Components ──────────────────────────────────────────────────────────
 
@@ -76,7 +66,7 @@ const TelemetryBackground = () => (
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const LandingPage: React.FC<Props> = () => {
+const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin, setAdminModalOpen, logout } = useAppStore();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -149,8 +139,9 @@ const LandingPage: React.FC<Props> = () => {
             style={{
               opacity: isLoopFading ? 0.86 : 1,
               transition: 'opacity 260ms ease-in-out',
-              transform: 'scale(1.16) translateY(-8%)',
+              transform: 'scale(1.04) translateY(-2%)',
               transformOrigin: 'center center',
+              objectPosition: '50% 42%',
             }}
             onTimeUpdate={() => {
               const video = heroVideoRef.current;

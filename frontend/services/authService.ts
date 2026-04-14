@@ -153,24 +153,8 @@ export async function signIn(username: string, password: string): Promise<AuthRe
   } catch (err: any) {
     clearStoredToken();
     if (err?.name === 'TypeError' && !err?.status) {
-      logger.warn('[authService] signIn: backend unreachable, checking demo fallback');
-      // Offline fallback: allow built-in admin credentials when backend is unreachable
-      if (username.trim() === 'admin' && password === 'admin') {
-        logger.info('[authService] signIn: entering DEMO mode (offline admin)');
-        _storeToken('offline-admin-session');
-        return {
-          ok: true,
-          user: {
-            username: 'admin',
-            email: 'admin@f1optimizer.local',
-            full_name: 'DivergeX Admin (Offline)',
-            role: 'roles/admin',
-            is_admin: true,
-            email_verified: true,
-          },
-        };
-      }
-      return { ok: false, errorMsg: 'Backend offline. Use admin credentials to access demo mode.' };
+      logger.warn('[authService] signIn: backend unreachable');
+      return { ok: false, errorMsg: 'Backend offline. Please try again when service is available.' };
     }
     if (err?.status === 403) {
       return {

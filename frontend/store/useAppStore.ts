@@ -11,6 +11,16 @@
 import { create } from 'zustand';
 
 const STORAGE_KEY = 'divergex_admin_auth';
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
 
 // ─── Simple Admin Persistence ────────────────────────────────────────────────
 // We only persist the admin status for convenience.
@@ -42,8 +52,8 @@ interface AppState {
   username:   string;
   
   /**
-   * Simple password-gated access for administrative features.
-   * Password: f1race@mlops
+    * Simple password-gated access for administrative features.
+    * Password is injected via VITE_ADMIN_PASSWORD.
    */
   adminLogin: (password: string) => boolean;
 
@@ -96,7 +106,7 @@ export const useAppStore = create<AppState>((set) => ({
   username:   initialAdmin.username,
 
   adminLogin: (password: string) => {
-    if (password === 'f1race@mlops') {
+    if (timingSafeEqual(password, ADMIN_PASSWORD)) {
       const state = { isAdmin: true, username: 'F1 Admin' };
       set(state);
       saveAdminState(state);

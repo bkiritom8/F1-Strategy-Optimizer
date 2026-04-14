@@ -10,10 +10,23 @@ interface FooterProps {
   onAdminClick?: () => void;
 }
 
+interface FooterLink {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isCookieTrigger?: boolean;
+  isAdminTrigger?: boolean;
+}
+
+interface FooterSection {
+  title: string;
+  links: FooterLink[];
+}
+
 const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
   const currentYear = new Date().getFullYear();
 
-  const sections = [
+  const sections: FooterSection[] = [
     {
       title: 'Navigation',
       links: [
@@ -91,7 +104,6 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
                   
                   const handleClick = (e: React.MouseEvent) => {
                     if (link.isCookieTrigger) handleCookieClick(e);
-                    // @ts-ignore
                     if (link.isAdminTrigger && onAdminClick) {
                       e.preventDefault();
                       onAdminClick();
