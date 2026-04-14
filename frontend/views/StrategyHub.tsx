@@ -24,6 +24,92 @@ import RaceSimulation from '../components/RaceSimulation';
 
 type HubTab = 'strategy' | 'simulation';
 
+// ── Local fallback simulation ─────────────────────────────────────────────────
+// Used when the backend is unreachable. Produces results that vary meaningfully
+// based on driver, track, and stint choices so the UI isn't stuck showing P3/5400s.
+
+const _DRIVER_QUALITY: Record<string, number> = {
+  max_verstappen: 0.97, hamilton: 0.95, norris: 0.93, leclerc: 0.92,
+  russell: 0.89, piastri: 0.88, alonso: 0.87, sainz: 0.86, perez: 0.85,
+  antonelli: 0.87, lawson: 0.83, gasly: 0.81, ricciardo: 0.80, hadjar: 0.80,
+  albon: 0.79, doohan: 0.79, colapinto: 0.79, tsunoda: 0.78, bortoleto: 0.79,
+  bearman: 0.77, hulkenberg: 0.76, ocon: 0.76, stroll: 0.74, bottas: 0.74,
+  magnussen: 0.72, zhou: 0.71, sargeant: 0.64,
+};
+
+const _COMPOUND_PACE: Record<string, number> = {
+  SOFT: -0.40, MEDIUM: 0.0, HARD: 0.30, INTERMEDIATE: 2.5, WET: 5.0,
+};
+const _COMPOUND_DEG: Record<string, number> = {
+  SOFT: 0.095, MEDIUM: 0.050, HARD: 0.026, INTERMEDIATE: 0.08, WET: 0.06,
+};
+
+function localSimulate({
+  driver_id,
+  race_id,
+  stints,
+  numPitStops,
+}: {
+  driver_id: string;
+  race_id: string;
+  stints: Array<{ comp: string; laps: number }>;
+  numPitStops: number;
+}): SimResult {
+  const dSeed = driver_id.split('').reduce((a, c, i) => (a + c.charCodeAt(0) * (i + 1)) | 0, 0);
+  const tSeed = race_id.split('').reduce((a, c, i) => (a + c.charCodeAt(0) * (i + 1)) | 0, 0);
+
+  const quality = _DRIVER_QUALITY[driver_id] ?? Math.min(0.90, 0.65 + (Math.abs(dSeed) % 25) / 100);
+  const BASE_LAP = 75 + (Math.abs(tSeed) % 38); // 75–113s depending on track
+
+  const lap_times_s: number[] = [];
+  for (const stint of stints) {
+    for (let tireAge = 0; tireAge < stint.laps && lap_times_s.length < TOTAL_LAPS; tireAge++) {
+      const lap   = lap_times_s.length + 1;
+      const pace  = _COMPOUND_PACE[stint.comp] ?? 0;
+      const deg   = (_COMPOUND_DEG[stint.comp] ?? 0.05) * tireAge;
+      const drv   = (1 - quality) * 2.2;
+      const noise = ((lap * Math.abs(dSeed) * 13 + Math.abs(tSeed) * 7) % 200 - 100) / 2000;
+      lap_times_s.push(+(BASE_LAP + pace + deg + drv + noise).toFixed(3));
+    }
+  }
+  while (lap_times_s.length < TOTAL_LAPS) {
+    lap_times_s.push(+(lap_times_s[lap_times_s.length - 1]! + 0.04).toFixed(3));
+  }
+
+  const predicted_total_time_s = Math.round(
+    lap_times_s.reduce((a, b) => a + b, 0) + numPitStops * 22,
+  );
+
+  // Strategy efficiency: reward compounds used appropriately
+  const stratBonus = stints.reduce((b, s) => {
+    if (s.comp === 'SOFT' && s.laps <= 20) return b + 0.02;
+    if (s.comp === 'HARD' && s.laps >= 25) return b + 0.01;
+    return b;
+  }, 0);
+
+  const posBase = Math.max(1, Math.round((1 - quality - stratBonus) * 22) + 1);
+  const posVariance = (Math.abs(tSeed + dSeed * 3) % 5) - 2; // -2 to +2
+  const predicted_final_position = Math.max(1, Math.min(20, posBase + posVariance));
+
+  const winProb    = Math.max(0.005, ((21 - predicted_final_position) / 20) * quality * 0.32);
+  const podiumProb = Math.min(0.95, Math.max(winProb + 0.01, ((21 - predicted_final_position) / 20) * quality * 0.60));
+
+  const strategyOut: [number, string][] = stints.map((s, i) => {
+    let endLap = 0;
+    for (let j = 0; j <= i; j++) endLap += stints[j].laps;
+    return [Math.min(endLap, TOTAL_LAPS), s.comp];
+  });
+
+  return {
+    predicted_final_position,
+    predicted_total_time_s,
+    lap_times_s,
+    win_probability:    +winProb.toFixed(4),
+    podium_probability: +podiumProb.toFixed(4),
+    strategy: strategyOut,
+  };
+}
+
 // ── Strategy constants ────────────────────────────────────────────────────────
 
 const STRATEGY_PRESETS = [
@@ -204,19 +290,32 @@ const StrategyHub: React.FC = () => {
       });
       setSimResult(result);
     } catch {
-      // Local fallback approximation when backend is unavailable
-      setSimResult({
-        predicted_final_position: 3,
-        predicted_total_time_s: 5400,
-        lap_times_s: Array.from({ length: TOTAL_LAPS }, (_, i) => 74 + Math.sin(i * 0.15) * 0.8),
-        win_probability: currentWinProb,
-        podium_probability: currentPodiumProb,
-        strategy: strategyArray,
-      });
+      // Local fallback when backend is unavailable — results vary by driver, track, and strategy
+      const fallbackStints: Array<{ comp: string; laps: number }> = mode === 'preset'
+        ? selectedPreset.stints.map((s, i) => ({ comp: i === 0 ? startingTire : s.comp, laps: s.laps }))
+        : (() => {
+            const result: Array<{ comp: string; laps: number }> = [];
+            let prev = 0;
+            for (const s of customStints) {
+              result.push({ comp: s.compound, laps: s.pitLap - prev });
+              prev = s.pitLap;
+            }
+            if (prev < TOTAL_LAPS) {
+              result.push({ comp: customStints[customStints.length - 1]?.compound || 'HARD', laps: TOTAL_LAPS - prev });
+            }
+            return result;
+          })();
+
+      setSimResult(localSimulate({
+        driver_id: selectedDriverId,
+        race_id: selectedTrackId,
+        stints: fallbackStints,
+        numPitStops: fallbackStints.length - 1,
+      }));
     } finally {
       setSimLoading(false);
     }
-  }, [strategyArray, currentWinProb, currentPodiumProb, selectedDriverId, selectedTrackId]);
+  }, [strategyArray, selectedDriverId, selectedTrackId, mode, selectedPreset, customStints, startingTire]);
 
   const addStint = () => {
     const lastLap = customStints.length > 0 ? customStints[customStints.length - 1].pitLap + 15 : 20;

@@ -311,7 +311,7 @@ const RaceCommandCenter: React.FC = () => {
   }, [selectedDriverId, setStoreDriverId]);
 
   useEffect(() => {
-    if (races && races.length > 0 && activeRaceRound === null) {
+    if (races && races.length > 0 && !activeRaceRound) {
       setActiveRaceRound(races[0].round);
     }
   }, [races, activeRaceRound, setActiveRaceRound]);
@@ -519,9 +519,9 @@ const RaceCommandCenter: React.FC = () => {
                 {([2024, 2025, 2026] as const).map(yr => (
                   <button
                     key={yr}
-                    onClick={() => { 
-                      setSelectedSeason(yr); 
-                      setActiveRaceRound(null); 
+                    onClick={() => {
+                      setSelectedSeason(yr);
+                      setActiveRaceRound(1);
                     }}
                     className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wide transition-colors ${
                       selectedSeason === yr
@@ -576,7 +576,7 @@ const RaceCommandCenter: React.FC = () => {
             subtitle={`Model v${safetyCarData?.model_version || '1.2.0'} · updates every 30s`}
           />
           <ProbGauge
-            value={overtakeData?.data?.probability || 0.12}
+            value={overtakeData?.probability || 0.12}
             label="Overtake Prob."
             icon={Radio}
             color={COLORS.accent.green}
