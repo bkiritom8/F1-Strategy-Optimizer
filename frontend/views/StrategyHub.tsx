@@ -15,7 +15,7 @@ import { COLORS } from '../constants';
 import ConceptTooltip from '../components/ConceptTooltip';
 import {
   Plus, X, Play, Loader2, Trophy, Timer, TrendingUp,
-  Send, User, Bot, Sparkles, Zap, Flag,
+  Send, User, Bot, Zap, Flag,
 } from 'lucide-react';
 import { simulateStrategy, chatWithStrategist, parseStrategy } from '../services/endpoints';
 import { useRaces2024, useDrivers } from '../hooks/useApi';
@@ -461,10 +461,6 @@ const StrategyHub: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Strategy Hub</h1>
-            <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2 font-mono flex items-center gap-2">
-              <Sparkles className="w-3 h-3 text-blue-400" />
-              Monte Carlo Simulation · AI Strategist
-            </p>
           </div>
           {/* Tab switcher */}
           <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-color)' }}>
