@@ -112,7 +112,7 @@ function useApiCall<T>(
         setError(msg);
         setIsLive(false);
         if (fallback && !data) setData(fallback);
-        logger.warn(`[useApi] Fallback activated for ${label} — ${msg}`);
+        logger.warn(`[useApi] Fallback activated for ${label} | ${msg}`);
       }
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -406,8 +406,8 @@ export function useAdminQuotas() {
  * whether the API is reachable from the current browser environment.
  *
  * @returns `{ online: boolean, latency: number | null }`
- *   - `online`  — true if the last health check succeeded.
- *   - `latency` — round-trip time in ms for the last successful check, or null.
+ *   - `online`  : true if the last health check succeeded.
+ *   - `latency` : round-trip time in ms for the last successful check, or null.
  */
 export function useBackendStatus() {
   const [online,  setOnline ] = useState(false);

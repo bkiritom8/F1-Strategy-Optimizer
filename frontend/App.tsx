@@ -1,6 +1,6 @@
 /**
  * @file App.tsx
- * @description Root layout component for Apex Intelligence.
+ * @description Root layout component for DivergeX.
  *
  * Responsibilities:
  * - Declares all application routes via React Router <Routes>.
@@ -22,18 +22,14 @@ import {
   Gauge, Users, Compass, BarChart3, Activity,
   Map, ChevronLeft, ChevronRight, Lock
 } from 'lucide-react';
-import { 
-  useRaces2024, 
-  useRaces2025, 
-  useRaces2026, 
-  useBackendStatus 
-} from './hooks/useApi';
+import { useBackendStatus } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
 import { F1GridBackground } from './components/F1GridBackground';
 import { logger } from './services/logger';
 import CookieConsent from './components/CookieConsent';
 import Footer from './components/Footer';
 import AdminModal from './components/AdminModal';
+import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
 
 // Lazy-load views for code splitting
 const RaceCommandCenter = React.lazy(() => import('./views/RaceCommandCenter'));
@@ -44,12 +40,12 @@ const LapByLapAnalysis  = React.lazy(() => import('./views/LapByLapAnalysis'));
 const AdminPage         = React.lazy(() => import('./views/AdminPage'));
 const LandingPage       = React.lazy(() => import('./views/LandingPage'));
 
-const APP_NAME = 'DIVERGEX';
+
 
 /**
  * Primary navigation item definition.
  * Only items marked `mobile: true` appear in the mobile bottom nav strip.
- * Admin is intentionally absent — accessible only after admin login.
+ * Admin navigation is selectively rendered: accessible exclusively through secure administrative authentication.
  */
 const navItems = [
   { path: '/race',     label: 'Race Command',     icon: Gauge,    mobile: true  },
@@ -130,42 +126,22 @@ class ViewErrorBoundary extends React.Component<
  */
 const App: React.FC = () => {
   const {
-    activeRaceRound,
-    selectedSeason,
-    backgroundCircuitId,
     sidebarOpen,
     setSidebarOpen,
     sidebarCollapsed,
     toggleSidebarCollapsed,
     isAdmin,
     setAdminModalOpen,
+    backgroundCircuitId,
   } = useAppStore();
 
-  const { data: races2024 } = useRaces2024();
-  const { data: races2025 } = useRaces2025();
-  const { data: races2026 } = useRaces2026();
+
   const { online: backendOnline } = useBackendStatus();
   
   const location  = useLocation();
   const navigate  = useNavigate();
 
-  /**
-   * Determine the current circuit ID for the background simulation.
-   * Priority:
-   * 1. Explicit background override (from Track Explorer)
-   * 2. Active race round mapping (based on selected season)
-   * 3. Default fallback
-   */
-  const currentCircuitId = React.useMemo(() => {
-    if (backgroundCircuitId) return backgroundCircuitId;
-    
-    // Choose the correct race list based on the user's selected season
-    const races = selectedSeason === 2026 ? races2026 : selectedSeason === 2025 ? races2025 : races2024;
-    
-    if (!races) return 'bahrain';
-    const currentRace = races.find((r) => r.round === activeRaceRound);
-    return currentRace?.circuit?.id || 'bahrain';
-  }, [races2024, races2025, races2026, selectedSeason, activeRaceRound, backgroundCircuitId]);
+
 
   /** Log route transitions (dev only). */
   React.useEffect(() => {
@@ -186,19 +162,13 @@ const App: React.FC = () => {
 
   if (location.pathname === '/') {
     return renderPublicPage(
-      <>
-        <LandingPage />
-        <AdminModal />
-      </>
+      <LandingPage />
     );
   }
 
   if (location.pathname === '/login') {
     return renderPublicPage(
-      <>
-        <LandingPage />
-        <AdminModal />
-      </>
+      <LandingPage />
     );
   }
 
@@ -211,7 +181,7 @@ const App: React.FC = () => {
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           aria-label="Go to home page"
         >
-          <img src="/apex-logo.svg" alt="DivergeX" className="w-7 h-7 rounded-lg object-contain" />
+          <img src="/divergex-logo.svg" alt="DivergeX" className="w-7 h-7 rounded-lg object-contain" />
           <span className="font-display font-black tracking-tighter text-lg italic">Diverge<span className="text-red-600">X</span></span>
         </button>
       </div>
@@ -235,24 +205,24 @@ const App: React.FC = () => {
               className="w-10 h-10 rounded-xl shrink-0 overflow-hidden shadow-lg shadow-red-900/20 hover:opacity-80 transition-opacity"
               aria-label="Go to home page"
             >
-              <img src="/apex-logo.svg" alt="DivergeX" className="w-full h-full object-contain" />
+              <img src="/divergex-logo.svg" alt="DivergeX" className="w-full h-full object-contain" />
             </button>
             <AnimatePresence>
               {!sidebarCollapsed && (
                 <motion.div
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 'auto' }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className="whitespace-nowrap flex-1 overflow-hidden"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  className="flex-1 overflow-hidden"
                 >
                   {/* Clicking the text also navigates home */}
                   <button
                     onClick={() => { setSidebarOpen(false); navigate('/'); }}
-                    className="text-left hover:opacity-80 transition-opacity pr-2"
+                    className="text-left hover:opacity-80 transition-opacity pr-2 w-full"
                     aria-label="Go to home page"
                   >
-                    <h1 className="font-display font-black tracking-tighter text-xl italic leading-none text-white">Diverge<span className="text-red-600">X</span></h1>
-                    <p className="text-[10px] font-mono text-red-500 font-bold uppercase tracking-widest mt-1">Race Intelligence</p>
+                    <h1 className="font-display font-black tracking-tighter text-xl italic leading-none text-white truncate">Diverge<span className="text-red-600">X</span></h1>
+                    <p className="text-[10px] font-mono text-red-500 font-bold uppercase tracking-widest mt-1 truncate">Race Intelligence</p>
                   </button>
                 </motion.div>
               )}
@@ -365,6 +335,10 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-24 lg:pt-0 lg:pb-0">
+        <DynamicSimulationBackground 
+          circuitId={backgroundCircuitId || 'bahrain'} 
+          className="fixed inset-0 pointer-events-none opacity-[0.06] grayscale saturate-50" 
+        />
         <F1GridBackground />
         <div className="relative z-10 h-full flex flex-col overflow-y-auto scrollbar-hide">
           <div className="flex-1">
@@ -393,8 +367,8 @@ const App: React.FC = () => {
 
       {/* Demo Mode Badge */}
       {!backendOnline && (
-        <div className="fixed top-16 lg:top-3 right-3 z-[100] px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[9px] font-bold uppercase tracking-[3px] backdrop-blur-sm pointer-events-none">
-          Pipeline Data Mode
+        <div className="fixed top-16 lg:top-3 right-3 z-[100] px-3 py-1.5 rounded-lg bg-red-600/15 border border-red-600/30 text-red-500 text-[9px] font-black uppercase tracking-[3px] backdrop-blur-sm pointer-events-none">
+          Simulated Intelligence Active
         </div>
       )}
 

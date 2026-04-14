@@ -3,6 +3,8 @@ SimulationCoordinator: hashes scenarios, checks Redis cache,
 dispatches background simulation tasks.
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
 import logging

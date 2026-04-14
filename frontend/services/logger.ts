@@ -1,6 +1,6 @@
 /**
  * @file services/logger.ts
- * @description Lightweight structured logger for Apex Intelligence.
+ * @description Lightweight structured logger for DivergeX.
  *
  * Behaviour:
  *  - In DEVELOPMENT (`import.meta.env.DEV`):  all levels are printed with
@@ -46,7 +46,7 @@ function ts(): string {
 function emit(level: LogLevel, ...args: unknown[]): void {
   if (!IS_DEV && level !== 'error' && level !== 'warn') return;
 
-  const prefix = `%c[Apex ${level.toUpperCase()}] ${ts()}`;
+  const prefix = `%c[DivergeX ${level.toUpperCase()}] ${ts()}`;
   const style  = STYLES[level];
 
   switch (level) {
@@ -65,23 +65,23 @@ function emit(level: LogLevel, ...args: unknown[]): void {
  * The global logger instance.
  *
  * Methods:
- *  - `debug`  — low-noise trace messages (dev only)
- *  - `info`   — normal operational messages (dev only)
- *  - `warn`   — recoverable issues / fallbacks (dev + prod)
- *  - `error`  — fatal / unexpected errors (dev + prod)
- *  - `api`    — HTTP request lifecycle events (dev only)
+ *  - `debug`  : low-noise trace messages (dev only)
+ *  - `info`   : normal operational messages (dev only)
+ *  - `warn`   : recoverable issues / fallbacks (dev + prod)
+ *  - `error`  : fatal / unexpected errors (dev + prod)
+ *  - `api`    : HTTP request lifecycle events (dev only)
  */
 export const logger = {
-  /** Low-noise trace — only visible in development. */
+  /** Low-noise trace : only visible in development. */
   debug: (...args: unknown[]) => emit('debug', ...args),
 
-  /** General informational message — only visible in development. */
+  /** General informational message : only visible in development. */
   info: (...args: unknown[]) => emit('info', ...args),
 
-  /** Recoverable condition (e.g. fallback activated) — visible in all envs. */
+  /** Recoverable condition (e.g. fallback activated) : visible in all envs. */
   warn: (...args: unknown[]) => emit('warn', ...args),
 
-  /** Unexpected / fatal error — visible in all envs. */
+  /** Unexpected / fatal error : visible in all envs. */
   error: (...args: unknown[]) => emit('error', ...args),
 
   /**

@@ -145,15 +145,15 @@ Beyond direct ML inference, the system includes three intelligence layers:
 | **Storage** | Google Cloud Storage | `f1optimizer-data-lake` (raw + processed + ml_features), `f1optimizer-models`, `f1optimizer-training` |
 | **ML pipeline** | Vertex AI Pipelines (KFP v2) | 5-step parallel DAG, `f1-pipeline-trigger` Cloud Run Job |
 | **ML training** | Vertex AI Custom Training | T4 GPU jobs, SA `f1-training-dev`, `gs://f1optimizer-training` |
-| **Supervised models** | XGBoost, LightGBM, CatBoost, Random Forest | 6 ensemble models (see ML Models section) |
-| **RL agent** | Stable-Baselines3 (PPO) | Gymnasium environment, 29 observations, 7 discrete actions |
+| **Supervised models** | XGBoost (3.2.0), LightGBM (4.6.0), CatBoost (1.2.10) | Ensemble pace, wear, and probability forecasting |
+| **RL agent** | Stable-Baselines3 (2.7.1) | PPO policy for real-time pit-stop timing optimization |
 | **LLM** | Gemini Pro via Vertex AI | Strategy chat (`/api/v1/llm/chat`) + parse-strategy endpoints |
 | **RAG** | Vertex AI Vector Search + LangChain | `text-embedding-004`, 768-dim, 76yr F1 history indexed |
-| **Backend** | FastAPI + uvicorn | Cloud Run `f1-strategy-api-dev`, loads models from GCS at startup |
+| **Backend** | FastAPI (0.109.0) + uvicorn (0.27.0) | High-concurrency REST API, Pydantic v2 validation |
 | **Simulation** | Monte Carlo (Python) | SSE stream via Redis frame cache + `coordinator.py` |
 | **Frontend** | React 19 + TypeScript, Vite 6, Tailwind, Zustand | Firebase Hosting, <http://localhost:3001> in dev |
 | **Auth** | JWT + Firestore | Firestore-backed sessions, email verification |
-| **Infrastructure** | Terraform | `infra/terraform/`, $70/month hard cap, GCP budget alerts |
+| **Infrastructure** | Terraform (1.5.0+) | GCP Infrastructure as Code, CI/CD automated deployment |
 | **Containerization** | Docker | `api:latest`, `ml:latest`, `ingest:latest` — Artifact Registry |
 | **CI/CD** | GitHub Actions + Google Cloud Build | Lint, type-check, test, security scan, model training, push |
 

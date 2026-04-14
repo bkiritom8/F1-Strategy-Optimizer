@@ -1,7 +1,7 @@
 
 /**
  * Application Constants
- * Defines the visual theme, team identities, and F1 glossary for the Apex Intelligence platform.
+ * Defines the visual theme, team identities, and F1 glossary for the DivergeX platform.
  *
  * Team names use full official 2026 season names throughout.
  * 'RB' is now 'Visa Cash App RB'; 'Sauber' is now 'Audi'.
@@ -65,7 +65,7 @@ export const TEAM_COLORS: Record<string, string> = {
   'Haas F1 Team':     '#B6BABD',
   'Visa Cash App RB': '#6692FF',
   'Audi':             '#52E252',
-  // Historical aliases — mapped to current successor colors so year-aware
+  // Historical aliases : mapped to current successor colors so year-aware
   // simulations always resolve a color regardless of which season is chosen
   'AlphaTauri':           '#6692FF',  // → Visa Cash App RB
   'Scuderia AlphaTauri':  '#6692FF',

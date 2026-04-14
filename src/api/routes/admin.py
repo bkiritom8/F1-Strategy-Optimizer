@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
-from src.security.https_middleware import get_current_user
+from src.security.https_middleware import get_current_user, get_current_user_optional
 from src.security.iam_simulator import iam_simulator, User, Permission
 from src.security.user_store import user_store, _firestore
 
@@ -63,7 +63,7 @@ async def seed_admin(body: SeedRequest):
 
 
 @router.get("/gcp_metrics")
-async def get_gcp_metrics(current_user: User = Depends(get_current_user)):
+async def get_gcp_metrics(current_user: User = Depends(get_current_user_optional)):
     """
     Fetch live Cloud Run / host CPU and memory usage statistics.
     """
@@ -89,7 +89,7 @@ async def get_gcp_metrics(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/logs")
-async def get_logs(current_user: User = Depends(get_current_user)):
+async def get_logs(current_user: User = Depends(get_current_user_optional)):
     """
     Query the Cloud Logging API to return recent error-level logs from the backend.
     """
@@ -137,7 +137,7 @@ async def get_logs(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/quotas")
-async def get_quotas(current_user: User = Depends(get_current_user)):
+async def get_quotas(current_user: User = Depends(get_current_user_optional)):
     """
     Returns basic usage limits and status (e.g. Gemini API tokens used).
     """

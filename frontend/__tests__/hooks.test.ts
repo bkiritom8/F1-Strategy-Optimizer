@@ -1,6 +1,6 @@
 /**
  * @file __tests__/hooks.test.ts
- * @description Unit tests for hooks/useApi.ts — the API data-fetching hook layer.
+ * @description Unit tests for hooks/useApi.ts : the API data-fetching hook layer.
  *
  * Tests the named hooks exported from useApi.ts (useDrivers, useRaceState,
  * useModelStatus, useBackendStatus) which all wrap a shared internal generic

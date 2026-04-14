@@ -1,6 +1,6 @@
 /**
  * @file components/CookieConsent.tsx
- * @description Premium GDPR-compliant cookie consent banner for Apex Intelligence.
+ * @description Premium GDPR-compliant cookie consent banner for DivergeX.
  * 
  * Features:
  * - Glassmorphism UI (backdrop-blur).

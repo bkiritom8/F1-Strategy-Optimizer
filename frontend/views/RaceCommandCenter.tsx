@@ -1,6 +1,6 @@
 /**
  * @file RaceCommandCenter.tsx
- * @description Primary operational view for Apex Intelligence.
+ * @description Primary operational view for DivergeX.
  *
  * Features added:
  * - Predictive Intelligence panels (Safety Car risk, Overtake probability)
@@ -20,6 +20,7 @@ import { LiveBadge } from '../components/LiveBadge';
 import ConceptTooltip from '../components/ConceptTooltip';
 import { COLORS, F1_GLOSSARY } from '../constants';
 import type { RaceState, DriverTelemetry, StrategyRecommendation } from '../types';
+import RacingBackground from '../components/RacingBackground';
 
 // ── Local fallbacks (previously in constants, removed with mock-data cleanup) ──
 
@@ -290,6 +291,8 @@ const RaceCommandCenter: React.FC = () => {
   // Resolve the correct race list based on the selected season
   const races = selectedSeason === 2026 ? races2026 : selectedSeason === 2025 ? races2025 : races2024;
 
+  const selectedRace = races?.find((r: any) => r.round === activeRaceRound) || races?.[0];
+
   useEffect(() => {
     console.debug('[RaceCommandCenter] Component mounted');
     return () => console.debug('[RaceCommandCenter] Component unmounted');
@@ -313,8 +316,6 @@ const RaceCommandCenter: React.FC = () => {
     }
   }, [races, activeRaceRound, setActiveRaceRound]);
 
-  const selectedRace = races?.find((r: any) => r.round === activeRaceRound) || races?.[0];
-
   const drivers: DriverProfile[] = useMemo(() => {
     if (selectedRace) {
       const raceDrivers = selectedRace.results
@@ -322,7 +323,7 @@ const RaceCommandCenter: React.FC = () => {
           const apiDriver = apiDrivers?.find(d => d.driver_id === result.driver.id);
           if (apiDriver) return apiDriver;
 
-          // no mock driver lookup — fall through to inline default below
+          // no mock driver lookup | fall through to inline default below
 
           return {
             driver_id: result.driver.id, name: result.driver.name, team: result.constructor,
@@ -447,7 +448,9 @@ const RaceCommandCenter: React.FC = () => {
 
   return (
     <div className="flex h-full overflow-hidden relative">
-      <div className="hidden lg:block w-72 shrink-0 h-full border-r border-white/5 transition-colors duration-300 z-10">
+      <RacingBackground view="command" theme="dark" />
+      
+      <div className="hidden lg:block w-72 shrink-0 h-full border-r border-white/5 transition-colors duration-300 z-10 relative">
         <PositionTower
           telemetry={telemetries}
           drivers={drivers}
@@ -488,7 +491,7 @@ const RaceCommandCenter: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col gap-4 md:gap-5">
+      <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col gap-4 md:gap-5 relative z-10">
         {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="flex justify-between items-end border-b pb-4 shrink-0" style={{ borderColor: 'var(--border-color)' }}>
           <div className="min-w-0 pr-4">
@@ -500,9 +503,17 @@ const RaceCommandCenter: React.FC = () => {
               >
                 <Menu className="w-4 h-4 text-white/60" />
               </button>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-tight uppercase italic truncate">
-                {selectedRace ? selectedRace.name : raceState.circuit}
-              </h1>
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold tracking-tight uppercase italic leading-tight line-clamp-1">
+                  {selectedRace ? selectedRace.name : raceState.circuit}
+                </h1>
+                {selectedRace?.circuit?.name && (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Map className="w-3 h-3 text-red-500/60" />
+                    <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{selectedRace.circuit.name}</span>
+                  </div>
+                )}
+              </div>
               {/* Year selector */}
               <div className="flex gap-1" role="group" aria-label="Season year">
                 {([2024, 2025, 2026] as const).map(yr => (
@@ -577,20 +588,20 @@ const RaceCommandCenter: React.FC = () => {
 
         {/* ── Main Grid: Driver Card (left) + Charts (right) ──────────── */}
         {/*
-          Desktop (lg+): 3-col grid — driver card takes 1 col, charts take 2 cols.
-          Tablet (md):   2-col — driver card left, chart right stacked.
-          Mobile:        single column stack.
+          Desktop (lg+): 3-col grid : driver card takes 1 col, charts take 2 cols.
+          Tablet (md):   2-col : driver card left, chart right stacked.
+          Mobile:        1-col stacked.
         */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Driver Card — always full width on mobile, 1 col on tablet+ */}
+          {/* Driver Card | always full width on mobile, 1 col on tablet+ */}
           <div className="md:col-span-1">
             <DriverCard telemetry={selectedTelemetry} driver={selectedDriver} strategy={selectedStrategy} />
           </div>
 
-          {/* Charts — 2 cols on tablet+, stacked on mobile */}
+          {/* Charts | 2 cols on tablet+, stacked on mobile */}
           <div className="md:col-span-2 flex flex-col gap-4">
 
-            {/* Lap Time Trace — fixed height to avoid needing scroll */}
+            {/* Lap Time Trace | fixed height to avoid needing scroll */}
             <div
               className="rounded-xl p-4 border shadow-xl flex flex-col"
               style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
@@ -607,7 +618,7 @@ const RaceCommandCenter: React.FC = () => {
                   <LegendItem color="#555" label="Benchmark" />
                 </div>
               </div>
-              {/* Chart at fixed 200px height — no min-h that forces scroll */}
+              {/* Chart at fixed 200px height | no min-h that forces scroll */}
               <div className="w-full" style={{ height: 200 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={lapTimeData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
@@ -665,7 +676,7 @@ const RaceCommandCenter: React.FC = () => {
               </div>
             </div>
 
-            {/* Monte Carlo Table — compact, no overflow */}
+            {/* Monte Carlo Table | compact, no overflow */}
             <div
               className="rounded-xl p-4 border shadow-xl"
               style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}

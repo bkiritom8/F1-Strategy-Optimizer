@@ -10,7 +10,7 @@
 
 import { create } from 'zustand';
 
-const STORAGE_KEY = 'apex_admin_auth';
+const STORAGE_KEY = 'divergex_admin_auth';
 
 // ─── Simple Admin Persistence ────────────────────────────────────────────────
 // We only persist the admin status for convenience.
@@ -139,9 +139,9 @@ export const useAppStore = create<AppState>((set) => ({
   toggleSidebarCollapsed: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
   // ── Greeting Logic ────────────────────────────────────────────────────────
-  isReturningUser: document.cookie.includes('apex_returning_user=true'),
+  isReturningUser: document.cookie.includes('divergex_returning_user=true'),
   setHasVisited: () => {
-    document.cookie = 'apex_returning_user=true; path=/; max-age=31536000; SameSite=Lax';
+    document.cookie = 'divergex_returning_user=true; path=/; max-age=31536000; SameSite=Lax';
     set({ isReturningUser: true });
   },
 

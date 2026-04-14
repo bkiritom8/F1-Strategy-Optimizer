@@ -2,8 +2,8 @@
  * @file StrategyHub.tsx
  * @description Combined Strategy Simulator + AI Strategist view.
  *
- * Left panel  — Monte Carlo pit strategy builder (presets + custom stint builder, no dropdowns).
- * Right panel — AI chat interface wired to POST /llm/chat (FastAPI backend).
+ * Left panel  : Monte Carlo pit strategy builder (presets + custom stint builder, no dropdowns).
+ * Right panel : AI chat interface wired to POST /llm/chat (FastAPI backend).
  */
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
@@ -251,7 +251,7 @@ const StrategyHub: React.FC = () => {
     } catch (err) {
       setChatMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Unable to reach the AI Strategist. The backend may be starting up — please try again in a moment. In demo mode, the pit strategy simulator on the left is fully available.' },
+        { role: 'assistant', content: 'Unable to reach the AI Strategist. The backend may be starting up: please try again in a moment. In demo mode, the pit strategy simulator on the left is fully available.' },
       ]);
     } finally {
       setChatLoading(false);
@@ -269,7 +269,7 @@ const StrategyHub: React.FC = () => {
             <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Strategy Hub</h1>
             <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2 font-mono flex items-center gap-2">
               <Sparkles className="w-3 h-3 text-blue-400" />
-              Monte Carlo Simulation · AI Strategist · Backend LLM
+              Monte Carlo Simulation · AI Strategist
             </p>
           </div>
           {/* Tab switcher */}
@@ -288,7 +288,7 @@ const StrategyHub: React.FC = () => {
             </button>
           </div>
         </div>
-        {/* Strategy controls row — driver, track, starting tire */}
+        {/* Strategy controls row | driver, track, starting tire */}
         {hubTab === 'strategy' && (
           <div className="flex flex-wrap gap-3 items-end p-4 rounded-2xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
             {/* Driver dropdown */}
@@ -297,7 +297,7 @@ const StrategyHub: React.FC = () => {
               <select
                 value={selectedDriverId}
                 onChange={e => { setSelectedDriverId(e.target.value); setSimResult(null); }}
-                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[180px]"
+                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[200px]"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
               >
                 {DRIVERS_LIST.map(d => (
@@ -311,7 +311,7 @@ const StrategyHub: React.FC = () => {
               <select
                 value={selectedTrackId}
                 onChange={e => { setSelectedTrackId(e.target.value); setSimResult(null); }}
-                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[220px]"
+                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[240px]"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
               >
                 {TRACKS_LIST.map(t => (
@@ -379,7 +379,7 @@ const StrategyHub: React.FC = () => {
         </div>
       )}
 
-      {/* Two-column layout — Strategy tab */}
+      {/* Two-column layout | Strategy tab */}
       {hubTab === 'strategy' && <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 min-h-0">
 
         {/* ── Left: Strategy Simulator ─────────────────────────────────────── */}
@@ -492,7 +492,7 @@ const StrategyHub: React.FC = () => {
                         style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
                       />
                     </div>
-                    {/* Compound pill buttons — no dropdown */}
+                    {/* Compound pill buttons | no dropdown */}
                     <div className="flex gap-1 flex-wrap">
                       {COMPOUNDS.map(c => (
                         <button
@@ -693,12 +693,6 @@ function formatTime(seconds: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
-/** Convert API driver_id (e.g. "max_verstappen" / "verstappen") to title case. */
-function toDriverName(id: string): string {
-  return id
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
-}
 
 /**
  * Lightweight markdown renderer for AI chat responses.

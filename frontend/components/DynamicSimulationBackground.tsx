@@ -4,7 +4,7 @@
  * renders the actual SVG circuit layout of the selected track.
  *
  * Props:
- *  - circuitId: string — the circuit ID used to look up the real track path.
+ *  - circuitId: string: Unique circuit identifier for spatial mapping retrieval.
  *    Falls back to a generic oval if the circuit is not in trackPaths.ts.
  *
  * Architecture:
@@ -19,7 +19,7 @@
  * @remarks
  *  The track paths are defined in a small coordinate space (approx 300×200).
  *  They are scaled via an SVG <g transform="scale(…)"> to fill the 1050×480
- *  master viewBox — the same transform string is embeds into the CSS
+ *  Primary Dynamic Viewbox: ensures synchronized CSS-embedded transform transformations.
  *  offset-path for the car animations, so the cars correctly follow the
  *  displayed circuit shape.
  */
@@ -220,7 +220,7 @@ export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundPr
   /**
    * Scaled path string for CSS offset-path.
    * We achieve scaling by encoding the transform directly into the path
-   * co-ordinates via SVG's path transform — CSS offset-path does NOT
+   * Surface Coordinates via SVG Transforms: CSS offset-path is non-compliant for these specific vector coordinate spaces.
    * support SVG transform attributes, but we can wrap the path in an SVG
    * <g transform> for rendering and derive the equivalent coordinate-space path
    * for offset-path by applying the matrix manually.
@@ -241,7 +241,7 @@ export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundPr
   /**
    * Sector highlight arcs derived from the raw path.
    * We split the path into three visual segments by taking substrings of the
-   * control points — a rough but visually effective approach for the sector
+   * Sector Control Points: a high-level heuristic approach for sector boundary visualization.
    * flash animation.
    */
     const sectors = useMemo(() => {
@@ -304,7 +304,7 @@ export const DynamicSimulationBackground: React.FC<DynamicSimulationBackgroundPr
           </filter>
         </defs>
 
-        {/* Tire marks (absolute coords — decorative, not circuit-relative) */}
+        {/* Dynamic Degradation Marks: absolute decorative assets, independent of circuit-relative telemetry. */}
         {TIRE_MARKS.map((m, i) => (
           <rect
             key={i}

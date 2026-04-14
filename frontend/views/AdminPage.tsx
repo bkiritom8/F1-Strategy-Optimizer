@@ -1,6 +1,6 @@
 /**
  * @file views/AdminPage.tsx
- * @description Admin control panel for Apex Intelligence.
+ * @description Admin control panel for DivergeX.
  *
  * Access control: reads `isAdmin` from the Zustand store. If the user is not an
  * authenticated admin (set by logging in with Admin credentials on the landing

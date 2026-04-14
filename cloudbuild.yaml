@@ -16,16 +16,16 @@ steps:
         echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.api|docker/requirements-api\.txt|src/|rag/|ml/)' \
           && touch /workspace/api_rebuild || true
 
-        # ml image: Dockerfile.ml, requirements-ml*.txt, ml/, src/
-        echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.ml|docker/requirements-ml|ml/|src/)' \
+        # ml image: Dockerfile.ml, requirements-ml*.txt, ml/, pipeline/scripts/, src/
+        echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.ml|docker/requirements-ml|ml/|pipeline/scripts/|src/)' \
           && touch /workspace/ml_rebuild || true
 
         # rag image: Dockerfile.rag, requirements-rag.txt, rag/, src/
         echo "$$DIFF" | grep -qE '^(docker/Dockerfile\.rag|docker/requirements-rag\.txt|rag/|src/)' \
           && touch /workspace/rag_rebuild || true
 
-        # ml training: ml/training/, ml/features/, ml/preprocessing/
-        echo "$$DIFF" | grep -qE '^ml/(training|features|preprocessing)/' \
+        # ml training: ml/training/, ml/features/, ml/preprocessing/, pipeline/scripts/
+        echo "$$DIFF" | grep -qE '^(ml/(training|features|preprocessing)|pipeline/scripts)/' \
           && touch /workspace/ml_changed || true
 
         # rag ingestion trigger: rag/document_fetcher.py
@@ -145,8 +145,18 @@ steps:
             --project=f1optimizer \
             --format="value(name)" > /workspace/job_$$MODEL.txt
         done
-        for MODEL in tire_degradation driving_style safety_car pit_window overtake_prob race_outcome; do
-          JOB_ID=$$(cat /workspace/job_$$MODEL.txt)
+        echo "Submitting: build_constructor_pace"
+        gcloud ai custom-jobs create \
+          --region=us-central1 \
+          --display-name="build-constructor-pace-$SHORT_SHA" \
+          --worker-pool-spec="machine-type=n1-standard-8,replica-count=1,container-image-uri=us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:$COMMIT_SHA" \
+          --args="python,pipeline/scripts/build_constructor_pace.py,--output,gs://f1optimizer-data-lake/processed/constructor_pace.json" \
+          --project=f1optimizer \
+          --format="value(name)" > /workspace/job_constructor_pace.txt
+        for MODEL in tire_degradation driving_style safety_car pit_window overtake_prob race_outcome constructor_pace; do
+          JOB_FILE="/workspace/job_$$MODEL.txt"
+          [ -f "$$JOB_FILE" ] || continue
+          JOB_ID=$$(cat $$JOB_FILE)
           for i in $$(seq 1 180); do
             STATE=$$(gcloud ai custom-jobs describe $$JOB_ID \
               --region=us-central1 --project=f1optimizer \

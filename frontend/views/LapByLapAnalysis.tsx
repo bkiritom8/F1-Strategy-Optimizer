@@ -63,7 +63,7 @@ const LapByLapAnalysis: React.FC = () => {
           <select value={selectedRaceId || ''} onChange={e => setSelectedRaceId(Number(e.target.value))}
             className="px-4 py-2.5 rounded-xl border text-sm font-bold bg-black/40 backdrop-blur-sm focus:outline-none cursor-pointer border-white/10 text-white">
             {races?.map((r: any) => (
-              <option key={r.round} value={r.round} className="bg-black text-white">R{r.round} — {r.name}</option>
+              <option key={r.round} value={r.round} className="bg-black text-white">R{r.round} | {r.name}</option>
             ))}
           </select>
         </div>
@@ -123,7 +123,7 @@ const LapByLapAnalysis: React.FC = () => {
                     <td className="p-4 text-center"><GainLoss grid={r.grid} finish={r.position} /></td>
                     <td className="p-4 text-right">{r.points > 0 ? <span className="font-bold text-emerald-400">+{r.points}</span> : <span className="text-white/20">0</span>}</td>
                     <td className="p-4 text-right hidden md:table-cell text-[10px] text-white/30 uppercase tracking-wider">{isDNF ? <span className="text-red-400">{r.status}</span> : r.status}</td>
-                    <td className="p-4 text-right hidden md:table-cell">{r.fastestLap?.rank === 1 ? <span className="text-purple-400 font-bold">{r.fastestLap.time} ⚡</span> : <span className="text-white/30">{r.fastestLap?.time || '—'}</span>}</td>
+                    <td className="p-4 text-right hidden md:table-cell">{r.fastestLap?.rank === 1 ? <span className="text-purple-400 font-bold">{r.fastestLap.time} ⚡</span> : <span className="text-white/30">{r.fastestLap?.time || 'N/A'}</span>}</td>
                   </tr>
                 );
               })}

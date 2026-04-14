@@ -180,6 +180,8 @@ def f1_strategy_pipeline(
         cloud_run_service=cloud_run_service,
         strategy_eval_report=eval_strategy.outputs["eval_report"],
         pit_stop_eval_report=eval_pit.outputs["eval_report"],
-    ).after(eval_strategy, eval_pit, constructor_pace).set_display_name("Deploy Models").set_retry(
+    ).after(eval_strategy, eval_pit, constructor_pace).set_display_name(
+        "Deploy Models"
+    ).set_retry(
         num_retries=2, backoff_duration="60s"
     )
