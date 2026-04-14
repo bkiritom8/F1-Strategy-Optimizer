@@ -1042,13 +1042,49 @@ const RaceSimulation: React.FC = () => {
   const simContext = useMemo(() => {
     if (laps.length === 0) return '';
     const last = laps[laps.length - 1];
-    return `[Simulation context - Lap ${last.lap}/${totalLaps}, ${raceName}] `
+    let ctx = `[Simulation context - Lap ${last.lap}/${totalLaps}, ${raceName}] `
       + `Driver: ${selectedDriver.name}, P${last.user.position}, `
       + `${last.user.compound} tires age ${last.user.tire_age}L, `
       + `fuel ${last.user.fuel_kg.toFixed(0)}kg, `
       + `gap to leader ${last.user.gap_to_leader.toFixed(1)}s, `
       + `SC ${last.user.safety_car ? 'ACTIVE' : 'clear'}. `;
-  }, [laps, totalLaps, raceName, selectedDriver]);
+    if (activePrompt) {
+      ctx += `RL agent recommends: ${activePrompt.rl_action_name} (${(activePrompt.confidence * 100).toFixed(0)}% confidence). Reason: ${activePrompt.reason}. `;
+    }
+    return ctx;
+  }, [laps, totalLaps, raceName, selectedDriver, activePrompt]);
+
+  // ── Build structured race_inputs for LLM (used by backend tool-calling) ──────
+  const raceInputsForLlm = useMemo(() => {
+    if (activePrompt) {
+      const s = activePrompt.current_state;
+      return {
+        driver: selectedDriver.name,
+        circuit: raceName || selectedRace.name,
+        current_lap: activePrompt.lap,
+        total_laps: s.total_laps ?? totalLaps,
+        tire_compound: s.compound,
+        tire_age_laps: s.tire_age,
+        position: s.position,
+        gap_to_leader: s.gap_to_leader,
+        fuel_remaining_kg: s.fuel_kg,
+      };
+    }
+    if (laps.length === 0) return null;
+    const last = laps[laps.length - 1];
+    const u = last.user;
+    return {
+      driver: selectedDriver.name,
+      circuit: raceName || selectedRace.name,
+      current_lap: last.lap,
+      total_laps: totalLaps,
+      tire_compound: u.compound,
+      tire_age_laps: u.tire_age,
+      position: u.position,
+      gap_to_leader: u.gap_to_leader,
+      fuel_remaining_kg: u.fuel_kg,
+    };
+  }, [activePrompt, laps, selectedDriver, raceName, selectedRace, totalLaps]);
 
   // ── Chat handler ─────────────────────────────────────────────────────────────
   const handleChat = useCallback(async (question: string) => {
@@ -1057,10 +1093,10 @@ const RaceSimulation: React.FC = () => {
     try {
       const history = chatMessages.slice(1).map(m => ({ role: m.role, content: m.content }));
       const contextQ = simContext ? simContext + question : question;
-      const res = await apiFetch<{ answer: string; latency_ms: number }>('/llm/chat', {
+      const res = await apiFetch<{ answer: string; latency_ms: number }>('/api/v1/llm/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: contextQ, history }),
+        body: JSON.stringify({ question: contextQ, history, race_inputs: raceInputsForLlm }),
       });
       setChatMessages(prev => [...prev, { role: 'assistant', content: res.answer, latency_ms: res.latency_ms }]);
     } catch {
@@ -1068,7 +1104,7 @@ const RaceSimulation: React.FC = () => {
     } finally {
       setChatLoading(false);
     }
-  }, [chatMessages, simContext]);
+  }, [chatMessages, simContext, raceInputsForLlm]);
 
   // ── Start simulation ──────────────────────────────────────────────────────────
   const startSimulation = useCallback(() => {
