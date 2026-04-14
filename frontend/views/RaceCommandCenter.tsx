@@ -1,6 +1,6 @@
 /**
  * @file RaceCommandCenter.tsx
- * @description Primary operational view for Apex Intelligence.
+ * @description Primary operational view for DivergeX.
  *
  * Features added:
  * - Predictive Intelligence panels (Safety Car risk, Overtake probability)
@@ -322,7 +322,7 @@ const RaceCommandCenter: React.FC = () => {
           const apiDriver = apiDrivers?.find(d => d.driver_id === result.driver.id);
           if (apiDriver) return apiDriver;
 
-          // no mock driver lookup — fall through to inline default below
+          // no mock driver lookup | fall through to inline default below
 
           return {
             driver_id: result.driver.id, name: result.driver.name, team: result.constructor,
@@ -577,20 +577,20 @@ const RaceCommandCenter: React.FC = () => {
 
         {/* ── Main Grid: Driver Card (left) + Charts (right) ──────────── */}
         {/*
-          Desktop (lg+): 3-col grid — driver card takes 1 col, charts take 2 cols.
-          Tablet (md):   2-col — driver card left, chart right stacked.
-          Mobile:        single column stack.
+          Desktop (lg+): 3-col grid : driver card takes 1 col, charts take 2 cols.
+          Tablet (md):   2-col : driver card left, chart right stacked.
+          Mobile:        1-col stacked.
         */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Driver Card — always full width on mobile, 1 col on tablet+ */}
+          {/* Driver Card | always full width on mobile, 1 col on tablet+ */}
           <div className="md:col-span-1">
             <DriverCard telemetry={selectedTelemetry} driver={selectedDriver} strategy={selectedStrategy} />
           </div>
 
-          {/* Charts — 2 cols on tablet+, stacked on mobile */}
+          {/* Charts | 2 cols on tablet+, stacked on mobile */}
           <div className="md:col-span-2 flex flex-col gap-4">
 
-            {/* Lap Time Trace — fixed height to avoid needing scroll */}
+            {/* Lap Time Trace | fixed height to avoid needing scroll */}
             <div
               className="rounded-xl p-4 border shadow-xl flex flex-col"
               style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
@@ -607,7 +607,7 @@ const RaceCommandCenter: React.FC = () => {
                   <LegendItem color="#555" label="Benchmark" />
                 </div>
               </div>
-              {/* Chart at fixed 200px height — no min-h that forces scroll */}
+              {/* Chart at fixed 200px height | no min-h that forces scroll */}
               <div className="w-full" style={{ height: 200 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={lapTimeData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
@@ -665,7 +665,7 @@ const RaceCommandCenter: React.FC = () => {
               </div>
             </div>
 
-            {/* Monte Carlo Table — compact, no overflow */}
+            {/* Monte Carlo Table | compact, no overflow */}
             <div
               className="rounded-xl p-4 border shadow-xl"
               style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}

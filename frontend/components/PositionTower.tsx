@@ -131,7 +131,7 @@ const PositionTower: React.FC<PositionTowerProps> = ({
                   </div>
                 </div>
 
-                {/* Active indicator bar — slides between rows via layoutId */}
+                {/* Active indicator bar : slides between rows via layoutId */}
                 {isSelected && (
                   <motion.div
                     layoutId="active-indicator"

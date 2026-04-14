@@ -1,6 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Shield, Book, Mail, Globe, Lock, Info, ExternalLink, Github } from 'lucide-react';
+import { Shield, Book, Mail, Globe, Lock, Info, Github } from 'lucide-react';
 
 /**
  * @file Footer.tsx
@@ -57,8 +56,8 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
           {/* Brand Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-900/20">
-                <span className="text-white font-black text-xl italic tracking-tighter">A</span>
+              <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center">
+                <img src="/divergex-logo.svg" alt="DivergeX" className="w-10 h-10 object-contain" />
               </div>
               <span className="text-xl font-black uppercase tracking-tighter italic text-white flex items-center">
                 Diverge<span className="text-red-600">X</span>
@@ -88,8 +87,7 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
               <ul className="space-y-4">
                 {section.links.map((link) => {
                   const Icon = link.icon;
-                  // @ts-ignore
-                  const isLink = link.href !== '#' || link.isCookieTrigger || link.isAdminTrigger;
+
                   
                   const handleClick = (e: React.MouseEvent) => {
                     if (link.isCookieTrigger) handleCookieClick(e);

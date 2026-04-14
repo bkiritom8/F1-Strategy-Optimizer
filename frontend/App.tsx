@@ -1,6 +1,6 @@
 /**
  * @file App.tsx
- * @description Root layout component for Apex Intelligence.
+ * @description Root layout component for DivergeX.
  *
  * Responsibilities:
  * - Declares all application routes via React Router <Routes>.
@@ -22,12 +22,7 @@ import {
   Gauge, Users, Compass, BarChart3, Activity,
   Map, ChevronLeft, ChevronRight, Lock
 } from 'lucide-react';
-import { 
-  useRaces2024, 
-  useRaces2025, 
-  useRaces2026, 
-  useBackendStatus 
-} from './hooks/useApi';
+import { useBackendStatus } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
 import { F1GridBackground } from './components/F1GridBackground';
 import { logger } from './services/logger';
@@ -44,12 +39,12 @@ const LapByLapAnalysis  = React.lazy(() => import('./views/LapByLapAnalysis'));
 const AdminPage         = React.lazy(() => import('./views/AdminPage'));
 const LandingPage       = React.lazy(() => import('./views/LandingPage'));
 
-const APP_NAME = 'DIVERGEX';
+
 
 /**
  * Primary navigation item definition.
  * Only items marked `mobile: true` appear in the mobile bottom nav strip.
- * Admin is intentionally absent — accessible only after admin login.
+ * Admin navigation is selectively rendered: accessible exclusively through secure administrative authentication.
  */
 const navItems = [
   { path: '/race',     label: 'Race Command',     icon: Gauge,    mobile: true  },
@@ -130,9 +125,6 @@ class ViewErrorBoundary extends React.Component<
  */
 const App: React.FC = () => {
   const {
-    activeRaceRound,
-    selectedSeason,
-    backgroundCircuitId,
     sidebarOpen,
     setSidebarOpen,
     sidebarCollapsed,
@@ -141,31 +133,13 @@ const App: React.FC = () => {
     setAdminModalOpen,
   } = useAppStore();
 
-  const { data: races2024 } = useRaces2024();
-  const { data: races2025 } = useRaces2025();
-  const { data: races2026 } = useRaces2026();
+
   const { online: backendOnline } = useBackendStatus();
   
   const location  = useLocation();
   const navigate  = useNavigate();
 
-  /**
-   * Determine the current circuit ID for the background simulation.
-   * Priority:
-   * 1. Explicit background override (from Track Explorer)
-   * 2. Active race round mapping (based on selected season)
-   * 3. Default fallback
-   */
-  const currentCircuitId = React.useMemo(() => {
-    if (backgroundCircuitId) return backgroundCircuitId;
-    
-    // Choose the correct race list based on the user's selected season
-    const races = selectedSeason === 2026 ? races2026 : selectedSeason === 2025 ? races2025 : races2024;
-    
-    if (!races) return 'bahrain';
-    const currentRace = races.find((r) => r.round === activeRaceRound);
-    return currentRace?.circuit?.id || 'bahrain';
-  }, [races2024, races2025, races2026, selectedSeason, activeRaceRound, backgroundCircuitId]);
+
 
   /** Log route transitions (dev only). */
   React.useEffect(() => {
@@ -211,7 +185,7 @@ const App: React.FC = () => {
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           aria-label="Go to home page"
         >
-          <img src="/apex-logo.svg" alt="DivergeX" className="w-7 h-7 rounded-lg object-contain" />
+          <img src="/divergex-logo.svg" alt="DivergeX" className="w-7 h-7 rounded-lg object-contain" />
           <span className="font-display font-black tracking-tighter text-lg italic">Diverge<span className="text-red-600">X</span></span>
         </button>
       </div>
@@ -235,7 +209,7 @@ const App: React.FC = () => {
               className="w-10 h-10 rounded-xl shrink-0 overflow-hidden shadow-lg shadow-red-900/20 hover:opacity-80 transition-opacity"
               aria-label="Go to home page"
             >
-              <img src="/apex-logo.svg" alt="DivergeX" className="w-full h-full object-contain" />
+              <img src="/divergex-logo.svg" alt="DivergeX" className="w-full h-full object-contain" />
             </button>
             <AnimatePresence>
               {!sidebarCollapsed && (
@@ -393,8 +367,8 @@ const App: React.FC = () => {
 
       {/* Demo Mode Badge */}
       {!backendOnline && (
-        <div className="fixed top-16 lg:top-3 right-3 z-[100] px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[9px] font-bold uppercase tracking-[3px] backdrop-blur-sm pointer-events-none">
-          Pipeline Data Mode
+        <div className="fixed top-16 lg:top-3 right-3 z-[100] px-3 py-1.5 rounded-lg bg-red-600/15 border border-red-600/30 text-red-500 text-[9px] font-black uppercase tracking-[3px] backdrop-blur-sm pointer-events-none">
+          Simulated Intelligence Active
         </div>
       )}
 

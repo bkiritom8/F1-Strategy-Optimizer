@@ -9,13 +9,13 @@
  *
  * Sections
  * ────────
- * SimSetup        — race/driver/strategy config form (pre-simulation)
- * RaceTrack       — animated SVG track with N driver dots
- * StandingsTower  — live position tower
- * StrategyPrompt  — RL recommendation card + accept/override buttons
- * LapTimeline     — compact scrollable lap log
- * SimChat         — LLM interface wired to simulation context
- * RaceResults     — final podium + stats after simulation ends
+ * SimSetup        : race/driver/strategy config form (pre-simulation)
+ * RaceTrack       : animated SVG track with N driver dots
+ * StandingsTower  : live position tower
+ * StrategyPrompt  : RL recommendation card + accept/override buttons
+ * LapTimeline     : compact scrollable lap log
+ * SimChat         : LLM interface wired to simulation context
+ * RaceResults     : final podium + stats after simulation ends
  */
 
 import React, {
@@ -229,7 +229,7 @@ const RaceTrackViz: React.FC<{
   // Callback-ref maps: populated once on mount, O(1) lookup per frame
   const circleMapRef = useRef<Map<string, SVGCircleElement>>(new Map());
   const labelMapRef = useRef<Map<string, SVGTextElement>>(new Map());
-  // Animation start time — advances only while not paused, so position is held on pause
+  // Animation start time : advances only while not paused, so position is held on pause
   const animStartRef = useRef<number>(Date.now());
   const pausedAtRef = useRef<number | null>(null); // elapsed ms when pause started
   const animRef = useRef<number | null>(null);
@@ -246,7 +246,7 @@ const RaceTrackViz: React.FC<{
   // but we want the cars to be visibly moving at ~14s per circuit).
   const VISUAL_LAP_MS = 14_000;
 
-  // Continuous animation loop — moves dots imperatively so React doesn't re-render at 60 fps.
+  // Continuous animation loop : moves dots imperatively so React doesn't re-render at 60 fps.
   // When paused, the loop keeps running but skips DOM updates, freezing cars in place.
   useEffect(() => {
     const tick = () => {
@@ -342,7 +342,7 @@ const RaceTrackViz: React.FC<{
             animated={false}
             pathRef={trackPathRef}
           />
-          {/* Driver dots — positions driven imperatively by the rAF loop above */}
+          {/* Driver dots : positions driven imperatively by the rAF loop above */}
           <svg
             ref={overlayRef}
             className="absolute inset-0"
@@ -415,7 +415,7 @@ const RaceTrackViz: React.FC<{
   );
 };
 
-/** Live position tower — full 20-driver list. */
+/** Live position tower : full 20-driver list. */
 const StandingsTower: React.FC<{
   standings: DriverLapState[];
   userDriverId: string;
@@ -923,7 +923,7 @@ const RaceSimulation: React.FC = () => {
     }
   }, []);
 
-  // Start the steady-tick playback loop (idempotent — safe to call multiple times).
+  // Start the steady-tick playback loop (idempotent : safe to call multiple times).
   const startPlayback = useCallback(() => {
     if (playbackTimerRef.current !== null) return;
     const lapIntervalMs = Math.max(100, RACE_PLAYBACK_MS / totalLapsRef.current);
@@ -931,20 +931,20 @@ const RaceSimulation: React.FC = () => {
       const idx = playbackIdxRef.current;
       const lapSnap = lapBufferRef.current[idx];
       if (!lapSnap) {
-        // Buffer empty — all buffered laps have been displayed.
+        // Buffer empty : all buffered laps have been displayed.
         if (raceFinishedDataRef.current) {
           stopPlayback();
           setFinishedResult(raceFinishedDataRef.current);
           setPhase('finished');
         } else if (pendingPromptRef.current) {
-          // A prompt was queued while laps were playing — fire it now that
+          // A prompt was queued while laps were playing : fire it now that
           // the user has seen all preceding laps.
           const pending = pendingPromptRef.current;
           pendingPromptRef.current = null;
           stopPlayback();
           setPhase('prompt');
           setActivePrompt(pending);
-          setStatusMsg(`Strategy decision required — Lap ${pending.lap}`);
+          setStatusMsg(`Strategy decision required : Lap ${pending.lap}`);
         }
         return;
       }
@@ -1066,7 +1066,7 @@ const RaceSimulation: React.FC = () => {
         const rawId: string = msg.circuit_id ?? '';
         setCircuitId(CIRCUIT_ID_MAP[rawId] ?? rawId);
         setRaceName(msg.circuit_name);
-        setStatusMsg(`Race loaded: ${msg.circuit_name} · ${tl} laps — starting…`);
+        setStatusMsg(`Race loaded: ${msg.circuit_name} · ${tl} laps : starting…`);
         // Initialise standings from starting grid so drivers appear immediately
         if (Array.isArray(msg.drivers) && msg.drivers.length > 0) {
           const gridStandings: DriverLapState[] = [...(msg.drivers as any[])]
@@ -1104,14 +1104,14 @@ const RaceSimulation: React.FC = () => {
       }
 
       else if (msg.type === 'prompt') {
-        // Buffer the prompt — the playback loop will display it once all
+        // Buffer the prompt : the playback loop will display it once all
         // preceding laps have been rendered, so the user sees the simulation
         // before the decision overlay appears.
         pendingPromptRef.current = msg as PromptState;
       }
 
       else if (msg.type === 'finished') {
-        // Store result but don't switch phase yet — playback loop will do that
+        // Store result but don't switch phase yet : playback loop will do that
         // once it exhausts the lap buffer, so the user sees every lap played out.
         // Close the WebSocket directly (not via closeWs) so the playback loop
         // keeps running until the buffer is empty.
@@ -1120,7 +1120,7 @@ const RaceSimulation: React.FC = () => {
         ws.onclose = null;
         ws.close();
         wsRef.current = null;
-        setStatusMsg('Final lap — race finishing…');
+        setStatusMsg('Final lap : race finishing…');
       }
 
       else if (msg.type === 'error') {
@@ -1353,7 +1353,7 @@ const RaceSimulation: React.FC = () => {
             Stop
           </button>
         </div>
-        {/* Race progress bar — spans full 1.5-min playback */}
+        {/* Race timeline: spans the full 90-second high-fidelity playback curve */}
         <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
           <motion.div
             className="h-full rounded-full bg-red-600"
@@ -1375,7 +1375,7 @@ const RaceSimulation: React.FC = () => {
         paused={phase === 'prompt'}
       />
 
-      {/* RL Prompt modal — fixed overlay so it's visible regardless of scroll position */}
+      {/* AI Strategy Assistant Overlay: fixed positioning ensures visibility across all scroll states */}
       <AnimatePresence>
         {phase === 'prompt' && activePrompt && (
           <motion.div

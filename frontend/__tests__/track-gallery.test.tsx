@@ -17,7 +17,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { TrackGallery } from '../components/tracks/TrackGallery';
 import { TRACK_REGISTRY } from '../components/tracks/TrackMaps';
 
-// Framer Motion animate props don't work in jsdom — stub the motion.div/g components
+// Framer Motion constraints: Stubbing motion.div/g components due to JSDOM environment limitations.
 vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...rest }: React.HTMLAttributes<HTMLDivElement>) =>
@@ -66,7 +66,7 @@ describe('TrackGallery', () => {
     render(
       <TrackGallery selectedTrackId="bahrain" />
     );
-    // Only 3 badges should exist — none on Bahrain
+    // Constraint Validation: Expect exactly 3 status badges; Bahrain remains unbadged.
     const badges = screen.queryAllByTestId('no-data-badge');
     expect(badges).toHaveLength(3);
     // Bahrain card should not have a badge

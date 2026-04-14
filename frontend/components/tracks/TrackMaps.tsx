@@ -9,7 +9,7 @@
  *
  * Generated: 2026-03-24 23:15 UTC
  *
- * @warning Do NOT hand-edit SVG paths — regenerate with extract_f1_tracks.py
+ * @warning CRITICAL: SVG vector paths are immutable. Use extract_f1_tracks.py for all path architectural updates.
  */
 
 import React from 'react';
@@ -109,8 +109,8 @@ const AnimatedPath: React.FC<{
 );
 
 // ══════════════════════════════════════════════════════════════════
-// Bahrain International Circuit — Bahrain
-// FastF1 2024 Race telemetry — 200 path points
+// Bahrain International Circuit : Bahrain
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const BahrainTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -132,8 +132,8 @@ export const BahrainTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Jeddah Corniche Circuit — Saudi Arabia
-// FastF1 2024 Race telemetry — 200 path points
+// Jeddah Corniche Circuit : Saudi Arabia
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const JeddahTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -155,8 +155,8 @@ export const JeddahTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Albert Park Circuit — Australia
-// FastF1 2024 Race telemetry — 200 path points
+// Albert Park Circuit : Australia
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MelbourneTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -178,8 +178,8 @@ export const MelbourneTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Suzuka International Racing Course — Japan
-// FastF1 2024 Race telemetry — 200 path points
+// Suzuka International Racing Course : Japan
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SuzukaTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -201,8 +201,8 @@ export const SuzukaTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Shanghai International Circuit — China
-// FastF1 2024 Race telemetry — 200 path points
+// Shanghai International Circuit : China
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const ShanghaiTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -224,8 +224,8 @@ export const ShanghaiTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Miami International Autodrome — USA
-// FastF1 2024 Race telemetry — 200 path points
+// Miami International Autodrome : USA
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MiamiTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -247,8 +247,8 @@ export const MiamiTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Autodromo Enzo e Dino Ferrari — Italy
-// FastF1 2024 Race telemetry — 200 path points
+// Autodromo Enzo e Dino Ferrari : Italy
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const ImolaTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -270,8 +270,8 @@ export const ImolaTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Circuit de Monaco — Monaco
-// FastF1 2024 Race telemetry — 200 path points
+// Circuit de Monaco : Monaco
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MonacoTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -293,8 +293,8 @@ export const MonacoTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Circuit Gilles Villeneuve — Canada
-// FastF1 2024 Race telemetry — 200 path points
+// Circuit Gilles Villeneuve : Canada
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MontrealTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -316,8 +316,8 @@ export const MontrealTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Circuit de Barcelona-Catalunya — Spain
-// FastF1 2024 Race telemetry — 200 path points
+// Circuit de Barcelona-Catalunya : Spain
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const BarcelonaTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -339,8 +339,8 @@ export const BarcelonaTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Red Bull Ring — Austria
-// FastF1 2024 Race telemetry — 200 path points
+// Red Bull Ring : Austria
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SpielbergTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -362,8 +362,8 @@ export const SpielbergTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Silverstone Circuit — United Kingdom
-// FastF1 2024 Race telemetry — 200 path points
+// Silverstone Circuit : United Kingdom
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SilverstoneTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -385,8 +385,8 @@ export const SilverstoneTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Hungaroring — Hungary
-// FastF1 2024 Race telemetry — 200 path points
+// Hungaroring : Hungary
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const BudapestTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -408,8 +408,8 @@ export const BudapestTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Circuit de Spa-Francorchamps — Belgium
-// FastF1 2024 Race telemetry — 200 path points
+// Circuit de Spa-Francorchamps : Belgium
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SpaTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -431,8 +431,8 @@ export const SpaTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Circuit Zandvoort — Netherlands
-// FastF1 2024 Race telemetry — 200 path points
+// Circuit Zandvoort : Netherlands
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const ZandvoortTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -454,8 +454,8 @@ export const ZandvoortTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Autodromo Nazionale Monza — Italy
-// FastF1 2024 Race telemetry — 200 path points
+// Autodromo Nazionale Monza : Italy
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MonzaTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -477,8 +477,8 @@ export const MonzaTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Marina Bay Street Circuit — Singapore
-// FastF1 2024 Race telemetry — 200 path points
+// Marina Bay Street Circuit : Singapore
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const SingaporeTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -500,8 +500,8 @@ export const SingaporeTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Circuit of the Americas — USA
-// FastF1 2024 Race telemetry — 200 path points
+// Circuit of the Americas : USA
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const COTATrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -523,8 +523,8 @@ export const COTATrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Autodromo Hermanos Rodriguez — Mexico
-// FastF1 2024 Race telemetry — 200 path points
+// Autodromo Hermanos Rodriguez : Mexico
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const MexicoTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -546,8 +546,8 @@ export const MexicoTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Autodromo Jose Carlos Pace — Brazil
-// FastF1 2024 Race telemetry — 200 path points
+// Autodromo Jose Carlos Pace : Brazil
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const InterlagosTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -569,8 +569,8 @@ export const InterlagosTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Las Vegas Street Circuit — USA
-// FastF1 2024 Race telemetry — 200 path points
+// Las Vegas Street Circuit : USA
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const VegasTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -592,8 +592,8 @@ export const VegasTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Lusail International Circuit — Qatar
-// FastF1 2024 Race telemetry — 200 path points
+// Lusail International Circuit : Qatar
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const LusailTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -615,8 +615,8 @@ export const LusailTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// Yas Marina Circuit — UAE
-// FastF1 2024 Race telemetry — 200 path points
+// Yas Marina Circuit : UAE
+// FastF1 2024 Race telemetry : 200 path points
 // ══════════════════════════════════════════════════════════════════
 export const YasMarinaTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -652,7 +652,7 @@ export interface TrackInfo {
   /**
    * True when the SVG path is derived from real FastF1 telemetry position data.
    * False for speculative/future circuits where the path is a geometric approximation
-   * based on published circuit layouts — no F1 race session data exists yet.
+   * based on published circuit layouts : no F1 race session data exists yet.
    */
   hasLiveData: boolean;
   /** Optional status note shown in the Circuit Directory UI. */
@@ -661,9 +661,9 @@ export interface TrackInfo {
 
 
 // ══════════════════════════════════════════════════════════════════
-// MADRID — Street Circuit (Planned 2026 debut)
+// MADRID : Street Circuit (Planned 2026 debut)
 // Geometric approximation based on published RFEDA circuit layouts.
-// hasLiveData: false — no FastF1 telemetry available yet.
+// hasLiveData: false : no FastF1 telemetry available yet.
 // ══════════════════════════════════════════════════════════════════
 export const MadridTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -685,9 +685,9 @@ export const MadridTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// BHUJ — Gujarat International Circuit (Proposed)
+// BHUJ : Gujarat International Circuit (Proposed)
 // Geometric approximation based on conceptual layout renderings.
-// hasLiveData: false — no FastF1 telemetry available yet.
+// hasLiveData: false : no FastF1 telemetry available yet.
 // ══════════════════════════════════════════════════════════════════
 export const BhujTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -709,9 +709,9 @@ export const BhujTrack: React.FC<TrackProps> = (props) => {
 };
 
 // ══════════════════════════════════════════════════════════════════
-// ARGENTINA — Autodromo Oscar y Juan Galvez, Buenos Aires
+// ARGENTINA : Autodromo Oscar y Juan Galvez, Buenos Aires
 // Geometric approximation based on historical Autodromo layout.
-// hasLiveData: false — no FastF1 telemetry available yet.
+// hasLiveData: false : no FastF1 telemetry available yet.
 // ══════════════════════════════════════════════════════════════════
 export const ArgentinaTrack: React.FC<TrackProps> = (props) => {
   const { width, height, strokeColor, strokeWidth, fillColor, showStartFinish, className, animated, pathRef } = { ...defaultProps, ...props };
@@ -764,19 +764,19 @@ export const TRACK_REGISTRY: TrackInfo[] = [
     id: 'madrid', name: 'Madrid Street Circuit', country: 'Spain',
     component: MadridTrack, lengthKm: 5.474, corners: 18, drsZones: 2, laps: 55,
     hasLiveData: false,
-    statusNote: 'Planned 2026 debut — layout approximated from published designs. No FastF1 telemetry available.',
+    statusNote: 'Planned 2026 debut : layout approximated from published designs. No FastF1 telemetry available.',
   },
   {
     id: 'bhuj', name: 'Gujarat International Circuit', country: 'India',
     component: BhujTrack, lengthKm: 5.340, corners: 16, drsZones: 3, laps: 57,
     hasLiveData: false,
-    statusNote: 'Proposed circuit — layout approximated from conceptual renders. No FastF1 telemetry available.',
+    statusNote: 'Proposed circuit : layout approximated from conceptual renders. No FastF1 telemetry available.',
   },
   {
     id: 'argentina', name: 'Autodromo Oscar y Juan Galvez', country: 'Argentina',
     component: ArgentinaTrack, lengthKm: 4.259, corners: 15, drsZones: 2, laps: 72,
     hasLiveData: false,
-    statusNote: 'Historical venue speculated for return — layout based on Autodromo Oscar Galvez. No FastF1 telemetry available.',
+    statusNote: 'Historical venue speculated for return : layout based on Autodromo Oscar Galvez. No FastF1 telemetry available.',
   },
 ];
 

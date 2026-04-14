@@ -31,7 +31,7 @@ vi.mock('../services/logger', () => ({
 import { apiFetch } from '../services/client';
 const mockApiFetch = apiFetch as ReturnType<typeof vi.fn>;
 
-describe('API Endpoints — exports', () => {
+describe('API Endpoints : exports', () => {
   it('exports all required endpoint functions', async () => {
     const endpoints = await import('../services/endpoints');
     expect(typeof endpoints.fetchDrivers).toBe('function');

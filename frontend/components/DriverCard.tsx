@@ -5,7 +5,7 @@
  * Redesign goals (2026-04):
  *  - Full driver name + code visible without truncation (using driver.code as
  *    the headline, team name and full name as subtitle)
- *  - All stat labels fully readable — no truncation
+ *  - All stat labels fully readable : no truncation
  *  - Horizontal stat rows instead of small grid chips
  *  - ERS, Fuel, and AI Tactical Overlay consolidated in a tighter layout
  *  - Responsive: works well at any column width from 280px upward
@@ -24,7 +24,7 @@ interface DriverCardProps {
   strategy: StrategyRecommendation | null;
 }
 
-/** Inline bar stat row — full label, no truncation. */
+/** Inline bar stat row : full label, no truncation. */
 const StatRow: React.FC<{
   icon: React.ReactNode;
   label: string;

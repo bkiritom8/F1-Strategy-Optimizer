@@ -57,12 +57,6 @@ export async function apiFetch<T = unknown>(
   const headers = new Headers(fetchOptions.headers);
   headers.set('Content-Type', headers.get('Content-Type') ?? 'application/json');
 
-  // Optional: Inject legacy token if still present in storage for backend compatibility
-  const legacyToken = sessionStorage.getItem('f1_api_token');
-  if (legacyToken) {
-    headers.set('Authorization', `Bearer ${legacyToken}`);
-  }
-
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       ...fetchOptions,

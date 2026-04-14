@@ -58,7 +58,7 @@ const VerifyEmailPage: React.FC<Props> = ({ onGoToLogin }) => {
         {state === 'success' && (
           <>
             <p style={styles.text}>
-              Your email has been verified. You can now sign in to Apex Intelligence.
+              Your email has been verified. You can now sign in to DivergeX.
             </p>
             <button id="verify-go-signin" style={styles.btn} onClick={onGoToLogin}>
               Go to Sign In

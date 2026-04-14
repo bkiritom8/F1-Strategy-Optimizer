@@ -1,6 +1,6 @@
 /**
  * @file views/LandingPage.tsx
- * @description Modern, premium landing page for Apex Intelligence.
+ * @description Modern, premium landing page for DivergeX.
  *
  * Features:
  * - Smooth scroll-driven animations with Framer Motion.
@@ -10,9 +10,7 @@
  */
 
 import {
-  ArrowRight,
   Database,
-  BarChart3,
   X,
   Lock,
   ShieldCheck,
@@ -27,7 +25,7 @@ import { motion, useScroll, useSpring, useTransform, AnimatePresence } from 'fra
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import Footer from '../components/Footer';
-import { DynamicSimulationBackground } from '../components/DynamicSimulationBackground';
+
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -86,8 +84,6 @@ const LandingPage: React.FC<Props> = () => {
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
   // Parallax transforms for background elements
-  const glowY = useTransform(smoothProgress, [0, 1], [-100, 200]);
-  const carParallax = useTransform(smoothProgress, [0, 0.4], [0, 150]);
   
   // Hero Section transitions
   const heroScale = useTransform(smoothProgress, [0, 0.2], [1, 0.8]);
@@ -101,8 +97,8 @@ const LandingPage: React.FC<Props> = () => {
       {/* ── Floating Header ── */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 h-20 backdrop-blur-md border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-900/20">
-            <img src="/apex-logo.svg" alt="DivergeX" className="w-8 h-8 rounded-lg object-contain" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center">
+            <img src="/divergex-logo.svg" alt="DivergeX" className="w-10 h-10 object-contain" />
           </div>
           <span className="font-display font-black text-xl italic tracking-tighter uppercase">Diverge<span className="text-red-600">X</span></span>
         </div>
@@ -136,17 +132,19 @@ const LandingPage: React.FC<Props> = () => {
 
       {/* ── SECTION 1: HERO ── */}
       <section className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden">
-        <motion.div
-          style={{ y: glowY }}
-          className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
-        >
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
           <TelemetryBackground />
-        </motion.div>
+        </div>
 
         {/* Translucent logo watermark */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
-          <img src="/apex-logo.svg" alt="Logo" className="w-[80vw] max-w-[800px] object-contain" />
-        </div>
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 0.04, scale: 1 }}
+          transition={{ duration: 4, ease: "easeOut" }}
+        >
+          <img src="/divergex-logo.svg" alt="" aria-hidden="true" className="w-[60vw] max-w-[700px] object-contain" />
+        </motion.div>
 
         <motion.div
           style={{ scale: heroScale, opacity: heroOpacity }}
@@ -158,15 +156,15 @@ const LandingPage: React.FC<Props> = () => {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-morphism mb-6 border-red-900/30"
           >
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 mt-0.5">2026 Season Engine Active</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 mt-0.5">Season Engine Active</span>
           </motion.div>
 
           <h1 className="font-display font-black text-5xl md:text-7xl italic tracking-tighter uppercase leading-[0.9] mb-6 hero-gradient-text">
             Outthink.<br />Outpace.<br />Outsmart.<br />Optimize.
           </h1>
 
-          <p className="text-base md:text-lg text-white/50 max-w-xl mx-auto leading-relaxed mb-8">
-            The next generation of Formula 1 strategy. Real-time telemetry, predictive AI simulations, and adaptive modeling for the hybrid era.
+          <p className="text-base md:text-lg text-white/50 max-w-2xl mx-auto leading-relaxed mb-8">
+            Unleash the full potential of elite motorsport intelligence. Experience hyper-accurate telemetry, advanced predictive modeling, and AI-driven race strategy engineered for the absolute leading edge.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -191,7 +189,7 @@ const LandingPage: React.FC<Props> = () => {
           animate={{ opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 cursor-pointer group"
-          onClick={() => containerRef.current?.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
+          onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
         >
           <div className="relative w-32 h-16 flex items-center justify-center overflow-hidden">
             {/* Arched lines from screenshot */}
@@ -245,7 +243,7 @@ const LandingPage: React.FC<Props> = () => {
               Adaptive Race<br /><span className="text-red-600">Strategy</span>
             </h2>
             <p className="text-white/60 text-lg leading-relaxed">
-              Our proprietary Monte Carlo simulator runs 50,000+ race scenarios per second, accounting for tire degradation, rain probability, and safety car windows.
+              Dominate the pit wall with our proprietary Monte Carlo engine. Simulating 50,000+ race outcomes every second to solve for tire degradation, weather shifts, and high-stakes safety car windows in real-time.
             </p>
             <ul className="space-y-4">
               {[
@@ -297,14 +295,14 @@ const LandingPage: React.FC<Props> = () => {
             >
               Real-Time <span className="text-red-600">Telemetry</span> Streaming
             </motion.h2>
-            <p className="text-white/40 max-w-2xl mx-auto">Instantaneous processing of 200+ sensor data points from the power unit to the aero-surfaces.</p>
+            <p className="text-white/40 max-w-2xl mx-auto">Absolute data transparency. We process over 200 mission-critical sensor nodes per millisecond: from thermal kinetics in the power unit to the micro-aero surfaces of the front wing.</p>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
             {[
-              { label: 'Power Unit', value: '11,400 RPM', status: 'Optimal', color: 'red' },
-              { label: 'ERS Deployment', value: '4.2 MJ', status: 'Charging', color: 'blue' },
-              { label: 'Tire Carcass', value: '98°C', status: 'Nominal', color: 'red' }
+              { label: 'Thermal Internal Combustion', value: '11,400 RPM', status: 'Optimal', color: 'red' },
+              { label: 'Kinetic Recovery Matrix', value: '4.2 MJ', status: 'Charging', color: 'blue' },
+              { label: 'Compound Thermal State', value: '98°C', status: 'Nominal', color: 'red' }
             ].map((stat, i) => (
               <motion.div
                 key={i}
@@ -447,19 +445,19 @@ const LandingPage: React.FC<Props> = () => {
                   <div className="space-y-4">
                     <h4 className="text-xs font-black uppercase tracking-widest text-white/30">Backend Architecture</h4>
                     <p className="text-sm text-white/70 leading-relaxed font-medium">
-                      Powered by **Python/FastAPI** and **Redis** for sub-millisecond data distribution. Predictive modeling via **Monte Carlo simulations**.
+                      Powered by <strong className="text-white">Python/FastAPI</strong> and <strong className="text-white">Redis</strong> for sub-millisecond data distribution. Predictive modeling via <strong className="text-white">Monte Carlo simulations</strong>.
                     </p>
                   </div>
                   <div className="space-y-4">
                     <h4 className="text-xs font-black uppercase tracking-widest text-white/30">Frontend Core</h4>
                     <p className="text-sm text-white/70 leading-relaxed font-medium">
-                      Built with **React 18**, **TypeScript**, and **Framer Motion** for a high-fidelity, interactive telemetry experience.
+                      Built with <strong className="text-white">React 18</strong>, <strong className="text-white">TypeScript</strong>, and <strong className="text-white">Framer Motion</strong> for a high-fidelity, interactive telemetry experience.
                     </p>
                   </div>
                   <div className="space-y-4">
                     <h4 className="text-xs font-black uppercase tracking-widest text-white/30">Data Integration</h4>
                     <p className="text-sm text-white/70 leading-relaxed font-medium">
-                      Dynamic ingestion of **Formula 1 Historical Data** (2024-2026 Season Mapping) and real-time tire degradation sensors.
+                      Dynamic ingestion of <strong className="text-white">Formula 1 Historical Data</strong> (2024-2026 Season Mapping) and real-time tire degradation sensors.
                     </p>
                   </div>
                 </div>

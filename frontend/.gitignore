@@ -8,7 +8,7 @@ dist-ssr/
 # Environment
 *.local
 .env
-# .env.production is intentionally tracked — it only contains the public Cloud Run URL (no secrets)
+# Public Runtime Environment: .env.production is explicitly tracked as it contains zero sensitive secrets.
 .env.staging
 
 # Editor

@@ -141,7 +141,7 @@ const DriverProfiles: React.FC = () => {
     return Array.from(teamSet).sort();
   }, [drivers, seasonStats]);
 
-  // Nationality breakdown — all drivers we have profiles for
+  // Nationality breakdown | all drivers we have profiles for
   const nationalityData = useMemo(() => {
     if (!drivers) return [];
     const counts: Record<string, number> = {};
@@ -410,7 +410,7 @@ const DriverProfiles: React.FC = () => {
                     );
                   })()}
 
-                  {/* Season Performance Grid — only when race results are available */}
+                  {/* Season Performance Grid | only when race results are available */}
                   {selectedStats ? (
                     <>
                   <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-3">{activeYear} Season Performance</div>
@@ -445,7 +445,7 @@ const DriverProfiles: React.FC = () => {
                     );
                   })()}
 
-                  {/* Data Source Note — season stats */}
+                  {/* Data Source Note | season stats */}
                     <div className="mt-6 pt-4 border-t border-white/5">
                       <p className="text-[9px] text-gray-600 italic">
                         All metrics computed from verified {activeYear} FIA race results via Jolpica API.
@@ -464,7 +464,7 @@ const DriverProfiles: React.FC = () => {
                       </div>
                       <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
                         <p className="text-[10px] text-white/40 font-mono uppercase tracking-widest">
-                          {activeYear} season results pending — race data will appear once the pipeline ingests {activeYear} results from Jolpica API.
+                          {activeYear} season results pending | race data will appear once the pipeline ingests {activeYear} results from Jolpica API.
                         </p>
                       </div>
                     </>
