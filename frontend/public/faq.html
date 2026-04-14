@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAQ Center | DivergeX</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --red: #dc2626;
+      --cyan: #06b6d4;
+      --bg: #050505;
+      --glass: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.1);
+      --muted: rgba(255, 255, 255, 0.65);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      background: radial-gradient(circle at 80% 10%, rgba(220, 38, 38, 0.14), transparent 35%),
+                  radial-gradient(circle at 10% 90%, rgba(6, 182, 212, 0.12), transparent 30%),
+                  var(--bg);
+      color: #f5f5f5;
+      line-height: 1.6;
+    }
+    .container {
+      width: min(980px, 92vw);
+      margin: 0 auto;
+      padding: 40px 0 60px;
+    }
+    .top-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 24px;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 800;
+    }
+    .top-links a {
+      color: rgba(255, 255, 255, 0.72);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .top-links a:hover { color: #fff; border-color: rgba(220, 38, 38, 0.5); }
+    .hero {
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--red);
+      border-radius: 24px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+      padding: 30px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(18px);
+    }
+    h1, h2 {
+      margin: 0;
+      font-family: Outfit, sans-serif;
+      text-transform: uppercase;
+      font-style: italic;
+      letter-spacing: -0.02em;
+    }
+    h1 { font-size: clamp(2rem, 4vw, 3.2rem); }
+    h2 { font-size: 1.25rem; margin-top: 26px; color: var(--red); }
+    p { color: var(--muted); margin: 12px 0; }
+    .faq-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .faq-card {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--glass);
+      backdrop-filter: blur(14px);
+      overflow: hidden;
+    }
+    details { padding: 0; }
+    summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 16px 18px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      content: '+';
+      color: var(--cyan);
+      font-size: 1.1rem;
+      font-weight: 900;
+    }
+    details[open] summary::after { content: '-'; }
+    .answer {
+      padding: 0 18px 18px;
+      color: var(--muted);
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .section {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 24px;
+      margin-top: 18px;
+    }
+    ul { margin: 8px 0 0 0; padding-left: 18px; color: var(--muted); }
+    footer {
+      margin-top: 34px;
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="top-links">
+      <a href="/">Home</a>
+      <a href="/docs.html">Documentation</a>
+      <a href="/faq-technical.html">Technical FAQ</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+
+    <section class="hero">
+      <h1>FAQ Center</h1>
+      <p>Comprehensive answers for strategy users, engineering teams, and competition analysts using DivergeX in high-pressure race workflows.</p>
+    </section>
+
+    <section class="section">
+      <h2>Product & Workflow</h2>
+      <div class="faq-grid">
+        <div class="faq-card"><details><summary>What does DivergeX actually optimize during a race?</summary><div class="answer">DivergeX optimizes timing and compound choice for pit stops, projected finish outcomes, and risk posture across aggressive, balanced, and conservative plans. It combines telemetry, environmental context, and historical priors to propose plans with probabilities rather than single deterministic outputs.</div></details></div>
+        <div class="faq-card"><details><summary>How often should strategy recommendations be refreshed?</summary><div class="answer">Refresh at key moments: safety car deployment, sudden weather changes, pit lane incidents, major tire degradation inflection, and after each pit stop cycle. For stable green-flag phases, refreshing every few laps is sufficient for most use cases.</div></details></div>
+        <div class="faq-card"><details><summary>Can I use DivergeX as a sole decision-maker?</summary><div class="answer">No. Treat DivergeX as decision support. It ranks scenarios and exposes trade-offs; final calls should remain with race engineers and strategy leadership based on current operational constraints and external events.</div></details></div>
+        <div class="faq-card"><details><summary>Why do I sometimes see fallback behavior?</summary><div class="answer">Fallback can activate when model artifacts are unavailable, an endpoint is temporarily degraded, or upstream services are rate-limited. The platform is designed to degrade gracefully and still provide actionable recommendations.</div></details></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Data, Privacy, and Compliance</h2>
+      <div class="faq-grid">
+        <div class="faq-card"><details><summary>What data is stored from my session?</summary><div class="answer">Operationally necessary session data can include selected race context, UI preferences, and non-sensitive usage diagnostics. Sensitive identity and secret tokens are not exposed in frontend storage. Refer to Privacy Policy and Cookie Policy for details.</div></details></div>
+        <div class="faq-card"><details><summary>How do cookies work on this platform?</summary><div class="answer">Essential cookies support session continuity and baseline functionality. Optional cookies are used for analytics and UX improvements. You can accept or reject optional cookies from the consent panel and re-open settings via footer controls.</div></details></div>
+        <div class="faq-card"><details><summary>Can I revoke consent after accepting?</summary><div class="answer">Yes. Open cookie settings from the footer and change your preference. The consent state is updated locally and optional tracking behavior should stop for subsequent events.</div></details></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>UI & Reliability</h2>
+      <div class="faq-grid">
+        <div class="faq-card"><details><summary>Why can dropdown text appear unreadable on some Windows/light-mode setups?</summary><div class="answer">Native select rendering differs by browser and OS color management. DivergeX now applies explicit option foreground/background and forced-color compatibility to improve readability in light mode and accessibility modes.</div></details></div>
+        <div class="faq-card"><details><summary>How does DivergeX reduce visual overload risk?</summary><div class="answer">High-contrast red scan effects have been softened, animation intensity reduced, and reduced-motion user preferences are respected to lower visual strain in sensitive environments.</div></details></div>
+        <div class="faq-card"><details><summary>What should I do if a view crashes?</summary><div class="answer">Reload first. If persistent, capture the view, browser, selected route, and a screenshot of the error boundary message. Then report through the contact page with exact reproduction steps.</div></details></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Quick Ops Checklist</h2>
+      <ul>
+        <li>Confirm race ID, current lap, and selected driver before interpreting strategy variants.</li>
+        <li>Cross-check aggressive plans against safety car probability and undercut risk.</li>
+        <li>Use balanced variants as baseline when confidence is low or telemetry quality is mixed.</li>
+        <li>Re-run simulations after every major race event or weather shift.</li>
+      </ul>
+    </section>
+
+    <footer>
+      <div><a href="/privacy-policy.html">Privacy Policy</a> · <a href="/cookie-policy.html">Cookie Policy</a> · <a href="/terms.html">Terms</a> · <a href="/sitemap.xml">Sitemap</a></div>
+      <div style="margin-top:8px;">Last updated: April 2026</div>
+    </footer>
+  </div>
+</body>
+</html>

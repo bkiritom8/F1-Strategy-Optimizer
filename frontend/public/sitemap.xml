@@ -55,6 +55,18 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://f1optimizer.web.app/faq.html</loc>
+    <lastmod>2026-04-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://f1optimizer.web.app/faq-technical.html</loc>
+    <lastmod>2026-04-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://f1optimizer.web.app/contact.html</loc>
     <lastmod>2026-04-08</lastmod>
     <changefreq>yearly</changefreq>

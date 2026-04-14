@@ -31,7 +31,8 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
       title: 'Navigation',
       links: [
         { label: 'Documentation', href: '/docs.html', icon: Book },
-        { label: 'Technical Specs', href: '/docs.html', icon: Info },
+        { label: 'FAQ Center', href: '/faq.html', icon: Info },
+        { label: 'Technical FAQ', href: '/faq-technical.html', icon: Book },
         { label: 'Sitemap', href: '/sitemap.xml', icon: Globe },
       ],
     },
