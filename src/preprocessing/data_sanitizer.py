@@ -15,6 +15,7 @@ def sanitize_data(df: pd.DataFrame) -> pd.DataFrame:
     df_clean = df.copy()
     df_clean = df_clean.dropna(how="all")
     import warnings
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         str_cols = df_clean.select_dtypes(include=["object"]).columns
