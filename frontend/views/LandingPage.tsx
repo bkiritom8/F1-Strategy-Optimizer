@@ -129,7 +129,7 @@ const LandingPage: React.FC = () => {
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-black">
           <video
             ref={heroVideoRef}
-            className="absolute inset-0 w-full h-full object-cover object-center"
+            className="absolute inset-0 w-full h-full object-contain object-center"
             autoPlay
             loop
             muted
@@ -139,9 +139,9 @@ const LandingPage: React.FC = () => {
             style={{
               opacity: isLoopFading ? 0.86 : 1,
               transition: 'opacity 260ms ease-in-out',
-              transform: 'scale(1.04) translateY(-2%)',
+              transform: 'none',
               transformOrigin: 'center center',
-              objectPosition: '50% 42%',
+              objectPosition: '50% 50%',
             }}
             onTimeUpdate={() => {
               const video = heroVideoRef.current;
