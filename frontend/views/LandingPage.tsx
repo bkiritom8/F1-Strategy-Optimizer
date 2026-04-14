@@ -95,23 +95,6 @@ const LandingPage: React.FC<Props> = () => {
   return (
     <div ref={containerRef} className="relative bg-black text-white min-h-screen font-sans selection:bg-red-600/30 overflow-x-hidden">
 
-      {/* ── Global Video Background ── */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <video
-          className="w-full h-full object-cover"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          aria-hidden="true"
-        >
-          <source src="/divergex.mp4" type="video/mp4" />
-        </video>
-        {/* Light readability overlay: 30% */}
-        <div className="absolute inset-0 bg-black/30" />
-      </div>
-
       {/* ── Floating Header ── */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 h-20 backdrop-blur-md border-b border-white/5">
         <div className="flex items-center gap-3">
@@ -150,6 +133,23 @@ const LandingPage: React.FC<Props> = () => {
 
       {/* ── SECTION 1: HERO ── */}
       <section className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden">
+        {/* Hero-only video background */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-black">
+          <video
+            className="absolute inset-0 w-full h-full object-cover object-center"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+          >
+            <source src="/divergex.mp4" type="video/mp4" />
+          </video>
+          {/* Light readability overlay: 30% */}
+          <div className="absolute inset-0 bg-black/30" />
+        </div>
+
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-20">
           <TelemetryBackground />
         </div>
