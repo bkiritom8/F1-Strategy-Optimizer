@@ -1057,32 +1057,31 @@ const RaceSimulation: React.FC = () => {
   // ── Build structured race_inputs for LLM (used by backend tool-calling) ──────
   const raceInputsForLlm = useMemo(() => {
     if (activePrompt) {
-      const s = activePrompt.current_state;
       return {
         driver: selectedDriver.name,
         circuit: raceName || selectedRace.name,
         current_lap: activePrompt.lap,
-        total_laps: s.total_laps ?? totalLaps,
-        tire_compound: s.compound,
-        tire_age_laps: s.tire_age,
-        position: s.position,
-        gap_to_leader: s.gap_to_leader,
-        fuel_remaining_kg: s.fuel_kg,
+        total_laps: activePrompt.current_state.total_laps ?? totalLaps,
+        tire_compound: activePrompt.current_state.compound,
+        tire_age_laps: activePrompt.current_state.tire_age,
+        position: activePrompt.current_state.position,
+        gap_to_leader: activePrompt.current_state.gap_to_leader,
+        fuel_remaining_kg: activePrompt.current_state.fuel_kg,
       };
     }
     if (laps.length === 0) return null;
-    const last = laps[laps.length - 1];
-    const u = last.user;
+    const lapSnap = laps[laps.length - 1];
+    const userState = lapSnap.user;
     return {
       driver: selectedDriver.name,
       circuit: raceName || selectedRace.name,
-      current_lap: last.lap,
+      current_lap: lapSnap.lap,
       total_laps: totalLaps,
-      tire_compound: u.compound,
-      tire_age_laps: u.tire_age,
-      position: u.position,
-      gap_to_leader: u.gap_to_leader,
-      fuel_remaining_kg: u.fuel_kg,
+      tire_compound: userState.compound,
+      tire_age_laps: userState.tire_age,
+      position: userState.position,
+      gap_to_leader: userState.gap_to_leader,
+      fuel_remaining_kg: userState.fuel_kg,
     };
   }, [activePrompt, laps, selectedDriver, raceName, selectedRace, totalLaps]);
 
