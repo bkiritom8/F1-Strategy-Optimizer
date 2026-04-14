@@ -463,9 +463,10 @@ export async function parseStrategy(prompt: string): Promise<{ driver_id: string
  * @returns Simulation results with predicted finish position and lap times.
  */
 export async function simulateStrategy(params: {
-  race_id:   string;
-  driver_id: string;
-  strategy:  [number, string][];
+  race_id:        string;
+  driver_id:      string;
+  strategy:       [number, string][];
+  start_compound?: string;
 }) {
   logger.info(`[endpoints] simulateStrategy: driver=${params.driver_id} race=${params.race_id}`);
   return apiFetch<any>('/api/v1/strategy/simulate', {

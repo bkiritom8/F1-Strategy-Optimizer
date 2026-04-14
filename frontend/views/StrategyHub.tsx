@@ -17,7 +17,7 @@ import {
   Plus, X, Play, Loader2, Trophy, Timer, TrendingUp,
   Send, User, Bot, Sparkles, Zap, Flag,
 } from 'lucide-react';
-import { simulateStrategy, chatWithStrategist } from '../services/endpoints';
+import { simulateStrategy, chatWithStrategist, parseStrategy } from '../services/endpoints';
 import { useRaces2024, useDrivers } from '../hooks/useApi';
 import type { TireCompound } from '../types';
 import RaceSimulation from '../components/RaceSimulation';
@@ -143,7 +143,11 @@ interface ChatMessage {
   model?: string;
   cache_hit?: boolean;
   latency_ms?: number;
+  parsedStrategy?: { driver_id: string; strategy: [number, string][] } | null;
 }
+
+// Patterns that indicate the user is asking a "what if" strategy question
+const WHAT_IF_RE = /what\s+if|if\s+i\s+(pit|start|use|try|go)|pit\s+(at|on|lap)|try\s+(soft|medium|hard|wet|inter)|undercut|overcut|1.?stop|2.?stop|3.?stop|simulate|test\s+strat/i;
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
@@ -259,11 +263,16 @@ const StrategyHub: React.FC = () => {
   const displayStints = mode === 'preset'
     ? selectedPreset.stints.map((s, i) => i === 0 ? { ...s, comp: startingTire } : s)
     : (() => {
+        // In custom mode each entry is {pitLap, compound} = "pit AT lap, go ON compound".
+        // Stint 0 runs on startingTire up to stop 0's lap.
+        // Stint i (i>0) runs on customStints[i-1].compound up to stop i's lap.
+        // Final stint runs on customStints[last].compound to end.
         const stints: { comp: string; laps: number }[] = [];
         let prevLap = 0;
-        for (const s of customStints) {
-          stints.push({ comp: s.compound, laps: s.pitLap - prevLap });
-          prevLap = s.pitLap;
+        for (let i = 0; i < customStints.length; i++) {
+          const stintComp = i === 0 ? startingTire : customStints[i - 1].compound;
+          stints.push({ comp: stintComp, laps: customStints[i].pitLap - prevLap });
+          prevLap = customStints[i].pitLap;
         }
         if (prevLap < TOTAL_LAPS) {
           stints.push({ comp: customStints[customStints.length - 1]?.compound || 'HARD', laps: TOTAL_LAPS - prevLap });
@@ -284,9 +293,10 @@ const StrategyHub: React.FC = () => {
     setSimResult(null);
     try {
       const result = await simulateStrategy({
-        race_id: selectedTrackId,
-        driver_id: selectedDriverId,
-        strategy: strategyArray,
+        race_id:        selectedTrackId,
+        driver_id:      selectedDriverId,
+        strategy:       strategyArray,
+        start_compound: startingTire,
       });
       setSimResult(result);
     } catch {
@@ -296,9 +306,10 @@ const StrategyHub: React.FC = () => {
         : (() => {
             const result: Array<{ comp: string; laps: number }> = [];
             let prev = 0;
-            for (const s of customStints) {
-              result.push({ comp: s.compound, laps: s.pitLap - prev });
-              prev = s.pitLap;
+            for (let i = 0; i < customStints.length; i++) {
+              const stintComp = i === 0 ? startingTire : customStints[i - 1].compound;
+              result.push({ comp: stintComp, laps: customStints[i].pitLap - prev });
+              prev = customStints[i].pitLap;
             }
             if (prev < TOTAL_LAPS) {
               result.push({ comp: customStints[customStints.length - 1]?.compound || 'HARD', laps: TOTAL_LAPS - prev });
@@ -336,26 +347,56 @@ const StrategyHub: React.FC = () => {
     setChatInput('');
     setChatMessages(prev => [...prev, { role: 'user', content: question }]);
     setChatLoading(true);
+    const isStrategyQuestion = WHAT_IF_RE.test(question);
     try {
       const history = chatMessages.slice(1).map(m => ({ role: m.role, content: m.content }));
-      const res = await chatWithStrategist(question, history, {
-        circuit: selectedTrackId,
-        driver: selectedDriverId,
-        tire_compound: startingTire,
-      });
-      setChatMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: res.answer, model: res.model, cache_hit: res.cache_hit, latency_ms: res.latency_ms },
+      // Fire chat + optional strategy parse in parallel
+      const [res, parsed] = await Promise.all([
+        chatWithStrategist(question, history, {
+          circuit: selectedTrackId,
+          driver: selectedDriverId,
+          tire_compound: startingTire,
+        }),
+        isStrategyQuestion
+          ? parseStrategy(question).catch(() => null)
+          : Promise.resolve(null),
       ]);
-    } catch (err) {
       setChatMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Unable to reach the AI Strategist. The backend may be starting up: please try again in a moment. In demo mode, the pit strategy simulator on the left is fully available.' },
+        {
+          role: 'assistant',
+          content: res.answer,
+          model: res.model,
+          cache_hit: res.cache_hit,
+          latency_ms: res.latency_ms,
+          parsedStrategy: parsed && parsed.strategy?.length > 0 ? parsed : null,
+        },
+      ]);
+    } catch {
+      setChatMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: 'Unable to reach the AI Strategist. The backend may be starting up — please try again in a moment. In demo mode, the pit strategy simulator on the left is fully available.' },
       ]);
     } finally {
       setChatLoading(false);
     }
   };
+
+  /** Apply a strategy parsed from chat and run the simulation. */
+  const applyParsedStrategy = useCallback((parsed: { driver_id: string; strategy: [number, string][] }) => {
+    // Convert [[pitLap, compound], ...] to custom stints and run
+    const newStints: Stint[] = parsed.strategy.map(([pitLap, compound]) => ({
+      pitLap,
+      compound: compound as TireCompound,
+    }));
+    setMode('custom');
+    setCustomStints(newStints);
+    setSimResult(null);
+    // Run after state settles
+    setTimeout(() => {
+      runSimulation();
+    }, 50);
+  }, [runSimulation]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -697,7 +738,7 @@ const StrategyHub: React.FC = () => {
                         <Bot className="w-4 h-4 text-white" />
                       </div>
                     )}
-                    <div className="max-w-[85%] flex flex-col gap-1">
+                    <div className="max-w-[85%] flex flex-col gap-1.5">
                       <div
                         className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm break-words ${
                           m.role === 'user'
@@ -713,6 +754,16 @@ const StrategyHub: React.FC = () => {
                             )
                         }
                       </div>
+                      {/* "Apply & Simulate" button — only on assistant messages with a parsed strategy */}
+                      {m.role === 'assistant' && m.parsedStrategy && (
+                        <button
+                          onClick={() => applyParsedStrategy(m.parsedStrategy!)}
+                          className="self-start flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg"
+                        >
+                          <Play className="w-3 h-3" />
+                          Apply &amp; Simulate
+                        </button>
+                      )}
                     </div>
                     {m.role === 'user' && (
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 border mt-1" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>

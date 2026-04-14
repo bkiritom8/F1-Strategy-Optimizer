@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, HelpCircle, ChevronRight, Info, Shield, Zap, Radio, Timer, Menu, X } from 'lucide-react';
+import { AlertTriangle, HelpCircle, ChevronRight, Info, Shield, Zap, Radio, Timer, Menu, X, Map } from 'lucide-react';
 import PositionTower from '../components/PositionTower';
 import DriverCard from '../components/DriverCard';
 import { LiveBadge } from '../components/LiveBadge';
