@@ -23,7 +23,7 @@ const TrackExplorer: React.FC = () => {
             {/* Left Pane: Track Gallery */}
             <div className={`flex-1 p-2 md:p-4 overflow-y-auto ${selectedTrack ? 'hidden xl:block xl:w-2/3' : 'w-full'} transition-all duration-300`}>
                 <div className="mb-2 md:mb-4 border-b pb-2" style={{ borderColor: 'var(--border-color)' }}>
-                    <h1 className="text-3xl md:text-4xl font-display font-black tracking-tighter uppercase italic text-gray-900 dark:text-white">
+                    <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic text-white">
                         Circuit Directory
                     </h1>
                     <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mt-2">
