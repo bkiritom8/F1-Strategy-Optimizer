@@ -1540,12 +1540,6 @@ const RaceSimulation: React.FC = () => {
         <LapTimeline laps={laps.filter(l => l.lap <= currentLap)} userDriverId={selectedDriver.id} />
       </div>
 
-      {/* AI Chat */}
-      <SimChat
-        messages={chatMessages}
-        onSend={handleChat}
-        loading={chatLoading}
-      />
     </div>
   );
 };
