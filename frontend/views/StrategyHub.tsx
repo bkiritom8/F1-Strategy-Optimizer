@@ -269,7 +269,7 @@ const StrategyHub: React.FC = () => {
             <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic">Strategy Hub</h1>
             <p className="text-[10px] uppercase tracking-[4px] text-white/40 mt-2 font-mono flex items-center gap-2">
               <Sparkles className="w-3 h-3 text-blue-400" />
-              Monte Carlo Simulation · AI Strategist · Backend LLM
+              Monte Carlo Simulation · AI Strategist
             </p>
           </div>
           {/* Tab switcher */}
@@ -297,7 +297,7 @@ const StrategyHub: React.FC = () => {
               <select
                 value={selectedDriverId}
                 onChange={e => { setSelectedDriverId(e.target.value); setSimResult(null); }}
-                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[180px]"
+                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[200px]"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
               >
                 {DRIVERS_LIST.map(d => (
@@ -311,7 +311,7 @@ const StrategyHub: React.FC = () => {
               <select
                 value={selectedTrackId}
                 onChange={e => { setSelectedTrackId(e.target.value); setSimResult(null); }}
-                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[220px]"
+                className="px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-600 cursor-pointer min-w-[240px]"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', backgroundColor: 'var(--card-bg)' }}
               >
                 {TRACKS_LIST.map(t => (

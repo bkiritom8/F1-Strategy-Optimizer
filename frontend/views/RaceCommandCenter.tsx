@@ -20,6 +20,7 @@ import { LiveBadge } from '../components/LiveBadge';
 import ConceptTooltip from '../components/ConceptTooltip';
 import { COLORS, F1_GLOSSARY } from '../constants';
 import type { RaceState, DriverTelemetry, StrategyRecommendation } from '../types';
+import RacingBackground from '../components/RacingBackground';
 
 // ── Local fallbacks (previously in constants, removed with mock-data cleanup) ──
 
@@ -447,7 +448,9 @@ const RaceCommandCenter: React.FC = () => {
 
   return (
     <div className="flex h-full overflow-hidden relative">
-      <div className="hidden lg:block w-72 shrink-0 h-full border-r border-white/5 transition-colors duration-300 z-10">
+      <RacingBackground view="command" theme="dark" />
+      
+      <div className="hidden lg:block w-72 shrink-0 h-full border-r border-white/5 transition-colors duration-300 z-10 relative">
         <PositionTower
           telemetry={telemetries}
           drivers={drivers}
@@ -488,7 +491,7 @@ const RaceCommandCenter: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col gap-4 md:gap-5">
+      <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col gap-4 md:gap-5 relative z-10">
         {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="flex justify-between items-end border-b pb-4 shrink-0" style={{ borderColor: 'var(--border-color)' }}>
           <div className="min-w-0 pr-4">
@@ -500,7 +503,7 @@ const RaceCommandCenter: React.FC = () => {
               >
                 <Menu className="w-4 h-4 text-white/60" />
               </button>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-tight uppercase italic truncate">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-tight uppercase italic leading-tight">
                 {selectedRace ? selectedRace.name : raceState.circuit}
               </h1>
               {/* Year selector */}

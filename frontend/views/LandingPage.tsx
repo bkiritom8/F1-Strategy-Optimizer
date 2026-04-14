@@ -25,6 +25,7 @@ import { motion, useScroll, useSpring, useTransform, AnimatePresence } from 'fra
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import Footer from '../components/Footer';
+import { DynamicSimulationBackground } from '../components/DynamicSimulationBackground';
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -132,7 +133,7 @@ const LandingPage: React.FC<Props> = () => {
 
       {/* ── SECTION 1: HERO ── */}
       <section className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden">
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-20">
           <TelemetryBackground />
         </div>
 

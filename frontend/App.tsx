@@ -29,6 +29,7 @@ import { logger } from './services/logger';
 import CookieConsent from './components/CookieConsent';
 import Footer from './components/Footer';
 import AdminModal from './components/AdminModal';
+import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
 
 // Lazy-load views for code splitting
 const RaceCommandCenter = React.lazy(() => import('./views/RaceCommandCenter'));
@@ -131,6 +132,7 @@ const App: React.FC = () => {
     toggleSidebarCollapsed,
     isAdmin,
     setAdminModalOpen,
+    backgroundCircuitId,
   } = useAppStore();
 
 
@@ -160,19 +162,13 @@ const App: React.FC = () => {
 
   if (location.pathname === '/') {
     return renderPublicPage(
-      <>
-        <LandingPage />
-        <AdminModal />
-      </>
+      <LandingPage />
     );
   }
 
   if (location.pathname === '/login') {
     return renderPublicPage(
-      <>
-        <LandingPage />
-        <AdminModal />
-      </>
+      <LandingPage />
     );
   }
 
@@ -214,19 +210,19 @@ const App: React.FC = () => {
             <AnimatePresence>
               {!sidebarCollapsed && (
                 <motion.div
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 'auto' }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className="whitespace-nowrap flex-1 overflow-hidden"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  className="flex-1 overflow-hidden"
                 >
                   {/* Clicking the text also navigates home */}
                   <button
                     onClick={() => { setSidebarOpen(false); navigate('/'); }}
-                    className="text-left hover:opacity-80 transition-opacity pr-2"
+                    className="text-left hover:opacity-80 transition-opacity pr-2 w-full"
                     aria-label="Go to home page"
                   >
-                    <h1 className="font-display font-black tracking-tighter text-xl italic leading-none text-white">Diverge<span className="text-red-600">X</span></h1>
-                    <p className="text-[10px] font-mono text-red-500 font-bold uppercase tracking-widest mt-1">Race Intelligence</p>
+                    <h1 className="font-display font-black tracking-tighter text-xl italic leading-none text-white truncate">Diverge<span className="text-red-600">X</span></h1>
+                    <p className="text-[10px] font-mono text-red-500 font-bold uppercase tracking-widest mt-1 truncate">Race Intelligence</p>
                   </button>
                 </motion.div>
               )}
@@ -339,6 +335,10 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-24 lg:pt-0 lg:pb-0">
+        <DynamicSimulationBackground 
+          circuitId={backgroundCircuitId || 'bahrain'} 
+          className="fixed inset-0 pointer-events-none opacity-[0.06] grayscale saturate-50" 
+        />
         <F1GridBackground />
         <div className="relative z-10 h-full flex flex-col overflow-y-auto scrollbar-hide">
           <div className="flex-1">
