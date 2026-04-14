@@ -476,6 +476,30 @@ export async function simulateStrategy(params: {
 }
 
 /**
+ * Runs a full 20-driver Monte Carlo race simulation with three strategy variants.
+ *
+ * @param params.race_id - Race ID (e.g., "2024_1")
+ * @param params.driver_id - Target driver slug
+ * @param params.start_position - Starting grid position (1-20)
+ * @param params.driver_profile - Optional custom driving profile
+ * @param params.rivals - Optional specific rivals to race against
+ * @returns FullSimulateResponse with variants, standings, and finish probabilities
+ */
+export async function fullSimulateStrategy(params: {
+  race_id: string;
+  driver_id: string;
+  start_position: number;
+  driver_profile?: Record<string, number>;
+  rivals?: string[];
+}) {
+  logger.info(`[endpoints] fullSimulateStrategy: driver=${params.driver_id} race=${params.race_id}`);
+  return apiFetch<any>('/api/v1/strategy/full-simulate', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+/**
  * Fetches the status and inventory of all ML models in the registry.
  * Covers 6 supervised models and 1 RL agent.
  *

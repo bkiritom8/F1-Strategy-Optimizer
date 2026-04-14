@@ -86,7 +86,7 @@ function getMockStrategy(driver_id: string): StrategyRecommendation {
 }
 import type { DriverProfile } from '../types';
 import { useDrivers, useBackendStatus, useRaces2024, useRaces2025, useRaces2026, useOvertakeMetric, useSafetyCarProb } from '../hooks/useApi';
-import { fetchRaceState, fetchStrategyRecommendation } from '../services/endpoints';
+import { fetchRaceState, fetchStrategyRecommendation, fullSimulateStrategy } from '../services/endpoints';
 import { useAppStore } from '../store/useAppStore';
 
 /* ── Tiny sub-components ──────────────────────────────────────────────── */
@@ -350,6 +350,7 @@ const RaceCommandCenter: React.FC = () => {
   const [raceState, setRaceState] = useState<RaceState>(DEFAULT_RACE_STATE);
   const [telemetries, setTelemetries] = useState<DriverTelemetry[]>([]);
   const [liveStrategy, setLiveStrategy] = useState<StrategyRecommendation | null>(null);
+  const [strategyVariants, setStrategyVariants] = useState<any[]>([]);
 
   useEffect(() => {
     if (drivers.length > 0 && !selectedDriverId) setSelectedDriverId(drivers[0].driver_id);
@@ -418,6 +419,25 @@ const RaceCommandCenter: React.FC = () => {
     }, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch strategy simulation variants when race/driver changes
+  useEffect(() => {
+    if (!online || !selectedRaceId || !selectedDriverId || !selectedDriver) return;
+    
+    fullSimulateStrategy({
+      race_id: selectedRaceId,
+      driver_id: selectedDriverId,
+      start_position: (telemetries.find(t => t.driver_id === selectedDriverId)?.position) || 10,
+    })
+      .then(result => {
+        if (result?.variants) {
+          setStrategyVariants(result.variants);
+        }
+      })
+      .catch(err => {
+        console.error('Strategy simulation failed:', err);
+      });
+  }, [online, selectedRaceId, selectedDriverId, selectedDriver]);
 
 
   const selectedDriver = drivers.find(d => d.driver_id === selectedDriverId) || drivers[0];
@@ -740,33 +760,65 @@ const RaceCommandCenter: React.FC = () => {
                 Monte Carlo Strategy Variants
               </h3>
               <div className="space-y-2">
-                {[
-                  { name: 'Variant-Alpha', term: 'Undercut' as const, pits: 'L28, L55', win: '18.4%', risk: 'AGGRESSIVE', riskColor: COLORS.accent.red },
-                  { name: 'Variant-Gamma', term: null, pits: 'L32, L58', win: '22.1%', risk: 'BALANCED', riskColor: COLORS.accent.yellow, optimal: true },
-                ].map(row => (
-                  <div
-                    key={row.name}
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg border"
-                    style={{ borderColor: row.optimal ? `${COLORS.accent.green}40` : 'var(--border-color)', backgroundColor: row.optimal ? `${COLORS.accent.green}08` : 'var(--bg-secondary)' }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-bold text-white">{row.name}</span>
-                        {row.optimal && <span className="text-[8px] font-black px-1 rounded bg-green-500/20 text-green-400 uppercase">Optimal</span>}
-                        {row.term && (
-                          <ConceptTooltip term={row.term}>
-                            <span className="text-[9px] text-blue-400/60 cursor-help">(Undercut)</span>
-                          </ConceptTooltip>
-                        )}
+                {strategyVariants.length > 0 ? (
+                  strategyVariants.map((variant: any, idx: number) => {
+                    const isOptimal = variant.risk_level?.toLowerCase() === 'balanced' || idx === 0;
+                    const riskColor = 
+                      variant.risk_level?.toLowerCase() === 'aggressive' ? COLORS.accent.red :
+                      variant.risk_level?.toLowerCase() === 'balanced' ? COLORS.accent.yellow :
+                      COLORS.accent.green;
+                    const pitStr = variant.pit_laps?.join(', ') ? `L${variant.pit_laps.join(', L')}` : 'N/A';
+                    
+                    return (
+                      <div
+                        key={variant.name || idx}
+                        className="flex items-center gap-2 px-3 py-2.5 rounded-lg border"
+                        style={{ borderColor: isOptimal ? `${COLORS.accent.green}40` : 'var(--border-color)', backgroundColor: isOptimal ? `${COLORS.accent.green}08` : 'var(--bg-secondary)' }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-bold text-white">{variant.name || `Variant-${String.fromCharCode(65 + idx)}`}</span>
+                            {isOptimal && <span className="text-[8px] font-black px-1 rounded bg-green-500/20 text-green-400 uppercase">Optimal</span>}
+                          </div>
+                          <div className="text-[10px] font-mono text-gray-500 mt-0.5">Pit: {pitStr}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-sm font-mono font-bold text-green-400">{((variant.win_probability || 0) * 100).toFixed(1)}%</div>
+                          <div className="text-[9px] font-bold uppercase" style={{ color: riskColor }}>{variant.risk_level?.toUpperCase() || 'UNKNOWN'}</div>
+                        </div>
                       </div>
-                      <div className="text-[10px] font-mono text-gray-500 mt-0.5">Pit: {row.pits}</div>
+                    );
+                  })
+                ) : (
+                  // Fallback to mock data while loading
+                  [
+                    { name: 'Variant-Alpha', term: 'Undercut' as const, pits: 'L28, L55', win: '18.4%', risk: 'AGGRESSIVE', riskColor: COLORS.accent.red },
+                    { name: 'Variant-Gamma', term: null, pits: 'L32, L58', win: '22.1%', risk: 'BALANCED', riskColor: COLORS.accent.yellow, optimal: true },
+                  ].map(row => (
+                    <div
+                      key={row.name}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg border"
+                      style={{ borderColor: row.optimal ? `${COLORS.accent.green}40` : 'var(--border-color)', backgroundColor: row.optimal ? `${COLORS.accent.green}08` : 'var(--bg-secondary)' }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-white">{row.name}</span>
+                          {row.optimal && <span className="text-[8px] font-black px-1 rounded bg-green-500/20 text-green-400 uppercase">Optimal</span>}
+                          {row.term && (
+                            <ConceptTooltip term={row.term}>
+                              <span className="text-[9px] text-blue-400/60 cursor-help">(Undercut)</span>
+                            </ConceptTooltip>
+                          )}
+                        </div>
+                        <div className="text-[10px] font-mono text-gray-500 mt-0.5">Pit: {row.pits}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-mono font-bold text-green-400">{row.win}</div>
+                        <div className="text-[9px] font-bold uppercase" style={{ color: row.riskColor }}>{row.risk}</div>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-sm font-mono font-bold text-green-400">{row.win}</div>
-                      <div className="text-[9px] font-bold uppercase" style={{ color: row.riskColor }}>{row.risk}</div>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
