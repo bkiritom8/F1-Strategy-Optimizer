@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 
 const AdminModal: React.FC = () => {
   const { adminLogin, isAdminModalOpen, setAdminModalOpen } = useAppStore();
+  const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
 
@@ -15,6 +17,7 @@ const AdminModal: React.FC = () => {
       setAdminModalOpen(false);
       setPassword('');
       setError(false);
+      navigate('/admin');
     } else {
       setError(true);
       setTimeout(() => setError(false), 2000);

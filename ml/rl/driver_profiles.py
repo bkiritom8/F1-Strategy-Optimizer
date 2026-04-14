@@ -229,7 +229,7 @@ DRIVER_CONSTRUCTOR_MAP: dict[str, str] = {
     "lando_norris": "mclaren",
     "oscar_piastri": "mclaren",
     "charles_leclerc": "ferrari",
-    "lewis_hamilton": "ferrari",   # 2025 move
+    "lewis_hamilton": "ferrari",  # 2025 move
     "george_russell": "mercedes",
     "kimi_antonelli": "mercedes",
     "fernando_alonso": "aston_martin",
@@ -322,7 +322,7 @@ class CarDegParams:
     """Tire degradation parameters for one compound on one constructor/season."""
 
     deg_slope_per_lap: float = 0.040  # additional degradation per lap (s/lap)
-    base_deg_s: float = 0.100         # degradation at tire age 0 (s)
+    base_deg_s: float = 0.100  # degradation at tire age 0 (s)
 
     def deg_at_age(self, tire_age: int) -> float:
         """Return degradation in seconds at the given tire age (clamped to ≥ 0)."""
@@ -331,11 +331,11 @@ class CarDegParams:
 
 # Sensible defaults per compound when constructor-specific data is unavailable
 _DEFAULT_COMPOUND_DEG: dict[str, CarDegParams] = {
-    "SOFT":   CarDegParams(deg_slope_per_lap=0.070, base_deg_s=0.050),
+    "SOFT": CarDegParams(deg_slope_per_lap=0.070, base_deg_s=0.050),
     "MEDIUM": CarDegParams(deg_slope_per_lap=0.045, base_deg_s=0.100),
-    "HARD":   CarDegParams(deg_slope_per_lap=0.025, base_deg_s=0.150),
-    "INTER":  CarDegParams(deg_slope_per_lap=0.055, base_deg_s=0.200),
-    "WET":    CarDegParams(deg_slope_per_lap=0.040, base_deg_s=0.250),
+    "HARD": CarDegParams(deg_slope_per_lap=0.025, base_deg_s=0.150),
+    "INTER": CarDegParams(deg_slope_per_lap=0.055, base_deg_s=0.200),
+    "WET": CarDegParams(deg_slope_per_lap=0.040, base_deg_s=0.250),
 }
 
 
@@ -347,9 +347,7 @@ class CarProfile:
     display_name: str = ""
     # Pace delta vs field median in ms/lap (negative = faster than median)
     pace_delta_ms: float = 0.0
-    compound_params: dict = field(
-        default_factory=lambda: dict(_DEFAULT_COMPOUND_DEG)
-    )
+    compound_params: dict = field(default_factory=lambda: dict(_DEFAULT_COMPOUND_DEG))
 
     def deg_params(self, compound: str) -> CarDegParams:
         """Return degradation parameters for the given compound."""
@@ -394,7 +392,9 @@ def _load_car_performance_gcs(season: str) -> dict[str, CarProfile]:
         data = json.loads(blob.download_as_text())
         return _parse_car_performance(data, season)
     except Exception as exc:
-        logger.debug("Car performance GCS load failed (%s) — using hardcoded fallback", exc)
+        logger.debug(
+            "Car performance GCS load failed (%s) — using hardcoded fallback", exc
+        )
         return {}
 
 
@@ -437,16 +437,16 @@ def _parse_car_performance(data: dict, target_season: str) -> dict[str, CarProfi
 def _hardcoded_car_profiles() -> dict[str, CarProfile]:
     """Fallback profiles mirroring CAR_PERFORMANCE_OFFSET_MS for the 2024/2025 season."""
     _constructors = {
-        "red_bull":     (-594.0, "Red Bull Racing"),
-        "ferrari":      (-795.0, "Ferrari"),
-        "mclaren":      (-376.0, "McLaren"),
-        "mercedes":     (-611.0, "Mercedes"),
+        "red_bull": (-594.0, "Red Bull Racing"),
+        "ferrari": (-795.0, "Ferrari"),
+        "mclaren": (-376.0, "McLaren"),
+        "mercedes": (-611.0, "Mercedes"),
         "aston_martin": (-199.0, "Aston Martin"),
-        "williams":     (-116.0, "Williams"),
-        "haas":         (-263.0, "Haas"),
-        "alpine":       ( +56.0, "Alpine"),
-        "rb":           (+110.0, "RB"),
-        "sauber":       (+516.0, "Sauber"),
+        "williams": (-116.0, "Williams"),
+        "haas": (-263.0, "Haas"),
+        "alpine": (+56.0, "Alpine"),
+        "rb": (+110.0, "RB"),
+        "sauber": (+516.0, "Sauber"),
     }
     return {
         cid: CarProfile(
@@ -470,10 +470,10 @@ class DriverEntry:
     profile: dict  # aggression, consistency, tire_management, pressure_response
     start_position: int
     start_compound: str  # SOFT / MEDIUM / HARD
-    car_offset_ms: float = 0.0    # lap time offset vs baseline (negative = faster)
-    car_id: str = ""              # constructor ID (e.g. "red_bull", "mclaren")
+    car_offset_ms: float = 0.0  # lap time offset vs baseline (negative = faster)
+    car_id: str = ""  # constructor ID (e.g. "red_bull", "mclaren")
     car_profile: Optional[CarProfile] = None  # loaded from GCS if available
-    is_user: bool = False         # True = RL agent / user controls this driver
+    is_user: bool = False  # True = RL agent / user controls this driver
 
 
 def get_profile(driver_id: str) -> dict[str, float]:
@@ -521,7 +521,9 @@ def build_race_lineup(
 
     def _resolve_car(driver_id: str) -> tuple[str, float, Optional[CarProfile]]:
         """Return (car_id, car_offset_ms, car_profile) for a driver."""
-        constructor_id = overrides.get(driver_id) or DRIVER_CONSTRUCTOR_MAP.get(driver_id, "")
+        constructor_id = overrides.get(driver_id) or DRIVER_CONSTRUCTOR_MAP.get(
+            driver_id, ""
+        )
         profile = car_profiles.get(constructor_id)
         if profile:
             return constructor_id, profile.pace_delta_ms, profile

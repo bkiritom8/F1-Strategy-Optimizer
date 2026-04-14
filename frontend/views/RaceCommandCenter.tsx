@@ -30,6 +30,10 @@ const DEFAULT_RACE_STATE: RaceState = {
   track_grip_level: 95, flag: 'GREEN',
 };
 
+function seedFromString(value: string): number {
+  return value.split('').reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), 0);
+}
+
 function getMockTelemetry(driver_id: string, position: number): DriverTelemetry {
   const seed = driver_id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
   return {
@@ -285,14 +289,15 @@ const RaceCommandCenter: React.FC = () => {
     setSelectedDriverId: setStoreDriverId 
   } = useAppStore();
 
-  const { data: safetyCarData } = useSafetyCarProb(activeRaceRound?.toString() || null);
-  const { data: overtakeData } = useOvertakeMetric(selectedDriverId || null, selectedOpponentId || null);
-
   // Resolve the correct race list based on the selected season
   const races = selectedSeason === 2026 ? races2026 : selectedSeason === 2025 ? races2025 : races2024;
   const racesLoading = selectedSeason === 2026 ? loading2026 : selectedSeason === 2025 ? loading2025 : loading2024;
 
   const selectedRace = races?.find((r: any) => r.round === activeRaceRound) || races?.[0];
+  const selectedRaceId = `${selectedSeason}_${selectedRace?.round ?? activeRaceRound ?? 1}`;
+
+  const { data: safetyCarData } = useSafetyCarProb(selectedRaceId || null);
+  const { data: overtakeData } = useOvertakeMetric(selectedDriverId || null, selectedOpponentId || null, selectedRaceId || null);
 
   useEffect(() => {
     console.debug('[RaceCommandCenter] Component mounted');
@@ -355,10 +360,33 @@ const RaceCommandCenter: React.FC = () => {
   }, [drivers]);
 
   useEffect(() => {
-    if (!online) return;
-    fetchRaceState('2024_1', 23)
+    if (!selectedRace) return;
+    const seed = seedFromString(selectedRaceId);
+    const totalLaps = Math.max(...(selectedRace.results ?? []).map((r: any) => r.laps || 0), 57);
+
+    setRaceState({
+      race_id: selectedRaceId,
+      circuit: selectedRace.circuit?.id || DEFAULT_RACE_STATE.circuit,
+      current_lap: 1,
+      total_laps: totalLaps,
+      weather: 'dry',
+      track_temp_celsius: 30 + (seed % 14),
+      air_temp_celsius: 20 + (seed % 10),
+      track_grip_level: 86 + (seed % 12),
+      flag: 'GREEN',
+    });
+  }, [selectedRace, selectedRaceId]);
+
+  useEffect(() => {
+    if (!online || !selectedRaceId) return;
+    fetchRaceState(selectedRaceId, 1)
       .then(({ raceState: rs, driverStates }) => {
-        setRaceState(prev => ({ ...prev, ...rs }));
+        setRaceState(prev => ({
+          ...prev,
+          ...rs,
+          race_id: selectedRaceId,
+          circuit: selectedRace?.circuit?.id || rs.circuit || prev.circuit,
+        }));
         if (driverStates?.length) {
           setTelemetries(prev =>
             prev.map(t => {
@@ -379,7 +407,7 @@ const RaceCommandCenter: React.FC = () => {
         }
       })
       .catch(() => {});
-  }, [online]);
+  }, [online, selectedRaceId, selectedRace]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -408,13 +436,22 @@ const RaceCommandCenter: React.FC = () => {
     })
       .then(setLiveStrategy)
       .catch(() => setLiveStrategy(null));
-  }, [online, selectedDriverId, raceState.current_lap]);
+  }, [
+    online,
+    selectedDriverId,
+    raceState.race_id,
+    raceState.current_lap,
+    raceState.track_temp_celsius,
+    raceState.air_temp_celsius,
+    selectedTelemetry?.tire_compound,
+    selectedTelemetry?.fuel_remaining_kg,
+  ]);
 
   const selectedStrategy = liveStrategy ?? getMockStrategy(selectedDriverId);
 
   // Deterministic sector times based on selected driver
   const sectorData = useMemo(() => {
-    const seed = selectedDriverId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const seed = seedFromString(`${selectedDriverId}_${selectedRaceId}`);
     const base1 = 24100 + (seed % 500);
     const base2 = 28300 + ((seed * 7) % 600);
     const base3 = 22100 + ((seed * 13) % 400);
@@ -423,7 +460,7 @@ const RaceCommandCenter: React.FC = () => {
       s3: base3 + Math.floor((seed * 5) % 150),
       bestS1: base1, bestS2: base2, bestS3: base3,
     };
-  }, [selectedDriverId]);
+  }, [selectedDriverId, selectedRaceId]);
 
   // DRS zone count based on circuit (fallback to 3)
   const drsZones = useMemo(() => {
@@ -431,7 +468,8 @@ const RaceCommandCenter: React.FC = () => {
       'albert_park': 4, 'jeddah': 3, 'bahrain': 3, 'shanghai': 2, 'miami': 3,
       'imola': 2, 'monaco': 0, 'barcelona': 2, 'villeneuve': 3, 'silverstone': 2,
       'hungaroring': 1, 'spa': 2, 'zandvoort': 1, 'monza': 2, 'marina_bay': 2,
-      'suzuka': 1, 'lusail': 2, 'americas': 2, 'interlagos': 2, 'las_vegas': 2,
+      'suzuka': 1, 'lusail': 2, 'americas': 2, 'cota': 2, 'interlagos': 2, 'las_vegas': 2,
+      'vegas': 2, 'red_bull_ring': 3,
       'yas_marina': 2,
     };
     const id = selectedRace?.circuit?.id || '';
@@ -440,10 +478,10 @@ const RaceCommandCenter: React.FC = () => {
 
   const lapTimeData = useMemo(() => Array.from({ length: 15 }, (_, i) => {
     const lap = i + 8;
-    const seed = (lap * 13) + (selectedDriverId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
+    const seed = (lap * 13) + seedFromString(`${selectedDriverId}_${selectedRaceId}`);
     const deterministicRandom = ((seed * 9301 + 49297) % 233280) / 233280;
     return { lap, time: 74.2 + deterministicRandom * 0.4, benchmark: 74.1 };
-  }), [selectedDriverId]);
+  }), [selectedDriverId, selectedRaceId]);
 
   if (!selectedDriver || !selectedTelemetry) {
     return (

@@ -93,7 +93,24 @@ const LandingPage: React.FC<Props> = () => {
   const [showDataSpecs, setShowDataSpecs] = useState(false);
 
   return (
-    <div ref={containerRef} className="bg-black text-white min-h-screen font-sans selection:bg-red-600/30 overflow-x-hidden">
+    <div ref={containerRef} className="relative bg-black text-white min-h-screen font-sans selection:bg-red-600/30 overflow-x-hidden">
+
+      {/* ── Global Video Background ── */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <video
+          className="w-full h-full object-cover"
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+        >
+          <source src="/divergex.mp4" type="video/mp4" />
+        </video>
+        {/* Light readability overlay: 30% */}
+        <div className="absolute inset-0 bg-black/30" />
+      </div>
 
       {/* ── Floating Header ── */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 lg:px-12 h-20 backdrop-blur-md border-b border-white/5">

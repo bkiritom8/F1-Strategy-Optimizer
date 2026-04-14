@@ -940,7 +940,7 @@ class RaceRunner:
         self._vsc: bool = False
         self._sc_laps_active: int = 0
         self._vsc_laps_active: int = 0
-        self._sc_possible: bool = True   # sampled per-episode in reset()
+        self._sc_possible: bool = True  # sampled per-episode in reset()
         self._vsc_possible: bool = True  # sampled per-episode in reset()
         self._states: dict[str, DriverRaceState] = {}
         self._lap_data: dict[str, list[LapRecord]] = {}
@@ -1107,9 +1107,9 @@ class RaceRunner:
             # Override physics tire delta with car-specific degradation model when
             # a CarProfile is available (set via car_id_overrides in build_race_lineup).
             if d.car_profile is not None:
-                tire_delta_s = d.car_profile.deg_params(
-                    state.tire_compound
-                ).deg_at_age(state.tire_age_laps)
+                tire_delta_s = d.car_profile.deg_params(state.tire_compound).deg_at_age(
+                    state.tire_age_laps
+                )
 
             lap_time_ms = self._compute_lap_time(state, pitted, tire_delta_s)
 

@@ -358,7 +358,13 @@ const App: React.FC = () => {
           </div>
 
           {/* Global Legal Footer for Auth Views */}
-          <Footer onAdminClick={() => setAdminModalOpen(true)} />
+          <Footer onAdminClick={() => {
+            if (isAdmin) {
+              navigate('/admin');
+            } else {
+              setAdminModalOpen(true);
+            }
+          }} />
         </div>
       </main>
 

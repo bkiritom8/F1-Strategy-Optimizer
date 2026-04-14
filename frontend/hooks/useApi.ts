@@ -270,15 +270,15 @@ export function useFeatureImportance(modelName: string | null) {
 /**
  * Hook for live overtake probability between two drivers.
  */
-export function useOvertakeMetric(driverId: string | null, opponentId: string | null): UseApiResult<PredictiveMetric> {
+export function useOvertakeMetric(driverId: string | null, opponentId: string | null, raceId?: string | null): UseApiResult<PredictiveMetric> {
   return useApiCall<PredictiveMetric>(
     () => {
       if (!driverId || !opponentId) throw new Error('Driver and Opponent IDs required');
-      return fetchOvertakeProb(driverId, opponentId);
+      return fetchOvertakeProb(driverId, opponentId, raceId ?? undefined);
     },
     null,
-    [driverId, opponentId],
-    `overtake(${driverId ?? 'none'}-${opponentId ?? 'none'})`,
+    [driverId, opponentId, raceId],
+    `overtake(${driverId ?? 'none'}-${opponentId ?? 'none'}-${raceId ?? 'none'})`,
   );
 }
 

@@ -533,10 +533,11 @@ export async function fetchFeatureImportance(modelName: string): Promise<Feature
  * @param driverId - Attacking driver.
  * @param opponentId - Defending driver.
  */
-export async function fetchOvertakeProb(driverId: string, opponentId: string): Promise<PredictiveMetric> {
-  logger.debug(`[endpoints] fetchOvertakeProb: attacker=${driverId} defender=${opponentId}`);
+export async function fetchOvertakeProb(driverId: string, opponentId: string, raceId?: string): Promise<PredictiveMetric> {
+  logger.debug(`[endpoints] fetchOvertakeProb: attacker=${driverId} defender=${opponentId} race=${raceId ?? 'n/a'}`);
   try {
-    return await apiFetch<PredictiveMetric>(`/api/v1/race/predict/overtake?driver_id=${driverId}&opponent_id=${opponentId}`);
+    const raceQuery = raceId ? `&race_id=${encodeURIComponent(raceId)}` : '';
+    return await apiFetch<PredictiveMetric>(`/api/v1/race/predict/overtake?driver_id=${driverId}&opponent_id=${opponentId}${raceQuery}`);
   } catch (err) {
     return handleApiError('fetchOvertakeProb', err);
   }
