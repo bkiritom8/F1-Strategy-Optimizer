@@ -145,8 +145,18 @@ steps:
             --project=f1optimizer \
             --format="value(name)" > /workspace/job_$$MODEL.txt
         done
-        for MODEL in tire_degradation driving_style safety_car pit_window overtake_prob race_outcome; do
-          JOB_ID=$$(cat /workspace/job_$$MODEL.txt)
+        echo "Submitting: build_constructor_pace"
+        gcloud ai custom-jobs create \
+          --region=us-central1 \
+          --display-name="build-constructor-pace-$SHORT_SHA" \
+          --worker-pool-spec="machine-type=n1-standard-8,replica-count=1,container-image-uri=us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml:$COMMIT_SHA" \
+          --args="python,pipeline/scripts/build_constructor_pace.py,--output,gs://f1optimizer-data-lake/processed/constructor_pace.json" \
+          --project=f1optimizer \
+          --format="value(name)" > /workspace/job_constructor_pace.txt
+        for MODEL in tire_degradation driving_style safety_car pit_window overtake_prob race_outcome constructor_pace; do
+          JOB_FILE="/workspace/job_$$MODEL.txt"
+          [ -f "$$JOB_FILE" ] || continue
+          JOB_ID=$$(cat $$JOB_FILE)
           for i in $$(seq 1 180); do
             STATE=$$(gcloud ai custom-jobs describe $$JOB_ID \
               --region=us-central1 --project=f1optimizer \
