@@ -149,7 +149,7 @@ const LandingPage: React.FC<Props> = () => {
             style={{
               opacity: isLoopFading ? 0.86 : 1,
               transition: 'opacity 260ms ease-in-out',
-              transform: 'scale(1.08) translateY(-4%)',
+              transform: 'scale(1.16) translateY(-8%)',
               transformOrigin: 'center center',
             }}
             onTimeUpdate={() => {
@@ -169,9 +169,7 @@ const LandingPage: React.FC<Props> = () => {
           <div className="absolute inset-0 bg-black/30" />
         </div>
 
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-20">
-          <TelemetryBackground />
-        </div>
+        {/* Keep hero clean so the video fully defines the first screen visual */}
 
         {/* Translucent logo watermark */}
         <motion.div
