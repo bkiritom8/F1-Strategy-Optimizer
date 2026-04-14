@@ -139,14 +139,19 @@ const LandingPage: React.FC<Props> = () => {
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-black">
           <video
             ref={heroVideoRef}
-            className="absolute inset-0 w-full h-full object-contain object-center"
+            className="absolute inset-0 w-full h-full object-cover object-center"
             autoPlay
             loop
             muted
             playsInline
             preload="auto"
             aria-hidden="true"
-            style={{ opacity: isLoopFading ? 0.86 : 1, transition: 'opacity 260ms ease-in-out' }}
+            style={{
+              opacity: isLoopFading ? 0.86 : 1,
+              transition: 'opacity 260ms ease-in-out',
+              transform: 'scale(1.08) translateY(-4%)',
+              transformOrigin: 'center center',
+            }}
             onTimeUpdate={() => {
               const video = heroVideoRef.current;
               if (!video || !video.duration) return;
