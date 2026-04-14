@@ -30,6 +30,7 @@ from ml.dag.components import (
     train_pit_stop_op,
     evaluate_op,
     deploy_op,
+    build_constructor_pace_op,
 )
 
 # ── Pipeline constants ────────────────────────────────────────────────────────
@@ -109,7 +110,7 @@ def f1_strategy_pipeline(
         .set_memory_limit("16G")
     )
 
-    # ── Step 3b: Train pit stop model (parallel with 3a) ─────────────────────
+    # ── Step 3b: Train pit stop model (parallel with 3a, 3c) ─────────────────
     train_pit = (
         train_pit_stop_op(
             project_id=project_id,
@@ -121,6 +122,21 @@ def f1_strategy_pipeline(
         )
         .after(features)
         .set_display_name("Train Pit Stop Model")
+        .set_retry(num_retries=2, backoff_duration="120s")
+        .set_cpu_limit("4")
+        .set_memory_limit("16G")
+    )
+
+    # ── Step 3c: Build constructor pace model (parallel with 3a, 3b) ─────────
+    constructor_pace = (
+        build_constructor_pace_op(
+            project_id=project_id,
+            data_bucket="f1optimizer-data-lake",
+            run_id=run_id,
+            feature_manifest=features.outputs["feature_manifest"],
+        )
+        .after(features)
+        .set_display_name("Build Constructor Pace")
         .set_retry(num_retries=2, backoff_duration="120s")
         .set_cpu_limit("4")
         .set_memory_limit("16G")
@@ -164,6 +180,6 @@ def f1_strategy_pipeline(
         cloud_run_service=cloud_run_service,
         strategy_eval_report=eval_strategy.outputs["eval_report"],
         pit_stop_eval_report=eval_pit.outputs["eval_report"],
-    ).after(eval_strategy, eval_pit).set_display_name("Deploy Models").set_retry(
+    ).after(eval_strategy, eval_pit, constructor_pace).set_display_name("Deploy Models").set_retry(
         num_retries=2, backoff_duration="60s"
     )
