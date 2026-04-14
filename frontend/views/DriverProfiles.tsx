@@ -40,6 +40,38 @@ const CURRENT_2026_DRIVERS = new Set([
 const SEASON_YEARS = [2026, 2025, 2024] as const;
 type SeasonYear = typeof SEASON_YEARS[number];
 
+const TEAM_DISPLAY_ALIASES: Record<string, string> = {
+  red_bull: 'Red Bull Racing',
+  'red bull': 'Red Bull Racing',
+  mercedes: 'Mercedes',
+  ferrari: 'Ferrari',
+  mclaren: 'McLaren',
+  williams: 'Williams',
+  alpine: 'Alpine',
+  'alpine f1 team': 'Alpine',
+  'aston_martin': 'Aston Martin',
+  'aston martin': 'Aston Martin',
+  sauber: 'Audi',
+  audi: 'Audi',
+  rb: 'Visa Cash App RB',
+  'rb f1 team': 'Visa Cash App RB',
+  'visa cash app rb': 'Visa Cash App RB',
+  haas: 'Haas F1 Team',
+  'haas f1 team': 'Haas F1 Team',
+};
+
+function normalizeTeamName(team: string): string {
+  if (!team) return 'Unknown';
+  const key = team.trim().toLowerCase().replace(/[-\s]+/g, '_');
+  const direct = TEAM_DISPLAY_ALIASES[key] || TEAM_DISPLAY_ALIASES[team.trim().toLowerCase()];
+  if (direct) return direct;
+
+  // Fallback for unknown slugs: snake_case -> Title Case
+  return team
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char: string) => char.toUpperCase());
+}
+
 const DriverProfiles: React.FC = () => {
   const { data: drivers, loading } = useDrivers();
   const { data: races2024 } = useRaces2024();
@@ -114,7 +146,7 @@ const DriverProfiles: React.FC = () => {
         d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         d.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         d.nationality.toLowerCase().includes(searchQuery.toLowerCase());
-      const team = seasonStats.get(d.driver_id)?.team || d.team;
+      const team = normalizeTeamName(seasonStats.get(d.driver_id)?.team || d.team);
       const matchesTeam = filterTeam === 'all' || team === filterTeam;
       return matchesSearch && matchesTeam;
     });
@@ -133,7 +165,7 @@ const DriverProfiles: React.FC = () => {
     const teamSet = new Set<string>();
     if (drivers) {
       for (const d of drivers) {
-        const team = seasonStats.get(d.driver_id)?.team || d.team;
+        const team = normalizeTeamName(seasonStats.get(d.driver_id)?.team || d.team);
         if (team && team !== 'Unknown') teamSet.add(team);
       }
     }
@@ -231,6 +263,7 @@ const DriverProfiles: React.FC = () => {
             <div className="absolute top-full left-0 right-0 mt-2 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] max-h-60 overflow-y-auto z-50 py-2 border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
               {filteredDrivers.map(d => {
                 const st = seasonStats.get(d.driver_id);
+                const teamName = normalizeTeamName(st?.team || d.team);
                 return (
                   <div
                     key={d.driver_id}
@@ -239,7 +272,7 @@ const DriverProfiles: React.FC = () => {
                   >
                     <span className="font-bold w-10 text-white/40">{d.code}</span>
                     <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{d.name}</span>
-                    <span className="text-xs text-white/40 ml-auto">{st?.team || d.team}</span>
+                    <span className="text-xs text-white/40 ml-auto">{teamName}</span>
                     <span className="text-xs font-mono text-yellow-500">{st?.points || 0} pts</span>
                   </div>
                 );
@@ -275,7 +308,8 @@ const DriverProfiles: React.FC = () => {
             .map((d, i) => {
               const st = seasonStats.get(d.driver_id);
               const isSelected = selectedDriver?.driver_id === d.driver_id;
-              const teamColor = TEAM_COLORS[st?.team || d.team] || '#666';
+              const teamName = normalizeTeamName(st?.team || d.team);
+              const teamColor = TEAM_COLORS[teamName] || '#666';
               return (
                 <motion.div
                   key={d.driver_id}
@@ -302,7 +336,7 @@ const DriverProfiles: React.FC = () => {
                       <span className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{d.name}</span>
                       <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: teamColor + '20', color: teamColor }}>{d.code}</span>
                     </div>
-                    <div className="text-[10px] text-white/40">{st?.team || d.team} · {d.nationality}</div>
+                    <div className="text-[10px] text-white/40">{teamName} · {d.nationality}</div>
                   </div>
                   {/* Season Stats */}
                   <div className="flex items-center gap-4 shrink-0">
@@ -339,7 +373,7 @@ const DriverProfiles: React.FC = () => {
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
                 >
                   {(() => {
-                    const teamName = selectedStats?.team || selectedDriver.team;
+                    const teamName = normalizeTeamName(selectedStats?.team || selectedDriver.team);
                     const teamColor = TEAM_COLORS[teamName] || '#666';
                     return (
                       <div
@@ -351,7 +385,7 @@ const DriverProfiles: React.FC = () => {
 
                   {/* Header */}
                   {(() => {
-                    const teamName = selectedStats?.team || selectedDriver.team;
+                    const teamName = normalizeTeamName(selectedStats?.team || selectedDriver.team);
                     const teamColor = TEAM_COLORS[teamName] || '#666';
                     return (
                       <div className="flex gap-6 items-center mb-8">
