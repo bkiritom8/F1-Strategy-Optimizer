@@ -41,7 +41,7 @@ class RagConfig(BaseSettings):
     TOP_K: int = 5
 
     # Generation Configuration
-    MAX_OUTPUT_TOKENS: int = 1024
+    MAX_OUTPUT_TOKENS: int = 4096
     LLM_TEMPERATURE: float = 0.2
 
     # Embedding Batch Configuration
