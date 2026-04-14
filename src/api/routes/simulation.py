@@ -511,7 +511,9 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                             await websocket.send_json({"type": "keepalive"})
                         except Exception:
                             raise WebSocketDisconnect()
-                decision: dict = json.loads(decision_raw) if decision_raw else {"type": "accept"}
+                decision: dict = (
+                    json.loads(decision_raw) if decision_raw else {"type": "accept"}
+                )
 
                 d_type = decision.get("type", "accept")
                 if d_type == "override" and "action" in decision:
