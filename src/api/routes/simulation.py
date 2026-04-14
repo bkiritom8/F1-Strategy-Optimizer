@@ -488,14 +488,30 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                     }
                 )
 
-                # Wait for user decision (90s timeout → auto-accept)
-                try:
-                    decision_raw = await asyncio.wait_for(
-                        websocket.receive_text(), timeout=90.0
-                    )
-                    decision: dict = json.loads(decision_raw)
-                except asyncio.TimeoutError:
-                    decision = {"type": "accept"}
+                # Wait for user decision (90s timeout → auto-accept).
+                # Send a keepalive ping every 25s so Cloud Run / proxies
+                # don't close the idle connection before the user decides.
+                decision_raw = None
+                deadline = asyncio.get_event_loop().time() + 90.0
+                while True:
+                    remaining = deadline - asyncio.get_event_loop().time()
+                    if remaining <= 0:
+                        break
+                    try:
+                        decision_raw = await asyncio.wait_for(
+                            websocket.receive_text(),
+                            timeout=min(25.0, remaining),
+                        )
+                        break
+                    except asyncio.TimeoutError:
+                        if asyncio.get_event_loop().time() >= deadline:
+                            break
+                        # Still within 90s window — send keepalive and keep waiting
+                        try:
+                            await websocket.send_json({"type": "keepalive"})
+                        except Exception:
+                            raise WebSocketDisconnect()
+                decision: dict = json.loads(decision_raw) if decision_raw else {"type": "accept"}
 
                 d_type = decision.get("type", "accept")
                 if d_type == "override" and "action" in decision:

@@ -1277,6 +1277,10 @@ const RaceSimulation: React.FC = () => {
         setStatusMsg('Final lap : race finishing…');
       }
 
+      else if (msg.type === 'keepalive') {
+        // Server-side keepalive to prevent Cloud Run idle timeout — no-op
+      }
+
       else if (msg.type === 'error') {
         setStatusMsg(`Error: ${msg.message}`);
         setPhase('setup');
@@ -1285,13 +1289,15 @@ const RaceSimulation: React.FC = () => {
     };
 
     ws.onerror = () => {
-      setStatusMsg('WebSocket error - check the backend is running');
+      setStatusMsg('WebSocket error — check the backend is running');
       setPhase('setup');
     };
 
-    ws.onclose = (ev) => {
-      if (phase !== 'finished') {
-        setStatusMsg(`Disconnected (code ${ev.code})`);
+    ws.onclose = () => {
+      // Use the ref (not stale `phase` closure) to distinguish clean finish from real disconnect
+      if (!raceFinishedDataRef.current) {
+        setStatusMsg('Disconnected — the simulation lost connection. Try again.');
+        setPhase('setup');
       }
     };
   }, [selectedRace, selectedDriver, startPosition, startCompound, closeWs, startPlayback, phase]);
