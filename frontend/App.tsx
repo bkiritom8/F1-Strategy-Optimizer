@@ -24,12 +24,12 @@ import {
 } from 'lucide-react';
 import { useBackendStatus } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
-import { F1GridBackground } from './components/F1GridBackground';
 import { logger } from './services/logger';
 import CookieConsent from './components/CookieConsent';
 import Footer from './components/Footer';
 import AdminModal from './components/AdminModal';
 import { DynamicSimulationBackground } from './components/DynamicSimulationBackground';
+import RacingBackground from './components/RacingBackground';
 
 const LAZY_RELOAD_KEY = 'divergex:lazy-reload-attempted';
 
@@ -363,11 +363,11 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 relative flex flex-col min-w-0 pt-14 pb-24 lg:pt-0 lg:pb-0">
+        <RacingBackground view="command" theme="dark" />
         <DynamicSimulationBackground 
           circuitId={backgroundCircuitId || 'bahrain'} 
-          className="fixed inset-0 pointer-events-none opacity-[0.06] grayscale saturate-50" 
+          className="fixed inset-0 pointer-events-none opacity-[0.03] grayscale saturate-50" 
         />
-        <F1GridBackground />
         <div className="relative z-10 h-full flex flex-col overflow-y-auto scrollbar-hide">
           <div className="flex-1">
             <ViewErrorBoundary>

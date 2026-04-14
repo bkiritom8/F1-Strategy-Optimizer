@@ -20,7 +20,6 @@ import { LiveBadge } from '../components/LiveBadge';
 import ConceptTooltip from '../components/ConceptTooltip';
 import { COLORS, F1_GLOSSARY } from '../constants';
 import type { RaceState, DriverTelemetry, StrategyRecommendation } from '../types';
-import RacingBackground from '../components/RacingBackground';
 
 // ── Local fallbacks (previously in constants, removed with mock-data cleanup) ──
 
@@ -295,6 +294,8 @@ const RaceCommandCenter: React.FC = () => {
 
   const selectedRace = races?.find((r: any) => r.round === activeRaceRound) || races?.[0];
   const selectedRaceId = `${selectedSeason}_${selectedRace?.round ?? activeRaceRound ?? 1}`;
+  const hasFullRaceResults = (selectedRace?.results?.length ?? 0) >= 10;
+  const hasUsableRaceData = !!selectedRace && (selectedSeason !== 2026 || hasFullRaceResults);
 
   const { data: safetyCarData } = useSafetyCarProb(selectedRaceId || null);
   const { data: overtakeData } = useOvertakeMetric(selectedDriverId || null, selectedOpponentId || null, selectedRaceId || null);
@@ -306,11 +307,12 @@ const RaceCommandCenter: React.FC = () => {
 
   // Sync background circuit with the selected race
   useEffect(() => {
+    if (!hasUsableRaceData) return;
     if (selectedRace?.circuit?.id) {
       console.debug('[RaceCommandCenter] Syncing background:', selectedRace.circuit.id);
       setBackgroundCircuitId(selectedRace.circuit.id);
     }
-  }, [selectedRace, setBackgroundCircuitId]);
+  }, [hasUsableRaceData, selectedRace, setBackgroundCircuitId]);
 
   useEffect(() => {
     if (selectedDriverId) setStoreDriverId(selectedDriverId);
@@ -368,11 +370,15 @@ const RaceCommandCenter: React.FC = () => {
   }, [drivers, selectedDriverId]);
 
   useEffect(() => {
+    if (!hasUsableRaceData) {
+      setTelemetries([]);
+      return;
+    }
     setTelemetries(drivers.map((d, i) => getMockTelemetry(d.driver_id, i + 1)));
-  }, [drivers]);
+  }, [drivers, hasUsableRaceData]);
 
   useEffect(() => {
-    if (!selectedRace) return;
+    if (!selectedRace || !hasUsableRaceData) return;
     const seed = seedFromString(selectedRaceId);
     const totalLaps = Math.max(...(selectedRace.results ?? []).map((r: any) => r.laps || 0), 57);
 
@@ -387,10 +393,10 @@ const RaceCommandCenter: React.FC = () => {
       track_grip_level: 86 + (seed % 12),
       flag: 'GREEN',
     });
-  }, [selectedRace, selectedRaceId]);
+  }, [selectedRace, selectedRaceId, hasUsableRaceData]);
 
   useEffect(() => {
-    if (!online || !selectedRaceId) return;
+    if (!online || !selectedRaceId || !hasUsableRaceData) return;
     fetchRaceState(selectedRaceId, 1)
       .then(({ raceState: rs, driverStates }) => {
         setRaceState(prev => ({
@@ -419,7 +425,7 @@ const RaceCommandCenter: React.FC = () => {
         }
       })
       .catch(() => {});
-  }, [online, selectedRaceId, selectedRace]);
+  }, [online, selectedRaceId, selectedRace, hasUsableRaceData]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -433,7 +439,7 @@ const RaceCommandCenter: React.FC = () => {
 
   // Fetch strategy simulation variants when race/driver changes
   useEffect(() => {
-    if (!online || !selectedRaceId || !selectedDriverId) return;
+    if (!online || !selectedRaceId || !selectedDriverId || !hasUsableRaceData) return;
     
     fullSimulateStrategy({
       race_id: selectedRaceId,
@@ -448,14 +454,14 @@ const RaceCommandCenter: React.FC = () => {
       .catch(err => {
         console.error('Strategy simulation failed:', err);
       });
-  }, [online, selectedRaceId, selectedDriverId, telemetries]);
+  }, [online, selectedRaceId, selectedDriverId, telemetries, hasUsableRaceData]);
 
 
   const selectedDriver = drivers.find(d => d.driver_id === selectedDriverId) || drivers[0];
   const selectedTelemetry = telemetries.find(t => t.driver_id === selectedDriverId) || telemetries[0];
 
   useEffect(() => {
-    if (!online || !selectedDriverId) return;
+    if (!online || !selectedDriverId || !hasUsableRaceData) return;
     fetchStrategyRecommendation({
       race_id: raceState.race_id,
       driver_id: selectedDriverId,
@@ -470,6 +476,7 @@ const RaceCommandCenter: React.FC = () => {
   }, [
     online,
     selectedDriverId,
+    hasUsableRaceData,
     raceState.race_id,
     raceState.current_lap,
     raceState.track_temp_celsius,
@@ -514,10 +521,38 @@ const RaceCommandCenter: React.FC = () => {
     return { lap, time: 74.2 + deterministicRandom * 0.4, benchmark: 74.1 };
   }), [selectedDriverId, selectedRaceId]);
 
+  if (!hasUsableRaceData) {
+    return (
+      <div className="flex h-full items-center justify-center relative">
+        <div className="z-10 w-full max-w-xl mx-4 p-6 rounded-2xl border bg-black/50 backdrop-blur-sm" style={{ borderColor: 'var(--border-color)' }}>
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5" />
+            <div>
+              <h2 className="text-base font-display font-bold uppercase tracking-wide text-white">2026 Data Is Provisional</h2>
+              <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
+                Complete 2026 race results are not available yet. The current feed is partial, so this dashboard is paused to prevent incorrect race insights.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedSeason(2025);
+                    setActiveRaceRound(1);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide bg-red-600 text-white hover:bg-red-500 transition-colors"
+                >
+                  Switch to 2025 Data
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!selectedDriver || !selectedTelemetry) {
     return (
       <div className="flex h-full items-center justify-center relative">
-        <RacingBackground view="command" theme="dark" />
         <div className="z-10 flex flex-col items-center gap-4">
           {racesLoading ? (
             <>
