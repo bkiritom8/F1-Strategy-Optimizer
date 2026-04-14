@@ -1,0 +1,456 @@
+{
+  "version": "2026-04-14",
+  "reference": "field_median",
+  "constructors": {
+    "alfa_romeo": {
+      "display_name": "Alfa Romeo",
+      "seasons": {
+        "2020": {
+          "pace_delta_s": -0.162,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2021": {
+          "pace_delta_s": 0.037,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": 0.037,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": 0.142,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": 0.0,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "alphatauri": {
+      "display_name": "AlphaTauri",
+      "seasons": {
+        "2020": {
+          "pace_delta_s": -0.338,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2021": {
+          "pace_delta_s": -0.479,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": -0.102,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": -0.044,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "alpine": {
+      "display_name": "Alpine",
+      "seasons": {
+        "2021": {
+          "pace_delta_s": -0.319,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": -0.439,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": -0.577,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2024": {
+          "pace_delta_s": 0.005,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "aston_martin": {
+      "display_name": "Aston Martin",
+      "seasons": {
+        "2021": {
+          "pace_delta_s": -0.113,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": 0.028,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": -0.775,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2024": {
+          "pace_delta_s": -0.268,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "ferrari": {
+      "display_name": "Ferrari",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -1.814,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": -1.434,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2020": {
+          "pace_delta_s": -0.019,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2021": {
+          "pace_delta_s": -0.376,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": -1.133,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": -0.514,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2024": {
+          "pace_delta_s": -0.895,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "force_india": {
+      "display_name": "Force India",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -0.31,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "haas": {
+      "display_name": "Haas F1 Team",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -0.575,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": -0.022,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2020": {
+          "pace_delta_s": -0.013,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2021": {
+          "pace_delta_s": 0.747,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": -0.139,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": -0.072,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2024": {
+          "pace_delta_s": -0.253,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "mclaren": {
+      "display_name": "McLaren",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -0.088,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": 0.252,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2020": {
+          "pace_delta_s": 0.076,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2021": {
+          "pace_delta_s": -0.04,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": 0.439,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": 0.414,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2024": {
+          "pace_delta_s": -0.438,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "mercedes": {
+      "display_name": "Mercedes",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -1.71,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": -1.756,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2020": {
+          "pace_delta_s": -1.569,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2021": {
+          "pace_delta_s": -1.321,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": -0.774,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": -0.559,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2024": {
+          "pace_delta_s": -0.674,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "racing_point": {
+      "display_name": "Racing Point",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -0.411,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": -0.177,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2020": {
+          "pace_delta_s": -0.674,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "rb": {
+      "display_name": "RB",
+      "seasons": {
+        "2024": {
+          "pace_delta_s": 0.074,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "red_bull": {
+      "display_name": "Red Bull Racing",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -1.421,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": -1.045,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2020": {
+          "pace_delta_s": -0.977,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2021": {
+          "pace_delta_s": -1.107,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": -1.099,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": -0.875,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2024": {
+          "pace_delta_s": -0.702,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "renault": {
+      "display_name": "Renault",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -0.132,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": -0.325,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2020": {
+          "pace_delta_s": -0.457,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "sauber": {
+      "display_name": "Kick Sauber",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": 0.215,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2024": {
+          "pace_delta_s": 0.465,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "toro_rosso": {
+      "display_name": "Toro Rosso",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": -0.085,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": -0.281,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "unknown": {
+      "display_name": "Unknown",
+      "seasons": {
+        "2024": {
+          "pace_delta_s": -0.494,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2025": {
+          "pace_delta_s": -0.345,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    },
+    "williams": {
+      "display_name": "Williams",
+      "seasons": {
+        "2018": {
+          "pace_delta_s": 0.16,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2019": {
+          "pace_delta_s": 1.333,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2020": {
+          "pace_delta_s": 0.514,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2021": {
+          "pace_delta_s": 0.537,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2022": {
+          "pace_delta_s": 0.438,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2023": {
+          "pace_delta_s": -0.228,
+          "data_tier": 1,
+          "limited_data": false
+        },
+        "2024": {
+          "pace_delta_s": -0.185,
+          "data_tier": 1,
+          "limited_data": false
+        }
+      }
+    }
+  }
+}
