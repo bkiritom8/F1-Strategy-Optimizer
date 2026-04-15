@@ -13,7 +13,6 @@ import math
 import os
 from typing import Any
 
-import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -94,44 +93,11 @@ async def _run_simulation(
     coordinator: SimulationCoordinator,
 ) -> None:
     """
-    Calls external simulation endpoint, pipes SSE frames into Redis.
-    Falls back to rule-based placeholder if endpoint unavailable.
+    Runs the race simulation and pipes lap frames into Redis.
+    Uses the internal rule-based engine (external simulation worker not deployed).
     """
     coordinator.set_status(job_id, "running")
-    try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream("POST", SIMULATION_ENDPOINT, json=payload) as resp:
-                if resp.status_code != 200:
-                    raise httpx.HTTPStatusError(
-                        f"Simulation endpoint returned {resp.status_code}",
-                        request=resp.request,
-                        response=resp,
-                    )
-                async for line in resp.aiter_lines():
-                    if not line.startswith("data: "):
-                        continue
-                    try:
-                        frame = json.loads(line[6:])
-                        coordinator.push_frame(job_id, frame)
-                        if frame.get("type") == "complete":
-                            coordinator.cache_result(
-                                job_id,
-                                frame,
-                                has_strategy_overrides=bool(
-                                    payload.get("scenario", {}).get(
-                                        "strategy_overrides"
-                                    )
-                                ),
-                            )
-                    except json.JSONDecodeError:
-                        pass
-        coordinator.set_status(job_id, "complete")
-
-    except Exception as exc:
-        logger.warning(
-            "Simulation endpoint unavailable, using rule-based fallback: %s", exc
-        )
-        _run_rule_based_fallback(job_id, payload, coordinator)
+    _run_rule_based_fallback(job_id, payload, coordinator)
 
 
 def _run_rule_based_fallback(
