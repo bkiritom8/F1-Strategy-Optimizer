@@ -140,7 +140,7 @@ const LandingPage: React.FC = () => {
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-black">
           <video
             ref={heroVideoRef}
-            className="absolute inset-0 w-full h-full object-contain object-center"
+            className="absolute inset-0 w-full h-full object-cover object-center"
             autoPlay
             loop
             muted
@@ -165,6 +165,7 @@ const LandingPage: React.FC = () => {
               }
             }}
           >
+            <source src="/divergex.mp4" type="video/mp4" />
             <source src="/DivergeX%20animated.mp4" type="video/mp4" />
           </video>
           {/* Light readability overlay: 30% */}
