@@ -27,6 +27,8 @@ import asyncio
 import json
 import logging
 import os
+import time
+import uuid
 from typing import Any, Optional, cast
 
 import numpy as np
@@ -134,6 +136,20 @@ DRIVER_CODE: dict[str, str] = {
 
 _rl_agent: Any = None
 _rl_load_attempted = False
+
+PAUSED_SESSION_TTL_SECONDS = 15 * 60
+_paused_sim_sessions: dict[str, dict[str, Any]] = {}
+
+
+def _cleanup_paused_sessions() -> None:
+    now = time.time()
+    expired = [
+        sid
+        for sid, sess in _paused_sim_sessions.items()
+        if now - float(sess.get("paused_at", now)) > PAUSED_SESSION_TTL_SECONDS
+    ]
+    for sid in expired:
+        _paused_sim_sessions.pop(sid, None)
 
 
 def _try_load_rl_agent() -> Any:
@@ -331,135 +347,238 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
       4. After the final lap, server sends "finished" with full race stats.
     """
     await websocket.accept()
+    _cleanup_paused_sessions()
+
+    runner: Optional[RaceRunner] = None
+    session_id = ""
+    race_id = "2025_4"
+    driver_id = "max_verstappen"
+    circuit_id = "bahrain"
+    race_name = "Grand Prix"
+    total_laps = 57
+    year = 2025
+    obs = np.array([])
+    info: dict[str, Any] = {}
+    prev_info: dict[str, Any] = {}
+    prompt_count = 0
+    decision_history: list[dict[str, Any]] = []
+    batch: list[dict[str, Any]] = []
+    drivers_payload: list[dict[str, Any]] = []
+    pending_prompt_payload: Optional[dict[str, Any]] = None
+
+    async def _wait_for_decision() -> dict[str, Any]:
+        decision_raw = None
+        deadline = asyncio.get_event_loop().time() + 90.0
+        while True:
+            remaining = deadline - asyncio.get_event_loop().time()
+            if remaining <= 0:
+                break
+            try:
+                decision_raw = await asyncio.wait_for(
+                    websocket.receive_text(), timeout=min(25.0, remaining)
+                )
+                break
+            except asyncio.TimeoutError:
+                if asyncio.get_event_loop().time() >= deadline:
+                    break
+                await websocket.send_json({"type": "keepalive"})
+        return json.loads(decision_raw) if decision_raw else {"type": "accept"}
 
     try:
-        # ── Step 1: receive start config ──────────────────────────────────────
         raw = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
-        msg: dict = json.loads(raw)
-        if msg.get("type") != "start":
+        msg: dict[str, Any] = json.loads(raw)
+        msg_type = str(msg.get("type", ""))
+
+        if msg_type == "resume":
+            requested_session_id = str(msg.get("session_id", ""))
+            saved = _paused_sim_sessions.pop(requested_session_id, None)
+            if not saved:
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "Simulation session expired or not found. Start a new run.",
+                    }
+                )
+                return
+
+            session_id = requested_session_id
+            runner = cast(RaceRunner, saved["runner"])
+            race_id = cast(str, saved["race_id"])
+            driver_id = cast(str, saved["driver_id"])
+            circuit_id = cast(str, saved["circuit_id"])
+            race_name = cast(str, saved["race_name"])
+            total_laps = int(saved["total_laps"])
+            year = int(saved["year"])
+            obs = cast(np.ndarray, saved["obs"])
+            info = cast(dict[str, Any], saved["info"])
+            prev_info = cast(dict[str, Any], saved["prev_info"])
+            prompt_count = int(saved["prompt_count"])
+            decision_history = cast(list[dict[str, Any]], saved["decision_history"])
+            batch = cast(list[dict[str, Any]], saved["batch"])
+            drivers_payload = cast(list[dict[str, Any]], saved["drivers_payload"])
+            pending_prompt_payload = cast(
+                Optional[dict[str, Any]], saved.get("pending_prompt_payload")
+            )
+
             await websocket.send_json(
-                {"type": "error", "message": 'First message must be type="start"'}
+                {
+                    "type": "resumed",
+                    "session_id": session_id,
+                    "race_id": race_id,
+                    "circuit_name": race_name,
+                    "circuit_id": circuit_id,
+                    "total_laps": total_laps,
+                    "user_driver_id": driver_id,
+                    "user_display_name": get_display_name(driver_id),
+                    "drivers": drivers_payload,
+                }
+            )
+
+        elif msg_type == "start":
+            session_id = uuid.uuid4().hex
+            race_id = str(msg.get("race_id", "2025_4"))
+            driver_id = str(msg.get("driver_id", "max_verstappen"))
+            start_position: int = max(1, min(20, int(msg.get("start_position", 10))))
+            start_compound: str = str(msg.get("start_compound", "MEDIUM")).upper()
+            driver_profile: Optional[dict] = msg.get("driver_profile") or None
+            car_id: Optional[str] = msg.get("car_id") or None
+
+            circuit_info = CIRCUIT_REGISTRY.get(race_id) or {}
+            if not circuit_info:
+                circuit_info = CIRCUIT_REGISTRY.get(
+                    "2025_4",
+                    {
+                        "total_laps": 57,
+                        "base_lap_time_ms": 95_800,
+                        "race_name": "Grand Prix",
+                        "circuit_id": "bahrain",
+                    },
+                )
+
+            circuit_id = str(circuit_info.get("circuit_id", "bahrain"))
+            race_name = str(circuit_info.get("race_name", "Grand Prix"))
+            total_laps = int(circuit_info.get("total_laps", 57))
+            base_lap_ms = float(circuit_info.get("base_lap_time_ms", 90_000))
+            try:
+                year = int(race_id.split("_")[0])
+            except (ValueError, IndexError):
+                year = 2025
+
+            resolved_profile = driver_profile or get_profile(driver_id)
+            car_id_overrides = {driver_id: car_id} if car_id else None
+            lineup = build_race_lineup(
+                user_driver_id=driver_id,
+                user_profile=resolved_profile,
+                user_start_position=start_position,
+                user_start_compound=start_compound,
+                car_id_overrides=car_id_overrides,
+            )
+
+            drivers_payload = [
+                {
+                    "driver_id": d.driver_id,
+                    "display_name": d.display_name,
+                    "code": DRIVER_CODE.get(d.driver_id, d.driver_id[:3].upper()),
+                    "start_position": d.start_position,
+                    "start_compound": d.start_compound,
+                    "is_user": d.is_user,
+                    "team": team_for_driver(d.driver_id, year),
+                }
+                for d in lineup
+            ]
+
+            await websocket.send_json(
+                {
+                    "type": "setup_ack",
+                    "session_id": session_id,
+                    "race_id": race_id,
+                    "circuit_name": race_name,
+                    "circuit_id": circuit_id,
+                    "total_laps": total_laps,
+                    "base_lap_time_ms": base_lap_ms,
+                    "user_driver_id": driver_id,
+                    "user_display_name": get_display_name(driver_id),
+                    "drivers": drivers_payload,
+                }
+            )
+
+            runner = RaceRunner(
+                race_id=race_id,
+                drivers=lineup,
+                adapters={},
+                circuit_id=circuit_id,
+                race_name=race_name,
+            )
+            obs, info = runner.reset()
+            prev_info = dict(info)
+        else:
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "message": 'First message must be type="start" or type="resume"',
+                }
             )
             return
 
-        race_id: str = msg.get("race_id", "2025_4")
-        driver_id: str = msg.get("driver_id", "max_verstappen")
-        start_position: int = max(1, min(20, int(msg.get("start_position", 10))))
-        start_compound: str = msg.get("start_compound", "MEDIUM").upper()
-        driver_profile: Optional[dict] = msg.get("driver_profile") or None
-        # car_id allows putting any driver in any constructor's car (e.g. verstappen in mercedes)
-        car_id: Optional[str] = msg.get("car_id") or None
+        if runner is None:
+            raise RuntimeError("Simulation runner is not initialized")
 
-        # ── Circuit info ───────────────────────────────────────────────────────
-        circuit_info = CIRCUIT_REGISTRY.get(race_id) or {}
-        if not circuit_info:
-            # Fallback to Bahrain
-            circuit_info = CIRCUIT_REGISTRY.get(
-                "2025_4",
-                {
-                    "total_laps": 57,
-                    "base_lap_time_ms": 95_800,
-                    "race_name": "Grand Prix",
-                    "circuit_id": "bahrain",
-                },
-            )
-
-        circuit_id: str = circuit_info.get("circuit_id", "bahrain")
-        race_name: str = circuit_info.get("race_name", "Grand Prix")
-        total_laps: int = int(circuit_info.get("total_laps", 57))
-        base_lap_ms: float = float(circuit_info.get("base_lap_time_ms", 90_000))
-        try:
-            year: int = int(race_id.split("_")[0])
-        except (ValueError, IndexError):
-            year = 2025
-
-        # ── Build lineup ───────────────────────────────────────────────────────
-        resolved_profile = driver_profile or get_profile(driver_id)
-        car_id_overrides = {driver_id: car_id} if car_id else None
-        lineup = build_race_lineup(
-            user_driver_id=driver_id,
-            user_profile=resolved_profile,
-            user_start_position=start_position,
-            user_start_compound=start_compound,
-            car_id_overrides=car_id_overrides,
-        )
-
-        # ── Send setup acknowledgement ─────────────────────────────────────────
-        await websocket.send_json(
-            {
-                "type": "setup_ack",
-                "race_id": race_id,
-                "circuit_name": race_name,
-                "circuit_id": circuit_id,
-                "total_laps": total_laps,
-                "base_lap_time_ms": base_lap_ms,
-                "user_driver_id": driver_id,
-                "user_display_name": get_display_name(driver_id),
-                "drivers": [
-                    {
-                        "driver_id": d.driver_id,
-                        "display_name": d.display_name,
-                        "code": DRIVER_CODE.get(d.driver_id, d.driver_id[:3].upper()),
-                        "start_position": d.start_position,
-                        "start_compound": d.start_compound,
-                        "is_user": d.is_user,
-                        "team": team_for_driver(d.driver_id, year),
-                    }
-                    for d in lineup
-                ],
-            }
-        )
-
-        # ── Initialise RaceRunner ──────────────────────────────────────────────
-        runner = RaceRunner(
-            race_id=race_id,
-            drivers=lineup,
-            adapters={},
-            circuit_id=circuit_id,
-            race_name=race_name,
-        )
-        obs, info = runner.reset()
-        prev_info: dict = dict(info)
-        prompt_count = 0
-        decision_history: list[dict] = []
-        batch: list[dict] = []
-
-        # ── Main simulation loop ───────────────────────────────────────────────
         while not runner.finished:
-            # Compute action probabilities (RL agent or heuristic)
-            probs = _get_action_probs(obs, info)
-            rl_action = int(probs.argmax())
-
-            # Detect key strategic moment (evaluated before this lap's step)
-            is_key, reason = _is_key_moment(
-                info, prev_info, probs, {}, driver_id, prompt_count
-            )
-
-            if is_key:
-                # Flush accumulated laps first
+            if pending_prompt_payload is not None:
                 if batch:
                     await websocket.send_json({"type": "laps", "data": batch})
                     batch = []
 
-                # Sort alternatives by probability
-                alternatives = sorted(
-                    [
-                        {
-                            "action": i,
-                            "name": ACTION_NAMES[i],
-                            "prob": round(float(probs[i]), 4),
-                        }
-                        for i in range(7)
-                        if i != rl_action
-                    ],
-                    key=lambda x: -cast(float, x["prob"]),
-                )[:3]
+                await websocket.send_json(pending_prompt_payload)
+                decision = await _wait_for_decision()
 
-                pit_prob = float(probs[3:].sum())
-                confidence = float(probs[rl_action]) if rl_action < 3 else pit_prob
+                rl_action = int(pending_prompt_payload["rl_action"])
+                reason = str(pending_prompt_payload["reason"])
+                d_type = decision.get("type", "accept")
+                if d_type == "override" and "action" in decision:
+                    action = max(0, min(6, int(decision["action"])))
+                    accepted = False
+                else:
+                    action = rl_action
+                    accepted = True
 
-                await websocket.send_json(
+                decision_history.append(
                     {
+                        "lap": int(info.get("lap_number", 1)),
+                        "reason": reason,
+                        "rl_action": rl_action,
+                        "rl_action_name": ACTION_NAMES[rl_action],
+                        "user_action": action,
+                        "user_action_name": ACTION_NAMES[action],
+                        "accepted": accepted,
+                    }
+                )
+                prompt_count += 1
+                pending_prompt_payload = None
+            else:
+                probs = _get_action_probs(obs, info)
+                rl_action = int(probs.argmax())
+                is_key, reason = _is_key_moment(
+                    info, prev_info, probs, {}, driver_id, prompt_count
+                )
+
+                if is_key:
+                    alternatives = sorted(
+                        [
+                            {
+                                "action": i,
+                                "name": ACTION_NAMES[i],
+                                "prob": round(float(probs[i]), 4),
+                            }
+                            for i in range(7)
+                            if i != rl_action
+                        ],
+                        key=lambda x: -cast(float, x["prob"]),
+                    )[:3]
+
+                    pit_prob = float(probs[3:].sum())
+                    confidence = float(probs[rl_action]) if rl_action < 3 else pit_prob
+                    pending_prompt_payload = {
                         "type": "prompt",
                         "lap": int(info.get("lap_number", 1)),
                         "reason": reason,
@@ -486,75 +605,18 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                             "total_laps": total_laps,
                         },
                     }
-                )
+                    continue
 
-                # Wait for user decision (90s timeout → auto-accept).
-                # Send a keepalive ping every 25s so Cloud Run / proxies
-                # don't close the idle connection before the user decides.
-                decision_raw = None
-                deadline = asyncio.get_event_loop().time() + 90.0
-                while True:
-                    remaining = deadline - asyncio.get_event_loop().time()
-                    if remaining <= 0:
-                        break
-                    try:
-                        decision_raw = await asyncio.wait_for(
-                            websocket.receive_text(),
-                            timeout=min(25.0, remaining),
-                        )
-                        break
-                    except asyncio.TimeoutError:
-                        if asyncio.get_event_loop().time() >= deadline:
-                            break
-                        # Still within 90s window — send keepalive and keep waiting
-                        try:
-                            await websocket.send_json({"type": "keepalive"})
-                        except Exception:
-                            raise WebSocketDisconnect()
-                decision: dict = (
-                    json.loads(decision_raw) if decision_raw else {"type": "accept"}
-                )
+                action = rl_action if rl_action < 3 else 1
 
-                d_type = decision.get("type", "accept")
-                if d_type == "override" and "action" in decision:
-                    action = max(0, min(6, int(decision["action"])))
-                    accepted = False
-                else:
-                    action = rl_action
-                    accepted = True
-
-                decision_history.append(
-                    {
-                        "lap": int(info.get("lap_number", 1)),
-                        "reason": reason,
-                        "rl_action": rl_action,
-                        "rl_action_name": ACTION_NAMES[rl_action],
-                        "user_action": action,
-                        "user_action_name": ACTION_NAMES[action],
-                        "accepted": accepted,
-                    }
-                )
-                prompt_count += 1
-            else:
-                # Never auto-apply a pit action on a non-prompted lap.
-                # If the RL agent recommends pitting but this lap didn't
-                # qualify as a key moment (e.g. max prompts reached), fall
-                # back to STAY_BALANCED so the user is never force-pitted
-                # without being asked.
-                action = rl_action if rl_action < 3 else 1  # 1 = STAY_BALANCED
-
-            # ── Step the simulation ────────────────────────────────────────────
             lap_records, new_obs, new_info = runner.step_lap(action)
 
-            # Build per-driver standings from lap_records
             standings = sorted(
                 [
                     {
                         "driver_id": rec.driver_id,
                         "display_name": rec.display_name,
-                        "code": DRIVER_CODE.get(
-                            rec.driver_id, rec.driver_id[:3].upper()
-                        ),
+                        "code": DRIVER_CODE.get(rec.driver_id, rec.driver_id[:3].upper()),
                         "position": rec.position,
                         "compound": rec.tire_compound,
                         "tire_age": rec.tire_age_laps,
@@ -597,16 +659,13 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
             obs = new_obs
             info = new_info
 
-            # Send batch every 5 laps to keep the connection alive
             if len(batch) >= 5:
                 await websocket.send_json({"type": "laps", "data": batch})
                 batch = []
 
-        # ── Flush final batch ──────────────────────────────────────────────────
         if batch:
             await websocket.send_json({"type": "laps", "data": batch})
 
-        # ── Build and send race result ─────────────────────────────────────────
         result = runner.result()
         await websocket.send_json(
             {
@@ -619,9 +678,32 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                 "decision_history": decision_history,
             }
         )
+        if session_id:
+            _paused_sim_sessions.pop(session_id, None)
 
     except WebSocketDisconnect:
-        logger.info("Race simulation WebSocket disconnected by client")
+        if runner is not None and not runner.finished and session_id:
+            _paused_sim_sessions[session_id] = {
+                "runner": runner,
+                "race_id": race_id,
+                "driver_id": driver_id,
+                "circuit_id": circuit_id,
+                "race_name": race_name,
+                "total_laps": total_laps,
+                "year": year,
+                "obs": obs,
+                "info": info,
+                "prev_info": prev_info,
+                "prompt_count": prompt_count,
+                "decision_history": decision_history,
+                "batch": batch,
+                "drivers_payload": drivers_payload,
+                "pending_prompt_payload": pending_prompt_payload,
+                "paused_at": time.time(),
+            }
+            logger.info("Race simulation paused (session_id=%s)", session_id)
+        else:
+            logger.info("Race simulation WebSocket disconnected by client")
     except asyncio.TimeoutError:
         logger.warning("Race simulation WebSocket timed out")
         try:

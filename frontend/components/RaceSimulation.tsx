@@ -116,7 +116,37 @@ interface ChatMessage {
   latency_ms?: number;
 }
 
-type SimPhase = 'setup' | 'running' | 'prompt' | 'finished';
+type SimPhase = 'setup' | 'running' | 'prompt' | 'paused' | 'finished';
+
+interface PersistedRaceSimulationSession {
+  version: number;
+  selectedRaceId: string;
+  selectedDriverId: string;
+  startPosition: number;
+  startCompound: 'SOFT' | 'MEDIUM' | 'HARD';
+  selectedYear: number;
+  selectedConstructorId: string;
+  phase: SimPhase;
+  laps: LapSnap[];
+  currentStandings: DriverLapState[];
+  totalLaps: number;
+  circuitId: string;
+  raceName: string;
+  currentLap: number;
+  safetyCarActive: boolean;
+  vscActive: boolean;
+  activePrompt: PromptState | null;
+  finishedResult: RaceFinished | null;
+  statusMsg: string;
+  chatMessages: ChatMessage[];
+  lapBuffer: LapSnap[];
+  playbackIndex: number;
+  raceFinishedData: RaceFinished | null;
+  pendingPrompt: PromptState | null;
+  preloadedPromptLap: number | null;
+  backendSessionId: string | null;
+  savedAt: number;
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -176,6 +206,50 @@ const AVAILABLE_RACES = [
   { id: '2025_22', name: 'Las Vegas GP',     circuit_id: 'vegas'       },
   { id: '2025_24', name: 'Abu Dhabi GP',     circuit_id: 'yas_marina'  },
 ];
+
+const CIRCUIT_ID_MAP: Record<string, string> = {
+  albert_park: 'melbourne',
+  catalunya: 'barcelona',
+  red_bull_ring: 'spielberg',
+  hungaroring: 'budapest',
+  marina_bay: 'singapore',
+  americas: 'cota',
+  rodriguez: 'mexico',
+  las_vegas: 'vegas',
+  losail: 'lusail',
+  villeneuve: 'montreal',
+};
+
+const RACE_SIM_SESSION_KEY = 'divergex_race_sim_session_v1';
+const RACE_SIM_SESSION_VERSION = 1;
+
+function loadPersistedRaceSimulation(): PersistedRaceSimulationSession | null {
+  try {
+    const raw = sessionStorage.getItem(RACE_SIM_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedRaceSimulationSession;
+    if (parsed.version !== RACE_SIM_SESSION_VERSION) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function savePersistedRaceSimulation(snapshot: PersistedRaceSimulationSession): void {
+  try {
+    sessionStorage.setItem(RACE_SIM_SESSION_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Ignore storage quota / private mode errors.
+  }
+}
+
+function clearPersistedRaceSimulation(): void {
+  try {
+    sessionStorage.removeItem(RACE_SIM_SESSION_KEY);
+  } catch {
+    // Ignore storage access errors.
+  }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -924,6 +998,8 @@ const RaceSimulation: React.FC = () => {
     content: 'I\'m your race strategist. When the RL agent pauses for a decision, ask me anything — tire windows, undercut timing, SC strategy — or describe a custom strategy and I\'ll analyse it.',
   }]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [sessionHydrated, setSessionHydrated] = useState(false);
+  const [backendSessionId, setBackendSessionId] = useState<string | null>(null);
 
   // ── Load constructor pace data ───────────────────────────────────────────────
   useEffect(() => {
@@ -983,6 +1059,125 @@ const RaceSimulation: React.FC = () => {
   const raceFinishedDataRef = useRef<RaceFinished | null>(null); // deferred until playback ends
   const pendingPromptRef = useRef<PromptState | null>(null);     // buffered until playback catches up
   const preloadedPromptLapRef = useRef<number | null>(null);     // tracks which prompt lap was already preloaded
+
+  // Hydrate a paused in-browser session when the component remounts.
+  useEffect(() => {
+    const snapshot = loadPersistedRaceSimulation();
+    if (!snapshot) {
+      setSessionHydrated(true);
+      return;
+    }
+
+    const restoredRace = AVAILABLE_RACES.find(r => r.id === snapshot.selectedRaceId);
+    if (restoredRace) setSelectedRace(restoredRace);
+
+    const restoredDriver = AVAILABLE_DRIVERS.find(d => d.id === snapshot.selectedDriverId);
+    if (restoredDriver) setSelectedDriver(restoredDriver);
+
+    setStartPosition(snapshot.startPosition);
+    setStartCompound(snapshot.startCompound);
+    setSelectedYear(snapshot.selectedYear);
+    setSelectedConstructorId(snapshot.selectedConstructorId);
+
+    const restorePhase: SimPhase =
+      snapshot.phase === 'running' || snapshot.phase === 'prompt'
+        ? 'paused'
+        : snapshot.phase;
+
+    setPhase(restorePhase);
+    setLaps(snapshot.laps ?? []);
+    setCurrentStandings(snapshot.currentStandings ?? []);
+    setTotalLaps(snapshot.totalLaps ?? 57);
+    totalLapsRef.current = snapshot.totalLaps ?? 57;
+    setCircuitId(snapshot.circuitId ?? 'bahrain');
+    setRaceName(snapshot.raceName ?? '');
+    setCurrentLap(snapshot.currentLap ?? 0);
+    setSafetyCarActive(Boolean(snapshot.safetyCarActive));
+    setVscActive(Boolean(snapshot.vscActive));
+    setActivePrompt(snapshot.activePrompt ?? null);
+    setFinishedResult(snapshot.finishedResult ?? null);
+    setStatusMsg(
+      restorePhase === 'paused'
+        ? 'Simulation paused while you were away. Resume when ready.'
+        : (snapshot.statusMsg ?? '')
+    );
+    setChatMessages(
+      Array.isArray(snapshot.chatMessages) && snapshot.chatMessages.length > 0
+        ? snapshot.chatMessages
+        : [{
+            role: 'assistant',
+            content: 'I\'m your race strategist. When the RL agent pauses for a decision, ask me anything — tire windows, undercut timing, SC strategy — or describe a custom strategy and I\'ll analyse it.',
+          }]
+    );
+    setBackendSessionId(snapshot.backendSessionId ?? null);
+
+    lapBufferRef.current = snapshot.lapBuffer ?? [];
+    playbackIdxRef.current = snapshot.playbackIndex ?? 0;
+    raceFinishedDataRef.current = snapshot.raceFinishedData ?? null;
+    pendingPromptRef.current = snapshot.pendingPrompt ?? null;
+    preloadedPromptLapRef.current = snapshot.preloadedPromptLap ?? null;
+
+    setSessionHydrated(true);
+  }, []);
+
+  // Persist session continuously so route switches restore both race + chat context.
+  useEffect(() => {
+    if (!sessionHydrated) return;
+
+    const snapshot: PersistedRaceSimulationSession = {
+      version: RACE_SIM_SESSION_VERSION,
+      selectedRaceId: selectedRace.id,
+      selectedDriverId: selectedDriver.id,
+      startPosition,
+      startCompound,
+      selectedYear,
+      selectedConstructorId,
+      phase,
+      laps,
+      currentStandings,
+      totalLaps,
+      circuitId,
+      raceName,
+      currentLap,
+      safetyCarActive,
+      vscActive,
+      activePrompt,
+      finishedResult,
+      statusMsg,
+      chatMessages,
+      lapBuffer: lapBufferRef.current,
+      playbackIndex: playbackIdxRef.current,
+      raceFinishedData: raceFinishedDataRef.current,
+      pendingPrompt: pendingPromptRef.current,
+      preloadedPromptLap: preloadedPromptLapRef.current,
+      backendSessionId,
+      savedAt: Date.now(),
+    };
+
+    savePersistedRaceSimulation(snapshot);
+  }, [
+    sessionHydrated,
+    selectedRace,
+    selectedDriver,
+    startPosition,
+    startCompound,
+    selectedYear,
+    selectedConstructorId,
+    phase,
+    laps,
+    currentStandings,
+    totalLaps,
+    circuitId,
+    raceName,
+    currentLap,
+    safetyCarActive,
+    vscActive,
+    activePrompt,
+    finishedResult,
+    statusMsg,
+    chatMessages,
+    backendSessionId,
+  ]);
 
   const stopPlayback = useCallback(() => {
     if (playbackTimerRef.current !== null) {
@@ -1157,6 +1352,8 @@ const RaceSimulation: React.FC = () => {
   // ── Start simulation ──────────────────────────────────────────────────────────
   const startSimulation = useCallback(() => {
     closeWs();
+    clearPersistedRaceSimulation();
+    setBackendSessionId(null);
     // Reset playback engine
     lapBufferRef.current = [];
     playbackIdxRef.current = 0;
@@ -1200,23 +1397,12 @@ const RaceSimulation: React.FC = () => {
       const msg = JSON.parse(ev.data as string);
 
       if (msg.type === 'setup_ack') {
+        if (typeof msg.session_id === 'string' && msg.session_id.length > 0) {
+          setBackendSessionId(msg.session_id);
+        }
         const tl: number = msg.total_laps ?? 57;
         totalLapsRef.current = tl;
         setTotalLaps(tl);
-        // Map backend circuit_id values to the TRACK_REGISTRY IDs used by TrackDisplay.
-        // Backend uses historical/canonical names; frontend uses short display names.
-        const CIRCUIT_ID_MAP: Record<string, string> = {
-          albert_park: 'melbourne',
-          catalunya:   'barcelona',
-          red_bull_ring: 'spielberg',
-          hungaroring: 'budapest',
-          marina_bay:  'singapore',
-          americas:    'cota',
-          rodriguez:   'mexico',
-          las_vegas:   'vegas',
-          losail:      'lusail',
-          villeneuve:  'montreal',
-        };
         const rawId: string = msg.circuit_id ?? '';
         setCircuitId(CIRCUIT_ID_MAP[rawId] ?? rawId);
         setRaceName(msg.circuit_name);
@@ -1242,6 +1428,19 @@ const RaceSimulation: React.FC = () => {
           setCurrentStandings(gridStandings);
           setCurrentLap(0);
         }
+      }
+
+      else if (msg.type === 'resumed') {
+        if (typeof msg.session_id === 'string' && msg.session_id.length > 0) {
+          setBackendSessionId(msg.session_id);
+        }
+        const tl: number = msg.total_laps ?? totalLapsRef.current;
+        totalLapsRef.current = tl;
+        setTotalLaps(tl);
+        const rawId: string = msg.circuit_id ?? '';
+        setCircuitId(CIRCUIT_ID_MAP[rawId] ?? rawId);
+        setRaceName(msg.circuit_name ?? raceName);
+        setStatusMsg('Reconnected to live simulation session.');
       }
 
       else if (msg.type === 'laps') {
@@ -1289,18 +1488,119 @@ const RaceSimulation: React.FC = () => {
     };
 
     ws.onerror = () => {
-      setStatusMsg('WebSocket error — check the backend is running');
-      setPhase('setup');
+      stopPlayback();
+      setStatusMsg('WebSocket error — click Resume to reconnect.');
+      setPhase('paused');
     };
 
     ws.onclose = () => {
-      // Use the ref (not stale `phase` closure) to distinguish clean finish from real disconnect
       if (!raceFinishedDataRef.current) {
-        setStatusMsg('Disconnected — the simulation lost connection. Try again.');
-        setPhase('setup');
+        stopPlayback();
+        setStatusMsg('Disconnected — click Resume to continue this simulation.');
+        setPhase('paused');
       }
     };
-  }, [selectedRace, selectedDriver, startPosition, startCompound, closeWs, startPlayback, phase]);
+  }, [selectedRace, selectedDriver, startPosition, startCompound, closeWs, startPlayback, stopPlayback]);
+
+  // ── Resume a paused browser session ─────────────────────────────────────────
+  const resumePausedSession = useCallback(() => {
+    if (backendSessionId) {
+      closeWs();
+      setPhase('running');
+      setStatusMsg('Reconnecting to paused simulation…');
+
+      const cleanBase = API_BASE.replace(/\/+$/, '');
+      const wsProto = (cleanBase.startsWith('https://') || window.location.protocol === 'https:') ? 'wss' : 'ws';
+      const wsHost = cleanBase ? cleanBase.replace(/^https?:\/\//, '') : window.location.host;
+      const wsUrl = `${wsProto}://${wsHost}/api/v1/simulation/ws`;
+
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'resume', session_id: backendSessionId }));
+      };
+
+      ws.onmessage = (ev: MessageEvent) => {
+        const msg = JSON.parse(ev.data as string);
+
+        if (msg.type === 'resumed') {
+          const tl: number = msg.total_laps ?? totalLapsRef.current;
+          totalLapsRef.current = tl;
+          setTotalLaps(tl);
+          const rawId: string = msg.circuit_id ?? '';
+          setCircuitId(CIRCUIT_ID_MAP[rawId] ?? rawId);
+          setRaceName(msg.circuit_name ?? raceName);
+          setStatusMsg('Reconnected to live simulation session.');
+          if (activePrompt) {
+            setPhase('prompt');
+            return;
+          }
+          setPhase('running');
+          startPlayback();
+        }
+
+        else if (msg.type === 'laps') {
+          const newLaps: LapSnap[] = msg.data;
+          const baseIdx = lapBufferRef.current.length + 1;
+          const normalized = newLaps.map((s, i) => ({ ...s, lap: baseIdx + i }));
+          setLaps(prev => [...prev, ...normalized]);
+          lapBufferRef.current.push(...normalized);
+          startPlayback();
+        }
+
+        else if (msg.type === 'prompt') {
+          pendingPromptRef.current = msg as PromptState;
+        }
+
+        else if (msg.type === 'finished') {
+          raceFinishedDataRef.current = msg as RaceFinished;
+          ws.onmessage = null;
+          ws.onclose = null;
+          ws.close();
+          wsRef.current = null;
+          setStatusMsg('Final lap : race finishing…');
+          setBackendSessionId(null);
+        }
+
+        else if (msg.type === 'error') {
+          setStatusMsg(`Error: ${msg.message}`);
+          setPhase('setup');
+          setBackendSessionId(null);
+          closeWs();
+        }
+      };
+
+      ws.onerror = () => {
+        stopPlayback();
+        setStatusMsg('Reconnect failed — click Resume to try again.');
+        setPhase('paused');
+      };
+
+      ws.onclose = () => {
+        if (!raceFinishedDataRef.current) {
+          stopPlayback();
+          setStatusMsg('Connection interrupted — click Resume to continue.');
+          setPhase('paused');
+        }
+      };
+      return;
+    }
+
+    if (raceFinishedDataRef.current && playbackIdxRef.current >= lapBufferRef.current.length) {
+      setFinishedResult(raceFinishedDataRef.current);
+      setPhase('finished');
+      return;
+    }
+    if (activePrompt) {
+      setPhase('prompt');
+      setStatusMsg(`Strategy decision required : Lap ${activePrompt.lap}`);
+      return;
+    }
+    setPhase('running');
+    setStatusMsg(`Lap ${Math.max(currentLap, 1)} / ${totalLapsRef.current}`);
+    startPlayback();
+  }, [activePrompt, backendSessionId, closeWs, currentLap, raceName, startPlayback, stopPlayback]);
 
   // ── Accept RL recommendation ─────────────────────────────────────────────────
   const handleAccept = useCallback(() => {
@@ -1335,6 +1635,8 @@ const RaceSimulation: React.FC = () => {
     pendingPromptRef.current = null;
     setPhase('setup');
     setStatusMsg('');
+    setBackendSessionId(null);
+    clearPersistedRaceSimulation();
   }, [closeWs]);
 
   // ── Reset ─────────────────────────────────────────────────────────────────────
@@ -1350,6 +1652,8 @@ const RaceSimulation: React.FC = () => {
     setFinishedResult(null);
     setActivePrompt(null);
     setStatusMsg('');
+    setBackendSessionId(null);
+    clearPersistedRaceSimulation();
   }, [closeWs]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -1564,20 +1868,32 @@ const RaceSimulation: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <motion.div
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-              className="w-2 h-2 rounded-full bg-red-500"
+              animate={phase === 'paused' ? { scale: 1 } : { scale: [1, 1.3, 1] }}
+              transition={phase === 'paused' ? undefined : { duration: 1, repeat: Infinity }}
+              className={`w-2 h-2 rounded-full ${phase === 'paused' ? 'bg-amber-400' : 'bg-red-500'}`}
             />
             <span className="text-[10px] font-mono text-white/50">{statusMsg}</span>
           </div>
-          <button
-            onClick={stopSimulation}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold text-white/40 hover:text-red-400 hover:border-red-600/40 transition-all"
-            style={{ borderColor: 'var(--border-color)' }}
-          >
-            <StopCircle className="w-3.5 h-3.5" />
-            Stop
-          </button>
+          <div className="flex items-center gap-2">
+            {phase === 'paused' && (
+              <button
+                onClick={resumePausedSession}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold text-amber-300 hover:text-amber-200 hover:border-amber-300/70 transition-all"
+                style={{ borderColor: 'rgba(251,191,36,0.45)' }}
+              >
+                <Play className="w-3.5 h-3.5" />
+                Resume
+              </button>
+            )}
+            <button
+              onClick={stopSimulation}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold text-white/40 hover:text-red-400 hover:border-red-600/40 transition-all"
+              style={{ borderColor: 'var(--border-color)' }}
+            >
+              <StopCircle className="w-3.5 h-3.5" />
+              Stop
+            </button>
+          </div>
         </div>
         {/* Race timeline: spans the full 90-second high-fidelity playback curve */}
         <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
@@ -1598,7 +1914,7 @@ const RaceSimulation: React.FC = () => {
         currentLap={currentLap}
         safetyCarActive={safetyCarActive}
         vscActive={vscActive}
-        paused={phase === 'prompt'}
+        paused={phase === 'prompt' || phase === 'paused'}
       />
 
       {/* RL Prompt Overlay — pauses simulation for strategic decision + AI chat */}
