@@ -193,8 +193,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if path in ("/health", "/metrics") or not self._is_limited(path):
             return await call_next(request)
 
-        # Get client IP
-        client_ip = request.client.host if request.client else "unknown"
+        # Get real client IP — Cloud Run proxies all traffic through 169.254.169.126
+        # so read the original IP from X-Forwarded-For instead.
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        client_ip = (
+            forwarded_for.split(",")[0].strip()
+            if forwarded_for
+            else (request.client.host if request.client else "unknown")
+        )
 
         current_time = time.time()
 
