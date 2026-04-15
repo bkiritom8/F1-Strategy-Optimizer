@@ -271,6 +271,13 @@ const App: React.FC = () => {
     logger.info(`[App] Route changed -> ${location.pathname}`);
   }, [location.pathname]);
 
+  // Show the safety advisory every time the user visits landing/auth entry.
+  React.useEffect(() => {
+    if (location.pathname === '/' || location.pathname === '/login') {
+      setSafetyDisclaimerAccepted(false);
+    }
+  }, [location.pathname]);
+
   // Standalone Layout Wrapper for public pages (Landing, Verify Email)
   const renderPublicPage = (children: React.ReactNode) => (
     <div className="min-h-screen bg-black text-white font-sans">
@@ -299,8 +306,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden font-sans">
-      {safetyDisclaimer}
-
       {/* Mobile Top Header (hidden on lg+) */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 backdrop-blur-xl border-b border-white/[0.07] z-50 flex items-center justify-between px-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
         <button
@@ -391,6 +396,28 @@ const App: React.FC = () => {
               <NavLink
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
+                title={sidebarCollapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  `w-full flex items-center gap-4 rounded-xl transition-all duration-300 group relative ${
+                    sidebarCollapsed ? 'justify-center p-3' : 'px-4 py-3.5'
+                  } ${
+                    isActive
+                      ? 'bg-red-600/15 text-red-500 border border-red-600/30'
+                      : 'text-white/55 hover:bg-red-600/10 hover:text-red-500 border border-transparent'
+                  }`
+                }
+              >
+                <item.icon className={`shrink-0 ${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'} group-hover:scale-110 transition-transform`} />
+                {!sidebarCollapsed && (
+                  <span className="font-medium text-sm tracking-wide whitespace-nowrap overflow-hidden">{item.label}</span>
+                )}
+                {'highlight' in item && item.highlight && (
+                  <div className="absolute right-3 top-3 w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                )}
+              </NavLink>
+            </motion.div>
+          ))}
+
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -434,32 +461,6 @@ const App: React.FC = () => {
             )}
           </motion.div>
         </nav>
-        </nav>
-
-        {/* Admin shortcut pill - only visible when logged in as admin */}
-        {isAdmin && (
-          <div className="px-4 pb-4">
-            <NavLink
-              to="/admin"
-              onClick={() => setSidebarOpen(false)}
-              title={sidebarCollapsed ? 'Admin Panel' : undefined}
-              className={({ isActive }) =>
-                `w-full flex items-center gap-3 rounded-xl transition-all duration-300 border ${
-                  sidebarCollapsed ? 'justify-center p-3' : 'px-4 py-3'
-                } ${
-                  isActive
-                    ? 'bg-amber-600/20 border-amber-500/50 text-amber-400'
-                    : 'border-amber-500/30 text-amber-500/70 hover:bg-amber-500/10 hover:text-amber-400'
-                }`
-              }
-            >
-              {!sidebarCollapsed && (
-                <span className="text-xs font-bold uppercase tracking-widest">Admin Panel</span>
-              )}
-              {sidebarCollapsed && <span className="text-xs font-bold">ADM</span>}
-            </NavLink>
-          </div>
-        )}
       </motion.aside>
 
       {/* Mobile Overlay */}
