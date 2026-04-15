@@ -1,179 +1,203 @@
 import React from 'react';
-import { Activity, Server, Disc, AlertTriangle, AlertCircle, TrendingUp } from 'lucide-react';
-import { COLORS } from '../constants';
+import { Activity, AlertCircle, AlertTriangle, Disc, RefreshCcw, Server, TrendingUp } from 'lucide-react';
 import { useAdminGcpMetrics, useAdminLogs, useAdminQuotas, useBackendStatus } from '../hooks/useApi';
 import { LiveBadge } from '../components/LiveBadge';
 
 const GcpAdminPanel: React.FC = () => {
   const { online: isLive } = useBackendStatus();
   const { data: metrics, loading: metricsLoading } = useAdminGcpMetrics();
-  const { data: logsData, loading: logsLoading } = useAdminLogs();
-  const { data: quotas, loading: quotasLoading } = useAdminQuotas();
+  const { data: logsData, loading: logsLoading, error: logsError, refetch: refetchLogs } = useAdminLogs();
+  const { data: quotas, loading: quotasLoading, error: quotasError, refetch: refetchQuotas } = useAdminQuotas();
 
-  const renderGauge = (value: number, label: string, color: string) => {
-    return (
-      <div className="flex flex-col items-center p-4 bg-white/[0.04] rounded-2xl border border-white/[0.07]">
-        <div className="relative w-24 h-24 flex items-center justify-center">
-          <svg className="w-full h-full transform -rotate-90">
-            <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-800" />
-            <circle
-              cx="48"
-              cy="48"
-              r="40"
-              stroke={color}
-              strokeWidth="8"
-              fill="transparent"
-              strokeDasharray={251.2}
-              strokeDashoffset={251.2 - (value / 100) * 251.2}
-              className="transition-all duration-1000 ease-out"
-            />
-          </svg>
-          <div className="absolute flex flex-col items-center">
-            <span className="text-xl font-bold font-mono text-white">{value.toFixed(1)}%</span>
-          </div>
-        </div>
-        <span className="text-[10px] uppercase tracking-[4px] text-white/40 mt-3">{label}</span>
-      </div>
-    );
+  const formatLogMessage = (log: any) => {
+    const candidates = [
+      log?.message,
+      log?.textPayload,
+      log?.jsonPayload?.message,
+      log?.jsonPayload?.text,
+      log?.payload,
+    ];
+
+    const firstMessage = candidates.find((value) => typeof value === 'string' && value.trim());
+    if (firstMessage) return firstMessage.trim();
+
+    return 'Cloud Logging entry did not include a message payload.';
   };
 
-  return (
-    <div className="space-y-6 animate-fade-in bg-transparent">
-      {/* Header section */}
-      <div className="flex items-center justify-between mb-8">
+  const renderMetricCard = (title: string, value: React.ReactNode, caption: string, icon: React.ReactNode) => (
+    <div className="rounded-2xl bg-white/[0.04] border border-white/[0.07] p-5 shadow-lg shadow-black/10">
+      <div className="flex items-center justify-between gap-4 mb-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold tracking-tight uppercase italic text-white flex items-center gap-3">
-              <Server className="w-6 h-6 text-blue-500" />
-              Live Cloud Infrastructure
-            </h2>
-            <LiveBadge isLive={isLive} />
-          </div>
-          <p className="text-sm text-white/40 mt-1 font-mono">GCP Cloud Run & Monitoring Metrics</p>
+          <div className="text-[10px] uppercase tracking-[4px] text-white/40 mb-1">{title}</div>
+          <div className="text-2xl font-bold text-white">{value}</div>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-full">
-          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-          <span className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Live Stream</span>
+        <div className="w-11 h-11 rounded-2xl bg-white/[0.05] border border-white/[0.07] flex items-center justify-center text-white/60">
+          {icon}
         </div>
       </div>
+      <p className="text-xs text-white/40">{caption}</p>
+    </div>
+  );
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Metrics & Quotas */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Hardware Metrics */}
-          <div className="bg-white/[0.04] backdrop-blur-md rounded-3xl p-6 border border-white/[0.07] shadow-xl relative overflow-hidden">
-            <h3 className="text-[10px] uppercase tracking-[4px] text-white/40 mb-6 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-green-500" /> Server Load
-            </h3>
-            
-            {metricsLoading ? (
-              <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" /></div>
-            ) : metrics ? (
-              <div className="grid grid-cols-2 gap-4">
-                {renderGauge(metrics.cpu_usage_percent, 'CPU Usage', COLORS.accent.green)}
-                {renderGauge(metrics.memory_usage_percent, 'Memory', COLORS.accent.blue)}
-                <div className="col-span-2 flex justify-between items-center p-4 bg-white/[0.04] rounded-xl mt-2 border border-white/[0.07]">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[4px] text-white/40 mb-1">Active Instances</p>
-                    <p className="text-xl font-mono text-white">{metrics.active_instances}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-[4px] text-white/40 mb-1">Total Requests</p>
-                    <p className="text-xl font-mono text-green-400">{metrics.request_count}</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-red-500 font-mono">Failed to load metrics</p>
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+            <TrendingUp className="w-6 h-6 text-yellow-400" />
+            GCP Backend
+          </h2>
+          <p className="text-white/40 text-sm mt-1">System load, request volume, admin log visibility, and quota status</p>
+        </div>
+        <LiveBadge isLive={isLive} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {metricsLoading ? (
+          [...Array(4)].map((_, index) => <div key={index} className="h-28 rounded-2xl bg-white/5 animate-pulse" />)
+        ) : metrics ? (
+          <>
+            {renderMetricCard('CPU', `${metrics.cpu_usage_percent}%`, 'Current CPU usage across active instances', <Activity className="w-5 h-5" />)}
+            {renderMetricCard('Memory', `${metrics.memory_usage_percent}%`, 'Heap and container memory pressure', <Server className="w-5 h-5" />)}
+            {renderMetricCard('Instances', metrics.active_instances, 'Active Cloud Run instances', <Disc className="w-5 h-5" />)}
+            {renderMetricCard('Requests', metrics.request_count, 'Requests observed in the current window', <TrendingUp className="w-5 h-5" />)}
+          </>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                System Logs (Errors & Warnings)
+              </h3>
+              <p className="text-white/40 text-sm mt-1">Recent log entries from Cloud Logging</p>
+            </div>
+            {logsError && (
+              <button
+                onClick={refetchLogs}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-red-600/15 text-red-300 text-[10px] font-black uppercase tracking-widest border border-red-500/20 hover:bg-red-600/25 transition-colors"
+              >
+                <RefreshCcw className="w-4 h-4" />
+                Retry
+              </button>
             )}
           </div>
 
-          {/* Quotas */}
-          <div className="bg-white/[0.04] backdrop-blur-md rounded-3xl p-6 border border-white/[0.07] shadow-xl relative overflow-hidden">
-            <h3 className="text-[10px] uppercase tracking-[4px] text-white/40 mb-6 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-purple-500" /> Usage Quotas
-            </h3>
-            
-            {quotasLoading ? (
-               <div className="flex justify-center py-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" /></div>
-            ) : quotas ? (
-              <div className="space-y-4">
-                <div className="bg-white/[0.04] p-4 rounded-xl border border-white/[0.07]">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs uppercase tracking-widest text-purple-400 font-bold">Gemini API</span>
-                    <span className="text-xs font-mono text-white">{quotas.gemini_api.tokens_used.toLocaleString()} / 1M</span>
-                  </div>
-                  <div className="w-full h-2 bg-white/[0.07] rounded-full overflow-hidden">
-                    <div className="h-full bg-purple-500" style={{ width: `${Math.min(100, (quotas.gemini_api.tokens_used / 1000000) * 100)}%` }} />
-                  </div>
+          {logsLoading ? (
+            <div className="space-y-3">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="h-24 rounded-2xl bg-white/5 animate-pulse" />
+              ))}
+            </div>
+          ) : logsError ? (
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/20 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-300" />
                 </div>
-                
-                <div className="bg-white/[0.04] p-4 rounded-xl border border-white/[0.07] flex justify-between items-center">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[4px] text-white/40 mb-1">Cloud Run Status</p>
-                    <p className="text-sm font-bold text-white capitalize">{quotas.cloud_run.status}</p>
-                  </div>
-                  <div className="text-right">
-                     <p className="text-[10px] uppercase tracking-[4px] text-white/40 mb-1">Compute Seconds</p>
-                     <p className="text-sm font-mono text-white">{quotas.cloud_run.cpu_seconds.toLocaleString()}</p>
-                  </div>
+                <div>
+                  <div className="text-sm font-bold text-white">Log endpoint unavailable</div>
+                  <div className="text-xs text-white/55">The backend did not return structured log data.</div>
                 </div>
               </div>
-            ) : (
-              <p className="text-sm text-red-500 font-mono">Failed to load quotas</p>
-            )}
-          </div>
+              <p className="text-xs font-mono text-red-200/80 break-all">{logsError}</p>
+            </div>
+          ) : (logsData?.logs || []).length > 0 ? (
+            <div className="space-y-3">
+              {(logsData?.logs || []).map((log: any, index: number) => (
+                <div key={index} className="rounded-2xl bg-white/[0.04] border border-white/[0.07] p-4">
+                  <div className="flex items-center justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-3">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${
+                        log.severity === 'ERROR' ? 'bg-red-600/20 text-red-400' :
+                        log.severity === 'WARNING' ? 'bg-yellow-600/20 text-yellow-400' :
+                        'bg-blue-600/20 text-blue-400'
+                      }`}>
+                        {log.severity || 'ERROR'}
+                      </span>
+                      <span className="text-[10px] font-mono text-white/35">
+                        {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm font-mono text-white/80 leading-relaxed break-words whitespace-pre-wrap">
+                    {formatLogMessage(log)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-white/[0.07] bg-white/[0.03] p-8 text-center text-white/40">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                <Disc className="w-6 h-6 opacity-30" />
+              </div>
+              <p className="text-sm font-black uppercase tracking-widest">No High-Severity Logs</p>
+              <p className="text-xs mt-2">Systems operating normally</p>
+            </div>
+          )}
         </div>
 
-        {/* Right Column - Logs */}
-        <div className="lg:col-span-2 bg-white/[0.04] backdrop-blur-md flex flex-col rounded-3xl border border-white/[0.07] shadow-xl overflow-hidden">
-          <div className="p-6 border-b border-white/[0.07] bg-white/[0.03] flex items-center justify-between">
-            <h3 className="text-[10px] uppercase tracking-[4px] text-white/40 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-yellow-500" /> System Logs (Errors & Warnings)
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Server className="w-5 h-5 text-green-400" />
+              Quota Status
             </h3>
-            <span className="text-xs font-mono px-2 py-1 bg-yellow-500/10 text-yellow-500 rounded border border-yellow-500/20">
-              {logsData?.logs.length || 0} Entries
-            </span>
+            <p className="text-white/40 text-sm mt-1">Usage limits and backend health checks</p>
           </div>
-          
-          <div className="flex-1 p-6 overflow-y-auto min-h-[400px]">
-             {logsLoading ? (
-               <div className="flex h-full items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-500" /></div>
-             ) : logsData && logsData.logs.length > 0 ? (
-               <div className="space-y-4">
-                 {logsData.logs.map((log, i) => (
-                   <div key={i} className="flex gap-4 p-4 rounded-xl bg-white/[0.04] border border-white/[0.07] items-start">
-                     <div className="shrink-0 mt-0.5">
-                       {log.severity.toUpperCase() === 'ERROR' ? (
-                         <AlertCircle className="w-5 h-5 text-red-500" />
-                       ) : (
-                         <AlertTriangle className="w-5 h-5 text-yellow-500" />
-                       )}
-                     </div>
-                     <div className="flex-1 overflow-hidden">
-                       <div className="flex items-center gap-3 mb-1">
-                         <span className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded ${log.severity.toUpperCase() === 'ERROR' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                           {log.severity}
-                         </span>
-                         <span className="text-xs font-mono text-white/40">
-                           {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}
-                         </span>
-                       </div>
-                       <p className="text-sm font-mono text-gray-300 break-words whitespace-pre-wrap mt-2 leading-relaxed">
-                         {log.message}
-                       </p>
-                     </div>
-                   </div>
-                 ))}
-               </div>
-             ) : (
-               <div className="flex h-full flex-col items-center justify-center text-gray-600">
-                 <Disc className="w-12 h-12 mb-4 opacity-20" />
-                 <p className="text-sm font-mono uppercase tracking-widest font-bold">No High-Severity Logs</p>
-                 <p className="text-xs mt-2">Systems operating normally</p>
-               </div>
-             )}
-          </div>
+
+          {quotasLoading ? (
+            <div className="space-y-3">
+              {[...Array(2)].map((_, index) => <div key={index} className="h-28 rounded-2xl bg-white/5 animate-pulse" />)}
+            </div>
+          ) : quotasError ? (
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5 space-y-3">
+              <div className="text-sm font-bold text-white">Quota data unavailable</div>
+              <p className="text-xs text-white/60 break-all">{quotasError}</p>
+              <button
+                onClick={refetchQuotas}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-colors"
+              >
+                <RefreshCcw className="w-4 h-4" />
+                Retry
+              </button>
+            </div>
+          ) : quotas ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-white/[0.04] border border-white/[0.07] p-5">
+                <div className="text-[10px] uppercase tracking-[4px] text-white/40 mb-2">Gemini API</div>
+                <div className="flex items-center justify-between gap-4 mb-3">
+                  <div className="text-2xl font-bold text-white">{quotas.gemini_api.tokens_used}</div>
+                  <div className="text-xs font-black uppercase tracking-widest text-white/40">/ {quotas.gemini_api.quota_limit}</div>
+                </div>
+                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${quotas.gemini_api.status === 'critical' ? 'bg-red-500' : 'bg-green-500'}`}
+                    style={{ width: `${Math.min(100, (quotas.gemini_api.tokens_used / Math.max(1, quotas.gemini_api.quota_limit)) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-white/40 mt-2 uppercase tracking-widest">{quotas.gemini_api.status}</p>
+              </div>
+
+              <div className="rounded-2xl bg-white/[0.04] border border-white/[0.07] p-5">
+                <div className="text-[10px] uppercase tracking-[4px] text-white/40 mb-2">Cloud Run</div>
+                <div className="flex items-center justify-between gap-4 mb-3">
+                  <div className="text-2xl font-bold text-white">{quotas.cloud_run.cpu_seconds}</div>
+                  <div className="text-xs font-black uppercase tracking-widest text-white/40">/ {quotas.cloud_run.quota_limit}</div>
+                </div>
+                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${quotas.cloud_run.status === 'critical' ? 'bg-red-500' : 'bg-cyan-400'}`}
+                    style={{ width: `${Math.min(100, (quotas.cloud_run.cpu_seconds / Math.max(1, quotas.cloud_run.quota_limit)) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-white/40 mt-2 uppercase tracking-widest">{quotas.cloud_run.status}</p>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

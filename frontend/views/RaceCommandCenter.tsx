@@ -487,6 +487,14 @@ const RaceCommandCenter: React.FC = () => {
 
   const selectedStrategy = liveStrategy ?? getMockStrategy(selectedDriverId);
 
+  const safetyCarModelLabel = useMemo(() => {
+    const rawVersion = (safetyCarData?.model_version || '').trim();
+    if (!rawVersion) return 'Model v1.2.0';
+    if (rawVersion.startsWith('v')) return `Model ${rawVersion}`;
+    if (/^[0-9]/.test(rawVersion)) return `Model v${rawVersion}`;
+    return `Model ${rawVersion}`;
+  }, [safetyCarData?.model_version]);
+
   // Deterministic sector times based on selected driver
   const sectorData = useMemo(() => {
     const seed = seedFromString(`${selectedDriverId}_${selectedRaceId}`);
@@ -692,7 +700,7 @@ const RaceCommandCenter: React.FC = () => {
             label="Safety Car Risk"
             icon={Shield}
             color={safetyCarData && safetyCarData.probability > 0.3 ? COLORS.accent.red : COLORS.accent.yellow}
-            subtitle={`Model v${safetyCarData?.model_version || '1.2.0'} · updates every 30s`}
+            subtitle={`${safetyCarModelLabel} · updates every 30s`}
           />
           <ProbGauge
             value={overtakeData?.probability || 0.12}

@@ -20,7 +20,7 @@ import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'reac
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gauge, Users, Compass, BarChart3, Activity,
-  Map, ChevronLeft, ChevronRight, Lock
+  Map, ChevronLeft, ChevronRight, Lock, AlertTriangle
 } from 'lucide-react';
 import { useBackendStatus } from './hooks/useApi';
 import { useAppStore } from './store/useAppStore';
@@ -148,6 +148,94 @@ class ViewErrorBoundary extends React.Component<
   }
 }
 
+const SafetyDisclaimerModal: React.FC<{
+  open: boolean;
+  onContinue: () => void;
+}> = ({ open, onContinue }) => {
+  const continueButtonRef = React.useRef<HTMLButtonElement | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    continueButtonRef.current?.focus();
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 sm:p-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/90 backdrop-blur-2xl"
+          />
+
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="safety-disclaimer-title"
+            aria-describedby="safety-disclaimer-copy"
+            initial={{ opacity: 0, scale: 0.94, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 18 }}
+            className="relative w-full max-w-2xl rounded-[32px] border border-red-500/20 bg-black/80 p-6 sm:p-8 shadow-[0_0_80px_rgba(225,6,0,0.18)]"
+          >
+            <div className="flex items-start gap-4 sm:gap-5">
+              <div className="shrink-0 w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/20 flex items-center justify-center shadow-lg shadow-red-900/20">
+                <AlertTriangle className="w-6 h-6 text-red-400" />
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-red-400">
+                  Visual Safety Notice
+                </p>
+                <h2 id="safety-disclaimer-title" className="text-2xl sm:text-3xl font-display font-black italic uppercase tracking-tight text-white">
+                  Visual content advisory
+                </h2>
+                <p id="safety-disclaimer-copy" className="text-sm sm:text-base text-white/70 leading-relaxed">
+                  This experience uses intense red accents, flashing highlights, and motion-heavy transitions.
+                  If you are sensitive to flashing lights or at risk of photosensitive seizures, do not continue.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-[10px] font-black uppercase tracking-widest text-white/30">Content Type</div>
+                <p className="mt-2 text-sm text-white/70">High-contrast UI, glow effects, and animated racing telemetry.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-[10px] font-black uppercase tracking-widest text-white/30">Recommendation</div>
+                <p className="mt-2 text-sm text-white/70">Proceed only if you are comfortable with high-contrast animated visuals.</p>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3">
+              <button
+                ref={continueButtonRef}
+                onClick={onContinue}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-red-600 text-white font-black uppercase tracking-widest text-xs hover:bg-red-700 transition-colors shadow-lg shadow-red-900/30"
+              >
+                I Understand, Continue
+              </button>
+              <p className="text-[10px] text-white/30 uppercase tracking-[0.25em]">
+                This warning appears on every app launch.
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 /**
  * Root application component.
  */
@@ -161,11 +249,20 @@ const App: React.FC = () => {
     setAdminModalOpen,
   } = useAppStore();
 
+  const [safetyDisclaimerAccepted, setSafetyDisclaimerAccepted] = React.useState(false);
+
 
   const { online: backendOnline } = useBackendStatus();
   
   const location  = useLocation();
   const navigate  = useNavigate();
+
+  const safetyDisclaimer = (
+    <SafetyDisclaimerModal
+      open={!safetyDisclaimerAccepted}
+      onContinue={() => setSafetyDisclaimerAccepted(true)}
+    />
+  );
 
 
 
@@ -182,6 +279,7 @@ const App: React.FC = () => {
           {children}
         </React.Suspense>
       </ViewErrorBoundary>
+      {safetyDisclaimer}
       <AdminModal />
       <CookieConsent />
     </div>
@@ -201,6 +299,8 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden font-sans">
+      {safetyDisclaimer}
+
       {/* Mobile Top Header (hidden on lg+) */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 backdrop-blur-xl border-b border-white/[0.07] z-50 flex items-center justify-between px-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
         <button
@@ -210,6 +310,21 @@ const App: React.FC = () => {
         >
           <img src="/divergex-logo.svg" alt="DivergeX" className="w-7 h-7 rounded-lg object-contain" />
           <span className="font-display font-black tracking-tighter text-lg italic">Diverge<span className="text-red-600">X</span></span>
+        </button>
+
+        <button
+          onClick={() => {
+            if (isAdmin) {
+              navigate('/admin');
+            } else {
+              setAdminModalOpen(true);
+            }
+          }}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.25em] text-white/70 hover:text-white hover:border-red-500/40 transition-colors"
+          aria-label={isAdmin ? 'Open admin panel' : 'Open admin access'}
+        >
+          <Lock className="w-4 h-4" />
+          <span>{isAdmin ? 'Admin' : 'Access'}</span>
         </button>
       </div>
 
@@ -276,40 +391,34 @@ const App: React.FC = () => {
               <NavLink
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                title={sidebarCollapsed ? item.label : undefined}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5 }}
+            className="pt-4 mt-4 border-t border-white/5"
+          >
+            {isAdmin ? (
+              <NavLink
+                to="/admin"
+                onClick={() => setSidebarOpen(false)}
+                title={sidebarCollapsed ? 'Admin Panel' : undefined}
                 className={({ isActive }) =>
                   `w-full flex items-center gap-4 rounded-xl transition-all duration-300 group relative ${
                     sidebarCollapsed ? 'justify-center p-3' : 'px-4 py-3.5'
                   } ${
                     isActive
-                      ? 'bg-red-600 text-white shadow-lg shadow-red-900/20'
-                      : 'text-white/40 hover:bg-white/[0.05] hover:text-white'
+                      ? 'bg-amber-600/20 border border-amber-500/50 text-amber-400'
+                      : 'border border-amber-500/30 text-amber-500/70 hover:bg-amber-500/10 hover:text-amber-400'
                   }`
                 }
               >
-                {({ isActive }) => (
-                  <>
-                    <item.icon className={`shrink-0 ${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'} ${isActive ? 'text-white' : 'group-hover:text-red-600 dark:group-hover:text-red-500 transition-colors'}`} />
-                    {!sidebarCollapsed && (
-                      <span className="font-medium text-sm tracking-wide whitespace-nowrap overflow-hidden">{item.label}</span>
-                    )}
-                    {'highlight' in item && item.highlight && !isActive && (
-                      <div className="absolute right-3 top-3 w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                    )}
-                  </>
+                <Lock className={`shrink-0 ${sidebarCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                {!sidebarCollapsed && (
+                  <span className="font-bold text-[10px] uppercase tracking-widest whitespace-nowrap overflow-hidden">Admin Panel</span>
                 )}
+                {sidebarCollapsed && <span className="text-xs font-bold">ADM</span>}
               </NavLink>
-            </motion.div>
-          ))}
-
-          {/* Persistent Admin Access for non-admins */}
-          {!isAdmin && (
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 }}
-              className="pt-4 mt-4 border-t border-white/5"
-            >
+            ) : (
               <button
                 onClick={() => setAdminModalOpen(true)}
                 title={sidebarCollapsed ? 'Admin Control' : undefined}
@@ -322,8 +431,9 @@ const App: React.FC = () => {
                   <span className="font-bold text-[10px] uppercase tracking-widest whitespace-nowrap overflow-hidden">Admin Control</span>
                 )}
               </button>
-            </motion.div>
-          )}
+            )}
+          </motion.div>
+        </nav>
         </nav>
 
         {/* Admin shortcut pill - only visible when logged in as admin */}

@@ -138,9 +138,22 @@ const LandingPage: React.FC = () => {
       <section ref={sectionHeroRef} className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden">
         {/* Hero-only video background */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-black">
+          {/* Soft fill layer prevents harsh letterboxing while preserving main video geometry */}
+          <video
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-35 blur-[2px] scale-105"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+          >
+            <source src="/divergex.mp4" type="video/mp4" />
+            <source src="/DivergeX%20animated.mp4" type="video/mp4" />
+          </video>
           <video
             ref={heroVideoRef}
-            className="absolute inset-0 w-full h-full object-cover object-center"
+            className="absolute inset-0 w-full h-full object-contain object-center"
             autoPlay
             loop
             muted

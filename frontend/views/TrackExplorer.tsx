@@ -3,7 +3,7 @@
  * @description Dedicated view for exploring all F1 circuits available in the platform.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { TrackGallery } from '../components/tracks/TrackGallery';
 import { TrackDetailCard } from '../components/tracks/TrackDetailCard';
 import { TrackInfo } from '../components/tracks/TrackMaps';
@@ -12,6 +12,9 @@ import { useAppStore } from '../store/useAppStore';
 const TrackExplorer: React.FC = () => {
     const { setBackgroundCircuitId } = useAppStore();
     const [selectedTrack, setSelectedTrack] = useState<TrackInfo | null>(null);
+    const galleryPaneRef = useRef<HTMLDivElement | null>(null);
+    const mobileOverlayRef = useRef<HTMLDivElement | null>(null);
+    const desktopDetailPaneRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         if (!selectedTrack) return;
@@ -19,6 +22,25 @@ const TrackExplorer: React.FC = () => {
         return () => {
             document.body.style.overflow = '';
         };
+    }, [selectedTrack]);
+
+    useEffect(() => {
+        if (!selectedTrack) return;
+
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const behavior: ScrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
+
+        const frameId = window.requestAnimationFrame(() => {
+            galleryPaneRef.current?.scrollTo({ top: 0, behavior });
+            mobileOverlayRef.current?.scrollTo({ top: 0, behavior });
+            desktopDetailPaneRef.current?.scrollTo({ top: 0, behavior });
+
+            // Main content is an internal scroll container in App.tsx.
+            const appScrollContainer = document.querySelector('main > div.overflow-y-auto') as HTMLElement | null;
+            appScrollContainer?.scrollTo({ top: 0, behavior });
+        });
+
+        return () => window.cancelAnimationFrame(frameId);
     }, [selectedTrack]);
 
     const handleTrackSelect = (track: TrackInfo) => {
@@ -29,7 +51,10 @@ const TrackExplorer: React.FC = () => {
     return (
         <div className="flex h-full overflow-hidden relative">
             {/* Left Pane: Track Gallery */}
-            <div className={`flex-1 p-2 md:p-4 overflow-y-auto ${selectedTrack ? 'hidden xl:block xl:w-2/3' : 'w-full'} transition-all duration-300`}>
+            <div
+                ref={galleryPaneRef}
+                className={`flex-1 p-2 md:p-4 overflow-y-auto ${selectedTrack ? 'hidden xl:block xl:w-2/3' : 'w-full'} transition-all duration-300`}
+            >
                 <div className="mb-2 md:mb-4 border-b pb-2" style={{ borderColor: 'var(--border-color)' }}>
                     <h1 className="text-4xl font-display font-bold tracking-tight uppercase italic text-white">
                         Circuit Directory
@@ -48,7 +73,7 @@ const TrackExplorer: React.FC = () => {
 
             {/* Mobile: open selected circuit as a viewport-anchored overlay */}
             {selectedTrack && (
-                <div className="fixed inset-0 z-50 xl:hidden bg-black/70 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
+                <div ref={mobileOverlayRef} className="fixed inset-0 z-50 xl:hidden bg-black/70 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
                     <div className="min-h-full flex items-start justify-center">
                         <div className="w-full max-w-2xl">
                             <TrackDetailCard
@@ -62,7 +87,7 @@ const TrackExplorer: React.FC = () => {
 
             {/* Desktop: keep side detail pane */}
             {selectedTrack && (
-                <div className="hidden xl:block xl:w-1/3 border-l overflow-y-auto p-4 md:p-6 bg-white/50 xl:dark:bg-black/20 backdrop-blur-xl transition-all duration-300" style={{ borderColor: 'var(--border-color)' }}>
+                <div ref={desktopDetailPaneRef} className="hidden xl:block xl:w-1/3 border-l overflow-y-auto p-4 md:p-6 bg-white/50 xl:dark:bg-black/20 backdrop-blur-xl transition-all duration-300" style={{ borderColor: 'var(--border-color)' }}>
                     <div className="sticky top-0">
                         <TrackDetailCard
                             trackId={selectedTrack.id}

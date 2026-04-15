@@ -5,13 +5,27 @@
  */
 
 import React from 'react';
-import { AlertTriangle, Clock, AlertCircle } from 'lucide-react';
+import { AlertTriangle, AlertCircle, RefreshCcw } from 'lucide-react';
 import { useAdminLogs, useBackendStatus } from '../hooks/useApi';
 import { LiveBadge } from '../components/LiveBadge';
 
 const SecurityAudit: React.FC = () => {
   const { online: isLive } = useBackendStatus();
-  const { data: logsData, loading } = useAdminLogs();
+  const { data: logsData, loading, error, refetch } = useAdminLogs();
+
+  const formatLogMessage = (log: any) => {
+    const candidates = [
+      log?.message,
+      log?.textPayload,
+      log?.jsonPayload?.message,
+      log?.jsonPayload?.text,
+    ];
+
+    const firstMessage = candidates.find((value) => typeof value === 'string' && value.trim());
+    if (firstMessage) return firstMessage.trim();
+
+    return 'Cloud Logging entry did not include a message payload.';
+  };
 
   if (loading) {
     return (
@@ -26,6 +40,43 @@ const SecurityAudit: React.FC = () => {
   }
 
   const logs = logsData?.logs || [];
+
+  if (error) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-red-500" />
+              Error Logs
+            </h2>
+            <p className="text-white/40 text-sm mt-1">Recent error-level events from Cloud Logging</p>
+          </div>
+          <LiveBadge isLive={isLive} />
+        </div>
+
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 sm:p-8 text-center space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/15 border border-red-500/20 flex items-center justify-center">
+            <AlertTriangle className="w-7 h-7 text-red-400" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-bold text-white">Unable to load admin logs</h3>
+            <p className="text-sm text-white/60 max-w-2xl mx-auto">
+              The admin log endpoint returned an error, so the panel cannot distinguish whether there are no logs or the backend is unavailable.
+            </p>
+            <p className="text-xs font-mono text-red-300/90 break-all">{error}</p>
+          </div>
+          <button
+            onClick={refetch}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-widest hover:bg-red-700 transition-colors"
+          >
+            <RefreshCcw className="w-4 h-4" />
+            Retry Fetch
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -69,7 +120,7 @@ const SecurityAudit: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-white/70 max-w-2xl truncate font-mono">
-                      {log.message}
+                      {formatLogMessage(log)}
                     </td>
                   </tr>
                 ))}
