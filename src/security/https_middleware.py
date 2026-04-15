@@ -150,10 +150,12 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Per-IP rate limiting middleware.
+    """Per-IP, per-path-group rate limiting middleware.
 
     Only requests whose paths start with one of the entries in ``limited_paths``
-    count against the quota.  Pass an empty frozenset to rate-limit all paths.
+    count against the quota.  Each path prefix gets its own independent counter
+    per IP so that using multiple endpoint groups doesn't compound usage.
+    Pass an empty frozenset to rate-limit all paths under a single counter.
     """
 
     def __init__(
@@ -167,17 +169,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         # Paths that count against the quota (prefix match).
-        # None / empty means every path is counted.
+        # None / empty means every path is counted under a single counter.
         self.limited_paths: FrozenSet[str] = limited_paths or frozenset()
-        self.request_counts: Dict[str, Tuple[int, float]] = (
-            {}
-        )  # IP -> (count, window_start)
+        # Key: "{client_ip}:{matched_prefix}" — each path group is independent
+        self.request_counts: Dict[str, Tuple[int, float]] = {}
 
-    def _is_limited(self, path: str) -> bool:
-        """Return True if this path should be counted against the rate limit."""
+    def _match_prefix(self, path: str) -> Optional[str]:
+        """Return the matched path prefix, or None if this path is not limited."""
         if not self.limited_paths:
-            return True
-        return any(path.startswith(prefix) for prefix in self.limited_paths)
+            return ""  # empty string sentinel — single global counter
+        for prefix in self.limited_paths:
+            if path.startswith(prefix):
+                return prefix
+        return None
 
     async def dispatch(self, request: Request, call_next: Callable):
         import time
@@ -190,7 +194,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         # Skip rate limiting for health checks and non-targeted paths
-        if path in ("/health", "/metrics") or not self._is_limited(path):
+        if path in ("/health", "/metrics"):
+            return await call_next(request)
+
+        matched_prefix = self._match_prefix(path)
+        if matched_prefix is None:
             return await call_next(request)
 
         # Get real client IP — Cloud Run proxies all traffic through 169.254.169.126
@@ -202,14 +210,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             else (request.client.host if request.client else "unknown")
         )
 
+        # Separate counter per IP+path-group so endpoint groups don't share quota
+        bucket_key = f"{client_ip}:{matched_prefix}"
         current_time = time.time()
 
-        if client_ip in self.request_counts:
-            count, window_start = self.request_counts[client_ip]
+        if bucket_key in self.request_counts:
+            count, window_start = self.request_counts[bucket_key]
 
             # Reset window if expired
             if current_time - window_start > self.window_seconds:
-                self.request_counts[client_ip] = (1, current_time)
+                self.request_counts[bucket_key] = (1, current_time)
             else:
                 if count >= self.max_requests:
                     reset_at = window_start + self.window_seconds
@@ -218,19 +228,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     return JSONResponse(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         content={
-                            "detail": "Rate limit exceeded. 100 requests per hour allowed."
+                            "detail": f"Rate limit exceeded. {self.max_requests} requests per hour allowed per endpoint group."
                         },
                         headers={"Retry-After": str(retry_after)},
                     )
-                self.request_counts[client_ip] = (count + 1, window_start)
+                self.request_counts[bucket_key] = (count + 1, window_start)
         else:
-            self.request_counts[client_ip] = (1, current_time)
+            self.request_counts[bucket_key] = (1, current_time)
 
         response = await call_next(request)
 
         # Add rate limit headers so clients can track their quota
-        if client_ip in self.request_counts:
-            count, window_start = self.request_counts[client_ip]
+        if bucket_key in self.request_counts:
+            count, window_start = self.request_counts[bucket_key]
             response.headers["X-RateLimit-Limit"] = str(self.max_requests)
             response.headers["X-RateLimit-Remaining"] = str(
                 max(0, self.max_requests - count)
