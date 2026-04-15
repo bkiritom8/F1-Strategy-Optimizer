@@ -302,7 +302,11 @@ def _build_fallback_answer(request: ChatRequest) -> str:
     remaining = max(0, total - lap)
 
     pit_hint = ""
-    if (compound == "SOFT" and age >= 15) or (compound == "MEDIUM" and age >= 25) or (compound == "HARD" and age >= 35):
+    if (
+        (compound == "SOFT" and age >= 15)
+        or (compound == "MEDIUM" and age >= 25)
+        or (compound == "HARD" and age >= 35)
+    ):
         pit_hint = " Tires are near the degradation cliff, so plan a pit in the next 1-3 laps if traffic allows."
     elif remaining <= 10:
         pit_hint = " Final-stint mode: preserve tire surface and deploy push selectively in clean air."

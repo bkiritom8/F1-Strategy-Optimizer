@@ -616,7 +616,9 @@ async def race_simulation_ws(websocket: WebSocket) -> None:
                     {
                         "driver_id": rec.driver_id,
                         "display_name": rec.display_name,
-                        "code": DRIVER_CODE.get(rec.driver_id, rec.driver_id[:3].upper()),
+                        "code": DRIVER_CODE.get(
+                            rec.driver_id, rec.driver_id[:3].upper()
+                        ),
                         "position": rec.position,
                         "compound": rec.tire_compound,
                         "tire_age": rec.tire_age_laps,
