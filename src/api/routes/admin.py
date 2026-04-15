@@ -20,6 +20,43 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 
+def _normalize_cloud_log_message(payload: Any) -> str:
+    """Return a human-readable log message from Cloud Logging payloads."""
+    if payload is None:
+        return "No message provided by Cloud Logging entry"
+
+    if isinstance(payload, str):
+        txt = payload.strip()
+        return txt if txt else "No message provided by Cloud Logging entry"
+
+    if isinstance(payload, dict):
+        for key in ("message", "detail", "error", "msg", "description"):
+            value = payload.get(key)
+            if value is not None:
+                text = str(value).strip()
+                if text and text.lower() != "none":
+                    return text
+
+        # Structured request logs often have no message; expose key context.
+        status = payload.get("status")
+        method = payload.get("requestMethod") or payload.get("method")
+        path = payload.get("requestUrl") or payload.get("path")
+        if status or method or path:
+            parts = []
+            if method:
+                parts.append(str(method))
+            if path:
+                parts.append(str(path))
+            if status:
+                parts.append(f"status={status}")
+            return " ".join(parts)
+
+    text = str(payload).strip()
+    if not text or text.lower() == "none":
+        return "No message provided by Cloud Logging entry"
+    return text
+
+
 class SeedRequest(BaseModel):
     secret: str
 
@@ -113,12 +150,8 @@ async def get_logs(current_user: User = Depends(get_current_user_optional)):
                     "timestamp": (
                         entry.timestamp.isoformat() if entry.timestamp else None
                     ),
-                    "severity": entry.severity,
-                    "message": (
-                        entry.payload
-                        if isinstance(entry.payload, str)
-                        else str(entry.payload)
-                    ),
+                    "severity": str(entry.severity or "ERROR"),
+                    "message": _normalize_cloud_log_message(entry.payload),
                 }
             )
     except Exception as e:
