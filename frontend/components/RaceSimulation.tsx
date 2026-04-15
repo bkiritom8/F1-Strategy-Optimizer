@@ -284,6 +284,48 @@ function compoundDot(compound: string, size = 10) {
   );
 }
 
+function localStrategistFallback(
+  question: string,
+  inputs: {
+    current_lap?: number;
+    total_laps?: number;
+    tire_compound?: string;
+    tire_age_laps?: number;
+    position?: number;
+    gap_to_leader?: number;
+  } | null,
+): string {
+  const q = question.toLowerCase();
+  const lap = inputs?.current_lap ?? 0;
+  const total = inputs?.total_laps ?? 0;
+  const tire = (inputs?.tire_compound ?? 'MEDIUM').toUpperCase();
+  const age = inputs?.tire_age_laps ?? 0;
+  const pos = inputs?.position ?? 0;
+  const gap = inputs?.gap_to_leader ?? 0;
+  const lapsRemaining = Math.max(0, total - lap);
+
+  const pitLikely =
+    (tire === 'SOFT' && age >= 15) ||
+    (tire === 'MEDIUM' && age >= 25) ||
+    (tire === 'HARD' && age >= 35);
+
+  if (q.includes('pit') || q.includes('undercut') || q.includes('overcut')) {
+    if (pitLikely && lapsRemaining > 6) {
+      return `Local strategist fallback: Your ${tire} set is approaching the cliff (${age} laps). Prioritize the next pit window in 1-3 laps, then target MEDIUM/HARD based on remaining distance.`;
+    }
+    return `Local strategist fallback: Hold track position for now. Tires are still in a workable window (${tire}, ${age} laps). Re-evaluate pitting once traffic opens or degradation spikes.`;
+  }
+
+  if (q.includes('push') || q.includes('attack') || q.includes('pace')) {
+    if (gap <= 2.0 && lapsRemaining <= 12) {
+      return `Local strategist fallback: Attack phase is reasonable now. Gap is ${gap.toFixed(1)}s with ${lapsRemaining} laps left, so deploy higher pace in short bursts and protect tire surface temps.`;
+    }
+    return `Local strategist fallback: Use balanced pace. Preserve tire life and ERS for a decisive push window in the final 10-12 laps.`;
+  }
+
+  return `Live LLM is temporarily unavailable (backend error). Local strategist fallback: P${pos}, Lap ${lap}/${total}, ${tire} (${age} laps), gap ${gap.toFixed(1)}s. Base plan: stay balanced, avoid overheat, and prepare the next pit call around tire-cliff timing.`;
+}
+
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 /** Animated track with driver dots positioned around the circuit. */
@@ -1295,7 +1337,8 @@ const RaceSimulation: React.FC = () => {
       });
       setChatMessages(prev => [...prev, { role: 'assistant', content: res.answer, latency_ms: res.latency_ms }]);
     } catch {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Backend unreachable. Check the API is running.' }]);
+      const fallback = localStrategistFallback(question, raceInputsForLlm);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: fallback }]);
     } finally {
       setChatLoading(false);
     }
@@ -1344,7 +1387,13 @@ const RaceSimulation: React.FC = () => {
           { role: 'assistant' as const, content: res.answer, latency_ms: res.latency_ms },
         ]);
       })
-      .catch(() => { /* silent — user can still ask manually */ })
+      .catch(() => {
+        const fallback = localStrategistFallback(preloadQ, inputs);
+        setChatMessages(prev => [
+          ...prev,
+          { role: 'assistant' as const, content: fallback },
+        ]);
+      })
       .finally(() => { setChatLoading(false); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePrompt]);
@@ -1850,11 +1899,17 @@ const RaceSimulation: React.FC = () => {
   // FINISHED PHASE
   if (phase === 'finished' && finishedResult) {
     return (
-      <RaceResults
-        result={finishedResult}
-        userDriverId={selectedDriver.id}
-        onReset={reset}
-      />
+      <div className="space-y-4">
+        <RaceResults
+          result={finishedResult}
+          userDriverId={selectedDriver.id}
+          onReset={reset}
+        />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <StandingsTower standings={currentStandings} userDriverId={selectedDriver.id} />
+          <LapTimeline laps={laps} userDriverId={selectedDriver.id} />
+        </div>
+      </div>
     );
   }
 

@@ -569,8 +569,6 @@ const RaceCommandCenter: React.FC = () => {
 
   return (
     <div className="flex h-full overflow-hidden relative">
-      <RacingBackground view="command" theme="dark" />
-      
       <div className="hidden lg:block w-72 shrink-0 h-full border-r border-white/5 transition-colors duration-300 z-10 relative">
         <PositionTower
           telemetry={telemetries}

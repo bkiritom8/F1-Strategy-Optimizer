@@ -184,6 +184,7 @@ const App: React.FC = () => {
           {children}
         </React.Suspense>
       </ViewErrorBoundary>
+      <AdminModal />
       <CookieConsent />
     </div>
   );

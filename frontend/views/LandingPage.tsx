@@ -154,7 +154,7 @@ const LandingPage: React.FC = () => {
               }
             }}
           >
-            <source src="/divergex.mp4" type="video/mp4" />
+            <source src="/DivergeX%20animated.mp4" type="video/mp4" />
           </video>
           {/* Light readability overlay: 30% */}
           <div className="absolute inset-0 bg-black/30" />
@@ -246,8 +246,8 @@ const LandingPage: React.FC = () => {
               className="z-20 flex flex-col items-center"
               whileHover={{ y: 5 }}
             >
-              <span className="text-[10px] uppercase font-black tracking-[0.3em] text-white/60 group-hover:text-red-500 transition-colors">Explore Intelligence</span>
-              <ChevronDown className="w-5 h-5 text-white/20 group-hover:text-red-500 transition-colors mt-1" />
+              <span className="text-[10px] uppercase font-black tracking-[0.3em] text-white/95 group-hover:text-white transition-colors">Explore Intelligence</span>
+              <ChevronDown className="w-5 h-5 text-white/70 group-hover:text-white transition-colors mt-1" />
             </motion.div>
           </div>
         </motion.div>

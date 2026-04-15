@@ -770,9 +770,6 @@ const StrategyHub: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-display font-bold uppercase tracking-tight">AI Strategist</h3>
-                <p className="text-[10px] font-mono text-white/40 flex items-center gap-1">
-                  <Zap className="w-2.5 h-2.5 text-blue-400" /> FastAPI LLM Backend
-                </p>
               </div>
             </div>
 
