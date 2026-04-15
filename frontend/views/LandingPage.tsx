@@ -71,6 +71,12 @@ const LandingPage: React.FC = () => {
   const { isAdmin, setAdminModalOpen, logout } = useAppStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const sectionHeroRef = useRef<HTMLElement>(null);
+  const sectionStrategyRef = useRef<HTMLElement>(null);
+  const sectionTelemetryRef = useRef<HTMLElement>(null);
+  const sectionInfraRef = useRef<HTMLElement>(null);
+  const sectionFinalRef = useRef<HTMLElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
   const [isLoopFading, setIsLoopFading] = useState(false);
   
   const { scrollYProgress } = useScroll({ target: containerRef });
@@ -83,6 +89,11 @@ const LandingPage: React.FC = () => {
   const heroOpacity = useTransform(smoothProgress, [0, 0.15], [1, 0]);
 
   const [showDataSpecs, setShowDataSpecs] = useState(false);
+
+  const scrollToRef = (targetRef: React.RefObject<HTMLElement | HTMLDivElement | null>) => {
+    if (!targetRef.current) return;
+    targetRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <div ref={containerRef} className="relative bg-black text-white min-h-screen font-sans selection:bg-red-600/30 overflow-x-hidden">
@@ -124,7 +135,7 @@ const LandingPage: React.FC = () => {
       />
 
       {/* ── SECTION 1: HERO ── */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden">
+      <section ref={sectionHeroRef} className="relative min-h-screen flex flex-col items-center justify-center pt-20 px-6 overflow-hidden">
         {/* Hero-only video background */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-black">
           <video
@@ -215,7 +226,7 @@ const LandingPage: React.FC = () => {
           animate={{ opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           className="relative z-10 mt-12 flex flex-col items-center gap-4 cursor-pointer group"
-          onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
+          onClick={() => scrollToRef(sectionStrategyRef)}
         >
           <div className="relative w-52 h-16 flex items-center justify-center">
             {/* Arched lines from screenshot */}
@@ -254,7 +265,7 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* ── SECTION 2: STRATEGY ENGINE ── */}
-      <section className="relative py-32 px-6 lg:px-24">
+      <section ref={sectionStrategyRef} className="relative py-32 px-6 lg:px-24">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <motion.div
             whileInView={{ opacity: 1, x: 0 }}
@@ -306,10 +317,25 @@ const LandingPage: React.FC = () => {
             </div>
           </motion.div>
         </div>
+
+        <motion.div
+          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 14 }}
+          viewport={{ once: true }}
+          className="mt-14 flex justify-center"
+        >
+          <button
+            onClick={() => scrollToRef(sectionTelemetryRef)}
+            className="group inline-flex items-center gap-2 text-[10px] uppercase font-black tracking-[0.24em] text-white/70 hover:text-white transition-colors"
+          >
+            Decode Telemetry
+            <ChevronDown className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
+          </button>
+        </motion.div>
       </section>
 
       {/* ── SECTION 2.5: REAL-TIME TELEMETRY ── */}
-      <section className="relative py-32 px-6 lg:px-24 overflow-hidden">
+      <section ref={sectionTelemetryRef} className="relative py-32 px-6 lg:px-24 overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         <div className="max-w-7xl mx-auto space-y-20">
           <div className="text-center space-y-4">
@@ -358,11 +384,26 @@ const LandingPage: React.FC = () => {
               </motion.div>
             ))}
           </div>
+
+          <motion.div
+            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 14 }}
+            viewport={{ once: true }}
+            className="mt-14 flex justify-center"
+          >
+            <button
+              onClick={() => scrollToRef(sectionInfraRef)}
+              className="group inline-flex items-center gap-2 text-[10px] uppercase font-black tracking-[0.24em] text-white/70 hover:text-white transition-colors"
+            >
+              Scan Infrastructure
+              <ChevronDown className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
+            </button>
+          </motion.div>
         </div>
       </section>
 
       {/* ── SECTION 3: INFRASTRUCTURE ── */}
-      <section className="relative py-32 px-6 lg:px-24 bg-gradient-to-b from-transparent to-[#050505]">
+      <section ref={sectionInfraRef} className="relative py-32 px-6 lg:px-24 bg-gradient-to-b from-transparent to-[#050505]">
         <div className="max-w-7xl mx-auto flex flex-col items-center text-center space-y-12">
           <motion.div
              whileInView={{ opacity: 1, y: 0 }}
@@ -404,13 +445,28 @@ const LandingPage: React.FC = () => {
               </motion.div>
             ))}
           </div>
+
+          <motion.div
+            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 14 }}
+            viewport={{ once: true }}
+            className="mt-14 flex justify-center"
+          >
+            <button
+              onClick={() => scrollToRef(sectionFinalRef)}
+              className="group inline-flex items-center gap-2 text-[10px] uppercase font-black tracking-[0.24em] text-white/70 hover:text-white transition-colors"
+            >
+              Reach Final Briefing
+              <ChevronDown className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
+            </button>
+          </motion.div>
         </div>
       </section>
 
       {/* Section 3.5 removed to optimize landing page weight. */}
 
       {/* ── SECTION 4: FINAL CTA ── */}
-      <section className="relative min-h-[60vh] flex items-center justify-center py-20 px-6">
+      <section ref={sectionFinalRef} className="relative min-h-[60vh] flex items-center justify-center py-20 px-6">
         <div className="absolute inset-0 pointer-events-none opacity-30 overflow-hidden">
           <div className="absolute bottom-0 left-0 w-full h-[50vh] bg-gradient-to-t from-red-600/20 to-transparent" />
         </div>
@@ -432,10 +488,20 @@ const LandingPage: React.FC = () => {
               Enter Command Center
             </button>
           </div>
+
+          <button
+            onClick={() => scrollToRef(footerRef)}
+            className="group inline-flex items-center gap-2 text-[10px] uppercase font-black tracking-[0.24em] text-white/70 hover:text-white transition-colors"
+          >
+            Cross The Finish Line
+            <ChevronDown className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
+          </button>
         </motion.div>
       </section>
 
-      <Footer onAdminClick={() => setAdminModalOpen(true)} />
+      <div ref={footerRef}>
+        <Footer onAdminClick={() => setAdminModalOpen(true)} />
+      </div>
 
       {/* ── DATA SPECS MODAL ── */}
       <AnimatePresence>

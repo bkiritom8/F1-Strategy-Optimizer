@@ -91,16 +91,23 @@ const AnimatedPath: React.FC<{
           transition={{ duration: 10, ease: 'linear', repeat: Infinity }}
           style={{ offsetPath: `path('${d}')`, offsetRotate: 'auto' } as any}
         >
-          <g transform="scale(0.7) translate(-13,-10)">
-            <rect x="0"  y="6"  width="3"  height="8"  fill="#111" rx="1" />
-            <rect x="3"  y="2"  width="6"  height="5"  fill="#222" rx="1" />
-            <rect x="3"  y="13" width="6"  height="5"  fill="#222" rx="1" />
-            <path d="M4,7 L19,8 L19,12 L4,13 Z" fill="#E10600" />
-            <circle cx="12" cy="10" r="2.5" fill="#FFE500" />
-            <rect x="16" y="2"  width="6"  height="5"  fill="#222" rx="1" />
-            <rect x="16" y="13" width="6"  height="5"  fill="#222" rx="1" />
-            <path d="M19,9 L24,9.5 L24,10.5 L19,11 Z" fill="#E10600" />
-            <rect x="23" y="5"  width="2"  height="10" fill="#111" rx="0.5" />
+          <g transform="scale(0.78) translate(-18,-12)">
+            {/* Front wing */}
+            <rect x="0" y="9" width="4" height="4" fill="#3B82F6" rx="1" />
+            {/* Nose cone */}
+            <path d="M4,9 L8,8 L8,14 L4,13 Z" fill="#FACC15" />
+            {/* Main chassis */}
+            <path d="M8,7 L24,7 L27,10 L24,13 L8,13 Z" fill="#E10600" />
+            {/* Cockpit halo */}
+            <rect x="14" y="8" width="5" height="4" fill="#FACC15" rx="1" />
+            <rect x="16" y="8.5" width="2" height="3" fill="#1F2937" rx="0.5" />
+            {/* Rear engine cover / wing */}
+            <rect x="24" y="7.4" width="5" height="5.2" fill="#3B82F6" rx="1" />
+            {/* Wheels */}
+            <circle cx="10" cy="7" r="2" fill="#111" />
+            <circle cx="10" cy="13" r="2" fill="#111" />
+            <circle cx="22" cy="7" r="2" fill="#111" />
+            <circle cx="22" cy="13" r="2" fill="#111" />
           </g>
         </motion.g>
       </>
@@ -125,7 +132,7 @@ export const BahrainTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="85" y="113" width="12" height="3" fill="#E10600" />
+        <rect x="85" y="113" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -148,7 +155,7 @@ export const JeddahTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="149" y="147" width="12" height="3" fill="#E10600" />
+        <rect x="149" y="147" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -171,7 +178,7 @@ export const MelbourneTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="125" y="142" width="12" height="3" fill="#E10600" />
+        <rect x="125" y="142" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -194,7 +201,7 @@ export const SuzukaTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="216" y="81" width="12" height="3" fill="#E10600" />
+        <rect x="216" y="81" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -217,7 +224,7 @@ export const ShanghaiTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="152" y="151" width="12" height="3" fill="#E10600" />
+        <rect x="152" y="151" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -240,7 +247,7 @@ export const MiamiTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="117" y="64" width="12" height="3" fill="#E10600" />
+        <rect x="117" y="64" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -263,7 +270,7 @@ export const ImolaTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="202" y="43" width="12" height="3" fill="#E10600" />
+        <rect x="202" y="43" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -286,7 +293,7 @@ export const MonacoTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="74" y="128" width="12" height="3" fill="#E10600" />
+        <rect x="74" y="128" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -309,7 +316,7 @@ export const MontrealTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="163" y="157" width="12" height="3" fill="#E10600" />
+        <rect x="163" y="157" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -332,7 +339,7 @@ export const BarcelonaTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="188" y="79" width="12" height="3" fill="#E10600" />
+        <rect x="188" y="79" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -355,7 +362,7 @@ export const SpielbergTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="203" y="163" width="12" height="3" fill="#E10600" />
+        <rect x="203" y="163" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -378,7 +385,7 @@ export const SilverstoneTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="96" y="131" width="12" height="3" fill="#E10600" />
+        <rect x="96" y="131" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -401,7 +408,7 @@ export const BudapestTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="127" y="163" width="12" height="3" fill="#E10600" />
+        <rect x="127" y="163" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -424,7 +431,7 @@ export const SpaTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="119" y="41" width="12" height="3" fill="#E10600" />
+        <rect x="119" y="41" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -447,7 +454,7 @@ export const ZandvoortTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="71" y="74" width="12" height="3" fill="#E10600" />
+        <rect x="71" y="74" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -470,7 +477,7 @@ export const MonzaTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="91" y="144" width="12" height="3" fill="#E10600" />
+        <rect x="91" y="144" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -493,7 +500,7 @@ export const SingaporeTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="272" y="99" width="12" height="3" fill="#E10600" />
+        <rect x="272" y="99" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -516,7 +523,7 @@ export const COTATrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="23" y="123" width="12" height="3" fill="#E10600" />
+        <rect x="23" y="123" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -539,7 +546,7 @@ export const MexicoTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="60" y="16" width="12" height="3" fill="#E10600" />
+        <rect x="60" y="16" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -562,7 +569,7 @@ export const InterlagosTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="94" y="134" width="12" height="3" fill="#E10600" />
+        <rect x="94" y="134" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -585,7 +592,7 @@ export const VegasTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="172" y="178" width="12" height="3" fill="#E10600" />
+        <rect x="172" y="178" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -608,7 +615,7 @@ export const LusailTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="106" y="143" width="12" height="3" fill="#E10600" />
+        <rect x="106" y="143" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -631,7 +638,7 @@ export const YasMarinaTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="135" y="110" width="12" height="3" fill="#E10600" />
+        <rect x="135" y="110" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -680,7 +687,7 @@ export const MadridTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="32" y="155" width="12" height="3" fill="#E10600" />
+        <rect x="32" y="155" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -704,7 +711,7 @@ export const BhujTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="42" y="135" width="12" height="3" fill="#E10600" />
+        <rect x="42" y="135" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );
@@ -728,7 +735,7 @@ export const ArgentinaTrack: React.FC<TrackProps> = (props) => {
         pathRef={pathRef}
       />
       {showStartFinish && (
-        <rect x="42" y="115" width="12" height="3" fill="#E10600" />
+        <rect x="42" y="115" width="12" height="3" fill="#22C55E" />
       )}
     </svg>
   );

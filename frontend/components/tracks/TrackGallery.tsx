@@ -111,7 +111,7 @@ const TrackItem = memo(({ track, isSelected, onSelect, showDetails }: TrackItemP
           <TrackComponent
             width={180}
             height={120}
-            strokeColor={isSelected ? COLORS.accent.red : isHovered ? COLORS.accent.green : textColor}
+            strokeColor="#FFFFFF"
             strokeWidth={2.5}
             showStartFinish={true}
             animated={isHovered || isSelected}

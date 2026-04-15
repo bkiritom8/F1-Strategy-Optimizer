@@ -157,7 +157,7 @@ export const TrackDetailCard: React.FC<TrackDetailCardProps> = ({
           <TrackComponent
             width={320}
             height={200}
-            strokeColor={COLORS.accent.red}
+            strokeColor="#FFFFFF"
             strokeWidth={4}
             showStartFinish={true}
             animated={true}
