@@ -504,7 +504,7 @@ class SimulateResponse(BaseModel):
 async def race_state(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """Return full RaceState at a given lap (all drivers). Requires authentication."""
     try:
@@ -528,7 +528,7 @@ async def race_state(
 async def race_standings(
     race_id: str = Query(..., description="Race ID e.g. '2024_1'"),
     lap: int = Query(..., ge=1, description="Lap number"),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """Return driver standings at a given lap. Requires authentication."""
     try:
@@ -568,7 +568,7 @@ async def driver_lap_telemetry(
 
 @v1.get("/drivers")
 async def list_drivers(
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """Return all driver profiles with computed career stats. Requires authentication."""
     try:
@@ -636,7 +636,7 @@ async def list_drivers(
 @v1.get("/drivers/{driver_id}/history")
 async def driver_history(
     driver_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """Return career race history for a driver. Requires authentication."""
     try:
@@ -688,7 +688,7 @@ def _rule_based_simulate(
 @v1.post("/strategy/simulate", response_model=SimulateResponse)
 async def simulate_strategy(
     request: SimulateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user_optional),
 ):
     """
     Simulate a custom pit strategy using the local StrategySimulator.
