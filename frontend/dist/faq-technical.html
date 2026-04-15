@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Technical FAQ | DivergeX</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #030303;
+      --red: #dc2626;
+      --teal: #14b8a6;
+      --border: rgba(255, 255, 255, 0.11);
+      --glass: rgba(255, 255, 255, 0.04);
+      --muted: rgba(255, 255, 255, 0.68);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #fafafa;
+      font-family: Inter, system-ui, sans-serif;
+      line-height: 1.62;
+      background: radial-gradient(circle at 20% 0%, rgba(20, 184, 166, 0.14), transparent 28%),
+                  radial-gradient(circle at 85% 15%, rgba(220, 38, 38, 0.14), transparent 35%),
+                  var(--bg);
+    }
+    .wrap {
+      width: min(980px, 92vw);
+      margin: 0 auto;
+      padding: 42px 0 60px;
+    }
+    .top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .top a {
+      color: rgba(255,255,255,0.75);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.76rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .top a:hover { border-color: rgba(20, 184, 166, 0.45); color: #fff; }
+    .hero {
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--teal);
+      border-radius: 22px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+      padding: 28px;
+      backdrop-filter: blur(15px);
+    }
+    h1, h2, h3 {
+      margin: 0;
+      font-family: Outfit, sans-serif;
+      text-transform: uppercase;
+      font-style: italic;
+      letter-spacing: -0.02em;
+    }
+    h1 { font-size: clamp(1.8rem, 3.8vw, 3rem); }
+    h2 { margin-top: 24px; color: var(--teal); font-size: 1.2rem; }
+    h3 { margin: 0; font-size: 0.98rem; color: #fff; letter-spacing: 0.01em; }
+    p { color: var(--muted); margin: 12px 0; }
+    .group {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--glass);
+      overflow: hidden;
+    }
+    details { border-top: 1px solid rgba(255,255,255,0.08); }
+    details:first-child { border-top: none; }
+    summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 15px 18px;
+      font-weight: 800;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: '+'; color: var(--red); font-size: 1rem; font-weight: 900; }
+    details[open] summary::after { content: '-'; }
+    .content {
+      padding: 0 18px 16px;
+      color: var(--muted);
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: rgba(20, 184, 166, 0.12);
+      color: #99f6e4;
+      border: 1px solid rgba(20,184,166,0.35);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    ul { margin: 8px 0 0 0; padding-left: 18px; color: var(--muted); }
+    footer {
+      margin-top: 30px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a href="/">Home</a>
+      <a href="/faq.html">FAQ Center</a>
+      <a href="/docs.html">Documentation</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+
+    <section class="hero">
+      <h1>Technical FAQ</h1>
+      <p>Engineering-focused answers for API behavior, auth boundaries, deployment posture, frontend rendering, and simulation data flow.</p>
+    </section>
+
+    <h2>API & Simulation</h2>
+    <div class="group">
+      <details>
+        <summary><h3>Which endpoint powers the Strategy Variants panel?</h3></summary>
+        <div class="content">The panel is fed by <code>POST /api/v1/strategy/full-simulate</code>, which returns multi-variant outputs including pit laps, risk level, and finish probabilities. The UI keeps mock fallback rendering if the call fails.</div>
+      </details>
+      <details>
+        <summary><h3>Why might variants stay static for some users?</h3></summary>
+        <div class="content">Common causes include stale deployment artifacts, client cache, auth token expiration, or effect dependency bugs in the view lifecycle. Ensure the frontend build containing variant-fetch integration is deployed and hard-refresh cache.</div>
+      </details>
+      <details>
+        <summary><h3>How should win probability be interpreted?</h3></summary>
+        <div class="content">It is scenario-derived from simulation runs, not certainty. Use it comparatively across proposed plans and combine with risk-level and operational context (traffic, degradation trend, safety car odds).</div>
+      </details>
+    </div>
+
+    <h2>Auth & Permissions</h2>
+    <div class="group">
+      <details>
+        <summary><h3>Which endpoints are protected by auth?</h3></summary>
+        <div class="content">Core strategy, model, and race-state endpoints require current-user dependency checks. Role-based checks further restrict sensitive operations so read-only roles cannot trigger privileged strategy actions.</div>
+      </details>
+      <details>
+        <summary><h3>Why does an endpoint return 401 vs 403?</h3></summary>
+        <div class="content"><code>401</code> indicates missing/invalid authentication. <code>403</code> indicates authenticated but insufficient role/permission for that operation.</div>
+      </details>
+    </div>
+
+    <h2>Frontend Reliability & Accessibility</h2>
+    <div class="group">
+      <details>
+        <summary><h3>What caused the “Cannot access before initialization” crash?</h3></summary>
+        <div class="content">A temporal-dead-zone reference in a hook dependency chain can trigger this class of error after minification. The fix is to avoid referencing values before declaration and keep effect dependencies stable and explicit.</div>
+      </details>
+      <details>
+        <summary><h3>How is seizure-risk visual intensity reduced?</h3></summary>
+        <div class="content">The animated grid uses lower-opacity accents, slower movement, and reduced-motion preference support. This lowers flicker perception while preserving design identity.</div>
+      </details>
+      <details>
+        <summary><h3>Why are select options sometimes invisible on Windows?</h3></summary>
+        <div class="content">Native form controls can ignore inherited text color under certain themes or forced-color modes. Explicit <code>select</code>/<code>option</code> color backgrounds and forced-color handling improve consistency.</div>
+      </details>
+    </div>
+
+    <h2>Cookies & Consent</h2>
+    <div class="group">
+      <details>
+        <summary><h3>How is cookie consent persisted?</h3></summary>
+        <div class="content">Consent state is persisted in local storage under a dedicated key. The footer trigger dispatches a cookie-settings event, allowing users to reopen consent controls and reject optional cookies later.</div>
+      </details>
+      <details>
+        <summary><h3>What is the expected reject behavior?</h3></summary>
+        <div class="content">Selecting reject should store a declined state and disable optional tracking behavior for subsequent client-side events. Essential functionality should remain unaffected.</div>
+      </details>
+    </div>
+
+    <h2>Deployment Notes</h2>
+    <div class="group">
+      <details>
+        <summary><h3>We deploy on GCP, not Vercel. What changes operationally?</h3></summary>
+        <div class="content">Your source branch and build/deploy chain should target GCP artifact + hosting/runtime. Frontend fixes must be pulled into that pipeline branch and deployed through your GCP process to be visible in production.</div>
+      </details>
+      <details>
+        <summary><h3>How to validate post-deploy quickly?</h3></summary>
+        <div class="content">
+          <ul>
+            <li>Open strategy view and confirm variants change with race/driver input.</li>
+            <li>Open footer cookie settings and verify Reject Optional is available.</li>
+            <li>Check dropdown readability on Windows in light mode.</li>
+            <li>Verify animation is calmer and honors reduced-motion preference.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+
+    <footer>
+      <div><a href="/privacy-policy.html">Privacy Policy</a> · <a href="/cookie-policy.html">Cookie Policy</a> · <a href="/terms.html">Terms</a> · <a href="/sitemap.xml">Sitemap</a></div>
+      <div style="margin-top:8px;">Last updated: April 2026</div>
+    </footer>
+  </div>
+</body>
+</html>

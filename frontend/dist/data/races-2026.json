@@ -1,0 +1,36 @@
+[
+  {
+    "round": 1,
+    "name": "Bahrain Grand Prix",
+    "date": "2026-03-01",
+    "circuit": {
+      "id": "bahrain",
+      "name": "Bahrain International Circuit",
+      "country": "Bahrain"
+    },
+    "results": [
+      {
+        "position": 1,
+        "driver": { "id": "max_verstappen", "code": "MAX", "name": "Max Verstappen" },
+        "constructor": "red_bull",
+        "grid": 1,
+        "laps": 57,
+        "status": "Finished",
+        "points": 25,
+        "time": "{'millis': '5500000', 'time': '1:31:40.000'}",
+        "fastestLap": null
+      },
+      {
+        "position": 2,
+        "driver": { "id": "antonelli", "code": "ANT", "name": "Kimi Antonelli" },
+        "constructor": "mercedes",
+        "grid": 5,
+        "laps": 57,
+        "status": "Finished",
+        "points": 18,
+        "time": "{'millis': '5510000', 'time': '+10.000'}",
+        "fastestLap": null
+      }
+    ]
+  }
+]
