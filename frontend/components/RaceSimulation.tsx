@@ -23,7 +23,7 @@ import React, {
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Play, StopCircle, Zap, Bot, Send, Loader2, User,
+  Play, Pause, StopCircle, Zap, Bot, Send, Loader2, User,
   AlertTriangle, ChevronRight, Check, X, Radio,
 } from 'lucide-react';
 import { COLORS, TEAM_COLORS } from '../constants';
@@ -1688,6 +1688,14 @@ const RaceSimulation: React.FC = () => {
     clearPersistedRaceSimulation();
   }, [closeWs]);
 
+  const pauseSimulation = useCallback(() => {
+    if (phase !== 'running') return;
+    stopPlayback();
+    closeWs();
+    setPhase('paused');
+    setStatusMsg('Simulation paused - click Play to resume.');
+  }, [phase, stopPlayback, closeWs]);
+
   // ── Reset ─────────────────────────────────────────────────────────────────────
   const reset = useCallback(() => {
     closeWs();
@@ -1930,16 +1938,24 @@ const RaceSimulation: React.FC = () => {
             <span className="text-[10px] font-mono text-white/50">{statusMsg}</span>
           </div>
           <div className="flex items-center gap-2">
-            {phase === 'paused' && (
-              <button
-                onClick={resumePausedSession}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold text-amber-300 hover:text-amber-200 hover:border-amber-300/70 transition-all"
-                style={{ borderColor: 'rgba(251,191,36,0.45)' }}
-              >
-                <Play className="w-3.5 h-3.5" />
-                Resume
-              </button>
-            )}
+            <button
+              onClick={resumePausedSession}
+              disabled={phase !== 'paused'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ borderColor: 'rgba(251,191,36,0.45)', color: '#FCD34D' }}
+            >
+              <Play className="w-3.5 h-3.5" />
+              Play
+            </button>
+            <button
+              onClick={pauseSimulation}
+              disabled={phase !== 'running'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold text-white/70 hover:text-white hover:border-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ borderColor: 'var(--border-color)' }}
+            >
+              <Pause className="w-3.5 h-3.5" />
+              Pause
+            </button>
             <button
               onClick={stopSimulation}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold text-white/40 hover:text-red-400 hover:border-red-600/40 transition-all"
