@@ -148,6 +148,143 @@ class FeaturePipeline:
             logger.warning("laps_all.parquet missing season/round columns")
             return []
 
+        res = self._race_results()
+        # Drop duplicates to get unique season/round pairs
+        unique_races = res[
+            ["season", "round", "raceName", "circuitId"]
+        ].drop_duplicates()
+        unique_races["race_id"] = (
+            unique_races["season"].astype(str) + "_" + unique_races["round"].astype(str)
+        )
+
+        return unique_races.to_dict(orient="records")
+
+    def get_driver_profiles(self) -> list[dict]:
+        """
+        Return rich driver data including career stats and latest team mapping.
+        Aggregates data primary from race_results.parquet as drivers.parquet may be incomplete.
+        """
+        import ast
+
+        results_df = self._race_results()
+
+        # 1. Parse Constructor and Driver strings
+        def _try_parse(val):
+            if isinstance(val, dict):
+                return val
+            if isinstance(val, str) and val.startswith("{"):
+                try:
+                    # Using ast.literal_eval since it's safer for literal dict strings
+                    return ast.literal_eval(val)
+                except:
+                    return {}
+            return {}
+
+        results_df = results_df.copy()
+        results_df["ConstructorObj"] = results_df["Constructor"].apply(_try_parse)
+        results_df["DriverObj"] = results_df["Driver"].apply(_try_parse)
+
+        # Extract essential fields
+        results_df["driverId"] = results_df["DriverObj"].apply(
+            lambda x: x.get("driverId")
+        )
+        results_df["givenName"] = results_df["DriverObj"].apply(
+            lambda x: x.get("givenName", "")
+        )
+        results_df["familyName"] = results_df["DriverObj"].apply(
+            lambda x: x.get("familyName", "")
+        )
+        results_df["nationality"] = results_df["DriverObj"].apply(
+            lambda x: x.get("nationality", "")
+        )
+        results_df["code"] = results_df["DriverObj"].apply(lambda x: x.get("code", ""))
+        results_df["permanentNumber"] = results_df["DriverObj"].apply(
+            lambda x: x.get("permanentNumber", "")
+        )
+        results_df["team_name"] = results_df["ConstructorObj"].apply(
+            lambda x: x.get("name", "Unknown")
+        )
+
+        # 2. Aggregations for career stats
+        results_df["position_num"] = pd.to_numeric(
+            results_df["position"], errors="coerce"
+        )
+        results_df["is_win"] = results_df["position_num"].apply(
+            lambda x: 1 if x == 1 else 0
+        )
+        results_df["is_podium"] = results_df["position_num"].apply(
+            lambda x: 1 if pd.notna(x) and x <= 3 else 0
+        )
+        results_df["points_num"] = pd.to_numeric(
+            results_df["points"], errors="coerce"
+        ).fillna(0)
+
+        agg = (
+            results_df.groupby("driverId")
+            .agg(
+                career_races=("round", "count"),
+                career_wins=("is_win", "sum"),
+                career_podiums=("is_podium", "sum"),
+                career_points=("points_num", "sum"),
+                last_season=("season", "max"),
+                first_season=("season", "min"),
+            )
+            .reset_index()
+        )
+
+        # 3. Get latest metadata for each driver
+        # Sort by season and round to get the most recent entry
+        latest_entries = results_df.sort_values(
+            ["season", "round"], ascending=False
+        ).drop_duplicates("driverId")
+        latest_map = latest_entries.set_index("driverId")
+
+        # 4. Construct the profiles list
+        profiles = []
+        for _, stats in agg.iterrows():
+            d_id = stats["driverId"]
+            if not d_id:
+                continue
+
+            latest = latest_map.loc[d_id]
+
+            career_races = int(stats["career_races"])
+            last_season = int(stats["last_season"])
+            first_season = int(stats["first_season"])
+
+            entry = {
+                "driver_id": str(d_id),
+                "name": f"{latest['givenName']} {latest['familyName']}".strip(),
+                "team": str(latest["team_name"]),
+                "code": str(latest["code"] if pd.notna(latest["code"]) else ""),
+                "nationality": str(latest["nationality"]),
+                "career_races": career_races,
+                "career_wins": int(stats["career_wins"]),
+                "career_points": float(stats["career_points"]),
+                "last_season": last_season,
+                "permanent_number": str(
+                    latest["permanentNumber"]
+                    if pd.notna(latest["permanentNumber"])
+                    else ""
+                ),
+                # Historical scores placeholder
+                "aggression_score": 0.5,
+                "consistency_score": 0.5,
+                "pressure_response": 0.5,
+                "tire_management": 0.5,
+                "wet_weather_skill": 0.5,
+                "qualifying_pace": 0.5,
+                "race_pace": 0.5,
+                "overtaking_ability": 0.5,
+                "defensive_ability": 0.5,
+                "fuel_efficiency": 0.5,
+                "experience_years": last_season - first_season + 1,
+                "rookie_status": career_races < 23,
+            }
+            profiles.append(entry)
+
+        return profiles
+
         # Try to get raceName from race_results
         try:
             results = self._race_results()

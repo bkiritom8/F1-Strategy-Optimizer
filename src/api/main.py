@@ -214,6 +214,7 @@ def _get_simulator():
     if _race_simulator is None:
         try:
             from ml.rl.race_runner import RaceRunner, CIRCUIT_REGISTRY
+
             # Default to Bahrain (2025_1) for demo mode
             _race_simulator = RaceRunner("2025_1")
             logger.info("Auto-initialized RaceRunner for demo mode")
@@ -348,8 +349,12 @@ async def recommend_strategy(
     current_user: User = Depends(get_current_user_optional),
 ):
     """Get race strategy recommendation."""
-    logger.info("Strategy recommendation requested for race %s, driver %s (lap %s)", 
-                request.race_id, request.driver_id, request.current_lap)
+    logger.info(
+        "Strategy recommendation requested for race %s, driver %s (lap %s)",
+        request.race_id,
+        request.driver_id,
+        request.current_lap,
+    )
     logger.debug("Request body: %s", request.model_dump())
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
         raise HTTPException(
@@ -501,19 +506,10 @@ async def get_drivers(
     year: Optional[int] = None,
     current_user: User = Depends(get_current_user_optional),
 ):
-    """Get driver list. Delegates to FeaturePipeline. Requires authentication."""
+    """Get rich driver roster from Data Lake. Requires optional authentication."""
     try:
         pipeline = _get_pipeline()
-        drv_df = pipeline._drivers()
-        drivers = []
-        for _, row in drv_df.iterrows():
-            entry = {
-                "driver_id": str(row.get("driverId", "")),
-                "name": f"{row.get('givenName', '')} {row.get('familyName', '')}".strip(),
-                "nationality": str(row.get("nationality", "")),
-                "code": str(row.get("code", "")),
-            }
-            drivers.append(entry)
+        drivers = pipeline.get_driver_profiles()
 
         REQUEST_COUNT.labels(
             method="GET", endpoint="/api/v1/data/drivers", status="200"
@@ -521,7 +517,7 @@ async def get_drivers(
         return drivers
     except Exception as exc:
         logger.error("get_drivers error: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load driver list")
+        raise HTTPException(status_code=500, detail="Failed to load driver roster")
 
 
 @v1.get("/models/status")
@@ -1103,9 +1099,7 @@ async def predict_overtake(
 ):
     """Predict overtake success probability. Required for Live Dashboard."""
     if not iam_simulator.check_permission(current_user, Permission.ML_MODEL_READ):
-        raise HTTPException(
-            status_code=403, detail="Insufficient permissions"
-        )
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     # Heuristic based on lap and DRS status
     # Most overtakes happen in DRS zones or with tire delta
     prob = 0.35  # Base probability
