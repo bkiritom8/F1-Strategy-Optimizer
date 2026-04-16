@@ -505,7 +505,9 @@ async def get_drivers(
             }
             drivers.append(entry)
 
-        REQUEST_COUNT.labels(method="GET", endpoint="/api/v1/data/drivers", status="200").inc()
+        REQUEST_COUNT.labels(
+            method="GET", endpoint="/api/v1/data/drivers", status="200"
+        ).inc()
         return drivers
     except Exception as exc:
         logger.error("get_drivers error: %s", exc)
@@ -525,7 +527,9 @@ async def get_models_status(
         "gcs_path": "strategy_predictor/latest/model.pkl",
     }
 
-    REQUEST_COUNT.labels(method="GET", endpoint="/api/v1/models/status", status="200").inc()
+    REQUEST_COUNT.labels(
+        method="GET", endpoint="/api/v1/models/status", status="200"
+    ).inc()
     return {"models": [strategy_status], "fallback_active": _strategy_model is None}
 
 
