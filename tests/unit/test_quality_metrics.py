@@ -1,4 +1,5 @@
 """Tests for src/preprocessing/quality_metrics.py"""
+
 import pandas as pd
 import pytest
 
@@ -15,10 +16,12 @@ class TestDataQualityLevel:
 
 class TestCheckDataQuality:
     def _clean_df(self):
-        return pd.DataFrame({
-            "a": [1, 2, 3, 4, 5],
-            "b": [10, 20, 30, 40, 50],
-        })
+        return pd.DataFrame(
+            {
+                "a": [1, 2, 3, 4, 5],
+                "b": [10, 20, 30, 40, 50],
+            }
+        )
 
     def test_high_quality_clean_data(self):
         df = self._clean_df()
@@ -74,13 +77,19 @@ class TestCheckDataQuality:
         assert "nonexistent" not in report["metrics"]["validity"]
 
     def test_low_quality_heavily_null_data(self):
-        df = pd.DataFrame({
-            "a": [None] * 8 + [1, 2],
-            "b": [None] * 8 + [1, 2],
-            "c": [None] * 8 + [1, 2],
-        })
+        df = pd.DataFrame(
+            {
+                "a": [None] * 8 + [1, 2],
+                "b": [None] * 8 + [1, 2],
+                "c": [None] * 8 + [1, 2],
+            }
+        )
         level, _ = check_data_quality(df)
-        assert level in (DataQualityLevel.LOW, DataQualityLevel.INVALID, DataQualityLevel.MEDIUM)
+        assert level in (
+            DataQualityLevel.LOW,
+            DataQualityLevel.INVALID,
+            DataQualityLevel.MEDIUM,
+        )
 
     def test_quality_level_in_report_matches_returned_level(self):
         df = self._clean_df()

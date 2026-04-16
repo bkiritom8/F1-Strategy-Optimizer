@@ -3,6 +3,7 @@ Smoke tests for ML model wrapper classes.
 Loads real .pkl files from models/ and uses a real GCS data slice.
 Only base_model GCP clients are mocked (Cloud Logging, Pub/Sub, Storage).
 """
+
 from __future__ import annotations
 
 import os
@@ -16,12 +17,13 @@ import pytest
 MODELS_DIR = "models"
 
 pytag = pytest.mark.skipif(
-    not os.path.isdir(MODELS_DIR),
-    reason="local models/ directory not found"
+    not os.path.isdir(MODELS_DIR), reason="local models/ directory not found"
 )
 pytestmark = pytag
-FEATURES_URI  = "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet"
-RACE_RESULTS_URI = "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet"
+FEATURES_URI = "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet"
+RACE_RESULTS_URI = (
+    "gs://f1optimizer-data-lake/ml_features/race_results_features.parquet"
+)
 
 
 @pytest.fixture(scope="module")
@@ -46,8 +48,9 @@ def real_race_results():
     # finish_tier is computed at training time from position
     slice_df["position"] = pd.to_numeric(slice_df["position"], errors="coerce")
     slice_df["finish_tier"] = pd.cut(
-        slice_df["position"], bins=[0, 3, 10, 100],
-        labels=["Podium", "Points", "Outside"]
+        slice_df["position"],
+        bins=[0, 3, 10, 100],
+        labels=["Podium", "Points", "Outside"],
     ).astype(str)
     return slice_df
 
@@ -55,14 +58,15 @@ def real_race_results():
 class TestTireDegradationModel:
     @pytest.fixture(autouse=True)
     def _patch(self):
-        with patch("ml.models.base_model.cloud_logging.Client"), \
-             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
-             patch("ml.models.base_model.storage.Client"):
+        with patch("ml.models.base_model.cloud_logging.Client"), patch(
+            "ml.models.base_model.pubsub_v1.PublisherClient"
+        ), patch("ml.models.base_model.storage.Client"):
             yield
 
     @pytest.fixture
     def model(self):
         from ml.models.tire_degradation_model import TireDegradationModel
+
         m = TireDegradationModel()
         m._bundle = joblib.load(os.path.join(MODELS_DIR, "tire_degradation.pkl"))
         return m
@@ -94,14 +98,15 @@ class TestTireDegradationModel:
 class TestDrivingStyleModel:
     @pytest.fixture(autouse=True)
     def _patch(self):
-        with patch("ml.models.base_model.cloud_logging.Client"), \
-             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
-             patch("ml.models.base_model.storage.Client"):
+        with patch("ml.models.base_model.cloud_logging.Client"), patch(
+            "ml.models.base_model.pubsub_v1.PublisherClient"
+        ), patch("ml.models.base_model.storage.Client"):
             yield
 
     @pytest.fixture
     def model(self):
         from ml.models.driving_style_model import DrivingStyleModel
+
         m = DrivingStyleModel()
         m._bundle = joblib.load(os.path.join(MODELS_DIR, "driving_style.pkl"))
         return m
@@ -132,14 +137,15 @@ class TestDrivingStyleModel:
 class TestSafetyCarModel:
     @pytest.fixture(autouse=True)
     def _patch(self):
-        with patch("ml.models.base_model.cloud_logging.Client"), \
-             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
-             patch("ml.models.base_model.storage.Client"):
+        with patch("ml.models.base_model.cloud_logging.Client"), patch(
+            "ml.models.base_model.pubsub_v1.PublisherClient"
+        ), patch("ml.models.base_model.storage.Client"):
             yield
 
     @pytest.fixture
     def model(self):
         from ml.models.safety_car_model import SafetyCarModel
+
         m = SafetyCarModel()
         m._bundle = joblib.load(os.path.join(MODELS_DIR, "safety_car.pkl"))
         return m
@@ -173,14 +179,15 @@ class TestSafetyCarModel:
 class TestPitWindowModel:
     @pytest.fixture(autouse=True)
     def _patch(self):
-        with patch("ml.models.base_model.cloud_logging.Client"), \
-             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
-             patch("ml.models.base_model.storage.Client"):
+        with patch("ml.models.base_model.cloud_logging.Client"), patch(
+            "ml.models.base_model.pubsub_v1.PublisherClient"
+        ), patch("ml.models.base_model.storage.Client"):
             yield
 
     @pytest.fixture
     def model(self):
         from ml.models.pit_window_model import PitWindowModel
+
         m = PitWindowModel()
         m._bundle = joblib.load(os.path.join(MODELS_DIR, "pit_window.pkl"))
         return m
@@ -206,14 +213,15 @@ class TestPitWindowModel:
 class TestOvertakeProbModel:
     @pytest.fixture(autouse=True)
     def _patch(self):
-        with patch("ml.models.base_model.cloud_logging.Client"), \
-             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
-             patch("ml.models.base_model.storage.Client"):
+        with patch("ml.models.base_model.cloud_logging.Client"), patch(
+            "ml.models.base_model.pubsub_v1.PublisherClient"
+        ), patch("ml.models.base_model.storage.Client"):
             yield
 
     @pytest.fixture
     def model(self):
         from ml.models.overtake_prob_model import OvertakeProbModel
+
         m = OvertakeProbModel()
         m._bundle = joblib.load(os.path.join(MODELS_DIR, "overtake_prob.pkl"))
         return m
@@ -244,14 +252,15 @@ class TestOvertakeProbModel:
 class TestRaceOutcomeModel:
     @pytest.fixture(autouse=True)
     def _patch(self):
-        with patch("ml.models.base_model.cloud_logging.Client"), \
-             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
-             patch("ml.models.base_model.storage.Client"):
+        with patch("ml.models.base_model.cloud_logging.Client"), patch(
+            "ml.models.base_model.pubsub_v1.PublisherClient"
+        ), patch("ml.models.base_model.storage.Client"):
             yield
 
     @pytest.fixture
     def model(self):
         from ml.models.race_outcome_model import RaceOutcomeModel
+
         m = RaceOutcomeModel()
         m._bundle = joblib.load(os.path.join(MODELS_DIR, "race_outcome.pkl"))
         return m
@@ -282,15 +291,24 @@ class TestRaceOutcomeModel:
 class TestBaseModelInterface:
     def test_cannot_instantiate_base(self):
         from ml.models.base_model import BaseF1Model
+
         with pytest.raises(TypeError):
             BaseF1Model()
 
     def test_all_wrappers_have_required_methods(self):
-        with patch("ml.models.base_model.cloud_logging.Client"), \
-             patch("ml.models.base_model.pubsub_v1.PublisherClient"), \
-             patch("ml.models.base_model.storage.Client"):
+        with patch("ml.models.base_model.cloud_logging.Client"), patch(
+            "ml.models.base_model.pubsub_v1.PublisherClient"
+        ), patch("ml.models.base_model.storage.Client"):
             from ml.models.tire_degradation_model import TireDegradationModel
+
             m = TireDegradationModel()
-        for method in ("train", "predict", "evaluate", "save", "load",
-                       "_save_native", "_load_native"):
+        for method in (
+            "train",
+            "predict",
+            "evaluate",
+            "save",
+            "load",
+            "_save_native",
+            "_load_native",
+        ):
             assert hasattr(m, method) and callable(getattr(m, method))

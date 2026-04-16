@@ -281,6 +281,29 @@ class StrategyRecommendation(BaseModel):
     model_source: str  # "ml_model" or "rule_based_fallback"
 
 
+# API Version 1 Router
+v1 = APIRouter()
+
+
+# ── Auth Endpoints ──────────────────────────────────────────────────────────
+
+
+@v1.post("/token", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    """Authenticate user and return JWT token."""
+    user = iam_simulator.authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = iam_simulator.create_access_token(
+        data={"sub": user.username, "roles": [r.value for r in user.roles]}
+    )
+    return Token(access_token=access_token, token_type="bearer")
+
+
 # Routes
 @app.get("/", response_model=Dict[str, str])
 async def root():
@@ -293,7 +316,7 @@ async def root():
     }
 
 
-@app.get("/health", response_model=HealthResponse)
+@v1.get("/health", response_model=HealthResponse, tags=["system"])
 async def health_check():
     """Health check endpoint"""
     return HealthResponse(
@@ -312,7 +335,7 @@ async def metrics():
     )
 
 
-@app.post("/strategy/recommend", response_model=StrategyRecommendation)
+@v1.post("/strategy/recommend", response_model=StrategyRecommendation)
 async def recommend_strategy(
     request: StrategyRequest,
     current_user: User = Depends(get_current_user_optional),
@@ -437,7 +460,7 @@ async def recommend_strategy(
         )
 
         REQUEST_COUNT.labels(
-            method="POST", endpoint="/strategy/recommend", status="200"
+            method="POST", endpoint="/api/v1/strategy/recommend", status="200"
         ).inc()
 
         PREDICTION_COUNT.labels(model="strategy_v1").inc()
@@ -454,7 +477,7 @@ async def recommend_strategy(
         raise
     except Exception as e:
         REQUEST_COUNT.labels(
-            method="POST", endpoint="/strategy/recommend", status="500"
+            method="POST", endpoint="/api/v1/strategy/recommend", status="500"
         ).inc()
         logger.error(f"Strategy recommendation error: {e}")
         raise HTTPException(
@@ -463,7 +486,7 @@ async def recommend_strategy(
         )
 
 
-@app.get("/data/drivers", response_model=List[Dict])
+@v1.get("/data/drivers", response_model=List[Dict])
 async def get_drivers(
     year: Optional[int] = None,
     current_user: User = Depends(get_current_user_optional),
@@ -482,14 +505,14 @@ async def get_drivers(
             }
             drivers.append(entry)
 
-        REQUEST_COUNT.labels(method="GET", endpoint="/data/drivers", status="200").inc()
+        REQUEST_COUNT.labels(method="GET", endpoint="/api/v1/data/drivers", status="200").inc()
         return drivers
     except Exception as exc:
         logger.error("get_drivers error: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load driver list")
 
 
-@app.get("/models/status")
+@v1.get("/models/status")
 async def get_models_status(
     current_user: User = Depends(get_current_user_optional),
 ):
@@ -502,7 +525,7 @@ async def get_models_status(
         "gcs_path": "strategy_predictor/latest/model.pkl",
     }
 
-    REQUEST_COUNT.labels(method="GET", endpoint="/models/status", status="200").inc()
+    REQUEST_COUNT.labels(method="GET", endpoint="/api/v1/models/status", status="200").inc()
     return {"models": [strategy_status], "fallback_active": _strategy_model is None}
 
 
@@ -529,9 +552,7 @@ async def general_exception_handler(request, exc):
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
-# ── /api/v1 router ─────────────────────────────────────────────────────────
-
-v1 = APIRouter(prefix="/api/v1")
+# ── /api/v1 router endpoints ──
 
 
 # Pydantic models for v1 endpoints
@@ -1092,14 +1113,20 @@ async def validation_stats(
     }
 
 
-# Register v1 router
-app.include_router(v1)
-app.include_router(rag_router)
+# Register all routers under /api/v1
+app.include_router(v1, prefix="/api/v1")
+app.include_router(rag_router, prefix="/api/v1")
 app.include_router(llm_router, prefix="/api/v1")
-app.include_router(admin_router)
-app.include_router(users_router)
+app.include_router(admin_router, prefix="/api/v1")
+app.include_router(users_router, prefix="/api/v1")
 app.include_router(simulate_router, prefix="/api/v1")
-app.include_router(simulation_router)
+app.include_router(simulation_router, prefix="/api/v1")
+
+
+@app.get("/health", tags=["system"])
+async def legacy_health_check_redirect():
+    """Redirect root health check to versioned endpoint."""
+    return await health_check()
 
 
 if __name__ == "__main__":

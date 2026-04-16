@@ -194,14 +194,14 @@ const SafetyDisclaimerModal: React.FC<{
 
               <div className="space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-[0.35em] text-red-400">
-                  Visual Safety Notice
+                  Visual Safety Notice & Epilepsy Warning
                 </p>
                 <h2 id="safety-disclaimer-title" className="text-2xl sm:text-3xl font-display font-black italic uppercase tracking-tight text-white">
-                  Visual content advisory
+                  Photosensitive Epilepsy Disclaimer
                 </h2>
                 <p id="safety-disclaimer-copy" className="text-sm sm:text-base text-white/70 leading-relaxed">
-                  This experience uses intense red accents, flashing highlights, and motion-heavy transitions.
-                  If you are sensitive to flashing lights or at risk of photosensitive seizures, do not continue.
+                  This experience uses intense red accents, rapid flashing highlights, and motion-heavy telemetry animations.
+                  If you have a history of epilepsy, or are sensitive to flashing lights and photosensitive seizures, do NOT continue.
                 </p>
               </div>
             </div>

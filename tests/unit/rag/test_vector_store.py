@@ -15,6 +15,7 @@ def _make_doc(content: str, meta: dict | None = None) -> Document:
 # load_metadata
 # ---------------------------------------------------------------------------
 
+
 def test_load_metadata_returns_dict():
     """load_metadata returns parsed JSON dict from GCS blob."""
     payload = {"abc": {"page_content": "hello", "metadata": {"season": 2023}}}
@@ -28,6 +29,7 @@ def test_load_metadata_returns_dict():
 
     with patch("rag.vector_store.storage.Client", return_value=mock_client):
         from rag.vector_store import load_metadata
+
         result = load_metadata("my-bucket", "rag/meta.json")
 
     assert result == payload
@@ -45,6 +47,7 @@ def test_load_metadata_returns_empty_on_not_found():
 
     with patch("rag.vector_store.storage.Client", return_value=mock_client):
         from rag.vector_store import load_metadata
+
         result = load_metadata("my-bucket", "rag/meta.json")
 
     assert result == {}
@@ -53,6 +56,7 @@ def test_load_metadata_returns_empty_on_not_found():
 # ---------------------------------------------------------------------------
 # save_metadata
 # ---------------------------------------------------------------------------
+
 
 def test_save_metadata_writes_merged_json():
     """save_metadata merges new entries with existing and uploads JSON."""
@@ -70,6 +74,7 @@ def test_save_metadata_writes_merged_json():
 
     with patch("rag.vector_store.storage.Client", return_value=mock_client):
         from rag.vector_store import save_metadata
+
         save_metadata(docs, doc_ids, "my-bucket", "rag/meta.json")
 
     uploaded = json.loads(mock_blob.upload_from_string.call_args[0][0])
@@ -93,6 +98,7 @@ def test_save_metadata_first_run_no_existing():
 
     with patch("rag.vector_store.storage.Client", return_value=mock_client):
         from rag.vector_store import save_metadata
+
         save_metadata(docs, doc_ids, "my-bucket", "rag/meta.json")
 
     uploaded = json.loads(mock_blob.upload_from_string.call_args[0][0])

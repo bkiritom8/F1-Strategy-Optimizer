@@ -416,7 +416,7 @@ terraform -chdir=infra/terraform apply -var-file=dev.tfvars
 ### Register a user
 
 ```bash
-curl -X POST http://localhost:8000/users/register \
+curl -X POST http://localhost:8000/api/v1/users/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "alice",
@@ -431,7 +431,7 @@ curl -X POST http://localhost:8000/users/register \
 ### Login — get JWT
 
 ```bash
-curl -X POST http://localhost:8000/users/login \
+curl -X POST http://localhost:8000/api/v1/users/login \
   -F username=alice \
   -F password=securepass123
 # → {"access_token": "...", "token_type": "bearer"}
@@ -442,14 +442,14 @@ curl -X POST http://localhost:8000/users/login \
 ```bash
 TOKEN="<access_token from login>"
 
-curl http://localhost:8000/users/me \
+curl http://localhost:8000/api/v1/users/me \
   -H "Authorization: Bearer $TOKEN"
 
-curl http://localhost:8000/users/me/data \
+curl http://localhost:8000/api/v1/users/me/data \
   -H "Authorization: Bearer $TOKEN"
 
 # GDPR erasure
-curl -X DELETE http://localhost:8000/users/me \
+curl -X DELETE http://localhost:8000/api/v1/users/me \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -457,15 +457,15 @@ curl -X DELETE http://localhost:8000/users/me \
 
 ```bash
 # Login as built-in admin
-curl -X POST http://localhost:8000/users/login \
+curl -X POST http://localhost:8000/api/v1/users/login \
   -F username=admin -F password=<admin_password>
 
 # List all users
-curl http://localhost:8000/admin/users \
+curl http://localhost:8000/api/v1/admin/users \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 
 # System dashboard
-curl http://localhost:8000/admin/dashboard \
+curl http://localhost:8000/api/v1/admin/dashboard \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 

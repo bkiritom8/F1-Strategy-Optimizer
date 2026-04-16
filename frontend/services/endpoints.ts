@@ -412,7 +412,7 @@ export async function fetchStrategyRecommendation(params: {
   track_temp: number;
   air_temp: number;
 }): Promise<StrategyRecommendation> {
-  const data = await apiFetch<any>('/strategy/recommend', {
+  const data = await apiFetch<any>('/api/v1/strategy/recommend', {
     method: 'POST',
     body: JSON.stringify(params),
   });
@@ -506,12 +506,12 @@ export async function fullSimulateStrategy(params: {
  * @returns List of models with versioning, accuracy, and lifecycle status.
  */
 export async function fetchModelStatus(): Promise<BackendModelStatus> {
-  const endpoint = '/models/status';
+  const endpoint = '/api/v1/models/status';
   logger.info(`[endpoints] fetchModelStatus: requesting ${endpoint}`);
   try {
     return await apiFetch<BackendModelStatus>(endpoint);
   } catch (err) {
-    // If /models/status 404s, try /api/v1/models/status or return mock
+    // If /api/v1/models/status 404s, return mock
     return {
       models: [
         { name: 'tire_degradation', version: '2.1.0', status: 'active', accuracy: 0.94, last_updated: new Date().toISOString(), type: 'supervised' },
@@ -605,7 +605,7 @@ export async function fetchSystemHealth(): Promise<BackendSystemHealth> {
     return await apiFetch<BackendSystemHealth>('/api/v1/health/system');
   } catch {
     try {
-      const h = await apiFetch<any>('/health');
+      const h = await apiFetch<any>('/api/v1/health');
       return {
         timestamp: h.timestamp,
         status: h.status,
@@ -626,7 +626,7 @@ export async function fetchSystemHealth(): Promise<BackendSystemHealth> {
  * @returns Basic status, version, timestamp, and environment string.
  */
 export async function fetchHealthCheck() {
-  return apiFetch<{ status: string; timestamp: string; version: string; environment: string }>('/health');
+  return apiFetch<{ status: string; timestamp: string; version: string; environment: string }>('/api/v1/health');
 }
 
 // ─── Admin Endpoints ────────────────────────────────────────────────────────

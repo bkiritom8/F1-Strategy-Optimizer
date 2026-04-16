@@ -1,9 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://f1-strategy-api-dev-694267183904.us-central1.run.app/api/$1" },
-    { "source": "/strategy/(.*)", "destination": "https://f1-strategy-api-dev-694267183904.us-central1.run.app/strategy/$1" },
-    { "source": "/models/(.*)", "destination": "https://f1-strategy-api-dev-694267183904.us-central1.run.app/models/$1" },
-    { "source": "/health", "destination": "https://f1-strategy-api-dev-694267183904.us-central1.run.app/health" },
-    { "source": "/((?!assets|favicon|data).*)", "destination": "/index.html" }
-  ]
-}

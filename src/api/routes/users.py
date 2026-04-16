@@ -39,7 +39,7 @@ from src.security.user_store import user_store
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["users"])
+router = APIRouter(prefix="/users", tags=["users"])
 
 # Valid roles a self-registered user can request
 _ALLOWED_SELF_REGISTER_ROLES = {Role.API_USER, Role.DATA_VIEWER}
@@ -162,7 +162,7 @@ def _to_profile(record: dict | None, is_admin: bool) -> UserProfile:
 
 
 @router.post("/token", response_model=Token)
-@router.post("/users/login", response_model=Token)
+@router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
     """
     Authenticate with username + password. Returns a JWT bearer token.
@@ -213,7 +213,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Token:
 # ── Public endpoints ──────────────────────────────────────────────────────────
 
 
-@router.post("/users/register", status_code=201, response_model=UserProfile)
+@router.post("/register", status_code=201, response_model=UserProfile)
 async def register(
     request: RegisterRequest, background_tasks: BackgroundTasks
 ) -> UserProfile:
@@ -259,7 +259,7 @@ async def register(
 # ── Verification and Management ───────────────────────────────────────────────
 
 
-@router.post("/users/verify-email", status_code=200)
+@router.post("/verify-email", status_code=200)
 async def verify_email(request: VerifyEmailRequest) -> dict:
     """
     Verify email address using the token from the registration email.
@@ -272,7 +272,7 @@ async def verify_email(request: VerifyEmailRequest) -> dict:
     return {"message": f"Email verified. Welcome, {username}! You can now log in."}
 
 
-@router.post("/users/resend-verification", status_code=200)
+@router.post("/resend-verification", status_code=200)
 async def resend_verification(
     request: ResendVerificationRequest, background_tasks: BackgroundTasks
 ) -> dict:
@@ -292,7 +292,7 @@ async def resend_verification(
     }
 
 
-@router.get("/users/me", response_model=UserProfile)
+@router.get("/me", response_model=UserProfile)
 async def get_me(current_user: User = Depends(get_current_user)) -> UserProfile:
     """Return current user profile including is_admin flag."""
     is_admin = iam_simulator.check_permission(current_user, Permission.ADMIN_ALL)
@@ -314,7 +314,7 @@ async def get_me(current_user: User = Depends(get_current_user)) -> UserProfile:
     )
 
 
-@router.get("/users/me/data")
+@router.get("/me/data")
 async def gdpr_export(current_user: User = Depends(get_current_user)) -> dict:
     """
     GDPR right of access — returns all personal data stored about you.
@@ -336,7 +336,7 @@ async def gdpr_export(current_user: User = Depends(get_current_user)) -> dict:
     }
 
 
-@router.delete("/users/me", status_code=204, response_class=Response)
+@router.delete("/me", status_code=204, response_class=Response)
 async def gdpr_erase(current_user: User = Depends(get_current_user)) -> Response:
     """
     GDPR right of erasure — permanently deletes your account and all stored
@@ -354,7 +354,7 @@ async def gdpr_erase(current_user: User = Depends(get_current_user)) -> Response
     return Response(status_code=204)
 
 
-@router.put("/users/me/password", status_code=204, response_class=Response)
+@router.put("/me/password", status_code=204, response_class=Response)
 async def change_password(
     request: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
@@ -479,7 +479,7 @@ async def admin_dashboard(
 # ── OTP endpoints ──────────────────────────────────────────────────
 
 
-@router.post("/users/request-otp", status_code=200)
+@router.post("/request-otp", status_code=200)
 async def request_otp(request: OtpRequest, background_tasks: BackgroundTasks) -> dict:
     """
     Request a 6-digit OTP for passwordless sign-in.
@@ -499,7 +499,7 @@ async def request_otp(request: OtpRequest, background_tasks: BackgroundTasks) ->
     return {"message": ("A sign-in code has been sent.")}
 
 
-@router.post("/users/login-otp", response_model=Token)
+@router.post("/login-otp", response_model=Token)
 async def login_with_otp(request: OtpLoginRequest) -> Token:
     """
     Sign in using a 6-digit OTP sent to the user’s email.

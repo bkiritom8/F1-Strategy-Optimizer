@@ -136,9 +136,9 @@ export function apiGet<T = unknown>(
  * @returns true if the backend is reachable and healthy.
  */
 export async function checkHealth(): Promise<boolean> {
-  logger.debug('[client] checkHealth: probing backend /health');
+  logger.debug('[client] checkHealth: probing backend /api/v1/health');
   try {
-    const res = await fetch(`${API_BASE}/health`, { method: 'GET' });
+    const res = await fetch(`${API_BASE}/api/v1/health`, { method: 'GET' });
     return res.ok;
   } catch (err) {
     logger.warn('[client] checkHealth: backend unreachable', err);

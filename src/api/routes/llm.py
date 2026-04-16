@@ -284,41 +284,6 @@ class ChatResponse(BaseModel):
     simulation_race_id: str | None = None  # circuit for the frontend to load
 
 
-def _build_fallback_answer(request: ChatRequest) -> str:
-    """Produce a deterministic local fallback when LLM providers are unavailable."""
-    race = request.race_inputs
-    if not race:
-        return (
-            "Live LLM is temporarily unavailable. Fallback strategist: hold a balanced pace, "
-            "avoid unnecessary pit stops, and prioritize clean exits to protect race time."
-        )
-
-    lap = race.current_lap or 0
-    total = race.total_laps or 0
-    compound = (race.tire_compound or "MEDIUM").upper()
-    age = race.tire_age_laps or 0
-    position = race.position or 0
-    gap = race.gap_to_leader or 0.0
-    remaining = max(0, total - lap)
-
-    pit_hint = ""
-    if (
-        (compound == "SOFT" and age >= 15)
-        or (compound == "MEDIUM" and age >= 25)
-        or (compound == "HARD" and age >= 35)
-    ):
-        pit_hint = " Tires are near the degradation cliff, so plan a pit in the next 1-3 laps if traffic allows."
-    elif remaining <= 10:
-        pit_hint = " Final-stint mode: preserve tire surface and deploy push selectively in clean air."
-    else:
-        pit_hint = " Stay on balanced pace and reassess pit timing on the next tactical window."
-
-    return (
-        f"Live LLM is temporarily unavailable. Fallback strategist: P{position}, Lap {lap}/{total}, "
-        f"{compound} ({age} laps), gap {gap:.1f}s." + pit_hint
-    )
-
-
 class StrategyParseRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=500)
 
@@ -463,22 +428,12 @@ async def llm_chat(
             simulation_race_id=simulation_race_id,
         )
     except RuntimeError as exc:
-        logger.warning("LLM runtime unavailable, serving fallback response: %s", exc)
-        return ChatResponse(
-            answer=_build_fallback_answer(request),
-            latency_ms=0.0,
-            model="fallback-local",
-            job_id=None,
-            simulation_race_id=None,
-        )
+        logger.warning("LLM runtime unavailable: %s", exc)
+        raise HTTPException(status_code=500, detail=f"LLM runtime unavailable: {exc}")
     except Exception as exc:
         logger.error("LLM chat error: %s", exc)
-        return ChatResponse(
-            answer=_build_fallback_answer(request),
-            latency_ms=0.0,
-            model="fallback-local",
-            job_id=None,
-            simulation_race_id=None,
+        raise HTTPException(
+            status_code=500, detail=f"Error generating LLM response: {exc}"
         )
 
 

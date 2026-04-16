@@ -109,9 +109,7 @@ class TestBuildRaceLineup:
 
     def test_explicit_rivals_list_used(self):
         rivals = ["max_verstappen", "lewis_hamilton"]
-        lineup = build_race_lineup(
-            "lando_norris", rivals=rivals, user_start_position=3
-        )
+        lineup = build_race_lineup("lando_norris", rivals=rivals, user_start_position=3)
         rival_ids = {e.driver_id for e in lineup if not e.is_user}
         assert rival_ids == {"max_verstappen", "lewis_hamilton"}
         assert len(lineup) == 3
@@ -123,9 +121,7 @@ class TestBuildRaceLineup:
 
     def test_car_offset_applied_for_known_rival(self):
         lineup = build_race_lineup("lando_norris")
-        max_entry = next(
-            (e for e in lineup if e.driver_id == "max_verstappen"), None
-        )
+        max_entry = next((e for e in lineup if e.driver_id == "max_verstappen"), None)
         if max_entry:
             assert max_entry.car_offset_ms == pytest.approx(
                 CAR_PERFORMANCE_OFFSET_MS["max_verstappen"]

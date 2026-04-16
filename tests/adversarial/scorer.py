@@ -60,9 +60,7 @@ _JUDGE_PROMPT_TEMPLATE = (
 )
 
 
-def judge_check(
-    prompt: str, response: str, client: "GeminiClient"
-) -> tuple[bool, str]:
+def judge_check(prompt: str, response: str, client: "GeminiClient") -> tuple[bool, str]:
     """Layer 2 Gemini-as-judge.
 
     Returns (passed, verdict).
@@ -82,6 +80,7 @@ def judge_check(
 
 
 # ── Composite scorer ──────────────────────────────────────────────────────────
+
 
 def score(prompt: str, response: str, client: "GeminiClient") -> dict:
     """Run both scoring layers and return a result dict.

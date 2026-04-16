@@ -56,7 +56,9 @@ def mock_deps():
 
     with (
         patch("src.api.routes.simulate._get_coordinator", return_value=mock_coord),
-        patch("src.api.routes.simulate._get_constructor_store", return_value=mock_store),
+        patch(
+            "src.api.routes.simulate._get_constructor_store", return_value=mock_store
+        ),
         patch("src.api.routes.simulate.iam_simulator") as mock_iam,
     ):
         mock_iam.check_permission.return_value = True

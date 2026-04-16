@@ -91,9 +91,7 @@ class TestUploadDoneMarker:
 
         upload_done_marker(bucket, 0)
 
-        blob.upload_from_string.assert_called_once_with(
-            "", content_type="text/plain"
-        )
+        blob.upload_from_string.assert_called_once_with("", content_type="text/plain")
 
     def test_task_id_appears_in_blob_name(self):
         from ingest.gcs_utils import upload_done_marker

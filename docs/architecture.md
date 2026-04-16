@@ -127,20 +127,20 @@ DivergeX is a production-grade system built on Google Cloud Platform, designed f
 │  Falls back to rule-based strategy if models not promoted.    │
 │                                                                │
 │  Key endpoints:                                               │
-│  GET  /health            — health check                       │
-│  POST /recommend         — strategy recommendations (<500ms)  │
-│  POST /rag/query         — natural-language F1 Q&A (RAG)      │
-│  GET  /rag/health        — RAG configuration status           │
-│  POST /llm/chat          — Gemini 2.5 Flash + ML bridge +     │
+│  GET  /api/v1/health       — health check                       │
+│  POST /api/v1/strategy/recommend — strategy/recs (<500ms)  │
+│  POST /api/v1/rag/query    — natural-language F1 Q&A (RAG)      │
+│  GET  /api/v1/rag/health   — RAG configuration status           │
+│  POST /api/v1/llm/chat     — Gemini 2.5 Flash + ML bridge +     │
 │                            two-layer semantic cache           │
-│  POST /users/register    — create account (PBKDF2-SHA256)     │
-│  POST /users/login       — authenticate, returns JWT          │
-│  GET  /users/me          — current user profile               │
-│  GET  /users/me/data     — GDPR data export                   │
-│  DELETE /users/me        — GDPR erasure                       │
-│  PUT  /users/me/password — change password                    │
-│  GET  /admin/users       — list all users (admin only)        │
-│  GET  /admin/dashboard   — system metrics (admin only)        │
+│  POST /api/v1/users/register — create account (PBKDF2-SHA256)     │
+│  POST /api/v1/users/login    — authenticate, returns JWT          │
+│  GET  /api/v1/users/me      — current user profile               │
+│  GET  /api/v1/users/me/data — GDPR data export                   │
+│  DELETE /api/v1/users/me   — GDPR erasure                       │
+│  PUT  /api/v1/users/me/password — change password                    │
+│  GET  /api/v1/admin/users    — list all users (admin only)        │
+│  GET  /api/v1/admin/dashboard — system metrics (admin only)        │
 │  GET  /docs              — interactive API documentation      │
 │                                                                │
 └───────────────────────────────────────────────────────────────┘

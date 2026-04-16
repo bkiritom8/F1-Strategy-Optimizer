@@ -117,9 +117,9 @@ def test_cosine_similar_beats_dissimilar():
     enc1 = codec.encode(v1.tolist())
     sim_similar = codec.cosine_similarity(v2.tolist(), enc1)
     sim_dissimilar = codec.cosine_similarity(v3.tolist(), enc1)
-    assert sim_similar > sim_dissimilar, (
-        f"Similar pair scored {sim_similar:.4f}, dissimilar {sim_dissimilar:.4f}"
-    )
+    assert (
+        sim_similar > sim_dissimilar
+    ), f"Similar pair scored {sim_similar:.4f}, dissimilar {sim_dissimilar:.4f}"
 
 
 def test_prepare_query_plus_score_matches_cosine_similarity():

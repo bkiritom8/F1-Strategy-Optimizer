@@ -1,4 +1,5 @@
 """Tests for src/preprocessing/validator.py"""
+
 import pandas as pd
 import pytest
 

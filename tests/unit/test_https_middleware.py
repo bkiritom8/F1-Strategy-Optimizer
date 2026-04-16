@@ -1,4 +1,5 @@
 """Tests for src/security/https_middleware.py"""
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -104,14 +105,18 @@ class TestRequestValidationMiddleware:
 
 class TestRateLimitMiddleware:
     def test_requests_within_limit_succeed(self):
-        app = _make_app((RateLimitMiddleware, {"max_requests": 10, "window_seconds": 60}))
+        app = _make_app(
+            (RateLimitMiddleware, {"max_requests": 10, "window_seconds": 60})
+        )
         client = TestClient(app)
         for _ in range(5):
             r = client.get("/ping")
             assert r.status_code == 200
 
     def test_exceeding_limit_returns_429(self):
-        app = _make_app((RateLimitMiddleware, {"max_requests": 3, "window_seconds": 60}))
+        app = _make_app(
+            (RateLimitMiddleware, {"max_requests": 3, "window_seconds": 60})
+        )
         client = TestClient(app)
         for _ in range(3):
             client.get("/ping")
@@ -119,7 +124,9 @@ class TestRateLimitMiddleware:
         assert r.status_code == 429
 
     def test_health_endpoint_bypasses_rate_limit(self):
-        app = _make_app((RateLimitMiddleware, {"max_requests": 1, "window_seconds": 60}))
+        app = _make_app(
+            (RateLimitMiddleware, {"max_requests": 1, "window_seconds": 60})
+        )
         client = TestClient(app)
         client.get("/ping")  # consume the 1 allowed request
         for _ in range(5):
@@ -127,14 +134,18 @@ class TestRateLimitMiddleware:
             assert r.status_code == 200
 
     def test_rate_limit_headers_present(self):
-        app = _make_app((RateLimitMiddleware, {"max_requests": 10, "window_seconds": 60}))
+        app = _make_app(
+            (RateLimitMiddleware, {"max_requests": 10, "window_seconds": 60})
+        )
         client = TestClient(app)
         r = client.get("/ping")
         assert "X-RateLimit-Limit" in r.headers
         assert "X-RateLimit-Remaining" in r.headers
 
     def test_retry_after_header_on_429(self):
-        app = _make_app((RateLimitMiddleware, {"max_requests": 1, "window_seconds": 30}))
+        app = _make_app(
+            (RateLimitMiddleware, {"max_requests": 1, "window_seconds": 30})
+        )
         client = TestClient(app)
         client.get("/ping")
         r = client.get("/ping")
@@ -156,12 +167,20 @@ class TestCORSMiddleware:
         assert "Access-Control-Allow-Origin" not in r.headers
 
     def test_preflight_options_returns_200(self):
-        app = _make_app((CORSMiddleware, {"allow_origins": ["http://localhost:3000"], "allow_methods": ["*"]}))
+        app = _make_app(
+            (
+                CORSMiddleware,
+                {"allow_origins": ["http://localhost:3000"], "allow_methods": ["*"]},
+            )
+        )
         client = TestClient(app)
-        r = client.options("/ping", headers={
-            "Origin": "http://localhost:3000",
-            "Access-Control-Request-Method": "GET",
-        })
+        r = client.options(
+            "/ping",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
         assert r.status_code == 200
 
     def test_wildcard_origin_allows_all(self):
@@ -171,12 +190,20 @@ class TestCORSMiddleware:
         assert r.headers.get("Access-Control-Allow-Origin") == "*"
 
     def test_cors_allow_methods_header(self):
-        app = _make_app((CORSMiddleware, {"allow_origins": ["http://localhost:3000"], "allow_methods": ["*"]}))
+        app = _make_app(
+            (
+                CORSMiddleware,
+                {"allow_origins": ["http://localhost:3000"], "allow_methods": ["*"]},
+            )
+        )
         client = TestClient(app)
-        r = client.options("/ping", headers={
-            "Origin": "http://localhost:3000",
-            "Access-Control-Request-Method": "GET",
-        })
+        r = client.options(
+            "/ping",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
         assert "GET" in r.headers.get("Access-Control-Allow-Methods", "")
 
 

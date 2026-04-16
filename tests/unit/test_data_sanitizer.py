@@ -1,4 +1,5 @@
 """Tests for src/preprocessing/data_sanitizer.py"""
+
 import numpy as np
 import pandas as pd
 import pytest

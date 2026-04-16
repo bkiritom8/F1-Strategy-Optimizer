@@ -29,3 +29,7 @@ python-multipart==0.0.6
 # Utilities
 python-dotenv==1.0.0
 tenacity==8.2.3
+
+# LLM & AI
+google-genai==1.73.1
+google-cloud-aiplatform>=1.42.0

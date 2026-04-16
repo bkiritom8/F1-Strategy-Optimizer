@@ -1,4 +1,5 @@
 """Unit tests for /rag/query LRU cache."""
+
 import pytest
 from unittest.mock import MagicMock, patch
 

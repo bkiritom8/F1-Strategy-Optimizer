@@ -14,13 +14,25 @@ def pace_json(tmp_path):
         "constructors": {
             "red_bull": {
                 "seasons": {
-                    "2024": {"pace_delta_s": -0.3, "data_tier": 1, "limited_data": False},
-                    "2026": {"pace_delta_s": -0.1, "data_tier": 1, "limited_data": True},
+                    "2024": {
+                        "pace_delta_s": -0.3,
+                        "data_tier": 1,
+                        "limited_data": False,
+                    },
+                    "2026": {
+                        "pace_delta_s": -0.1,
+                        "data_tier": 1,
+                        "limited_data": True,
+                    },
                 }
             },
             "ferrari": {
                 "seasons": {
-                    "2024": {"pace_delta_s": 0.05, "data_tier": 1, "limited_data": False},
+                    "2024": {
+                        "pace_delta_s": 0.05,
+                        "data_tier": 1,
+                        "limited_data": False,
+                    },
                 }
             },
         }

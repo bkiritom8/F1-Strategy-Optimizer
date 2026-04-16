@@ -8,6 +8,7 @@ from langchain_core.documents import Document
 # chunk_regulation_text
 # ---------------------------------------------------------------------------
 
+
 def test_chunk_regulation_text_splits_on_articles():
     """Text with Article boundaries yields one Document per article."""
     from rag.document_fetcher import chunk_regulation_text
@@ -18,7 +19,12 @@ def test_chunk_regulation_text_splits_on_articles():
         "during the race to change tyres.\n"
         "Article 29\nTyres must be of the specification approved by the FIA for that event."
     )
-    source_meta = {"source": "FIA", "doc_type": "sporting_regulations", "season": 2024, "category": "regulations"}
+    source_meta = {
+        "source": "FIA",
+        "doc_type": "sporting_regulations",
+        "season": 2024,
+        "category": "regulations",
+    }
 
     docs = chunk_regulation_text(text, source_meta)
 
@@ -36,7 +42,15 @@ def test_chunk_regulation_text_empty():
     """Empty text returns []."""
     from rag.document_fetcher import chunk_regulation_text
 
-    result = chunk_regulation_text("", {"source": "FIA", "doc_type": "test", "season": 2024, "category": "regulations"})
+    result = chunk_regulation_text(
+        "",
+        {
+            "source": "FIA",
+            "doc_type": "test",
+            "season": 2024,
+            "category": "regulations",
+        },
+    )
     assert result == []
 
 
@@ -49,7 +63,12 @@ def test_chunk_regulation_text_chunk_index_sequential():
         "Article 2\nShort article two.\n"
         "Article 3\nShort article three.\n"
     )
-    meta = {"source": "FIA", "doc_type": "tech", "season": 2024, "category": "regulations"}
+    meta = {
+        "source": "FIA",
+        "doc_type": "tech",
+        "season": 2024,
+        "category": "regulations",
+    }
     docs = chunk_regulation_text(text, meta)
 
     assert len(docs) >= 1
@@ -62,7 +81,12 @@ def test_chunk_regulation_text_no_articles_falls_back_to_fixed_windows():
     from rag.document_fetcher import chunk_regulation_text
 
     text = "word " * 300  # 1500 chars, no Article markers
-    meta = {"source": "FIA", "doc_type": "notes", "season": 2024, "category": "regulations"}
+    meta = {
+        "source": "FIA",
+        "doc_type": "notes",
+        "season": 2024,
+        "category": "regulations",
+    }
     docs = chunk_regulation_text(text, meta, chunk_size=100, chunk_overlap=10)
 
     assert len(docs) > 1
@@ -73,6 +97,7 @@ def test_chunk_regulation_text_no_articles_falls_back_to_fixed_windows():
 # ---------------------------------------------------------------------------
 # fetch_all_text_documents — skips on download failure
 # ---------------------------------------------------------------------------
+
 
 def test_fetch_all_skips_failed_downloads():
     """fetch_all_text_documents returns a non-empty list of hardcoded documents
@@ -88,6 +113,7 @@ def test_fetch_all_skips_failed_downloads():
 # ---------------------------------------------------------------------------
 # fetch_all_text_documents — cache hit skips download
 # ---------------------------------------------------------------------------
+
 
 def test_cache_hit_skips_download():
     """fetch_all_text_documents uses hardcoded content — no HTTP requests are made."""

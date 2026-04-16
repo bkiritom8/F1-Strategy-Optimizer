@@ -335,7 +335,7 @@ def test_get_client_returns_same_instance():
 
 
 def _get_token(client):
-    r = client.post("/users/login", data={"username": "admin", "password": "admin"})
+    r = client.post("/api/v1/users/login", data={"username": "admin", "password": "admin"})
     assert r.status_code == 200
     return r.json()["access_token"]
 
@@ -402,14 +402,24 @@ def test_llm_chat_with_race_inputs():
         mod._client = original
 
 
-def test_llm_chat_no_auth_returns_401():
-    """POST /llm/chat without token returns 401."""
+def test_llm_chat_no_auth_returns_200():
+    """POST /llm/chat without token returns 200 because endpoint is optional auth."""
     from fastapi.testclient import TestClient
     from src.api.main import app
+    from src.llm import gemini_client as mod
 
-    with TestClient(app) as tc:
-        r = tc.post("/api/v1/llm/chat", json={"question": "test"})
-    assert r.status_code == 401
+    fake_client = MagicMock()
+    fake_client.generate_with_tools.return_value = "Yes you can chat as guest."
+    original = mod._client
+    mod._client = fake_client
+
+    try:
+        with TestClient(app) as tc:
+            r = tc.post("/api/v1/llm/chat", json={"question": "test"})
+        assert r.status_code == 200
+        assert r.json()["answer"] == "Yes you can chat as guest."
+    finally:
+        mod._client = original
 
 
 def test_llm_chat_empty_question_returns_422():

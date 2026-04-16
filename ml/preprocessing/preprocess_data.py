@@ -148,7 +148,7 @@ def engineer_features(df):
     print("  Calculating laps to pit...")
     df["laps_to_pit"] = (
         df.groupby(["season", "round", "Driver"])
-        .apply(calc_laps_to_pit, include_groups=False)
+        .apply(calc_laps_to_pit)
         .reset_index(level=[0, 1, 2], drop=True)
     )
 

@@ -84,8 +84,8 @@ function _storeToken(token: string): void {
  */
 async function _fetchMe(): Promise<AuthUser> {
   const token  = localStorage.getItem(TOKEN_KEY) ?? '';
-  logger.debug('[authService] _fetchMe: requesting profile from /users/me');
-  const res    = await fetch(`${API_BASE}/users/me`, {
+  logger.debug('[authService] _fetchMe: requesting profile from /api/v1/users/me');
+  const res    = await fetch(`${API_BASE}/api/v1/users/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
@@ -143,7 +143,7 @@ export async function signIn(username: string, password: string): Promise<AuthRe
     form.append('username', username.trim());
     form.append('password', password);
 
-    const data = await _post('/users/login', form) as { access_token: string };
+    const data = await _post('/api/v1/users/login', form) as { access_token: string };
     _storeToken(data.access_token);
 
     const user = await _fetchMe();
@@ -183,7 +183,7 @@ export async function signUp(
 ): Promise<AuthResult> {
   logger.info(`[authService] signUp: registering ${username} (${email})`);
   try {
-    await _post('/users/register', {
+    await _post('/api/v1/users/register', {
       username,
       email,
       full_name: fullName,
@@ -208,7 +208,7 @@ export async function signUp(
 export async function requestOtp(email: string): Promise<AuthResult> {
   logger.info(`[authService] requestOtp: ${email}`);
   try {
-    await _post('/users/request-otp', { email });
+    await _post('/api/v1/users/request-otp', { email });
   } catch (err) {
     logger.warn('[authService] requestOtp failed (silent)', err);
   }
@@ -231,7 +231,7 @@ export async function signInWithOtp(email: string, otp: string): Promise<AuthRes
   }
 
   try {
-    const data = await _post('/users/login-otp', { email, otp }) as { access_token: string };
+    const data = await _post('/api/v1/users/login-otp', { email, otp }) as { access_token: string };
     _storeToken(data.access_token);
     _otpFailureCount = 0;
 
@@ -258,7 +258,7 @@ export async function signInWithOtp(email: string, otp: string): Promise<AuthRes
 export async function verifyEmail(token: string): Promise<AuthResult> {
   logger.info('[authService] verifyEmail: processing token');
   try {
-    await _post('/users/verify-email', { token });
+    await _post('/api/v1/users/verify-email', { token });
     return { ok: true };
   } catch (err: any) {
     return { ok: false, errorMsg: err?.message ?? 'Verification failed. The link may have expired.' };
@@ -273,7 +273,7 @@ export async function verifyEmail(token: string): Promise<AuthResult> {
 export async function resendVerification(email: string): Promise<void> {
   logger.info(`[authService] resendVerification: ${email}`);
   try {
-    await _post('/users/resend-verification', { email });
+    await _post('/api/v1/users/resend-verification', { email });
   } catch (err) {
     logger.warn('[authService] resendVerification failed (silent)', err);
   }

@@ -50,28 +50,38 @@ def _make_mocks():
 class TestTaskDispatcher:
     """Tests for ingest.task.main() routing logic."""
 
-    @pytest.mark.parametrize("index,expected_year", [
-        (0, 2018),
-        (1, 2019),
-        (3, 2021),
-        (7, 2025),
-        (8, 2026),
-    ])
-    def test_fastf1_tasks_route_to_correct_year(self, index, expected_year, monkeypatch):
+    @pytest.mark.parametrize(
+        "index,expected_year",
+        [
+            (0, 2018),
+            (1, 2019),
+            (3, 2021),
+            (7, 2025),
+            (8, 2026),
+        ],
+    )
+    def test_fastf1_tasks_route_to_correct_year(
+        self, index, expected_year, monkeypatch
+    ):
         monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", str(index))
         monkeypatch.setenv("GCS_BUCKET", "test-bucket")
 
         mock_gcs_client, mock_bucket, mock_progress = _make_mocks()
 
-        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), \
-             patch("ingest.task.Progress", return_value=mock_progress), \
-             patch("ingest.task.run_fastf1") as mock_fastf1, \
-             patch("ingest.task.run_historical") as mock_historical, \
-             patch("ingest.task.cloud_logging.Client"):
+        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), patch(
+            "ingest.task.Progress", return_value=mock_progress
+        ), patch("ingest.task.run_fastf1") as mock_fastf1, patch(
+            "ingest.task.run_historical"
+        ) as mock_historical, patch(
+            "ingest.task.cloud_logging.Client"
+        ):
             from ingest.task import main
+
             main()
 
-        mock_fastf1.assert_called_once_with(expected_year, index, mock_bucket, mock_progress)
+        mock_fastf1.assert_called_once_with(
+            expected_year, index, mock_bucket, mock_progress
+        )
         mock_historical.assert_not_called()
 
     def test_historical_task_routes_to_historical_worker(self, monkeypatch):
@@ -80,12 +90,15 @@ class TestTaskDispatcher:
 
         mock_gcs_client, mock_bucket, mock_progress = _make_mocks()
 
-        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), \
-             patch("ingest.task.Progress", return_value=mock_progress), \
-             patch("ingest.task.run_fastf1") as mock_fastf1, \
-             patch("ingest.task.run_historical") as mock_historical, \
-             patch("ingest.task.cloud_logging.Client"):
+        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), patch(
+            "ingest.task.Progress", return_value=mock_progress
+        ), patch("ingest.task.run_fastf1") as mock_fastf1, patch(
+            "ingest.task.run_historical"
+        ) as mock_historical, patch(
+            "ingest.task.cloud_logging.Client"
+        ):
             from ingest.task import main
+
             main()
 
         mock_historical.assert_called_once_with(9, mock_bucket, mock_progress)
@@ -97,13 +110,15 @@ class TestTaskDispatcher:
 
         mock_gcs_client, mock_bucket, _ = _make_mocks()
 
-        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), \
-             patch("ingest.task.Progress"), \
-             patch("ingest.task.run_fastf1"), \
-             patch("ingest.task.run_historical"), \
-             patch("ingest.task.cloud_logging.Client"), \
-             pytest.raises(SystemExit) as exc_info:
+        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), patch(
+            "ingest.task.Progress"
+        ), patch("ingest.task.run_fastf1"), patch("ingest.task.run_historical"), patch(
+            "ingest.task.cloud_logging.Client"
+        ), pytest.raises(
+            SystemExit
+        ) as exc_info:
             from ingest.task import main
+
             main()
 
         assert exc_info.value.code == 1
@@ -115,12 +130,15 @@ class TestTaskDispatcher:
 
         mock_gcs_client, mock_bucket, mock_progress = _make_mocks()
 
-        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), \
-             patch("ingest.task.Progress", return_value=mock_progress), \
-             patch("ingest.task.run_fastf1") as mock_fastf1, \
-             patch("ingest.task.run_historical"), \
-             patch("ingest.task.cloud_logging.Client"):
+        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), patch(
+            "ingest.task.Progress", return_value=mock_progress
+        ), patch("ingest.task.run_fastf1") as mock_fastf1, patch(
+            "ingest.task.run_historical"
+        ), patch(
+            "ingest.task.cloud_logging.Client"
+        ):
             from ingest.task import main
+
             main()
 
         mock_fastf1.assert_called_once_with(2018, 0, mock_bucket, mock_progress)
@@ -133,12 +151,13 @@ class TestTaskDispatcher:
         mock_bucket = MagicMock()
         mock_gcs_client.bucket.return_value = mock_bucket
 
-        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), \
-             patch("ingest.task.Progress"), \
-             patch("ingest.task.run_fastf1"), \
-             patch("ingest.task.run_historical"), \
-             patch("ingest.task.cloud_logging.Client"):
+        with patch("ingest.task.storage.Client", return_value=mock_gcs_client), patch(
+            "ingest.task.Progress"
+        ), patch("ingest.task.run_fastf1"), patch("ingest.task.run_historical"), patch(
+            "ingest.task.cloud_logging.Client"
+        ):
             from ingest.task import main
+
             main()
 
         mock_gcs_client.bucket.assert_called_once_with("my-custom-bucket")

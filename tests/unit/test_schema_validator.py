@@ -1,4 +1,5 @@
 """Tests for src/preprocessing/schema_validator.py"""
+
 import pandas as pd
 import pytest
 
@@ -173,7 +174,14 @@ class TestValidateDataframe:
     def test_report_keys_present(self):
         df = pd.DataFrame([_race_row()])
         _, report = validate_dataframe(df, RaceDataSchema)
-        for key in ("total", "valid", "invalid", "validation_rate", "errors", "invalid_records"):
+        for key in (
+            "total",
+            "valid",
+            "invalid",
+            "validation_rate",
+            "errors",
+            "invalid_records",
+        ):
             assert key in report
 
     def test_missing_required_column_raises(self):
@@ -182,7 +190,9 @@ class TestValidateDataframe:
             validate_dataframe(df, RaceDataSchema, required_columns=["circuit_id"])
 
     def test_empty_dataframe_returns_zero_validation_rate(self):
-        df = pd.DataFrame(columns=["race_id", "year", "round", "circuit_id", "name", "date"])
+        df = pd.DataFrame(
+            columns=["race_id", "year", "round", "circuit_id", "name", "date"]
+        )
         valid_df, report = validate_dataframe(df, RaceDataSchema)
         assert report["validation_rate"] == 0
 

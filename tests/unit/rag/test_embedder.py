@@ -5,6 +5,7 @@ pytest.importorskip("langchain_core")
 from langchain_core.documents import Document
 import rag.embedder as _embedder
 
+
 @pytest.fixture(autouse=True)
 def clear_model_cache():
     _embedder._model_cache.clear()
@@ -63,10 +64,7 @@ def test_embed_documents_preserves_order(mock_model_cls):
     """embed_documents returns tuples in the same order as input documents."""
     from rag.embedder import embed_documents
 
-    docs = [
-        Document(page_content=f"doc{i}", metadata={"i": i})
-        for i in range(3)
-    ]
+    docs = [Document(page_content=f"doc{i}", metadata={"i": i}) for i in range(3)]
     mock_model = MagicMock()
     mock_model.get_embeddings.side_effect = lambda batch: [
         MagicMock(values=[float(i)] * 768) for i, _ in enumerate(batch)
@@ -79,13 +77,17 @@ def test_embed_documents_preserves_order(mock_model_cls):
     for i, (doc, vec) in enumerate(pairs):
         assert doc.metadata["i"] == i
         # Verify the vector is paired with the correct document (not scrambled)
-        assert vec[0] == pytest.approx(float(i)), f"Vector for doc {i} has wrong first element: {vec[0]}"
+        assert vec[0] == pytest.approx(
+            float(i)
+        ), f"Vector for doc {i} has wrong first element: {vec[0]}"
+
 
 @patch("rag.embedder.time")
 @patch("rag.embedder.TextEmbeddingModel")
 def test_get_embeddings_retries_on_rate_limit(mock_model_cls, mock_time):
     """get_embeddings retries up to 3 times on 429 rate limit errors."""
     from rag.embedder import get_embeddings
+
     mock_model = MagicMock()
     # Fail twice with 429, succeed on third attempt
     mock_model.get_embeddings.side_effect = [
@@ -104,6 +106,7 @@ def test_get_embeddings_retries_on_rate_limit(mock_model_cls, mock_time):
 def test_get_embeddings_raises_after_max_retries(mock_model_cls, mock_time):
     """get_embeddings raises after 3 failed attempts."""
     from rag.embedder import get_embeddings
+
     mock_model = MagicMock()
     mock_model.get_embeddings.side_effect = Exception("429 Too Many Requests")
     mock_model_cls.from_pretrained.return_value = mock_model

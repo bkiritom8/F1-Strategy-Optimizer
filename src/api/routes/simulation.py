@@ -45,7 +45,7 @@ from ml.rl.reward import COMPOUND_OPTIMAL_LAPS
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/simulation", tags=["simulation"])
+router = APIRouter(prefix="/simulation", tags=["simulation"])
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 

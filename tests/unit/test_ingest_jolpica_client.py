@@ -150,9 +150,7 @@ class TestPaginate:
         from ingest.jolpica_client import paginate
 
         page = self._race_page([], total=0)
-        with patch(
-            "ingest.jolpica_client.fetch_json", return_value=page
-        ) as mock_fetch:
+        with patch("ingest.jolpica_client.fetch_json", return_value=page) as mock_fetch:
             paginate("http://example.com/races", limit=50)
 
         mock_fetch.assert_called_once_with("http://example.com/races?limit=50&offset=0")

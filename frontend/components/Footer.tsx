@@ -132,18 +132,24 @@ const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
         </div>
 
         {/* Bottom bar */}
-        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-medium text-center md:text-left">
-            © {currentYear} DivergeX. All Data Streams Encrypted.
+        <div className="pt-8 border-t border-white/5 flex flex-col gap-6">
+          <div className="text-[10px] text-white/30 uppercase tracking-[0.15em] font-medium text-center leading-relaxed">
+            DivergeX is an independent research platform and is not affiliated with Formula 1, the FIA, or any participating teams. 
+            All trademarked names and logos are property of their respective owners. Powered by Eclipse Engine & GCP Infrastructure.
           </div>
-          <div className="flex items-center gap-8">
-             <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-[10px] text-white/30 uppercase tracking-widest">System Status: Optimal</span>
-             </div>
-             <div className="text-[10px] text-white/30 uppercase tracking-widest hover:text-red-500 transition-colors cursor-pointer">
-                Privacy Rights
-             </div>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-medium text-center md:text-left">
+              © {currentYear} DivergeX. All Data Streams Encrypted.
+            </div>
+            <div className="flex items-center gap-8">
+               <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[10px] text-white/30 uppercase tracking-widest">System Status: Optimal</span>
+               </div>
+               <div className="text-[10px] text-white/30 uppercase tracking-widest hover:text-red-500 transition-colors cursor-pointer">
+                  Privacy Rights
+               </div>
+            </div>
           </div>
         </div>
       </div>

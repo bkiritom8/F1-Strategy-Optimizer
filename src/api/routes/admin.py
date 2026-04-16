@@ -17,7 +17,7 @@ from src.security.user_store import user_store, _firestore
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 def _normalize_cloud_log_message(payload: Any) -> str:

@@ -67,7 +67,10 @@ def _make_race_result(
     total_laps: int = 10,
 ) -> RaceResult:
     if laps is None:
-        laps = [_make_lap(i, cumulative_time_ms=i * 90_000.0) for i in range(1, total_laps + 1)]
+        laps = [
+            _make_lap(i, cumulative_time_ms=i * 90_000.0)
+            for i in range(1, total_laps + 1)
+        ]
     return RaceResult(
         race_id="2024_1",
         circuit_id="bahrain",
