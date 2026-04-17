@@ -211,7 +211,10 @@ class GeminiClient:
                     "has the 'roles/aiplatform.user' IAM role on this project. "
                     f"(project={self._config.PROJECT_ID})"
                 ) from exc
-            if "DefaultCredentialsError" in error_type or "credentials" in str(exc).lower():
+            if (
+                "DefaultCredentialsError" in error_type
+                or "credentials" in str(exc).lower()
+            ):
                 raise RuntimeError(
                     "No GCP credentials found. Set GOOGLE_APPLICATION_CREDENTIALS or "
                     "set GEMINI_USE_VERTEX=false and supply GEMINI_API_KEY."

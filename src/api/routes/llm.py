@@ -338,7 +338,10 @@ async def llm_health() -> dict:
         logger.error("llm_health: unexpected error — %s", exc, exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail={"status": "error", "detail": "Health check failed. Check server logs."},
+            detail={
+                "status": "error",
+                "detail": "Health check failed. Check server logs.",
+            },
         )
 
 
