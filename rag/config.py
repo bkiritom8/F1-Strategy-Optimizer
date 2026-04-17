@@ -1,5 +1,7 @@
 """RAG pipeline configuration using Pydantic Settings."""
 
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,11 +9,24 @@ class RagConfig(BaseSettings):
     """Configuration for F1 RAG pipeline.
 
     All values are read from environment variables with sensible defaults.
+
+    GCP project is resolved from the standard GOOGLE_CLOUD_PROJECT env var
+    (set automatically by Cloud Run) before falling back to PROJECT_ID, then
+    to the hardcoded default. This ensures the Vertex AI SDK picks up the
+    correct project without manual configuration.
     """
 
     # GCP Configuration
-    PROJECT_ID: str = "f1optimizer"
-    REGION: str = "us-central1"
+    # Prefer GOOGLE_CLOUD_PROJECT (standard GCP env var, auto-set by Cloud Run)
+    # over PROJECT_ID for compatibility with the Vertex AI SDK.
+    PROJECT_ID: str = os.environ.get(
+        "GOOGLE_CLOUD_PROJECT",
+        os.environ.get("PROJECT_ID", "f1optimizer"),
+    )
+    REGION: str = os.environ.get(
+        "GOOGLE_CLOUD_REGION",
+        os.environ.get("REGION", "us-central1"),
+    )
 
     # Embedding Configuration
     EMBEDDING_MODEL: str = "text-embedding-004"

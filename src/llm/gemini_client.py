@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING, Callable
 
 from google import genai
@@ -141,16 +142,85 @@ class GeminiClient:
         self._initialized = False
 
     def _ensure_initialized(self) -> None:
-        """Initialize Vertex AI with config project and region."""
+        """Initialize the Gemini client (Vertex AI or API-key mode).
+
+        Reads GEMINI_USE_VERTEX (default "true") to decide the auth path:
+        - "true": Vertex AI (requires roles/aiplatform.user on the SA).  This
+          is the production path; Cloud Run sets GOOGLE_CLOUD_PROJECT
+          automatically.
+        - "false": Plain API-key mode (requires GEMINI_API_KEY env var). Use
+          this for local development or as an emergency fallback when the
+          service account IAM binding is missing.
+
+        Raises:
+            RuntimeError: If credentials are missing or the project/SA does
+                not have the required IAM permissions.  The original GCP
+                exception is logged at ERROR level but NOT forwarded to callers
+                to prevent internal details from leaking through the API.
+        """
         if self._initialized:
             return
-        # google.genai.Client(vertexai=True) requires project/location passed directly;
-        # it does NOT inherit from vertexai.init(), which is a different SDK.
-        self._genai_client = genai.Client(
-            vertexai=True,
-            project=self._config.PROJECT_ID,
-            location=self._config.REGION,
-        )
+
+        use_vertex = os.environ.get("GEMINI_USE_VERTEX", "true").lower() != "false"
+
+        try:
+            if use_vertex:
+                # Vertex AI path — requires roles/aiplatform.user on the SA.
+                # google.genai.Client(vertexai=True) reads GOOGLE_CLOUD_PROJECT
+                # (auto-set by Cloud Run) and uses ADC for auth.
+                self._genai_client = genai.Client(
+                    vertexai=True,
+                    project=self._config.PROJECT_ID,
+                    location=self._config.REGION,
+                )
+                logger.info(
+                    "GeminiClient: initialized via Vertex AI "
+                    "(project=%s, region=%s)",
+                    self._config.PROJECT_ID,
+                    self._config.REGION,
+                )
+            else:
+                # API-key path — for local dev / fallback.
+                api_key = os.environ.get("GEMINI_API_KEY", "")
+                if not api_key:
+                    raise RuntimeError(
+                        "GEMINI_USE_VERTEX=false but GEMINI_API_KEY is not set. "
+                        "Set one of these environment variables to enable the AI Strategist."
+                    )
+                self._genai_client = genai.Client(api_key=api_key)
+                logger.info("GeminiClient: initialized via API key (non-Vertex mode)")
+
+        except RuntimeError:
+            # Re-raise our own clean RuntimeErrors directly.
+            raise
+        except Exception as exc:
+            # Catch Google SDK auth/permission errors and convert them to a
+            # clean RuntimeError so callers see a consistent interface and
+            # raw SDK details never reach HTTP responses.
+            error_type = type(exc).__name__
+            logger.error(
+                "GeminiClient: failed to initialize (%s): %s",
+                error_type,
+                exc,
+                exc_info=True,
+            )
+            # Provide an actionable hint for the most common failure modes.
+            if "PermissionDenied" in error_type or "403" in str(exc):
+                raise RuntimeError(
+                    "Vertex AI permission denied. Ensure the Cloud Run service account "
+                    "has the 'roles/aiplatform.user' IAM role on this project. "
+                    f"(project={self._config.PROJECT_ID})"
+                ) from exc
+            if "DefaultCredentialsError" in error_type or "credentials" in str(exc).lower():
+                raise RuntimeError(
+                    "No GCP credentials found. Set GOOGLE_APPLICATION_CREDENTIALS or "
+                    "set GEMINI_USE_VERTEX=false and supply GEMINI_API_KEY."
+                ) from exc
+            raise RuntimeError(
+                f"Gemini client initialization failed ({error_type}). "
+                "Check Cloud Run logs for details."
+            ) from exc
+
         self._initialized = True
 
     def warm_cache(self) -> None:
@@ -162,6 +232,26 @@ class GeminiClient:
             project=self._config.PROJECT_ID,
             region=self._config.REGION,
         )
+
+    def ping(self) -> bool:
+        """Verify the Gemini client can reach the API with a minimal request.
+
+        Used by the /llm/health endpoint to surface auth/quota failures
+        before a user hits the chat endpoint. Returns True on success,
+        raises RuntimeError (from _ensure_initialized) on failure.
+        """
+        self._ensure_initialized()
+        # Minimal 1-token generation — fast and cheap for a health check.
+        response = self._genai_client.models.generate_content(  # type: ignore[union-attr]
+            model=self._config.LLM_MODEL,
+            contents="Say OK",
+            config=types.GenerateContentConfig(
+                temperature=0.0,
+                max_output_tokens=4,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+            ),
+        )
+        return bool(response.text)
 
     def build_prompt(
         self,

@@ -242,7 +242,26 @@ async function fetchStatic<T>(filename: string): Promise<T> {
 // ─── Endpoint functions ─────────────────────────────────────────────────────
 
 /**
+ * Map an HTTP status code from the LLM endpoint to a user-friendly message.
+ * Raw internal error details are never shown to the user.
+ */
+function _llmErrorMessage(status: number): string {
+  if (status === 504) return 'The AI Strategist timed out. Please try again.';
+  if (status === 503 || status === 502)
+    return 'The AI Strategist is temporarily unavailable. The backend may be restarting.';
+  if (status === 401 || status === 403)
+    return 'You do not have permission to use the AI Strategist.';
+  // 500 and anything else
+  return 'An internal error occurred. Please try again in a moment.';
+}
+
+/**
  * Send a chat message to the AI Strategist.
+ *
+ * Retries once on network-level failures (not 4xx/5xx) after a 1.5 s delay so
+ * transient connection drops don't immediately surface as errors.  HTTP error
+ * status codes are mapped to friendly messages \u2014 raw backend details are logged
+ * but never shown to the user.
  */
 export async function chatWithStrategist(
   question: string,
@@ -250,10 +269,39 @@ export async function chatWithStrategist(
   raceInputs?: any
 ): Promise<ChatResponse & { cache_hit?: boolean }> {
   logger.info(`[endpoints] chatWithStrategist: ${question.slice(0, 30)}...`);
-  return apiFetch<ChatResponse & { cache_hit?: boolean }>('/api/v1/llm/chat', {
-    method: 'POST',
-    body: JSON.stringify({ question, history, race_inputs: raceInputs }),
-  });
+
+  const doFetch = () =>
+    apiFetch<ChatResponse & { cache_hit?: boolean }>('/api/v1/llm/chat', {
+      method: 'POST',
+      body: JSON.stringify({ question, history, race_inputs: raceInputs }),
+    });
+
+  try {
+    return await doFetch();
+  } catch (err: any) {
+    // If the error carries an HTTP status, map to a friendly message.
+    const status: number | undefined = err?.status ?? err?.response?.status;
+    if (status !== undefined) {
+      logger.warn(`[endpoints] chatWithStrategist: HTTP ${status}`, err);
+      throw Object.assign(new Error(_llmErrorMessage(status)), { status });
+    }
+
+    // Network-level failure (no status) \u2014 retry once after 1.5 s.
+    logger.warn('[endpoints] chatWithStrategist: network error, retrying in 1.5s\u2026', err);
+    await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+
+    try {
+      return await doFetch();
+    } catch (retryErr: any) {
+      const retryStatus: number | undefined =
+        retryErr?.status ?? retryErr?.response?.status;
+      const msg = retryStatus !== undefined
+        ? _llmErrorMessage(retryStatus)
+        : 'Unable to reach the AI Strategist. Please check your connection and try again.';
+      logger.error('[endpoints] chatWithStrategist: retry failed', retryErr);
+      throw Object.assign(new Error(msg), { status: retryStatus });
+    }
+  }
 }
 
 /**

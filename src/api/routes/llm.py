@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -312,6 +313,35 @@ async def _fire_simulation(
     await _run_simulation(job_id, payload, coordinator)
 
 
+@router.get("/health", tags=["llm"])
+async def llm_health() -> dict:
+    """Check Gemini client connectivity without touching chat history.
+
+    Returns 200 {"status": "ok"} if Vertex AI (or API-key) auth succeeds.
+    Returns 503 {"status": "error", "detail": "<sanitized reason>"} on failure.
+    Use this endpoint from Cloud Run readiness probes or dashboards to confirm
+    the AI Strategist is reachable before routing user traffic.
+    """
+    from src.llm.gemini_client import get_client
+
+    try:
+        client = get_client()
+        await asyncio.to_thread(client.ping)
+        return {"status": "ok", "model": client._config.LLM_MODEL}
+    except RuntimeError as exc:
+        logger.warning("llm_health: Gemini unavailable — %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "error", "detail": str(exc)},
+        )
+    except Exception as exc:
+        logger.error("llm_health: unexpected error — %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "error", "detail": "Health check failed. Check server logs."},
+        )
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def llm_chat(
     request: ChatRequest,
@@ -323,6 +353,8 @@ async def llm_chat(
     (driver, circuit, lap, tire compound, etc.) to enrich the answer.
 
     Public endpoint — anonymous callers receive API_USER (DATA_READ) access.
+    current_user may be None for unauthenticated callers; iam_simulator.check_permission
+    handles None by granting the minimum DATA_READ permission to all callers.
     """
     if not iam_simulator.check_permission(current_user, Permission.DATA_READ):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -374,15 +406,28 @@ async def llm_chat(
         import asyncio
 
         history_list = [{"role": h.role, "content": h.content} for h in request.history]
-        answer = await asyncio.to_thread(
-            lambda: client.generate_with_tools(
-                request.question,
-                _execute_strategy_tool,
-                structured_inputs=structured,
-                context_docs=context_docs,
-                history=history_list,
+        try:
+            answer = await asyncio.wait_for(
+                asyncio.to_thread(
+                    lambda: client.generate_with_tools(
+                        request.question,
+                        _execute_strategy_tool,
+                        structured_inputs=structured,
+                        context_docs=context_docs,
+                        history=history_list,
+                    )
+                ),
+                timeout=30.0,
             )
-        )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "llm_chat: Gemini call timed out after 30s for question %r",
+                request.question[:60],
+            )
+            raise HTTPException(
+                status_code=504,
+                detail="The AI Strategist timed out. Please try again.",
+            )
         latency_ms = round((time.time() - start) * 1000, 2)
 
         # Store in realtime cache for future race-context requests
@@ -427,13 +472,22 @@ async def llm_chat(
             job_id=job_id,
             simulation_race_id=simulation_race_id,
         )
+    except asyncio.TimeoutError:
+        # Propagate 504 timeouts from the inner try block without wrapping.
+        raise
+    except HTTPException:
+        raise
     except RuntimeError as exc:
-        logger.warning("LLM runtime unavailable: %s", exc)
-        raise HTTPException(status_code=500, detail=f"LLM runtime unavailable: {exc}")
-    except Exception as exc:
-        logger.error("LLM chat error: %s", exc)
+        logger.warning("llm_chat: LLM runtime unavailable — %s", exc)
         raise HTTPException(
-            status_code=500, detail=f"Error generating LLM response: {exc}"
+            status_code=500,
+            detail="The AI Strategist is temporarily unavailable. Please try again shortly.",
+        )
+    except Exception as exc:
+        logger.error("llm_chat: unexpected error — %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while generating a response. Please try again.",
         )
 
 
