@@ -1,7 +1,6 @@
 """RAG pipeline configuration using Pydantic Settings."""
 
-import os
-
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,20 +11,22 @@ class RagConfig(BaseSettings):
 
     GCP project is resolved from the standard GOOGLE_CLOUD_PROJECT env var
     (set automatically by Cloud Run) before falling back to PROJECT_ID, then
-    to the hardcoded default. This ensures the Vertex AI SDK picks up the
-    correct project without manual configuration.
+    to the hardcoded default. Using pydantic AliasChoices ensures the
+    settings framework—not import-time os.environ.get()—controls precedence,
+    which also makes unit-test env-var mocking reliable.
     """
 
     # GCP Configuration
     # Prefer GOOGLE_CLOUD_PROJECT (standard GCP env var, auto-set by Cloud Run)
     # over PROJECT_ID for compatibility with the Vertex AI SDK.
-    PROJECT_ID: str = os.environ.get(
-        "GOOGLE_CLOUD_PROJECT",
-        os.environ.get("PROJECT_ID", "f1optimizer"),
+    # AliasChoices tries each name in order; the first env var that is set wins.
+    PROJECT_ID: str = Field(
+        default="f1optimizer",
+        validation_alias=AliasChoices("GOOGLE_CLOUD_PROJECT", "PROJECT_ID"),
     )
-    REGION: str = os.environ.get(
-        "GOOGLE_CLOUD_REGION",
-        os.environ.get("REGION", "us-central1"),
+    REGION: str = Field(
+        default="us-central1",
+        validation_alias=AliasChoices("GOOGLE_CLOUD_REGION", "REGION"),
     )
 
     # Embedding Configuration

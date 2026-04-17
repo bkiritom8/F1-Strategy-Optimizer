@@ -5,6 +5,8 @@ The RaceRunner and related simulation helpers are mocked so tests are fast and
 do not require any GCS or ML model files.
 """
 
+from __future__ import annotations  # enables str | None syntax on Python 3.9
+
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
