@@ -19,7 +19,6 @@ Notes:
 from __future__ import annotations
 
 import logging
-import time
 import pandas as pd
 from google.cloud import storage
 
@@ -279,8 +278,6 @@ def run(task_id: int, bucket: storage.Bucket, progress: Progress) -> None:
     for year in YEARS:
         print(f"\n--- {year} ---")
         _ingest_year(year, bucket, progress)
-        log.info("historical_worker: round pause  year=%d  sleeping=60s", year)
-        time.sleep(60)
 
     upload_done_marker(bucket, task_id)
     log.info("historical_worker complete  task=%d", task_id)

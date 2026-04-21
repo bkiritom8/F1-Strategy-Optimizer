@@ -34,7 +34,7 @@ SESSION_TYPES: dict[str, list[str]] = {
 }
 
 SESSION_PAUSE = 0.5  # seconds between sessions within a round
-ROUND_PAUSE = 60  # seconds between rounds (events)
+ROUND_PAUSE = 120  # seconds between rounds (events)
 
 
 # ---------------------------------------------------------------------------
