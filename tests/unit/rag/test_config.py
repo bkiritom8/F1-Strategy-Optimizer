@@ -66,6 +66,7 @@ def test_is_configured_true(monkeypatch):
 
 def test_env_override(monkeypatch):
     """PROJECT_ID env var overrides default."""
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
     monkeypatch.setenv("PROJECT_ID", "my-project")
     config = RagConfig()
     assert config.PROJECT_ID == "my-project"

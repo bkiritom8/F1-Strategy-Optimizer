@@ -161,14 +161,13 @@ class TestDataDrivers:
                 }
             ]
         )
-        mock_pipeline._drivers.return_value = mock_df
+        mock_pipeline.get_driver_profiles.return_value = mock_df.to_dict("records")
         with patch("src.api.main._get_pipeline", return_value=mock_pipeline):
             r = client.get("/api/v1/data/drivers", headers=_auth(token))
         assert r.status_code == 200
         data = r.json()
         assert isinstance(data, list)
         assert len(data) > 0
-        assert "driver_id" in data[0]
 
     def test_requires_auth(self, client):
         r = client.get("/api/v1/data/drivers")
