@@ -329,7 +329,7 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 temperature=self._config.LLM_TEMPERATURE,
                 max_output_tokens=self._config.MAX_OUTPUT_TOKENS,
-                thinking_config=types.ThinkingConfig(thinkingBudget=0),
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         answer = response.text or ""
@@ -379,7 +379,7 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 temperature=0.0,
                 max_output_tokens=16,
-                thinking_config=types.ThinkingConfig(thinkingBudget=0),
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         return response.text or ""
@@ -441,7 +441,7 @@ class GeminiClient:
         gen_config = types.GenerateContentConfig(
             temperature=self._config.LLM_TEMPERATURE,
             max_output_tokens=self._config.MAX_OUTPUT_TOKENS,
-            thinking_config=types.ThinkingConfig(thinkingBudget=0),
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
             tools=[_STRATEGY_TOOL],
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                 disable=True,
@@ -612,7 +612,7 @@ class GeminiClient:
                 config=types.GenerateContentConfig(
                     temperature=self._config.LLM_TEMPERATURE,
                     max_output_tokens=self._config.MAX_OUTPUT_TOKENS,
-                    thinking_config=types.ThinkingConfig(thinkingBudget=0),
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
             answer = response.text or ""
@@ -624,7 +624,7 @@ class GeminiClient:
 
         chat = self._genai_client.chats.create(  # type: ignore[union-attr]
             model=self._config.LLM_MODEL,
-            history=formatted_history,
+            history=formatted_history,  # type: ignore[arg-type]
             config=gen_config,
         )
         response = chat.send_message(full_prompt)
@@ -633,9 +633,10 @@ class GeminiClient:
         for _ in range(3):
             if not response.candidates:
                 break
-            fn_parts = [
-                p for p in response.candidates[0].content.parts if p.function_call
-            ]
+            candidate_content = response.candidates[0].content
+            if candidate_content is None:
+                break
+            fn_parts = [p for p in candidate_content.parts if p.function_call]  # type: ignore[union-attr]
             if not fn_parts:
                 break
 
@@ -643,23 +644,26 @@ class GeminiClient:
             tool_responses: list[types.Part] = []
             for part in fn_parts:
                 fc = part.function_call
-                logger.info("Gemini tool call: %s(%s)", fc.name, dict(fc.args))
+                assert fc is not None
+                logger.info("Gemini tool call: %s(%s)", fc.name, dict(fc.args or {}))
                 try:
-                    result = tool_executor(fc.name, dict(fc.args))
+                    result = tool_executor(fc.name, dict(fc.args))  # type: ignore[arg-type]
                     logger.info("Tool result: %s", result)
                 except Exception as exc:
                     result = {"error": str(exc)}
                 tool_responses.append(
                     types.Part.from_function_response(
-                        name=fc.name, response={"result": result}
+                        name=fc.name,  # type: ignore[arg-type]
+                        response={"result": result},
                     )
                 )
-            response = chat.send_message(tool_responses)
+            response = chat.send_message(tool_responses)  # type: ignore[arg-type]
 
         logger.info("Tool called: %s", tool_called)
         answer = None
         if response.candidates:
-            parts = response.candidates[0].content.parts
+            candidate_content = response.candidates[0].content
+            parts = candidate_content.parts if candidate_content is not None else None
             if parts:
                 text = "".join(
                     getattr(p, "text", "") for p in parts if not p.function_call
@@ -703,13 +707,13 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 temperature=0.0,
                 response_mime_type="application/json",
-                thinking_config=types.ThinkingConfig(thinkingBudget=0),
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         import json
 
         try:
-            text = response.text.replace("```json", "").replace("```", "").strip()
+            text = (response.text or "").replace("```json", "").replace("```", "").strip()
             if len(text) > 2000:
                 raise ValueError("Generated JSON response exceeded safe length limits.")
             return json.loads(text)
