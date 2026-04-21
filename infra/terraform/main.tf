@@ -437,7 +437,7 @@ resource "google_cloudbuild_trigger" "pipeline_branch" {
   location = "us-central1"
   filename = "cloudbuild.yaml"
 
-  service_account = "projects/${var.project_id}/serviceAccounts/694267183904-compute@developer.gserviceaccount.com"
+  service_account = "projects/${var.project_id}/serviceAccounts/${data.google_project.project.number}-compute@developer.gserviceaccount.com"
 
   repository_event_config {
     repository = "projects/${var.project_id}/locations/us-central1/connections/Github/repositories/bkiritom8-F1-Strategy-Optimizer"
