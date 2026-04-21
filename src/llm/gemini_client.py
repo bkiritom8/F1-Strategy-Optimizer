@@ -713,7 +713,9 @@ class GeminiClient:
         import json
 
         try:
-            text = (response.text or "").replace("```json", "").replace("```", "").strip()
+            text = (
+                (response.text or "").replace("```json", "").replace("```", "").strip()
+            )
             if len(text) > 2000:
                 raise ValueError("Generated JSON response exceeded safe length limits.")
             return json.loads(text)
