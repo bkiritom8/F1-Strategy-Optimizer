@@ -449,6 +449,8 @@ resource "google_cloudbuild_trigger" "pipeline_branch" {
   included_files = [
     "src/**",
     "ml/**",
+    "ingest/**",
+    "rag/**",
     "docker/**",
     "cloudbuild/**",
     "cloudbuild.yaml",
