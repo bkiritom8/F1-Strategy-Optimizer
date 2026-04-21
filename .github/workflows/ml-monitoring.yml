@@ -86,28 +86,6 @@ jobs:
             --project=f1optimizer \
             --branch=pipeline
 
-      - name: Notify Slack — Issues Detected
-        if: steps.monitoring.outcome == 'failure' && env.SLACK_WEBHOOK_URL != ''
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          curl -s -X POST "$SLACK_WEBHOOK_URL" \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "text": "⚠️ *F1 ML Monitoring* — drift or accuracy degradation detected across one or more models. Retraining triggered on `pipeline` branch. Check GCS: gs://f1optimizer-training/monitoring/"
-            }'
-
-      - name: Notify Slack — All Clear
-        if: steps.monitoring.outcome == 'success' && env.SLACK_WEBHOOK_URL != ''
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          curl -s -X POST "$SLACK_WEBHOOK_URL" \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "text": "✅ *F1 ML Monitoring* — all models stable. No drift or accuracy degradation detected."
-            }'
-
       - name: Fail job if monitoring detected issues
         if: steps.monitoring.outcome == 'failure'
         run: |
