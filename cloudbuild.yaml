@@ -53,7 +53,7 @@ steps:
       - "-c"
       - |
         REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/api"
-        if [ -f /workspace/api_rebuild ]; then
+        if [ -f /workspace/api_rebuild ] || ! docker pull $$REPO:latest 2>/dev/null; then
           echo "Building api image..."
           docker build --platform linux/amd64 \
             -t $$REPO:$COMMIT_SHA \
@@ -62,7 +62,6 @@ steps:
           docker push --all-tags $$REPO
         else
           echo "No api changes — retagging latest as $COMMIT_SHA"
-          docker pull $$REPO:latest
           docker tag $$REPO:latest $$REPO:$COMMIT_SHA
           docker push $$REPO:$COMMIT_SHA
         fi
@@ -76,7 +75,7 @@ steps:
       - "-c"
       - |
         REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ml"
-        if [ -f /workspace/ml_rebuild ]; then
+        if [ -f /workspace/ml_rebuild ] || ! docker pull $$REPO:latest 2>/dev/null; then
           echo "Building ml image..."
           docker build --platform linux/amd64 \
             -t $$REPO:$COMMIT_SHA \
@@ -85,7 +84,6 @@ steps:
           docker push --all-tags $$REPO
         else
           echo "No ml changes — retagging latest as $COMMIT_SHA"
-          docker pull $$REPO:latest
           docker tag $$REPO:latest $$REPO:$COMMIT_SHA
           docker push $$REPO:$COMMIT_SHA
         fi
@@ -99,7 +97,7 @@ steps:
       - "-c"
       - |
         REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/rag"
-        if [ -f /workspace/rag_rebuild ]; then
+        if [ -f /workspace/rag_rebuild ] || ! docker pull $$REPO:latest 2>/dev/null; then
           echo "Building rag image..."
           docker build --platform linux/amd64 \
             -t $$REPO:$COMMIT_SHA \
@@ -108,7 +106,6 @@ steps:
           docker push --all-tags $$REPO
         else
           echo "No rag changes — retagging latest as $COMMIT_SHA"
-          docker pull $$REPO:latest
           docker tag $$REPO:latest $$REPO:$COMMIT_SHA
           docker push $$REPO:$COMMIT_SHA
         fi
@@ -122,7 +119,7 @@ steps:
       - "-c"
       - |
         REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/ingest"
-        if [ -f /workspace/ingest_rebuild ]; then
+        if [ -f /workspace/ingest_rebuild ] || ! docker pull $$REPO:latest 2>/dev/null; then
           echo "Building ingest image..."
           docker build --platform linux/amd64 \
             -t $$REPO:$COMMIT_SHA \
@@ -131,7 +128,6 @@ steps:
           docker push --all-tags $$REPO
         else
           echo "No ingest changes — retagging latest as $COMMIT_SHA"
-          docker pull $$REPO:latest
           docker tag $$REPO:latest $$REPO:$COMMIT_SHA
           docker push $$REPO:$COMMIT_SHA
         fi
@@ -319,7 +315,7 @@ steps:
     args:
       - "-c"
       - |
-        for IMAGE in api ml rag; do
+        for IMAGE in api ml rag ingest; do
           REPO="us-central1-docker.pkg.dev/f1optimizer/f1-optimizer/$$IMAGE"
           DIGESTS=$$(gcloud artifacts docker images list $$REPO \
             --include-tags --sort-by="~CREATE_TIME" \
