@@ -49,6 +49,57 @@ STEP=0
 TOTAL=4
 log() { echo ""; echo "=== [$(( ++STEP ))/$TOTAL] $* ==="; }
 
+# -- Pre-flight: seed SMTP secrets if missing ----------------------------------
+# Reads a variable from a .env file, stripping inline comments and whitespace.
+read_env_var() {
+  local var="$1"
+  local file="${2:-.env}"
+  grep -E "^${var}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- | sed 's/[[:space:]]*#.*//' | xargs
+}
+
+seed_secret() {
+  local secret_id="$1"
+  local value="$2"
+
+  # Create the secret container if it doesn't exist yet (idempotent)
+  if ! gcloud secrets describe "$secret_id" --project="$PROJECT_ID" &>/dev/null; then
+    echo "Creating secret $secret_id ..."
+    gcloud secrets create "$secret_id" \
+      --project="$PROJECT_ID" \
+      --replication-policy="automatic" \
+      --quiet
+  fi
+
+  # Add a version only when none exists
+  local existing
+  existing=$(gcloud secrets versions list "$secret_id" \
+    --project="$PROJECT_ID" \
+    --filter="state=ENABLED" \
+    --format="value(name)" 2>/dev/null | head -1)
+
+  if [[ -z "$existing" ]]; then
+    printf '%s' "$value" | gcloud secrets versions add "$secret_id" \
+      --project="$PROJECT_ID" \
+      --data-file=-
+    echo "Secret $secret_id populated from .env."
+  else
+    echo "Secret $secret_id already has a version — skipping."
+  fi
+}
+
+echo ""
+echo "=== [pre-flight] Seeding SMTP secrets ==="
+SMTP_USER_VAL=$(read_env_var "SMTP_USER")
+SMTP_PASS_VAL=$(read_env_var "SMTP_PASS")
+
+if [[ -z "$SMTP_USER_VAL" || -z "$SMTP_PASS_VAL" ]]; then
+  echo "ERROR: SMTP_USER and SMTP_PASS must be set in .env" >&2
+  exit 1
+fi
+
+seed_secret "smtp-user" "$SMTP_USER_VAL"
+seed_secret "smtp-pass" "$SMTP_PASS_VAL"
+
 # -- 1. Infrastructure ---------------------------------------------------------
 if [[ "$SKIP_INFRA" == "false" ]]; then
   log "Provisioning GCP infrastructure (Terraform)"
@@ -63,9 +114,12 @@ if [[ "$SKIP_BUILD" == "false" ]]; then
   log "Building images and deploying API (Cloud Build)"
   COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "manual")
   SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "manual")
+  VS_INDEX_ID=$(terraform -chdir=infra/terraform output -raw rag_index_id 2>/dev/null || echo "")
+  VS_ENDPOINT_ID=$(terraform -chdir=infra/terraform output -raw rag_endpoint_id 2>/dev/null || echo "")
+  VS_DEPLOYED_ID=$(terraform -chdir=infra/terraform output -raw rag_deployed_index_id 2>/dev/null || echo "f1_rag_deployed")
   gcloud builds submit --config cloudbuild.yaml . \
     --project="$PROJECT_ID" \
-    --substitutions="COMMIT_SHA=${COMMIT_SHA},SHORT_SHA=${SHORT_SHA}"
+    --substitutions="COMMIT_SHA=${COMMIT_SHA},SHORT_SHA=${SHORT_SHA},_VECTOR_SEARCH_INDEX_ID=${VS_INDEX_ID},_VECTOR_SEARCH_ENDPOINT_ID=${VS_ENDPOINT_ID},_VECTOR_SEARCH_DEPLOYED_INDEX_ID=${VS_DEPLOYED_ID}"
 else
   log "Skipping Cloud Build (--skip-build)"
 fi

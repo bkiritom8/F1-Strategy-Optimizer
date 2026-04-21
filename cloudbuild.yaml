@@ -293,6 +293,10 @@ steps:
     args:
       - "-c"
       - |
+        if [ ! -f /workspace/ml_changed ]; then
+          echo "Skipping — training was skipped"
+          exit 0
+        fi
         pip install --quiet google-cloud-aiplatform
         python /workspace/cloudbuild/push_registry.py
 
