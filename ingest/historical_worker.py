@@ -1,5 +1,5 @@
 """
-historical_worker.py — Task 8: Ergast/Jolpica historical data 1996-2017.
+historical_worker.py - Task 8: Ergast/Jolpica historical data 1996-2017.
 
 Fetches for every season:
   race_results          gs://{bucket}/historical/{year}/race_results.parquet
@@ -12,13 +12,14 @@ Fetches for every season:
 Notes:
   - Lap times available from 1996 in Ergast; earlier seasons produce empty files.
   - Pit stop data available from 2012 in Ergast.
-  - 404 responses → genuinely absent data; marked done, not retried.
-  - All other errors → infinite exponential-backoff retry (60s, 120s, 240s, …).
+  - 404 responses -> genuinely absent data; marked done, not retried.
+  - All other errors -> infinite exponential-backoff retry (60s, 120s, 240s, ...).
 """
 
 from __future__ import annotations
 
 import logging
+import time
 import pandas as pd
 from google.cloud import storage
 
@@ -30,11 +31,11 @@ from .progress import Progress
 log = logging.getLogger(__name__)
 
 BASE_URL = "https://api.jolpi.ca/ergast/f1"
-YEARS = range(1996, 2018)  # 1996 … 2017 inclusive (lap times available from 1996)
+YEARS = range(1996, 2018)  # 1996 ... 2017 inclusive (lap times available from 1996)
 
 
 # ---------------------------------------------------------------------------
-# Fetchers — one per data type
+# Fetchers - one per data type
 # ---------------------------------------------------------------------------
 
 
@@ -259,7 +260,7 @@ def _ingest_year(year: int, bucket: storage.Bucket, progress: Progress) -> None:
                     type(exc).__name__,
                     exc,
                 )
-                print(f"  [ERR]   {year} | {data_type}  — {type(exc).__name__}: {exc}")
+                print(f"  [ERR]   {year} | {data_type}  - {type(exc).__name__}: {exc}")
                 backoff_wait(attempt)
                 attempt += 1
 
@@ -278,7 +279,9 @@ def run(task_id: int, bucket: storage.Bucket, progress: Progress) -> None:
     for year in YEARS:
         print(f"\n--- {year} ---")
         _ingest_year(year, bucket, progress)
+        log.info("historical_worker: round pause  year=%d  sleeping=60s", year)
+        time.sleep(60)
 
     upload_done_marker(bucket, task_id)
     log.info("historical_worker complete  task=%d", task_id)
-    print(f"\n[DONE] Task {task_id} — historical 1996-2017 complete")
+    print(f"\n[DONE] Task {task_id} - historical 1996-2017 complete")

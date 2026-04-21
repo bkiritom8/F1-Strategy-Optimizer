@@ -1,5 +1,5 @@
 """
-fastf1_worker.py — Tasks 0-8: download FastF1 telemetry for one year (2018-2026).
+fastf1_worker.py - Tasks 0-8: download FastF1 telemetry for one year (2018-2026).
 
 Telemetry is saved to:
   gs://{bucket}/telemetry/{year}/{event_name}/{session_type}.parquet
@@ -34,7 +34,7 @@ SESSION_TYPES: dict[str, list[str]] = {
 }
 
 SESSION_PAUSE = 0.5  # seconds between sessions within a round
-ROUND_PAUSE = 120  # seconds between rounds (events)
+ROUND_PAUSE = 60  # seconds between rounds (events)
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ def _download_session(
 
             tel = extract_telemetry(session)
             if tel is None:
-                # No telemetry data at all — mark done so we never retry
+                # No telemetry data at all - mark done so we never retry
                 log.warning(
                     "no telemetry  year=%d  event=%s  type=%s  marking done",
                     year,
@@ -100,7 +100,7 @@ def _download_session(
             return
 
         except Exception as exc:
-            # Permanent error — mark done and skip, don't retry
+            # Permanent error - mark done and skip, don't retry
             if isinstance(exc, ValueError) and "does not exist" in str(exc).lower():
                 log.warning(
                     "permanent error, skipping  year=%d  event=%s  type=%s: %s",
@@ -109,7 +109,7 @@ def _download_session(
                     session_type,
                     exc,
                 )
-                print(f"  [SKIP]  {year} | {event_name} | {session_type}  — {exc}")
+                print(f"  [SKIP]  {year} | {event_name} | {session_type}  - {exc}")
                 progress.mark_done(key)
                 return
 
@@ -122,7 +122,7 @@ def _download_session(
                     exc,
                 )
                 print(
-                    f"  [RATE]  {year} | {event_name} | {session_type}  — rate limited, backing off"
+                    f"  [RATE]  {year} | {event_name} | {session_type}  - rate limited, backing off"
                 )
             else:
                 log.error(
@@ -135,7 +135,7 @@ def _download_session(
                     exc,
                 )
                 print(
-                    f"  [ERR]   {year} | {event_name} | {session_type}  — {type(exc).__name__}: {exc}"
+                    f"  [ERR]   {year} | {event_name} | {session_type}  - {type(exc).__name__}: {exc}"
                 )
 
             backoff_wait(attempt)
@@ -183,4 +183,4 @@ def run(year: int, task_id: int, bucket: storage.Bucket, progress: Progress) -> 
 
     upload_done_marker(bucket, task_id)
     log.info("fastf1_worker complete  task=%d  year=%d", task_id, year)
-    print(f"\n[DONE] Task {task_id} — year {year} complete")
+    print(f"\n[DONE] Task {task_id} - year {year} complete")
