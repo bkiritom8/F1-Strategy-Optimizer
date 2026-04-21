@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 import fastf1
+from fastf1._api import SessionNotAvailableError
 from google.cloud import storage
 
 from .gcs_utils import upload_done_marker, upload_parquet
@@ -26,6 +28,7 @@ from .telemetry_extractor import extract_telemetry
 log = logging.getLogger(__name__)
 
 CACHE_DIR = Path("/tmp/f1_cache")
+MAX_RETRIES = 3  # max attempts for transient errors before skipping
 
 SESSION_TYPES: dict[str, list[str]] = {
     "conventional": ["FP1", "FP2", "FP3", "Q", "R"],
@@ -38,7 +41,7 @@ ROUND_PAUSE = 120  # seconds between rounds (events)
 
 
 # ---------------------------------------------------------------------------
-# Single-session download with infinite exponential-backoff retry
+# Single-session download with capped retry (MAX_RETRIES) and permanent-skip logic
 # ---------------------------------------------------------------------------
 
 
@@ -49,7 +52,7 @@ def _download_session(
     bucket: storage.Bucket,
     progress: Progress,
 ) -> None:
-    """Download one session, retrying forever on any error."""
+    """Download one session; skip permanently on unavailable/missing data, retry up to MAX_RETRIES on transient errors."""
     key = f"telemetry/{year}/{event_name}/{session_type}"
     blob_path = f"telemetry/{year}/{event_name}/{session_type}.parquet"
 
@@ -58,7 +61,7 @@ def _download_session(
         return
 
     attempt = 0
-    while True:
+    while attempt <= MAX_RETRIES:
         try:
             log.info(
                 "loading session  year=%d  event=%s  type=%s  attempt=%d",
@@ -100,16 +103,18 @@ def _download_session(
             return
 
         except Exception as exc:
-            # Permanent error - mark done and skip, don't retry
-            if isinstance(exc, ValueError) and "does not exist" in str(exc).lower():
+            # Permanent skips — session doesn't exist or data not yet published
+            if isinstance(exc, SessionNotAvailableError) or (
+                isinstance(exc, ValueError) and "does not exist" in str(exc).lower()
+            ):
                 log.warning(
-                    "permanent error, skipping  year=%d  event=%s  type=%s: %s",
+                    "permanent skip  year=%d  event=%s  type=%s: %s",
                     year,
                     event_name,
                     session_type,
                     exc,
                 )
-                print(f"  [SKIP]  {year} | {event_name} | {session_type}  - {exc}")
+                print(f"  [SKIP]  {year} | {event_name} | {session_type}  - {type(exc).__name__}")
                 progress.mark_done(key)
                 return
 
@@ -124,19 +129,34 @@ def _download_session(
                 print(
                     f"  [RATE]  {year} | {event_name} | {session_type}  - rate limited, backing off"
                 )
-            else:
+                # Rate limits don't count against the attempt cap
+                backoff_wait(attempt)
+                continue
+
+            log.error(
+                "error  year=%d  event=%s  type=%s  attempt=%d/%d: %s: %s",
+                year,
+                event_name,
+                session_type,
+                attempt,
+                MAX_RETRIES,
+                type(exc).__name__,
+                exc,
+            )
+            print(
+                f"  [ERR]   {year} | {event_name} | {session_type}  attempt {attempt}/{MAX_RETRIES} - {type(exc).__name__}: {exc}"
+            )
+
+            if attempt >= MAX_RETRIES:
                 log.error(
-                    "error  year=%d  event=%s  type=%s  attempt=%d: %s: %s",
+                    "max retries reached, skipping  year=%d  event=%s  type=%s",
                     year,
                     event_name,
                     session_type,
-                    attempt,
-                    type(exc).__name__,
-                    exc,
                 )
-                print(
-                    f"  [ERR]   {year} | {event_name} | {session_type}  - {type(exc).__name__}: {exc}"
-                )
+                print(f"  [SKIP]  {year} | {event_name} | {session_type}  - max retries reached")
+                progress.mark_done(key)
+                return
 
             backoff_wait(attempt)
             attempt += 1
@@ -162,8 +182,20 @@ def run(year: int, task_id: int, bucket: storage.Bucket, progress: Progress) -> 
         log.error("failed to load schedule  year=%d: %s", year, exc)
         raise
 
+    now = datetime.now(timezone.utc)
     for _, event in schedule.iterrows():
         event_name = event["EventName"]
+        event_date = event.get("EventDate")
+        if event_date is not None:
+            if hasattr(event_date, "to_pydatetime"):
+                event_date = event_date.to_pydatetime()
+            if hasattr(event_date, "tzinfo") and event_date.tzinfo is None:
+                event_date = event_date.replace(tzinfo=timezone.utc)
+            if event_date > now:
+                print(f"  [SKIP]  {event_name}  (future event, date={event_date.date()})")
+                log.info("skipping future event  year=%d  event=%s  date=%s", year, event_name, event_date.date())
+                continue
+
         event_format = event.get("EventFormat", "conventional")
         sessions = SESSION_TYPES.get(event_format, SESSION_TYPES["conventional"])
 
