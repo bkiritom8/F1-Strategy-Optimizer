@@ -119,7 +119,7 @@ resource "google_monitoring_alert_policy" "ml_accuracy_degraded" {
   depends_on = [google_project_service.required_apis]
 }
 
-# Alert: Retraining was triggered (informational — notify stakeholders)
+# Alert: Retraining was triggered (informational - notify stakeholders)
 resource "google_monitoring_alert_policy" "ml_retraining_triggered" {
   display_name = "F1 ML Retraining Triggered"
   project      = var.project_id

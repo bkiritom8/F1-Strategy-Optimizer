@@ -80,7 +80,7 @@ jobs:
       - name: Trigger Retraining via Cloud Build
         if: steps.monitoring.outcome == 'failure'
         run: |
-          echo "Drift or accuracy degradation detected — triggering retraining on pipeline branch"
+          echo "Drift or accuracy degradation detected - triggering retraining on pipeline branch"
           gcloud builds triggers run f1-api-docker-build \
             --region=us-central1 \
             --project=f1optimizer \

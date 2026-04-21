@@ -19,9 +19,9 @@ Results logged to:
     gs://f1optimizer-training/monitoring/accuracy_log.jsonl
 
 Exit codes:
-    0 — all checks passed (ok)
-    1 — at least one model is in "warn" or "critical" drift / degraded
-    2 — runtime error (bad args, GCS unreachable, etc.)
+    0 - all checks passed (ok)
+    1 - at least one model is in "warn" or "critical" drift / degraded
+    2 - runtime error (bad args, GCS unreachable, etc.)
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ MODELS_BUCKET = os.environ.get("MODELS_BUCKET", "f1optimizer-models")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("run_monitoring")
 
-# Model → feature parquet GCS URI + key feature columns for drift check
+# Model -> feature parquet GCS URI + key feature columns for drift check
 MODEL_CONFIG: dict[str, dict] = {
     "tire_degradation": {
         "feature_uri": "gs://f1optimizer-data-lake/ml_features/fastf1_features.parquet",
@@ -135,7 +135,7 @@ def _run_drift_check(race_id: str, publish_metrics: bool = False) -> bool:
         baseline = load_from_gcs(model_name)
         if baseline is None:
             logger.warning(
-                "%s: no baseline stats — run training first to generate them",
+                "%s: no baseline stats - run training first to generate them",
                 model_name,
             )
             continue
@@ -192,7 +192,7 @@ def _run_accuracy_check(season: int, publish_metrics: bool = False) -> bool:
         baseline_metrics = load_baseline_metrics(model_name)
         if not baseline_metrics:
             logger.warning(
-                "%s: no baseline metrics in model_card — skipping accuracy check",
+                "%s: no baseline metrics in model_card - skipping accuracy check",
                 model_name,
             )
             continue
@@ -261,7 +261,7 @@ def _run_accuracy_check(season: int, publish_metrics: bool = False) -> bool:
                 current_metrics = bundle.evaluate(season_df)
             else:
                 logger.warning(
-                    "%s: bundle has no evaluate() — accuracy check skipped", model_name
+                    "%s: bundle has no evaluate() - accuracy check skipped", model_name
                 )
                 continue
         except Exception as exc:
@@ -336,7 +336,7 @@ def main() -> int:
             all_ok = False
 
     if not all_ok:
-        logger.warning("One or more checks flagged issues — review logs above.")
+        logger.warning("One or more checks flagged issues - review logs above.")
         if publish:
             # Record the retraining trigger event in Cloud Monitoring
             from ml.monitoring.monitoring_logger import MonitoringLogger

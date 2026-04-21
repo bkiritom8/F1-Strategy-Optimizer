@@ -45,7 +45,7 @@ class MonitoringLogger:
         self._publish = publish_metrics
         self._client = storage.Client(project=project)
 
-    # ── GCS JSONL helpers ─────────────────────────────────────────────────────
+    # GCS JSONL helpers
 
     def _append_jsonl(self, blob_path: str, row: dict[str, Any]) -> None:
         """Download existing JSONL, append one row, re-upload."""
@@ -76,7 +76,7 @@ class MonitoringLogger:
         if self._publish:
             self._publish_accuracy(report)
 
-    # ── Cloud Monitoring publishers ───────────────────────────────────────────
+    # Cloud Monitoring publishers
 
     def _write_time_series(
         self,
