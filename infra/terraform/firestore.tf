@@ -16,6 +16,13 @@ resource "google_project_service" "firestore" {
   disable_on_destroy = false
 }
 
+# Import the existing (default) database so Terraform owns it.
+# This block is a no-op once the resource is in state — safe to leave in.
+import {
+  to = google_firestore_database.default
+  id = "projects/f1optimizer/databases/(default)"
+}
+
 resource "google_firestore_database" "default" {
   project                     = var.project_id
   name                        = "(default)"

@@ -171,7 +171,8 @@ module "cloud_run" {
   environment = var.environment
 
   service_name            = "f1-strategy-api"
-  container_image         = "${var.region}-docker.pkg.dev/${var.project_id}/f1-optimizer/api:latest"
+  # Placeholder until Cloud Build pushes api:latest on first pipeline push.
+  container_image         = "us-docker.pkg.dev/cloudrun/container/placeholder:latest"
   max_instances           = var.api_max_instances
   min_instances           = var.api_min_instances
   max_concurrent_requests = var.api_max_concurrent_requests
@@ -255,7 +256,7 @@ resource "google_project_iam_member" "dataflow_worker" {
 resource "google_storage_bucket" "data_lake" {
   name          = "${var.project_id}-data-lake"
   location      = var.region
-  force_destroy = false
+  force_destroy = true
 
   uniform_bucket_level_access = true
 
@@ -285,7 +286,7 @@ resource "google_storage_bucket" "data_lake" {
 resource "google_storage_bucket" "models" {
   name          = "${var.project_id}-models"
   location      = var.region
-  force_destroy = false
+  force_destroy = true
 
   uniform_bucket_level_access = true
   versioning {
@@ -347,13 +348,8 @@ resource "google_project_iam_member" "cloudbuild_ar_writer" {
   depends_on = [google_project_service.required_apis]
 }
 
-resource "google_cloud_run_service_iam_member" "api_sa_run_invoker" {
-  project  = var.project_id
-  location = var.region
-  service  = "f1-strategy-api-dev"
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.api_sa.email}"
-}
+# NOTE: f1-strategy-api-dev IAM is set by Cloud Build after the service is deployed.
+# Managing it here causes a 404 on fresh terraform apply (service doesn't exist yet).
 
 # Monitoring and Logging
 # One notification channel per alert email — add team members in *.tfvars
@@ -375,7 +371,7 @@ locals {
 resource "google_storage_bucket" "training" {
   name          = "${var.project_id}-training"
   location      = var.region
-  force_destroy = false
+  force_destroy = true
 
   uniform_bucket_level_access = true
   versioning {
@@ -433,12 +429,8 @@ resource "google_project_iam_member" "training_sa_storage_admin" {
   member  = "serviceAccount:${google_service_account.training_sa.email}"
 }
 
-# ── Cloud Build trigger — pipeline branch only, backend files only ──────────
+# ── Cloud Build trigger — main branch only, backend files only ───────────────
 # Uses the 2nd-gen GitHub connection already wired in GCP.
-# Import before first apply:
-#   terraform -chdir=infra/terraform import \
-#     google_cloudbuild_trigger.pipeline_branch \
-#     projects/f1optimizer/locations/us-central1/triggers/6f463d4b-8f1b-49f2-9e96-28364d5bab1e
 resource "google_cloudbuild_trigger" "pipeline_branch" {
   project  = var.project_id
   name     = "f1-api-docker-build"
@@ -450,7 +442,7 @@ resource "google_cloudbuild_trigger" "pipeline_branch" {
   repository_event_config {
     repository = "projects/${var.project_id}/locations/us-central1/connections/Github/repositories/bkiritom8-F1-Strategy-Optimizer"
     push {
-      branch = "^pipeline$"
+      branch = "^main$"
     }
   }
 

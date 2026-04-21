@@ -42,6 +42,12 @@ resource "google_vertex_ai_index_endpoint" "rag" {
   labels                  = local.common_labels
 
   depends_on = [google_project_service.required_apis]
+
+  # Provider sometimes returns inconsistent state on first read after creation.
+  # Ignore label drift to avoid spurious plan diffs from this provider bug.
+  lifecycle {
+    ignore_changes = [labels]
+  }
 }
 
 # ── Deploy index to endpoint ───────────────────────────────────────────────────
@@ -92,7 +98,8 @@ resource "google_cloud_run_v2_job" "rag_ingestion" {
       timeout         = "86400s"
 
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/f1-optimizer/rag:latest"
+        # Placeholder until Cloud Build pushes rag:latest on first pipeline push.
+        image = "us-docker.pkg.dev/cloudrun/container/placeholder:latest"
 
         env {
           name  = "PROJECT_ID"

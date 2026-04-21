@@ -401,13 +401,55 @@ export $(grep -v '^#' .env | xargs)
 
 ---
 
-## 10. User Auth API
+## 10. Deploy / Tear Down Infrastructure
+
+All GCP resources are managed by Terraform in `infra/terraform/`.
+
+### First-time setup
+
+Create `infra/terraform/terraform.tfvars` (gitignored — never commit this file):
+
+```hcl
+project_id        = "f1optimizer"
+region            = "us-central1"
+environment       = "dev"
+alert_emails      = ["you@example.com"]
+budget_amount     = 70
+api_min_instances = 0
+api_max_instances = 3
+email_from        = "you@gmail.com"
+app_base_url      = "https://your-app.app"
+```
+
+Terraform auto-loads `terraform.tfvars` — no `-var-file` flag needed.
+
+### Deploy
+
+```bash
+terraform -chdir=infra/terraform init
+terraform -chdir=infra/terraform plan
+terraform -chdir=infra/terraform apply -auto-approve
+```
+
+### Tear down everything
+
+```bash
+bash scripts/cleanup.sh
+```
+
+This disables Firebase Hosting, wipes all GCS bucket contents, and destroys all GCP resources. **Cannot be undone.**
+
+---
+
+---
+
+## 11. User Auth API
 
 User accounts are stored in Firestore (Native mode). The Firestore database must be provisioned before auth endpoints work:
 
 ```bash
-terraform -chdir=infra/terraform plan -var-file=dev.tfvars
-terraform -chdir=infra/terraform apply -var-file=dev.tfvars
+terraform -chdir=infra/terraform plan
+terraform -chdir=infra/terraform apply -auto-approve
 ```
 
 ### Register a user

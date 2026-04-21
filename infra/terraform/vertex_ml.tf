@@ -24,7 +24,7 @@ resource "google_project_service" "ml_apis" {
 resource "google_storage_bucket" "pipeline_runs" {
   name          = "${var.project_id}-pipeline-runs"
   location      = var.region
-  force_destroy = false
+  force_destroy = true
 
   uniform_bucket_level_access = true
 
@@ -103,7 +103,9 @@ resource "google_cloud_run_v2_job" "f1_pipeline_trigger" {
       service_account = google_service_account.training_sa.email
 
       containers {
-        image   = "${var.region}-docker.pkg.dev/${var.project_id}/f1-optimizer/ml:latest"
+        # Placeholder until Cloud Build pushes the real ml:latest image.
+        # Cloud Build updates this job image on every push to `pipeline`.
+        image   = "us-docker.pkg.dev/cloudrun/container/placeholder:latest"
         command = ["python"]
         args    = ["ml/dag/pipeline_runner.py"]
 

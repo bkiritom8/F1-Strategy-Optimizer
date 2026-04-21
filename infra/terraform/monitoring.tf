@@ -1,6 +1,56 @@
 # infra/terraform/monitoring.tf
 # Minimal Cloud Monitoring alerts for production
 
+# Custom metric descriptors must exist before alert policies that reference them.
+
+resource "google_monitoring_metric_descriptor" "drift_psi" {
+  project      = var.project_id
+  type         = "custom.googleapis.com/f1/drift_psi"
+  metric_kind  = "GAUGE"
+  value_type   = "DOUBLE"
+  unit         = "1"
+  display_name = "ML Feature Drift PSI"
+  description  = "Population Stability Index for ML feature drift detection"
+
+  labels {
+    key         = "model_name"
+    value_type  = "STRING"
+    description = "Name of the ML model being monitored"
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_monitoring_metric_descriptor" "accuracy_degradation_pct" {
+  project      = var.project_id
+  type         = "custom.googleapis.com/f1/accuracy_degradation_pct"
+  metric_kind  = "GAUGE"
+  value_type   = "DOUBLE"
+  unit         = "%"
+  display_name = "ML Model Accuracy Degradation"
+  description  = "Percentage accuracy degradation from baseline for a given ML model"
+
+  labels {
+    key         = "model_name"
+    value_type  = "STRING"
+    description = "Name of the ML model being monitored"
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_monitoring_metric_descriptor" "retraining_triggered" {
+  project      = var.project_id
+  type         = "custom.googleapis.com/f1/retraining_triggered"
+  metric_kind  = "GAUGE"
+  value_type   = "INT64"
+  unit         = "1"
+  display_name = "ML Retraining Triggered"
+  description  = "Counter incremented each time an ML retraining job is triggered"
+
+  depends_on = [google_project_service.required_apis]
+}
+
 # Alert: API error rate > 5% over 5 minutes
 resource "google_monitoring_alert_policy" "api_error_rate" {
   display_name = "F1 API High Error Rate"
@@ -86,7 +136,7 @@ resource "google_monitoring_alert_policy" "ml_drift_critical" {
     auto_close = "1800s"
   }
 
-  depends_on = [google_project_service.required_apis]
+  depends_on = [google_monitoring_metric_descriptor.drift_psi]
 }
 
 # Alert: ML model accuracy degraded beyond threshold
@@ -116,7 +166,7 @@ resource "google_monitoring_alert_policy" "ml_accuracy_degraded" {
     auto_close = "1800s"
   }
 
-  depends_on = [google_project_service.required_apis]
+  depends_on = [google_monitoring_metric_descriptor.accuracy_degradation_pct]
 }
 
 # Alert: Retraining was triggered (informational - notify stakeholders)
@@ -145,7 +195,7 @@ resource "google_monitoring_alert_policy" "ml_retraining_triggered" {
     auto_close = "1800s"
   }
 
-  depends_on = [google_project_service.required_apis]
+  depends_on = [google_monitoring_metric_descriptor.retraining_triggered]
 }
 
 # Alert: P99 latency > 500ms (violates target SLA)
