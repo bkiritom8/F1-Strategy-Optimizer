@@ -5,9 +5,11 @@
 #   2. Create or update the Cloud Run ingest job
 #   3. Execute all 10 ingest tasks and wait for completion
 #      (tasks 0-8: FastF1 telemetry 2018-2026, task 9: Jolpica historical 1996-2017)
-#   4. Preprocess raw GCS data into ml_features Parquet files
-#   5. Build year-aware car performance table for the frontend
-#   6. Run RAG document ingestion into Vertex AI Vector Search
+#   4. Convert raw CSVs to Parquet and upload to GCS (csv_to_parquet.py)
+#   5. Verify all GCS uploads (verify_upload.py)
+#   6. Preprocess raw GCS data into ml_features Parquet files
+#   7. Build year-aware car performance table for the frontend
+#   8. Run RAG document ingestion into Vertex AI Vector Search
 #
 # Usage:
 #   bash scripts/ingest.sh [options]
@@ -42,7 +44,7 @@ done
 # -- Data ingestion ------------------------------------------------------------
 if [[ "$SKIP_DATA_INGEST" == "false" ]]; then
 
-  echo "=== [1/3] Building and pushing ingest image ==="
+  echo "=== [1/5] Building and pushing ingest image ==="
   gcloud builds submit . \
     --project="$PROJECT_ID" \
     --config=- <<EOF
@@ -58,7 +60,7 @@ options:
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
 EOF
 
-  echo "=== [2/3] Deploying Cloud Run ingest job ==="
+  echo "=== [2/5] Deploying Cloud Run ingest job ==="
   if gcloud run jobs describe "$INGEST_JOB" \
       --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
     gcloud run jobs update "$INGEST_JOB" \
@@ -87,7 +89,15 @@ EOF
     --project="$PROJECT_ID" \
     --wait
 
-  echo "=== [3/3] Preprocessing features and building car performance table ==="
+  echo "=== [3/5] Converting raw CSVs to Parquet ==="
+  python pipeline/scripts/csv_to_parquet.py \
+    --bucket f1optimizer-data-lake
+
+  echo "=== [4/5] Verifying GCS uploads ==="
+  python pipeline/scripts/verify_upload.py \
+    --bucket f1optimizer-data-lake
+
+  echo "=== [5/5] Preprocessing features and building car performance table ==="
   PYTHONPATH=. python ml/preprocessing/preprocess_data.py
 
   python pipeline/scripts/build_car_performance.py \
