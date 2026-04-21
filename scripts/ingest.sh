@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 # scripts/ingest.sh
 # Full data ingestion pipeline:
-#   1. Build and push the ingest Docker image
-#   2. Create or update the Cloud Run ingest job
-#   3. Execute all 10 ingest tasks and wait for completion
-#      (tasks 0-8: FastF1 telemetry 2018-2026, task 9: Jolpica historical 1996-2017)
-#   4. Convert raw CSVs to Parquet and upload to GCS (csv_to_parquet.py)
-#   5. Verify all GCS uploads (verify_upload.py)
-#   6. Preprocess raw GCS data into ml_features Parquet files
-#   7. Build year-aware car performance table for the frontend
-#   8. Run RAG document ingestion into Vertex AI Vector Search
+#   1. Execute Cloud Run ingest job (10 tasks in parallel, wait for completion)
+#      - Tasks 0-8: FastF1 10Hz telemetry (2018-2026, one year per task)
+#      - Task 9:    Jolpica historical data (1950-2017)
+#   2. Verify GCS uploads
+#   3. Preprocess raw GCS data into ml_features Parquet files
+#   4. Build year-aware car performance table for the frontend
+#   5. Run RAG document ingestion into Vertex AI Vector Search
 #
 # Usage:
 #   bash scripts/ingest.sh [options]
@@ -20,14 +18,12 @@
 #
 # Prerequisites:
 #   gcloud auth application-default login
-#   GCS buckets and Artifact Registry already provisioned (run deploy.sh --skip-ingest first,
-#   or run terraform apply before calling this script)
+#   Infra already provisioned and ingest image already built (run deploy.sh first)
 
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-f1optimizer}"
 REGION="${REGION:-us-central1}"
-INGEST_IMAGE="us-central1-docker.pkg.dev/${PROJECT_ID}/f1-optimizer/ingest:latest"
 INGEST_JOB="f1-ingest"
 
 SKIP_DATA_INGEST=false
@@ -44,65 +40,28 @@ done
 # -- Data ingestion ------------------------------------------------------------
 if [[ "$SKIP_DATA_INGEST" == "false" ]]; then
 
-  echo "=== [1/5] Building and pushing ingest image ==="
-  gcloud builds submit . \
-    --project="$PROJECT_ID" \
-    --config=- <<EOF
-steps:
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '--platform', 'linux/amd64',
-         '-t', '${INGEST_IMAGE}',
-         '-f', 'docker/Dockerfile.ingest', '.']
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['push', '${INGEST_IMAGE}']
-options:
-  logging: LEGACY
-  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
-EOF
-
-  echo "=== [2/5] Deploying Cloud Run ingest job ==="
-  if gcloud run jobs describe "$INGEST_JOB" \
-      --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
-    gcloud run jobs update "$INGEST_JOB" \
-      --image="$INGEST_IMAGE" \
-      --region="$REGION" \
-      --project="$PROJECT_ID" \
-      --service-account="f1-ingest-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --tasks=10 \
-      --max-retries=2 \
-      --set-env-vars="GCS_BUCKET=f1optimizer-data-lake"
-  else
-    gcloud run jobs create "$INGEST_JOB" \
-      --image="$INGEST_IMAGE" \
-      --region="$REGION" \
-      --project="$PROJECT_ID" \
-      --service-account="f1-ingest-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --tasks=10 \
-      --max-retries=2 \
-      --set-env-vars="GCS_BUCKET=f1optimizer-data-lake"
-  fi
-
-  echo "Executing ingest job (tasks 0-8: FastF1 2018-2026, task 9: Jolpica 1996-2017)..."
-  echo "This may take 20-40 minutes."
+  echo "=== [1/4] Executing Cloud Run ingest job (10 parallel tasks) ==="
+  echo "Tasks 0-8: FastF1 telemetry 2018-2026 | Task 9: Jolpica historical 1950-2017"
+  echo "This may take 20-40 minutes. Containers are deleted automatically on completion."
   gcloud run jobs execute "$INGEST_JOB" \
     --region="$REGION" \
     --project="$PROJECT_ID" \
     --wait
 
-  echo "=== [3/5] Converting raw CSVs to Parquet ==="
-  python pipeline/scripts/csv_to_parquet.py \
-    --bucket f1optimizer-data-lake
-
-  echo "=== [4/5] Verifying GCS uploads ==="
+  echo ""
+  echo "=== [2/4] Verifying GCS uploads ==="
   python pipeline/scripts/verify_upload.py \
     --bucket f1optimizer-data-lake
 
-  echo "=== [5/5] Preprocessing features and building car performance table ==="
+  echo ""
+  echo "=== [3/4] Preprocessing features ==="
   PYTHONPATH=. python ml/preprocessing/preprocess_data.py
 
+  echo ""
+  echo "=== [4/4] Building car performance table ==="
   python pipeline/scripts/build_car_performance.py \
-    --input gs://f1optimizer-data-lake/processed/race_results.parquet \
-    --output frontend/public/data/car_performance.json
+    --output gs://f1optimizer-data-lake/processed/car_performance.json \
+    --local-output frontend/public/data/car_performance.json
 
 else
   echo "Skipping data ingestion (--skip-data-ingest)"
@@ -112,8 +71,16 @@ fi
 if [[ "$SKIP_RAG" == "false" ]]; then
   echo ""
   echo "=== RAG ingestion ==="
+
+  # Pull Vector Search IDs from Terraform outputs
+  VECTOR_SEARCH_INDEX_ID=$(terraform -chdir=infra/terraform output -raw rag_index_id 2>/dev/null || echo "")
+  VECTOR_SEARCH_ENDPOINT_ID=$(terraform -chdir=infra/terraform output -raw rag_endpoint_id 2>/dev/null || echo "")
+  VECTOR_SEARCH_DEPLOYED_INDEX_ID=$(terraform -chdir=infra/terraform output -raw rag_deployed_index_id 2>/dev/null || echo "f1_rag_deployed")
+
   GOOGLE_CLOUD_PROJECT="$PROJECT_ID" \
-  VECTOR_SEARCH_DEPLOYED_INDEX_ID="${VECTOR_SEARCH_DEPLOYED_INDEX_ID:-f1_rag_deployed}" \
+  VECTOR_SEARCH_INDEX_ID="$VECTOR_SEARCH_INDEX_ID" \
+  VECTOR_SEARCH_ENDPOINT_ID="$VECTOR_SEARCH_ENDPOINT_ID" \
+  VECTOR_SEARCH_DEPLOYED_INDEX_ID="$VECTOR_SEARCH_DEPLOYED_INDEX_ID" \
     python -m rag.ingestion_job
 else
   echo "Skipping RAG ingestion (--skip-rag)"
