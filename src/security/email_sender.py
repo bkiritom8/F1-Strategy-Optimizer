@@ -45,8 +45,8 @@ def _html_verify(username: str, verify_url: str) -> str:
                 <div style="display:inline-block;background:#e10600;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-weight:900;font-size:18px;color:#fff;font-style:italic">A</div>
               </td>
               <td style="padding-left:12px">
-                <span style="color:#ffffff;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;font-style:italic">Apex Intelligence</span><br>
-                <span style="color:#e10600;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:3px">Race Intelligence</span>
+                <span style="color:#ffffff;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;font-style:italic">DivergeX</span><br>
+                <span style="color:#e10600;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:3px">F1 Strategy Platform</span>
               </td>
             </tr>
           </table>
@@ -55,7 +55,7 @@ def _html_verify(username: str, verify_url: str) -> str:
         <tr><td style="padding:40px">
           <p style="color:#999;font-size:13px;margin:0 0 4px;text-transform:uppercase;letter-spacing:2px;font-weight:700">Account Verification</p>
           <p style="color:#fff;font-size:22px;font-weight:700;margin:0 0 32px">Welcome, {username}</p>
-          <p style="color:#aaa;font-size:14px;line-height:1.6;margin:0 0 32px">Thanks for registering with Apex Intelligence. Verify your email address to activate your strategist terminal.</p>
+          <p style="color:#aaa;font-size:14px;line-height:1.6;margin:0 0 32px">Thanks for registering with DivergeX. Verify your email address to activate your strategist terminal.</p>
           <!-- CTA Button -->
           <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px">
             <tr><td align="center">
@@ -86,7 +86,7 @@ def _html_verify(username: str, verify_url: str) -> str:
         </td></tr>
         <!-- Brand Footer -->
         <tr><td style="padding:20px 40px;text-align:center">
-          <p style="color:#333;font-size:9px;text-transform:uppercase;letter-spacing:3px;font-weight:700;margin:0">&copy; 2026 Apex Strategy Labs</p>
+          <p style="color:#333;font-size:9px;text-transform:uppercase;letter-spacing:3px;font-weight:700;margin:0">&copy; 2026 DivergeX</p>
         </td></tr>
       </table>
     </td></tr>
@@ -130,8 +130,8 @@ def _html_otp(username: str, otp_code: str) -> str:
                 <div style="display:inline-block;background:#e10600;width:36px;height:36px;border-radius:10px;text-align:center;line-height:36px;font-weight:900;font-size:18px;color:#fff;font-style:italic">A</div>
               </td>
               <td style="padding-left:12px">
-                <span style="color:#ffffff;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;font-style:italic">Apex Intelligence</span><br>
-                <span style="color:#e10600;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:3px">Race Intelligence</span>
+                <span style="color:#ffffff;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;font-style:italic">DivergeX</span><br>
+                <span style="color:#e10600;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:3px">F1 Strategy Platform</span>
               </td>
             </tr>
           </table>
@@ -140,7 +140,7 @@ def _html_otp(username: str, otp_code: str) -> str:
         <tr><td style="padding:40px">
           <p style="color:#999;font-size:13px;margin:0 0 4px;text-transform:uppercase;letter-spacing:2px;font-weight:700">Secure Access Code</p>
           <p style="color:#fff;font-size:22px;font-weight:700;margin:0 0 32px">Hi {username},</p>
-          <p style="color:#aaa;font-size:14px;line-height:1.6;margin:0 0 32px">Enter the following code in the Apex Intelligence terminal to authenticate your session.</p>
+          <p style="color:#aaa;font-size:14px;line-height:1.6;margin:0 0 32px">Enter the following code in the DivergeX terminal to authenticate your session.</p>
           <!-- OTP Digits -->
           <table cellpadding="0" cellspacing="8" style="margin:0 auto 32px" role="presentation">
             <tr>
@@ -164,7 +164,7 @@ def _html_otp(username: str, otp_code: str) -> str:
         </td></tr>
         <!-- Brand Footer -->
         <tr><td style="padding:20px 40px;text-align:center">
-          <p style="color:#333;font-size:9px;text-transform:uppercase;letter-spacing:3px;font-weight:700;margin:0">&copy; 2026 Apex Strategy Labs</p>
+          <p style="color:#333;font-size:9px;text-transform:uppercase;letter-spacing:3px;font-weight:700;margin:0">&copy; 2026 DivergeX</p>
         </td></tr>
       </table>
     </td></tr>

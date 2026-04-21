@@ -288,7 +288,7 @@ Full ML team handoff — repo restructured into clean domain separation, distrib
 - Implement `predict()` in strategy_predictor.py and pit_stop_optimizer.py (raises NotImplementedError, API uses rule-based fallback)
 - Add `ray[default]==2.9.1` to `docker/requirements-ml.txt` or replace Ray usage with TF MirroredStrategy
 - Verify ingestion job completes successfully (`f1-data-ingestion-snx26`)
-- Run first ML training pipeline: `bash ml/scripts/run_training.sh`
+- Run first ML training pipeline: `python ml/dag/pipeline_runner.py --run-id $(date +%Y%m%d-%H%M%S)`
 
 **End of Progress Log**
 

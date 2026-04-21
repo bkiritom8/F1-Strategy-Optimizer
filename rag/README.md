@@ -47,7 +47,7 @@ Run after new season data lands or source documents change:
 gcloud run jobs execute f1-rag-ingest --region=us-central1 --project=f1optimizer
 
 # Or via helper script
-bash scripts/run_rag_ingestion.sh
+bash scripts/ingest.sh --skip-data-ingest
 ```
 
 ## Embedding Model

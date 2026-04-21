@@ -1,70 +1,56 @@
 # Operational Scripts
 
-Utility scripts for maintenance, data backfills, GCP operations, and deployment.
+Deployment, ingestion, and teardown scripts for the DivergeX F1 Strategy platform.
 
 ## Contents
 
 | Script | Purpose |
 |---|---|
-| `backfill_jolpica.py` | Manual backfill for historical race results (1950–2023) from Jolpica |
-| `deploy_all.sh` | Build and push all service containers (`api`, `ml`, `ingest`, `rag`) |
-| `gcp_cleanup.py` | Delete temporary Cloud Run revisions and old GCS staging artifacts |
-| `generate_track_paths.py` | Convert SVG circuit paths into the JSON track registry for the frontend |
-| `monitor_workers.sh` | Monitor active Cloud Run ingest worker status |
-| `run_rag_ingestion.sh` | Orchestrate a full RAG re-indexing run |
+| `deploy.sh` | Full end-to-end deployment: Terraform, data ingestion, Cloud Build, ML pipeline, Firebase |
+| `ingest.sh` | Data ingestion pipeline: build ingest image, run Cloud Run job, convert/verify/preprocess data, RAG indexing |
+| `cleanup.sh` | Tear down cloud resources: Firebase hosting, optional GCS wipe, Terraform destroy |
 
 ## Usage
 
-### Data Backfill
+### Full Deployment
 
 ```bash
-# Backfill a specific season
-python scripts/backfill_jolpica.py --season 2024
+# Complete deployment (terraform -> ingest -> build -> train -> frontend)
+bash scripts/deploy.sh
 
-# Backfill a range
-python scripts/backfill_jolpica.py --season-start 2019 --season-end 2023
+# Skip individual steps
+bash scripts/deploy.sh --skip-infra       # skip terraform apply
+bash scripts/deploy.sh --skip-ingest      # skip data ingestion
+bash scripts/deploy.sh --skip-build       # skip Cloud Build
+bash scripts/deploy.sh --skip-training    # skip ML pipeline
+bash scripts/deploy.sh --skip-frontend    # skip Firebase deploy
 ```
 
-### Deploy All Services
+### Data Ingestion Only
 
 ```bash
-bash scripts/deploy_all.sh
+# Full ingestion (data + RAG)
+bash scripts/ingest.sh
+
+# Skip data ingest (only run RAG ingestion)
+bash scripts/ingest.sh --skip-data-ingest
+
+# Skip RAG ingestion (only run data pipeline)
+bash scripts/ingest.sh --skip-rag
 ```
 
-### GCP Cleanup
+### Teardown
 
 ```bash
-# Dry run first — see what would be deleted
-python scripts/gcp_cleanup.py --dry-run
+# Disable Firebase hosting + Terraform destroy (prompts for confirmation)
+bash scripts/cleanup.sh
 
-# Execute cleanup
-python scripts/gcp_cleanup.py
+# Also wipe all GCS data buckets (irreversible)
+bash scripts/cleanup.sh --wipe-data
 ```
 
 > [!WARNING]
-> Always run `--dry-run` first. Ensure no active production deployments are targeted before executing.
-
-### Track Path Generation
-
-Run after adding or updating circuit SVG files:
-
-```bash
-python scripts/generate_track_paths.py \
-  --input frontend/public/tracks/ \
-  --output frontend/public/data/track_registry.json
-```
-
-### Monitor Workers
-
-```bash
-bash scripts/monitor_workers.sh
-```
-
-### RAG Re-indexing
-
-```bash
-bash scripts/run_rag_ingestion.sh
-```
+> `cleanup.sh --wipe-data` permanently deletes all data in `f1optimizer-data-lake`, `f1optimizer-models`, and `f1optimizer-training`. Always confirm before proceeding.
 
 ---
 

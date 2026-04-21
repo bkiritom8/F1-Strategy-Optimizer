@@ -1,6 +1,6 @@
 /**
  * Track Components Index
- * Export all track-related components for Apex Intelligence
+ * Export all track-related components for DivergeX
  */
 
 // Individual Track SVG Components

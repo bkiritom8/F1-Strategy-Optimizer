@@ -1,7 +1,7 @@
 
 /**
  * @file types.ts
- * @description Core type definitions for the Apex Intelligence platform.
+ * @description Core type definitions for the DivergeX platform.
  * Defines the schema for telemetry, driver profiles, and strategy recommendations.
  */
 

@@ -124,9 +124,6 @@ python pipeline/scripts/csv_to_parquet.py \
 
 # Verify data lake contents
 python pipeline/scripts/verify_upload.py --bucket f1optimizer-data-lake
-
-# Backfill known data gaps (dry-run first)
-python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --dry-run
 ```
 
 ---

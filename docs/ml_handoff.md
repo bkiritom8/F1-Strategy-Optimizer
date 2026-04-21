@@ -77,7 +77,6 @@
 │   └── README.md
 ├── pipeline/scripts/            Data conversion scripts
 │   ├── csv_to_parquet.py        Convert raw CSVs → GCS Parquet
-│   ├── backfill_data.py         Fix known data gaps (race_results, laps, FastF1)
 │   └── verify_upload.py         Audit GCS data lake contents and sizes
 ├── infra/terraform/             All GCP infrastructure (Terraform)
 ├── api/                         FastAPI serving notes
@@ -223,9 +222,6 @@ gcloud run jobs execute f1-ingest --region=us-central1 --project=f1optimizer
 # Run a single task locally (debugging)
 CLOUD_RUN_TASK_INDEX=3 GCS_BUCKET=f1optimizer-data-lake python -m ingest.task
 
-# Backfill known gaps
-python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --dry-run
-python pipeline/scripts/backfill_data.py --bucket f1optimizer-data-lake --skip-fastf1
 ```
 
 Workers are idempotent — safe to re-run. They check GCS before downloading.

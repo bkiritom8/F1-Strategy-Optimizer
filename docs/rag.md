@@ -81,7 +81,7 @@ FastAPI /rag/query      ← JSON response with answer + sources
 ### Step 1: Run ingestion job (creates index)
 
 ```bash
-bash scripts/run_rag_ingestion.sh
+bash scripts/ingest.sh --skip-data-ingest
 ```
 
 The job will print:
@@ -115,7 +115,7 @@ For Cloud Run, set these in the service environment variables.
 ### Step 4: Re-run ingestion job (upserts vectors)
 
 ```bash
-bash scripts/run_rag_ingestion.sh
+bash scripts/ingest.sh --skip-data-ingest
 ```
 
 ### Step 5: Restart Cloud Run service
