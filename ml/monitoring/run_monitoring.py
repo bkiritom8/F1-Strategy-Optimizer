@@ -8,8 +8,11 @@ Usage:
     # Check accuracy decay across an entire season:
     python ml/monitoring/run_monitoring.py --season 2025
 
-    # Both:
-    python ml/monitoring/run_monitoring.py --race-id 2025_5 --season 2025
+    # Both, publishing metrics to Cloud Monitoring:
+    python ml/monitoring/run_monitoring.py --race-id 2025_5 --season 2025 --log-to-cloud
+
+    # Daily scheduled check (used by ml-monitoring.yml cron):
+    python ml/monitoring/run_monitoring.py --log-to-cloud --days 1
 
 Results logged to:
     gs://f1optimizer-training/monitoring/drift_log.jsonl
@@ -29,6 +32,7 @@ import sys
 import os
 import io
 import json
+import datetime
 from google.cloud import storage
 
 # GCP Constants
@@ -117,14 +121,14 @@ MODEL_CONFIG: dict[str, dict] = {
 }
 
 
-def _run_drift_check(race_id: str) -> bool:
+def _run_drift_check(race_id: str, publish_metrics: bool = False) -> bool:
     """Return True if all models are stable (no warn/critical drift)."""
     import pandas as pd
     from ml.monitoring.drift_detector import DriftDetector
     from ml.monitoring.feature_stats import load_from_gcs
     from ml.monitoring.monitoring_logger import MonitoringLogger
 
-    ml_logger = MonitoringLogger()
+    ml_logger = MonitoringLogger(publish_metrics=publish_metrics)
     any_issue = False
 
     for model_name, cfg in MODEL_CONFIG.items():
@@ -170,7 +174,7 @@ def _run_drift_check(race_id: str) -> bool:
     return not any_issue
 
 
-def _run_accuracy_check(season: int) -> bool:
+def _run_accuracy_check(season: int, publish_metrics: bool = False) -> bool:
     """Return True if all models are within accuracy thresholds."""
     import joblib
     import pandas as pd
@@ -181,7 +185,7 @@ def _run_accuracy_check(season: int) -> bool:
     )
     from ml.monitoring.monitoring_logger import MonitoringLogger
 
-    ml_logger = MonitoringLogger()
+    ml_logger = MonitoringLogger(publish_metrics=publish_metrics)
     any_degraded = False
 
     for model_name, cfg in MODEL_CONFIG.items():
@@ -206,7 +210,6 @@ def _run_accuracy_check(season: int) -> bool:
             continue
 
         try:
-            # Single source of truth for model artifacts
             MANIFEST_PATH = os.path.join(
                 os.path.dirname(__file__), "../models_manifest.json"
             )
@@ -217,7 +220,6 @@ def _run_accuracy_check(season: int) -> bool:
                         return json.load(f)["models"]
                 except Exception as exc:
                     logger.error("Error loading manifest: %s", exc)
-                    # Fallback to hardcoded list if manifest is missing
                     return {m: {"path": f"{m}/model.pkl"} for m in MODEL_CONFIG.keys()}
 
             _MANIFEST_MODELS = _load_manifest()
@@ -295,29 +297,55 @@ def main() -> int:
     parser.add_argument(
         "--season", type=int, help="Season year for accuracy check, e.g. 2025"
     )
+    parser.add_argument(
+        "--log-to-cloud",
+        action="store_true",
+        help="Publish drift PSI and accuracy degradation metrics to GCP Cloud Monitoring",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        help=(
+            "Look-back window in days. When provided without --season, "
+            "defaults --season to the current calendar year."
+        ),
+    )
     args = parser.parse_args()
 
-    if not args.race_id and not args.season:
-        parser.error("Provide at least one of --race-id or --season")
+    # --days without --season defaults to current year accuracy check
+    if args.days is not None and args.season is None:
+        args.season = datetime.date.today().year
+        logger.info(
+            "--days provided without --season; defaulting to season=%d", args.season
+        )
 
+    if not args.race_id and not args.season:
+        parser.error("Provide at least one of --race-id, --season, or --days")
+
+    publish = args.log_to_cloud
     all_ok = True
 
     if args.race_id:
         logger.info("=== Drift check: race_id=%s ===", args.race_id)
-        if not _run_drift_check(args.race_id):
+        if not _run_drift_check(args.race_id, publish_metrics=publish):
             all_ok = False
 
     if args.season:
         logger.info("=== Accuracy check: season=%d ===", args.season)
-        if not _run_accuracy_check(args.season):
+        if not _run_accuracy_check(args.season, publish_metrics=publish):
             all_ok = False
 
-    if all_ok:
-        logger.info("All checks passed.")
-        return 0
+    if not all_ok:
+        logger.warning("One or more checks flagged issues — review logs above.")
+        if publish:
+            # Record the retraining trigger event in Cloud Monitoring
+            from ml.monitoring.monitoring_logger import MonitoringLogger
 
-    logger.warning("One or more checks flagged issues — review logs above.")
-    return 1
+            MonitoringLogger(publish_metrics=True).publish_retraining_triggered()
+        return 1
+
+    logger.info("All checks passed.")
+    return 0
 
 
 if __name__ == "__main__":

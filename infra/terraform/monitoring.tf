@@ -59,6 +59,95 @@ resource "google_monitoring_alert_policy" "api_instance_count" {
   depends_on = [google_project_service.required_apis]
 }
 
+# Alert: ML model critical drift detected (PSI >= 0.25)
+resource "google_monitoring_alert_policy" "ml_drift_critical" {
+  display_name = "F1 ML Critical Feature Drift"
+  project      = var.project_id
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Drift PSI >= 0.25 (critical threshold)"
+    condition_threshold {
+      filter          = "metric.type=\"custom.googleapis.com/f1/drift_psi\" AND resource.type=\"global\""
+      duration        = "0s"
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0.25
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_MAX"
+        group_by_fields    = ["metric.labels.model_name"]
+      }
+    }
+  }
+
+  notification_channels = local.all_notification_channels
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+# Alert: ML model accuracy degraded beyond threshold
+resource "google_monitoring_alert_policy" "ml_accuracy_degraded" {
+  display_name = "F1 ML Model Accuracy Degraded"
+  project      = var.project_id
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Accuracy degradation > 20%"
+    condition_threshold {
+      filter          = "metric.type=\"custom.googleapis.com/f1/accuracy_degradation_pct\" AND resource.type=\"global\""
+      duration        = "0s"
+      comparison      = "COMPARISON_GT"
+      threshold_value = 20
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_MAX"
+        group_by_fields    = ["metric.labels.model_name"]
+      }
+    }
+  }
+
+  notification_channels = local.all_notification_channels
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+# Alert: Retraining was triggered (informational — notify stakeholders)
+resource "google_monitoring_alert_policy" "ml_retraining_triggered" {
+  display_name = "F1 ML Retraining Triggered"
+  project      = var.project_id
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Retraining event fired"
+    condition_threshold {
+      filter          = "metric.type=\"custom.googleapis.com/f1/retraining_triggered\" AND resource.type=\"global\""
+      duration        = "0s"
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_SUM"
+      }
+    }
+  }
+
+  notification_channels = local.all_notification_channels
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
 # Alert: P99 latency > 500ms (violates target SLA)
 resource "google_monitoring_alert_policy" "api_latency_p99" {
   display_name = "F1 API P99 Latency > 500ms"

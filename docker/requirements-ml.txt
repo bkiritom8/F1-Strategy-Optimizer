@@ -12,6 +12,7 @@ kfp-pipeline-spec==0.3.0
 # ── GCP client libraries ──────────────────────────────────────────────────────
 google-cloud-storage>=2.18.2
 google-cloud-logging==3.10.0
+google-cloud-monitoring==2.20.0
 google-cloud-pubsub==2.21.1
 google-cloud-secret-manager==2.20.0
 google-auth==2.29.0

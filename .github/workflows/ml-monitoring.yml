@@ -5,7 +5,16 @@ on:
     # Run daily at 3:00 AM UTC
     - cron: '0 3 * * *'
   workflow_dispatch:
-    # Manual trigger
+    inputs:
+      race_id:
+        description: 'Race ID for drift check, e.g. 2025_5 (optional)'
+        required: false
+        default: ''
+      season:
+        description: 'Season year for accuracy check, e.g. 2025 (optional, defaults to current year)'
+        required: false
+        default: ''
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -26,7 +35,6 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'pip'
-          # Use the generic requirements-test.txt for caching or a specific one
           cache-dependency-path: docker/requirements-ml.txt
 
       - name: Authenticate to GCP
@@ -34,19 +42,74 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
+      - name: Install gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: f1optimizer
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r docker/requirements-ml.txt
-          # The monitoring script requires access to local modules
           pip install -e . || echo "Editable install failed, continuing with PYTHONPATH"
 
+      - name: Build monitoring args
+        id: args
+        run: |
+          ARGS="--log-to-cloud"
+          if [ -n "${{ github.event.inputs.race_id }}" ]; then
+            ARGS="$ARGS --race-id ${{ github.event.inputs.race_id }}"
+          fi
+          if [ -n "${{ github.event.inputs.season }}" ]; then
+            ARGS="$ARGS --season ${{ github.event.inputs.season }}"
+          else
+            ARGS="$ARGS --days 1"
+          fi
+          echo "args=$ARGS" >> $GITHUB_OUTPUT
+
       - name: Run Monitoring Job
+        id: monitoring
+        continue-on-error: true
         env:
           PROJECT_ID: 'f1optimizer'
           MODELS_BUCKET: 'f1optimizer-models'
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          # Use --log-to-cloud to ensure results hit GCS/Cloud Logging
-          # Use --days 1 to monitor the previous day's telemetry
-          python ml/monitoring/run_monitoring.py --log-to-cloud --days 1
+          python ml/monitoring/run_monitoring.py ${{ steps.args.outputs.args }}
+
+      - name: Trigger Retraining via Cloud Build
+        if: steps.monitoring.outcome == 'failure'
+        run: |
+          echo "Drift or accuracy degradation detected — triggering retraining on pipeline branch"
+          gcloud builds triggers run f1-api-docker-build \
+            --region=us-central1 \
+            --project=f1optimizer \
+            --branch=pipeline
+
+      - name: Notify Slack — Issues Detected
+        if: steps.monitoring.outcome == 'failure' && env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "⚠️ *F1 ML Monitoring* — drift or accuracy degradation detected across one or more models. Retraining triggered on `pipeline` branch. Check GCS: gs://f1optimizer-training/monitoring/"
+            }'
+
+      - name: Notify Slack — All Clear
+        if: steps.monitoring.outcome == 'success' && env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "✅ *F1 ML Monitoring* — all models stable. No drift or accuracy degradation detected."
+            }'
+
+      - name: Fail job if monitoring detected issues
+        if: steps.monitoring.outcome == 'failure'
+        run: |
+          echo "Monitoring flagged issues. Retraining has been triggered."
+          exit 1
