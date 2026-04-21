@@ -1,11 +1,155 @@
+DIVERGEX PROPRIETARY SOFTWARE LICENSE
+
 Copyright (c) 2026 DivergeX. All rights reserved.
 
-This software and associated documentation files (the "Software") are the
-proprietary and confidential property of DivergeX. No part of the Software
-may be reproduced, distributed, modified, transmitted, or used in any form
-or by any means -- electronic, mechanical, photocopying, recording, or
-otherwise -- without the prior written permission of DivergeX.
+NOTICE TO ALL USERS: PLEASE READ THIS LICENSE CAREFULLY BEFORE USING,
+ACCESSING, OR COPYING THIS SOFTWARE. BY USING THIS SOFTWARE, YOU AGREE
+TO BE BOUND BY THE TERMS OF THIS LICENSE. IF YOU DO NOT AGREE, DO NOT
+USE THIS SOFTWARE.
+
+--------------------------------------------------------------------------------
+1. OWNERSHIP
+--------------------------------------------------------------------------------
+
+This software, including all source code, object code, algorithms, data models,
+machine learning architectures, documentation, interfaces, visual design,
+trade secrets, and associated files (collectively, the "Software"), is the
+exclusive proprietary property of DivergeX. The Software is protected by
+copyright laws, international copyright treaties, trade secret laws, and other
+applicable intellectual property laws and treaties worldwide.
+
+DivergeX retains all right, title, and interest in and to the Software,
+including all intellectual property rights therein. No title to or ownership
+of the Software is transferred to any user or third party under this License.
+
+--------------------------------------------------------------------------------
+2. RESTRICTED LICENSE GRANT
+--------------------------------------------------------------------------------
+
+Subject to full compliance with the terms of this License, DivergeX grants
+solely to authorized personnel of DivergeX a limited, non-exclusive,
+non-transferable, non-sublicensable, revocable license to use the Software
+strictly for internal purposes and for no other purpose.
+
+No other rights are granted, expressly or by implication, estoppel, or
+otherwise.
+
+--------------------------------------------------------------------------------
+3. RESTRICTIONS
+--------------------------------------------------------------------------------
+
+Unless expressly authorized in writing by DivergeX, you may not:
+
+  (a) copy, reproduce, or duplicate the Software in whole or in part;
+  (b) modify, adapt, translate, or create derivative works of the Software;
+  (c) reverse engineer, decompile, disassemble, or attempt to derive the
+      source code of any compiled portion of the Software;
+  (d) sell, rent, lease, lend, sublicense, transfer, or distribute the
+      Software or any portion thereof to any third party;
+  (e) use the Software to develop competing products or services;
+  (f) remove, obscure, or alter any proprietary notices, labels, or marks
+      on or within the Software;
+  (g) use the Software for any commercial purpose outside DivergeX;
+  (h) publish benchmarks or performance data about the Software without
+      prior written consent of DivergeX;
+  (i) use the Software in any manner that violates applicable law or
+      regulation.
+
+--------------------------------------------------------------------------------
+4. CONFIDENTIALITY
+--------------------------------------------------------------------------------
+
+The Software constitutes confidential and proprietary information of DivergeX.
+You agree to maintain the confidentiality of the Software using at least the
+same degree of care you use to protect your own confidential information, but
+in no event less than reasonable care. You agree not to disclose the Software
+or any portion thereof to any third party without the prior written consent
+of DivergeX.
+
+--------------------------------------------------------------------------------
+5. INTELLECTUAL PROPERTY
+--------------------------------------------------------------------------------
+
+All patents, copyrights, trade secrets, trademarks, and other intellectual
+property rights in and to the Software, including any improvements,
+modifications, or derivative works -- whether created by DivergeX or any
+other party -- shall be and remain the exclusive property of DivergeX.
+Any feedback, suggestions, or contributions provided to DivergeX regarding
+the Software shall be deemed assigned to DivergeX without further
+compensation.
+
+--------------------------------------------------------------------------------
+6. NO WARRANTY
+--------------------------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. TO THE
+MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, DIVERGEX EXPRESSLY DISCLAIMS
+ALL WARRANTIES, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING
+WITHOUT LIMITATION ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. DIVERGEX DOES NOT WARRANT
+THAT THE SOFTWARE WILL MEET YOUR REQUIREMENTS, OPERATE WITHOUT INTERRUPTION,
+OR BE ERROR-FREE.
+
+--------------------------------------------------------------------------------
+7. LIMITATION OF LIABILITY
+--------------------------------------------------------------------------------
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL
+DIVERGEX OR ITS OFFICERS, DIRECTORS, EMPLOYEES, PARTNERS, OR AFFILIATES
+BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, CONSEQUENTIAL,
+OR PUNITIVE DAMAGES (INCLUDING LOSS OF PROFITS, LOSS OF DATA, BUSINESS
+INTERRUPTION, OR LOSS OF GOODWILL) ARISING OUT OF OR IN CONNECTION WITH
+THIS LICENSE OR THE USE OR INABILITY TO USE THE SOFTWARE, EVEN IF DIVERGEX
+HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+IN NO EVENT SHALL DIVERGEX'S TOTAL CUMULATIVE LIABILITY ARISING OUT OF OR
+RELATED TO THIS LICENSE EXCEED ONE HUNDRED US DOLLARS (USD $100).
+
+--------------------------------------------------------------------------------
+8. TERMINATION
+--------------------------------------------------------------------------------
+
+This License is effective until terminated. DivergeX may terminate this
+License immediately and without notice if you fail to comply with any term
+of this License. Upon termination, you must immediately cease all use of the
+Software and destroy all copies in your possession or control. Sections 1,
+3, 4, 5, 6, 7, 9, and 10 shall survive any termination of this License.
+
+--------------------------------------------------------------------------------
+9. EXPORT COMPLIANCE
+--------------------------------------------------------------------------------
+
+You agree to comply with all applicable export control laws and regulations,
+including the U.S. Export Administration Regulations and sanctions programs
+administered by the U.S. Office of Foreign Assets Control. You represent that
+you are not located in, under the control of, or a national or resident of
+any country subject to applicable trade sanctions.
+
+--------------------------------------------------------------------------------
+10. GOVERNING LAW AND DISPUTE RESOLUTION
+--------------------------------------------------------------------------------
+
+This License shall be governed by and construed in accordance with the laws
+of the State of Delaware, United States, without regard to its conflict of
+law principles. Any dispute arising out of or relating to this License shall
+be subject to the exclusive jurisdiction of the state and federal courts
+located in the State of Delaware. You waive any objection to such jurisdiction
+and venue.
+
+--------------------------------------------------------------------------------
+11. ENTIRE AGREEMENT
+--------------------------------------------------------------------------------
+
+This License constitutes the entire agreement between the parties with respect
+to the Software and supersedes all prior or contemporaneous understandings,
+agreements, representations, or warranties, whether written or oral, regarding
+the Software. No amendment to this License will be binding unless made in
+writing and signed by an authorized representative of DivergeX.
+
+--------------------------------------------------------------------------------
 
 Unauthorized use, reproduction, or distribution of this Software, or any
 portion of it, may result in severe civil and criminal penalties and will be
-prosecuted to the maximum extent possible under the law.
+prosecuted to the maximum extent possible under applicable law.
+
+For licensing inquiries, contact: legal@divergex.ai
