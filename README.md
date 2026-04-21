@@ -2,7 +2,7 @@
 
 **Real-time F1 race strategy intelligence — built on 76 years of data and seven AI models.**
 
-[Live Demo](https://f1optimizer.web.app) · [Docs](./docs/README.md)
+[Live Demo](https://f1optimizer.web.app) · [Docs](./docs/README.md) · [Infrastructure Setup](./docs/INFRA_SETUP.md)
 
 ---
 
@@ -99,4 +99,4 @@ This depth of historical context is what makes driver-aware, circuit-specific re
 
 ---
 
-**Live**: [f1optimizer.web.app](https://f1optimizer.web.app) · **Docs**: [docs/](./docs/README.md) · **Last Updated**: 2026-04-14
+**Live**: [f1optimizer.web.app](https://f1optimizer.web.app) · **Docs**: [docs/](./docs/README.md) · **Infra Setup**: [docs/INFRA_SETUP.md](./docs/INFRA_SETUP.md) · **Last Updated**: 2026-04-21

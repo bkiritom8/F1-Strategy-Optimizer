@@ -20,7 +20,6 @@ nav:
   - Metrics: metrics.md
   - Monitoring: monitoring.md
   - Roadmap: roadmap.md
-  - Progress: progress.md
 
 markdown_extensions:
   - toc:

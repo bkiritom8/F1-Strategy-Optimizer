@@ -544,7 +544,7 @@ alert_policy:
 - Retrain models with latest data
 - Validate new model on holdout set
 - Deploy new model if accuracy improves
-- Document in progress.md
+- Document findings in a PR description or internal notes
 
 ### Scenario 3: Cost Overrun
 
