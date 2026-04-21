@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # scripts/deploy.sh
-# Full DivergeX deployment in order:
+# Full DivergeX deployment:
 #   1. Terraform    -- provision all GCP infrastructure
 #   2. Cloud Build  -- build all images, deploy API, train ML models
-#   3. Ingest       -- run Cloud Run ingest job, preprocess, RAG
+#   3. Ingest       -- run Cloud Run ingest job (10 parallel tasks), preprocess, RAG
 #   4. Frontend     -- build React app and deploy to Firebase Hosting
 #
 # Usage:
 #   bash scripts/deploy.sh [options]
 #
 # Options:
-#   --skip-infra      Skip terraform apply (infra already provisioned)
-#   --skip-build      Skip Cloud Build (images + API deploy + ML training)
-#   --skip-ingest     Skip data ingestion and RAG (see scripts/ingest.sh)
+#   --skip-infra      Skip terraform apply
+#   --skip-build      Skip Cloud Build
+#   --skip-ingest     Skip data ingestion and RAG
+#   --skip-rag        Skip only RAG ingestion (still runs data ingest)
 #   --skip-frontend   Skip frontend build and Firebase deploy
 #
 # Prerequisites:
@@ -30,6 +31,7 @@ REGION="${REGION:-us-central1}"
 SKIP_INFRA=false
 SKIP_BUILD=false
 SKIP_INGEST=false
+SKIP_RAG=false
 SKIP_FRONTEND=false
 
 while [[ $# -gt 0 ]]; do
@@ -37,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --skip-infra)     SKIP_INFRA=true;     shift ;;
     --skip-build)     SKIP_BUILD=true;     shift ;;
     --skip-ingest)    SKIP_INGEST=true;    shift ;;
+    --skip-rag)       SKIP_RAG=true;       shift ;;
     --skip-frontend)  SKIP_FRONTEND=true;  shift ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
@@ -55,7 +58,7 @@ else
   log "Skipping infrastructure (--skip-infra)"
 fi
 
-# -- 2. Cloud Build: images + API deploy + ML training ------------------------
+# -- 2. Cloud Build: all images + API deploy + ML training --------------------
 if [[ "$SKIP_BUILD" == "false" ]]; then
   log "Building images and deploying API (Cloud Build)"
   COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "manual")
@@ -67,10 +70,48 @@ else
   log "Skipping Cloud Build (--skip-build)"
 fi
 
-# -- 3. Data ingestion + RAG ---------------------------------------------------
+# -- 3. Data ingestion + preprocessing + RAG ----------------------------------
 if [[ "$SKIP_INGEST" == "false" ]]; then
   log "Running ingestion pipeline"
-  PROJECT_ID="$PROJECT_ID" REGION="$REGION" bash scripts/ingest.sh
+
+  echo "--- [3a] Executing Cloud Run ingest job (10 parallel tasks) ---"
+  echo "Tasks 0-8: FastF1 telemetry 2018-2026 | Task 9: Jolpica historical 1950-2017"
+  echo "Containers are deleted automatically on completion. ETA: 20-40 min."
+  gcloud run jobs execute f1-ingest \
+    --region="$REGION" \
+    --project="$PROJECT_ID" \
+    --wait
+
+  echo ""
+  echo "--- [3b] Verifying GCS uploads ---"
+  python pipeline/scripts/verify_upload.py --bucket f1optimizer-data-lake
+
+  echo ""
+  echo "--- [3c] Preprocessing features ---"
+  PYTHONPATH=. python ml/preprocessing/preprocess_data.py
+
+  echo ""
+  echo "--- [3d] Building car performance table ---"
+  python pipeline/scripts/build_car_performance.py \
+    --output gs://f1optimizer-data-lake/processed/car_performance.json \
+    --local-output frontend/public/data/car_performance.json
+
+  if [[ "$SKIP_RAG" == "false" ]]; then
+    echo ""
+    echo "--- [3e] RAG ingestion ---"
+    VECTOR_SEARCH_INDEX_ID=$(terraform -chdir=infra/terraform output -raw rag_index_id 2>/dev/null || echo "")
+    VECTOR_SEARCH_ENDPOINT_ID=$(terraform -chdir=infra/terraform output -raw rag_endpoint_id 2>/dev/null || echo "")
+    VECTOR_SEARCH_DEPLOYED_INDEX_ID=$(terraform -chdir=infra/terraform output -raw rag_deployed_index_id 2>/dev/null || echo "f1_rag_deployed")
+
+    GOOGLE_CLOUD_PROJECT="$PROJECT_ID" \
+    VECTOR_SEARCH_INDEX_ID="$VECTOR_SEARCH_INDEX_ID" \
+    VECTOR_SEARCH_ENDPOINT_ID="$VECTOR_SEARCH_ENDPOINT_ID" \
+    VECTOR_SEARCH_DEPLOYED_INDEX_ID="$VECTOR_SEARCH_DEPLOYED_INDEX_ID" \
+      python -m rag.ingestion_job
+  else
+    echo "Skipping RAG ingestion (--skip-rag)"
+  fi
+
 else
   log "Skipping ingestion (--skip-ingest)"
 fi
