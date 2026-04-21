@@ -453,10 +453,110 @@ class GeminiClient:
         eager_sim_context = ""
         if self._is_simulation_question(question):
             si = structured_inputs or {}
-            race_id = f"2025_{si.get('circuit', 'monaco').lower().replace(' ', '_')}"
-            driver_id = si.get("driver", "unknown").lower().replace(" ", "_")
+            _circuit_raw = si.get("circuit", "")
+            if not _circuit_raw:
+                _CIRCUIT_MAP = {
+                    "monaco": "monaco",
+                    "monza": "monza",
+                    "silverstone": "silverstone",
+                    "spa": "spa",
+                    "bahrain": "bahrain",
+                    "suzuka": "suzuka",
+                    "singapore": "singapore",
+                    "barcelona": "barcelona",
+                    "spain": "barcelona",
+                    "hungary": "hungaroring",
+                    "hungaroring": "hungaroring",
+                    "austria": "austria",
+                    "canada": "canada",
+                    "montreal": "canada",
+                    "mexico": "mexico",
+                    "brazil": "brazil",
+                    "interlagos": "brazil",
+                    "abu dhabi": "abu_dhabi",
+                    "yas": "abu_dhabi",
+                    "miami": "miami",
+                    "las vegas": "las_vegas",
+                    "jeddah": "saudi_arabia",
+                    "saudi": "saudi_arabia",
+                    "baku": "azerbaijan",
+                    "azerbaijan": "azerbaijan",
+                    "zandvoort": "netherlands",
+                    "netherlands": "netherlands",
+                    "imola": "imola",
+                    "melbourne": "australia",
+                    "australia": "australia",
+                    "japan": "suzuka",
+                }
+                q_lower = question.lower()
+                _circuit_raw = next(
+                    (slug for name, slug in _CIRCUIT_MAP.items() if name in q_lower),
+                    "monaco",
+                )
+            race_id = f"2025_{_circuit_raw.lower().replace(' ', '_')}"
+            driver_id = si.get("driver", "").lower().replace(" ", "_")
+            if not driver_id or driver_id == "unknown":
+                import re as _re2
+
+                _DRIVER_MAP = {
+                    "verstappen": "max_verstappen",
+                    "max": "max_verstappen",
+                    "norris": "norris",
+                    "lando": "norris",
+                    "hamilton": "hamilton",
+                    "lewis": "hamilton",
+                    "leclerc": "leclerc",
+                    "charles": "leclerc",
+                    "sainz": "sainz",
+                    "carlos": "sainz",
+                    "russell": "russell",
+                    "george": "russell",
+                    "piastri": "piastri",
+                    "oscar": "piastri",
+                    "alonso": "alonso",
+                    "fernando": "alonso",
+                    "perez": "perez",
+                    "checo": "perez",
+                    "stroll": "stroll",
+                    "lance": "stroll",
+                    "albon": "albon",
+                    "alex": "albon",
+                    "hulkenberg": "hulkenberg",
+                    "nico": "hulkenberg",
+                    "gasly": "gasly",
+                    "pierre": "gasly",
+                    "ocon": "ocon",
+                    "esteban": "ocon",
+                    "tsunoda": "tsunoda",
+                    "yuki": "tsunoda",
+                }
+                q_lower = question.lower()
+                for name, slug in _DRIVER_MAP.items():
+                    if name in q_lower:
+                        driver_id = slug
+                        break
+                if not driver_id:
+                    driver_id = "unknown"
             current_lap = int(si.get("current_lap") or 25)
-            compound = str(si.get("tire_compound") or "MEDIUM").upper()
+            compound = str(si.get("tire_compound") or "").upper()
+            if not compound:
+                _COMPOUND_MAP = {
+                    "soft": "SOFT",
+                    "softs": "SOFT",
+                    "medium": "MEDIUM",
+                    "mediums": "MEDIUM",
+                    "hard": "HARD",
+                    "hards": "HARD",
+                    "intermediate": "INTERMEDIATE",
+                    "intermediates": "INTERMEDIATE",
+                    "inter": "INTERMEDIATE",
+                    "wet": "WET",
+                    "wets": "WET",
+                }
+                q_lower = question.lower()
+                compound = next(
+                    (v for k, v in _COMPOUND_MAP.items() if k in q_lower), "MEDIUM"
+                )
             fuel_level = max(0.0, 1.0 - current_lap / 80)
             track_temp = float(si.get("track_temp") or 44.0)
             air_temp = float(si.get("air_temp") or 26.0)
